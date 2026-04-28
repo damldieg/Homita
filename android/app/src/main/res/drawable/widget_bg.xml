@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#F4F6FB" />
+    <corners android:radius="32dp" />
+    <!-- Note: Adding shadow in RemoteViews isn't natively supported via elevation on older APIs, 
+         so we rely on a slightly off-white solid color to distinguish from the wallpaper. -->
+</shape>

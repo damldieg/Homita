@@ -1,0 +1,109 @@
+<resources>
+    <string name="app_name">Planify</string>
+    <string name="welcome_login">Iniciar sesión</string>
+    <string name="welcome_register">Registrarse</string>
+    <string name="welcome_subtitle">Tu día, tus listas, tus calendarios. Todo en un mismo lugar.</string>
+    <string name="welcome_login_prompt">¿Ya tienes una cuenta?</string>
+    <string name="welcome_new_user">¿Nuevo por aquí?</string>
+    <string name="welcome_create_account">Crear cuenta</string>
+    
+    <string name="register_title">Date de alta</string>
+    <string name="register_button">Registrarse</string>
+    
+    <string name="login_title">Hola de nuevo</string>
+    <string name="login_button">Entrar</string>
+    <string name="login_forgot_password">¿Olvidaste tu contraseña?</string>
+    
+    <string name="label_name">Nombre</string>
+    <string name="label_email">Email</string>
+    <string name="label_password">Contraseña</string>
+    <string name="label_order">Orden</string>
+    <string name="label_color">Color</string>
+    <string name="label_title">Título</string>
+    <string name="label_location">Ubicación</string>
+    <string name="label_description">Descripción</string>
+    <string name="label_date_time">Fecha y hora</string>
+    <string name="label_ai_text">Texto IA</string>
+    <string name="label_general">General</string>
+    <string name="label_users">Usuarios</string>
+    <string name="label_invite_user">Invitar usuario</string>
+    <string name="placeholder_email">amigo@email.com</string>
+    <string name="role_owner">Propietario</string>
+    <string name="label_ai_assistant">Asistente IA</string>
+    <string name="label_describe_event">Describe el evento</string>
+    <string name="label_calendar">Calendario</string>
+    <string name="label_show_in_widget">Mostrar en el widget</string>
+    <string name="label_alarm">Alarma</string>
+
+    <string name="alarm_no">Sin alarma</string>
+    <string name="alarm_0">En el momento</string>
+    <string name="alarm_10">10 minutos</string>
+    <string name="alarm_20">20 minutos</string>
+    <string name="alarm_30">30 minutos</string>
+    <string name="alarm_40">40 minutos</string>
+    <string name="alarm_60">1 hora</string>
+    <string name="alarm_snooze">Posponer</string>
+    <string name="alarm_stop">Detener</string>
+
+    <string name="tasks_tab_lists">Listas</string>
+    <string name="tasks_tab_all">Tareas</string>
+    <string name="tasks_section_pending">PENDIENTES · %d</string>
+    <string name="tasks_section_completed">COMPLETADAS · %d</string>
+    <string name="tasks_add_hint">Añadir nueva tarea...</string>
+    <string name="tasks_filter_all">Todas</string>
+    <string name="tasks_new_list">Nueva Lista</string>
+    <string name="tasks_edit_list">Editar lista</string>
+    <string name="tasks_pending_count">%d pendientes</string>
+    
+    <string name="calendars_tab_all">Calendarios</string>
+    <string name="calendars_tab_events">Eventos</string>
+    <string name="calendars_upcoming_count">%d eventos futuros</string>
+    <string name="calendars_new">Nuevo Calendario</string>
+    <string name="calendars_edit">Editar calendario</string>
+    <string name="calendars_new_event">Nuevo Evento</string>
+    <string name="calendars_edit_event">Editar evento</string>
+
+    <string name="profile_title">Perfil</string>
+    <string name="profile_download_logs">Descargar log de errores</string>
+    <string name="profile_clear_logs">Borrar log de errores</string>
+    <string name="profile_logs_cleared">Log borrado correctamente</string>
+    <string name="profile_logout">Cerrar sesión</string>
+    <string name="profile_cancel">Cancelar</string>
+    <string name="profile_save">Guardar</string>
+    <string name="profile_logs_title">Log de errores:</string>
+    <string name="profile_logs_empty">No se han registrado errores recientemente.</string>
+
+    <string name="nav_tasks">Tareas</string>
+    <string name="nav_calendars">Calendarios</string>
+    <string name="nav_profile">Perfil</string>
+
+    <string name="generic_cancel">Cancelar</string>
+    <string name="generic_save">Guardar</string>
+    <string name="generic_create">Crear</string>
+    <string name="generic_delete">Eliminar</string>
+    <string name="delete_confirm_title">Confirmar eliminación</string>
+    <string name="delete_confirm_text">¿Estás seguro de que deseas eliminar este elemento? Esta acción no se puede deshacer.</string>
+    
+    <string name="sort_activity">Por Fecha</string>
+    <string name="sort_alphabetical">Alfabético</string>
+    <string name="sort_custom">Personalizado</string>
+
+    <!-- Relative Time -->
+    <string name="relative_in">%s</string>
+    <string name="relative_ago">%s</string>
+    <string name="relative_now">AHORA</string>
+    <string name="relative_month_short">M</string>
+    <string name="relative_day_short">d</string>
+    <string name="relative_hour_short">h</string>
+    <string name="relative_minute_short">m</string>
+
+    <!-- Event Sections -->
+    <string name="event_section_upcoming">PRÓXIMOS</string>
+    <string name="event_section_past">PASADOS</string>
+
+    <!-- Widget Labels -->
+    <string name="widget_calendar_name">Calendario</string>
+    <string name="widget_tasks_name">Tareas</string>
+    <string name="widget_empty_events">No hay ningún evento próximo</string>
+    <string name="widget_btn_add">Añadir Evento</string>
+</resources>
