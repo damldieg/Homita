@@ -1,0 +1,29 @@
+CREATE TABLE IF NOT EXISTS task_list (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    color TEXT NOT NULL DEFAULT '#6923E2',
+    token TEXT NOT NULL UNIQUE,
+    sort_order TEXT NOT NULL DEFAULT 'updated_at' CHECK(sort_order IN ('updated_at', 'title')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS task_list_user (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_list_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('owner', 'viewer')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (task_list_id) REFERENCES task_list(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS task (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_list_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    completed_at DATETIME DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (task_list_id) REFERENCES task_list(id) ON DELETE CASCADE
+);

@@ -1,0 +1,7 @@
+{
+  "gemini_api_key": "",
+  "token_secret": "",
+  "db_log_enabled": false,
+  "db_log_time": true,
+  "db_log_backtrace": 5
+}
