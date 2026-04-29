@@ -19,6 +19,7 @@ class CalendarWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         for (appWidgetId in appWidgetIds) {
             updateAppWidget(context, appWidgetManager, appWidgetId)
+            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_event_list)
         }
     }
 
@@ -34,6 +35,9 @@ class CalendarWidgetProvider : AppWidgetProvider() {
             for (id in appWidgetIds) {
                 appWidgetManager.notifyAppWidgetViewDataChanged(id, R.id.widget_event_list)
             }
+            
+            // Re-programar el siguiente refresco
+            com.lito.planify.util.AlarmHelper.scheduleWidgetUpdate(context)
         } else if (intent.action == "com.lito.planify.widget.ACTION_REDRAW_HEADER") {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val componentName = android.content.ComponentName(context, CalendarWidgetProvider::class.java)

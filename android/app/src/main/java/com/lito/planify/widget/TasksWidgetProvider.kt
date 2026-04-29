@@ -58,6 +58,8 @@ class TasksWidgetProvider : AppWidgetProvider() {
             ACTION_CLEAR_CACHE -> {
                 val pendingResult = goAsync()
                 fetchAndRefresh(context, allAppWidgetIds(context), pendingResult)
+                // Re-programar el siguiente refresco
+                com.lito.planify.util.AlarmHelper.scheduleWidgetUpdate(context)
             }
         }
     }

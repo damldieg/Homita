@@ -63,20 +63,31 @@ object AlarmHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val interval = AlarmManager.INTERVAL_HALF_HOUR
+        val interval = 15 * 60 * 1000L // 15 minutos
 
-        alarmManager.setInexactRepeating(
-            AlarmManager.RTC,
-            System.currentTimeMillis() + interval,
-            interval,
-            pendingTask
-        )
-        alarmManager.setInexactRepeating(
-            AlarmManager.RTC,
-            System.currentTimeMillis() + interval,
-            interval,
-            pendingCalendar
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.RTC,
+                System.currentTimeMillis() + interval,
+                pendingTask
+            )
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.RTC,
+                System.currentTimeMillis() + interval,
+                pendingCalendar
+            )
+        } else {
+            alarmManager.set(
+                AlarmManager.RTC,
+                System.currentTimeMillis() + interval,
+                pendingTask
+            )
+            alarmManager.set(
+                AlarmManager.RTC,
+                System.currentTimeMillis() + interval,
+                pendingCalendar
+            )
+        }
     }
 
     fun scheduleAlarm(context: Context, event: EventResponse) {

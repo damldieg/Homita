@@ -28,11 +28,13 @@ class WidgetViewsFactory(private val context: Context) : RemoteViewsService.Remo
     companion object {
         var cachedEvents: List<EventResponse> = emptyList()
         var lastFetchTime: Long = 0
+        var lastRedrawTime: Long = 0
 
         fun clearCache(@Suppress("UNUSED_PARAMETER") context: Context) {
             // No borramos la caché de persistencia para evitar pantallas en blanco si la red falla.
             // Solamente forzamos que la próxima vez se re-descargue todo.
             lastFetchTime = 0
+            lastRedrawTime = 0
         }
         
         fun loadCache(context: Context): List<EventResponse> {
@@ -141,9 +143,10 @@ class WidgetViewsFactory(private val context: Context) : RemoteViewsService.Remo
             // Evitar bucle infinito: no redibujar si no han pasado al menos 5 segundos desde el último redibujado.
             // NotifyAppWidgetViewDataChanged -> onDataSetChanged -> ACTION_REDRAW_HEADER -> updateAppWidget
             val currentMillis = System.currentTimeMillis()
-            if (currentMillis - lastFetchTime < 5000) {
+            if (currentMillis - lastRedrawTime < 5000) {
                 return@runBlocking
             }
+            lastRedrawTime = currentMillis
 
             // Avisamos al widget provider de que ya tenemos los datos frescos para que pueda redibujar la cabecera (los puntos)
             val updateHeaderIntent = Intent("com.lito.planify.widget.ACTION_REDRAW_HEADER")
