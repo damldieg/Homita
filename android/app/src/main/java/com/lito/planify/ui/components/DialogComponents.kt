@@ -186,14 +186,20 @@ fun CreateCalendarDialog(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 16.dp).fillMaxWidth()) {
-                if (isEdit && onDelete != null) {
-                    IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(48.dp)) {
-                        Icon(androidx.compose.material.icons.Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+            if (selectedTab == 0) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 16.dp).fillMaxWidth()) {
+                    if (isEdit && onDelete != null) {
+                        IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(48.dp)) {
+                            Icon(androidx.compose.material.icons.Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+                        }
                     }
+                    OutlinedActionButton(text = stringResource(R.string.generic_cancel), onClick = { closeWithAnimation(onDismiss) }, modifier = Modifier.weight(1f))
+                    PrimaryButton(text = if(isEdit) stringResource(R.string.generic_save) else stringResource(R.string.generic_create), onClick = { closeWithAnimation { onConfirm(name, selectedColor, widget) } }, enabled = name.isNotBlank(), modifier = Modifier.weight(1f))
                 }
-                OutlinedActionButton(text = stringResource(R.string.generic_cancel), onClick = { closeWithAnimation(onDismiss) }, modifier = Modifier.weight(1f))
-                PrimaryButton(text = if(isEdit) stringResource(R.string.generic_save) else stringResource(R.string.generic_create), onClick = { closeWithAnimation { onConfirm(name, selectedColor, widget) } }, enabled = name.isNotBlank(), modifier = Modifier.weight(1f))
+            } else {
+                Row(modifier = Modifier.padding(top = 16.dp).fillMaxWidth()) {
+                    OutlinedActionButton(text = stringResource(R.string.generic_close), onClick = { closeWithAnimation(onDismiss) }, modifier = Modifier.fillMaxWidth())
+                }
             }
         }
     }
@@ -475,14 +481,20 @@ fun CreateTaskListDialog(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 4.dp).fillMaxWidth()) {
-                if (isEdit && onDelete != null) {
-                    IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(48.dp)) {
-                        Icon(androidx.compose.material.icons.Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+            if (selectedTab == 0) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 4.dp).fillMaxWidth()) {
+                    if (isEdit && onDelete != null) {
+                        IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(48.dp)) {
+                            Icon(androidx.compose.material.icons.Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+                        }
                     }
+                    OutlinedActionButton(text = stringResource(R.string.generic_cancel), onClick = { closeWithAnimation(onDismiss) }, modifier = Modifier.weight(1f))
+                    PrimaryButton(text = if(isEdit) stringResource(R.string.generic_save) else stringResource(R.string.generic_create), onClick = { closeWithAnimation { onConfirm(name, selectedColor, sortOrder, widget) } }, enabled = name.isNotBlank(), modifier = Modifier.weight(1f))
                 }
-                OutlinedActionButton(text = stringResource(R.string.generic_cancel), onClick = { closeWithAnimation(onDismiss) }, modifier = Modifier.weight(1f))
-                PrimaryButton(text = if(isEdit) stringResource(R.string.generic_save) else stringResource(R.string.generic_create), onClick = { closeWithAnimation { onConfirm(name, selectedColor, sortOrder, widget) } }, enabled = name.isNotBlank(), modifier = Modifier.weight(1f))
+            } else {
+                Row(modifier = Modifier.padding(top = 4.dp).fillMaxWidth()) {
+                    OutlinedActionButton(text = stringResource(R.string.generic_close), onClick = { closeWithAnimation(onDismiss) }, modifier = Modifier.fillMaxWidth())
+                }
             }
         }
     }
@@ -783,3 +795,4 @@ fun EventFormDialog(
         )
     }
 }
+

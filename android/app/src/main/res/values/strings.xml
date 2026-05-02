@@ -78,6 +78,7 @@
     <string name="nav_profile">Perfil</string>
 
     <string name="generic_cancel">Cancelar</string>
+    <string name="generic_close">Cerrar</string>
     <string name="generic_save">Guardar</string>
     <string name="generic_create">Crear</string>
     <string name="generic_delete">Eliminar</string>

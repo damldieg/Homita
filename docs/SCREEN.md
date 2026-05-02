@@ -89,6 +89,7 @@ Diseño de dos pestañas internas:
 2. **Usuarios:** 
    - Campo `Email` (teclado correo) + Botón `+` (alineado a la base).
    - Lista de usuarios con su rol ("Propietario" / "Invitado") e icono de borrar para expulsar.
+   - Botón inferior "Cerrar" (sin acciones secundarias para evitar confusión con el guardado del formulario general).
 
 ---
 
