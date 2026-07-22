@@ -51,9 +51,11 @@
     <string name="tasks_section_completed">COMPLETADAS · %d</string>
     <string name="tasks_add_hint">Añadir nueva tarea...</string>
     <string name="tasks_filter_all">Todas</string>
+    <string name="events_filter_all">Todos</string>
     <string name="tasks_new_list">Nueva Lista</string>
     <string name="tasks_edit_list">Editar lista</string>
     <string name="tasks_pending_count">%d pendientes</string>
+    <string name="error_task_exists">Ya existe una tarea con este nombre en la lista</string>
     
     <string name="calendars_tab_all">Calendarios</string>
     <string name="calendars_tab_events">Eventos</string>

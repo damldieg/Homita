@@ -35,6 +35,7 @@ class WidgetViewsFactory(private val context: Context) : RemoteViewsService.Remo
             // Solamente forzamos que la próxima vez se re-descargue todo.
             lastFetchTime = 0
             lastRedrawTime = 0
+            cachedEvents = emptyList()
         }
         
         fun loadCache(context: Context): List<EventResponse> {

@@ -71,7 +71,6 @@ class TasksWidgetProvider : AppWidgetProvider() {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val lists = readLists(prefs)
         if (lists.isEmpty()) return
-        val tasks = readTasks(prefs)
 
         val currentId = prefs.getInt(listIdKey(appWidgetId), 0)
         val currentIdx = lists.indexOfFirst { it.id == currentId }.takeIf { it >= 0 } ?: 0
@@ -82,22 +81,7 @@ class TasksWidgetProvider : AppWidgetProvider() {
         prefs.edit().putInt(listIdKey(appWidgetId), newList.id).commit()
 
         val manager = AppWidgetManager.getInstance(context)
-        
-        // 1. Actualización rápida de la cabecera y el botón de gestión
-        val headerViews = buildHeaderRemoteViews(context, newList, tasks)
-        
-        val manageIntent = Intent(context, MainActivity::class.java).apply {
-            data = Uri.parse("planify://tasks?list_id=${newList.id}")
-        }
-        val managePI = PendingIntent.getActivity(
-            context, appWidgetId * 10 + 1, manageIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        headerViews.setOnClickPendingIntent(R.id.widget_tasks_header, managePI)
-
-        manager.partiallyUpdateAppWidget(appWidgetId, headerViews)
-        
-        // 2. Refrescar el listado interno de tareas
+        renderFullWidget(context, manager, appWidgetId)
         manager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_tasks_list)
     }
 
@@ -105,6 +89,8 @@ class TasksWidgetProvider : AppWidgetProvider() {
         val clickAction = intent.getStringExtra("action")
         val taskId = intent.getIntExtra("taskId", 0)
         if (clickAction != "COMPLETE_TASK" || taskId <= 0) return
+
+        val pendingResult = goAsync()
 
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val currentToggling = prefs.getStringSet("widget_toggling_tasks", emptySet())?.toMutableSet() ?: mutableSetOf()
@@ -131,6 +117,7 @@ class TasksWidgetProvider : AppWidgetProvider() {
                 updatedToggling.remove(taskId.toString())
                 prefs.edit().putStringSet("widget_toggling_tasks", updatedToggling).commit()
                 fetchAndRefreshBlocking(context, allIds)
+                pendingResult.finish()
             }
         }
     }
@@ -154,29 +141,30 @@ class TasksWidgetProvider : AppWidgetProvider() {
         val token = sm.authTokenFlow.firstOrNull() ?: return
         RetrofitClient.setToken(token)
 
-        val tasksResp = RetrofitClient.apiService.getTasks(null, null, true)
-        val listsResp = RetrofitClient.apiService.getTaskLists()
-        if (!tasksResp.isSuccessful || !listsResp.isSuccessful) {
-            Log.e(TAG, "Fetch failed tasks=${tasksResp.code()} lists=${listsResp.code()}")
-            return
-        }
-
-        val pendingTasks = (tasksResp.body() ?: emptyList()).filter { it.completed_at == null }
-        val apiLists = (listsResp.body() ?: emptyList()).filter { it.widget != false }
-        val allLists = listOf(globalListSentinel()) + apiLists
-
+        val tasksResp = try { RetrofitClient.apiService.getTasks(null, null, true) } catch (e: Exception) { null }
+        val listsResp = try { RetrofitClient.apiService.getTaskLists() } catch (e: Exception) { null }
+        
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val gson = Gson()
-        prefs.edit()
-            .putString(PREFS_KEY_ALL_TASKS, gson.toJson(pendingTasks))
-            .putString(PREFS_KEY_ALL_LISTS, gson.toJson(allLists))
-            .commit()
 
-        for (id in appWidgetIds) {
-            val currentId = prefs.getInt(listIdKey(id), 0)
-            if (allLists.none { it.id == currentId }) {
-                prefs.edit().putInt(listIdKey(id), 0).commit()
+        if (tasksResp?.isSuccessful == true && listsResp?.isSuccessful == true) {
+            val pendingTasks = (tasksResp.body() ?: emptyList()).filter { it.completed_at == null }
+            val apiLists = (listsResp.body() ?: emptyList()).filter { it.widget != false }
+            val allLists = listOf(globalListSentinel()) + apiLists
+
+            val gson = Gson()
+            prefs.edit()
+                .putString(PREFS_KEY_ALL_TASKS, gson.toJson(pendingTasks))
+                .putString(PREFS_KEY_ALL_LISTS, gson.toJson(allLists))
+                .commit()
+
+            for (id in appWidgetIds) {
+                val currentId = prefs.getInt(listIdKey(id), 0)
+                if (allLists.none { it.id == currentId }) {
+                    prefs.edit().putInt(listIdKey(id), 0).commit()
+                }
             }
+        } else {
+            Log.e(TAG, "Fetch failed tasks=${tasksResp?.code()} lists=${listsResp?.code()}")
         }
 
         val manager = AppWidgetManager.getInstance(context)
@@ -255,6 +243,7 @@ class TasksWidgetProvider : AppWidgetProvider() {
         val clickTemplateIntent = Intent(context, TasksWidgetProvider::class.java).apply {
             action = ACTION_WIDGET_CLICK
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+            data = Uri.parse("tasks://widget_click/$appWidgetId")
         }
         val clickTemplate = PendingIntent.getBroadcast(
             context, appWidgetId * 10 + 4, clickTemplateIntent,

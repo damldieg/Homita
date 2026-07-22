@@ -26,6 +26,19 @@ class MainActivity : ComponentActivity() {
         currentIntentState.value = intent
     }
 
+    override fun onResume() {
+        super.onResume()
+        val updateTasksIntent = android.content.Intent(this, com.lito.planify.widget.TasksWidgetProvider::class.java).apply {
+            action = "com.lito.planify.widget.ACTION_CLEAR_CACHE"
+        }
+        sendBroadcast(updateTasksIntent)
+
+        val updateEventsIntent = android.content.Intent(this, com.lito.planify.widget.CalendarWidgetProvider::class.java).apply {
+            action = "com.lito.planify.widget.ACTION_CLEAR_CACHE"
+        }
+        sendBroadcast(updateEventsIntent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         currentIntentState.value = intent

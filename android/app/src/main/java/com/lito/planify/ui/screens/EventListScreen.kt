@@ -256,7 +256,7 @@ fun EventListContent(
                     ) {
                         item {
                             PlanifyFilterChip(
-                                label = stringResource(R.string.tasks_filter_all),
+                                label = stringResource(R.string.events_filter_all),
                                 isSelected = selectedCalendarFilterId == null,
                                 onClick = { onSetFilter(null) }
                             )

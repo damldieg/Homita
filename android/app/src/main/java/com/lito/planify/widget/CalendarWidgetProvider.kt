@@ -33,6 +33,7 @@ class CalendarWidgetProvider : AppWidgetProvider() {
             val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
             
             for (id in appWidgetIds) {
+                updateAppWidget(context, appWidgetManager, id)
                 appWidgetManager.notifyAppWidgetViewDataChanged(id, R.id.widget_event_list)
             }
             
