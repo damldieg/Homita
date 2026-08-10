@@ -25,10 +25,6 @@ class TaskListUpdate extends ControllerAbstract
 
         $role = TaskListUser::check($id, $this->user->id);
 
-        if ($role->role !== 'owner') {
-            $this->response(['error' => 'Only owner can update the task list'], 403);
-        }
-
         TaskListUser::setWidget($id, $this->user->id, $widget);
 
         $this->response(TaskList::findById($id)->update($name, $color, $sort), 200);
