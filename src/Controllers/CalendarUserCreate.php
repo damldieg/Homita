@@ -16,11 +16,7 @@ class CalendarUserCreate extends ControllerAbstract
             $this->response(['error' => 'Calendar ID and email are required'], 400);
         }
 
-        $role = CalendarUser::check($calendarId, $this->user->id);
-
-        if ($role->role !== 'owner') {
-            $this->response(['error' => 'Only owner can add users'], 403);
-        }
+        CalendarUser::check($calendarId, $this->user->id);
 
         $target = User::findByEmail($email);
 

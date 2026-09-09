@@ -16,11 +16,7 @@ class TaskListUserCreate extends ControllerAbstract
             $this->response(['error' => 'Task list ID and email are required'], 400);
         }
 
-        $role = TaskListUser::check($taskListId, $this->user->id);
-
-        if ($role->role !== 'owner') {
-            $this->response(['error' => 'Only owner can add users'], 403);
-        }
+        TaskListUser::check($taskListId, $this->user->id);
 
         $target = User::findByEmail($email);
 

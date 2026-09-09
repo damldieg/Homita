@@ -15,11 +15,7 @@ class TaskListDelete extends ControllerAbstract
             $this->response(['error' => 'Task list ID is required'], 400);
         }
 
-        $role = TaskListUser::check($id, $this->user->id);
-
-        if ($role->role !== 'owner') {
-            $this->response(['error' => 'Only owner can delete the task list'], 403);
-        }
+        TaskListUser::check($id, $this->user->id);
 
         TaskList::findById($id)->delete();
 

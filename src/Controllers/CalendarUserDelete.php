@@ -15,10 +15,10 @@ class CalendarUserDelete extends ControllerAbstract
             $this->response(['error' => 'calendar_id and user_id are required'], 400);
         }
 
-        CalendarUser::checkRole($calendarId, $this->user->id);
+        CalendarUser::check($calendarId, $this->user->id);
 
         if ($this->user->id === $userId) {
-            $this->response(['error' => 'Owner cannot be removed'], 400);
+            $this->response(['error' => 'User cannot remove themselves'], 400);
         }
 
         CalendarUser::removeUser($calendarId, $userId);

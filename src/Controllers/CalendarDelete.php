@@ -15,11 +15,7 @@ class CalendarDelete extends ControllerAbstract
             $this->response(['error' => 'Calendar ID is required'], 400);
         }
 
-        $role = CalendarUser::check($id, $this->user->id);
-
-        if ($role->role !== 'owner') {
-            $this->response(['error' => 'Only owner can delete the calendar'], 403);
-        }
+        CalendarUser::check($id, $this->user->id);
 
         Calendar::findById($id)->delete();
 

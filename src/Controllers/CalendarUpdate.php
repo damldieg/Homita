@@ -18,11 +18,7 @@ class CalendarUpdate extends ControllerAbstract
             $this->response(['error' => 'Calendar ID, name and color are required'], 400);
         }
 
-        $role = CalendarUser::check($id, $this->user->id);
-
-        if ($role->role !== 'owner') {
-            $this->response(['error' => 'Only owner can update the calendar'], 403);
-        }
+        CalendarUser::check($id, $this->user->id);
 
         CalendarUser::setWidget($id, $this->user->id, $widget);
 

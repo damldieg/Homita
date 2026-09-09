@@ -23,7 +23,7 @@ class TaskListUpdate extends ControllerAbstract
             $this->response(['error' => 'Sort must be updated_at, title or custom'], 400);
         }
 
-        $role = TaskListUser::check($id, $this->user->id);
+        TaskListUser::check($id, $this->user->id);
 
         TaskListUser::setWidget($id, $this->user->id, $widget);
 

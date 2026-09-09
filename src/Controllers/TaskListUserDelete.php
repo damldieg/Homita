@@ -15,10 +15,10 @@ class TaskListUserDelete extends ControllerAbstract
             $this->response(['error' => 'task_list_id and user_id are required'], 400);
         }
 
-        TaskListUser::checkRole($taskListId, $this->user->id);
+        TaskListUser::check($taskListId, $this->user->id);
 
         if ($this->user->id === $userId) {
-            $this->response(['error' => 'Owner cannot be removed'], 400);
+            $this->response(['error' => 'User cannot remove themselves'], 400);
         }
 
         TaskListUser::removeUser($taskListId, $userId);

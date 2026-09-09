@@ -121,15 +121,6 @@ class TaskListUser extends ModelAbstract
         SQL;
     }
 
-    public static function checkRole(int $taskListId, int $userId): self
-    {
-        $instance = self::check($taskListId, $userId);
-        if ($instance->role !== 'owner') {
-            throw new \Exception('Only owner can perform this action');
-        }
-        return $instance;
-    }
-
     public static function findUsersByTaskList(int $taskListId): array
     {
         return self::database()->select(self::findUsersByTaskListSql(), [

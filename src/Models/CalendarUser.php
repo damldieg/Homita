@@ -121,15 +121,6 @@ class CalendarUser extends ModelAbstract
         SQL;
     }
 
-    public static function checkRole(int $calendarId, int $userId): self
-    {
-        $instance = self::check($calendarId, $userId);
-        if ($instance->role !== 'owner') {
-            throw new \Exception('Only owner can perform this action');
-        }
-        return $instance;
-    }
-
     public static function findUsersByCalendar(int $calendarId): array
     {
         return self::database()->select(self::findUsersByCalendarSql(), [
