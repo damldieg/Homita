@@ -59,6 +59,7 @@ fun TasksScreen(
     }
     var newTaskTitle by remember { mutableStateOf("") }
     var showEditDialog by remember { mutableStateOf(false) }
+    var selectedTaskToEdit by remember { mutableStateOf<com.lito.planify.data.api.TaskResponse?>(null) }
 
     if (isStandalone && onBack != null) {
         androidx.activity.compose.BackHandler(onBack = onBack)
@@ -112,7 +113,8 @@ fun TasksScreen(
                     onReorderTask = { id, pos, lId -> viewModel.reorderTask(id, pos, lId) },
                     onShowEdit = { showEditDialog = true },
                     activeListId = taskListId,
-                    sortOrder = currentList?.sort ?: "updated_at"
+                    sortOrder = currentList?.sort ?: "updated_at",
+                    onTaskLongClick = { selectedTaskToEdit = it }
                 )
             }
         }
@@ -139,7 +141,8 @@ fun TasksScreen(
             onReorderTask = { id, pos, lId -> viewModel.reorderTask(id, pos, lId) },
             onShowEdit = {},
             activeListId = selectedListFilterId,
-            sortOrder = taskListsState.find { it.id == selectedListFilterId }?.sort ?: "updated_at"
+            sortOrder = taskListsState.find { it.id == selectedListFilterId }?.sort ?: "updated_at",
+            onTaskLongClick = { selectedTaskToEdit = it }
         )
     }
 
@@ -176,6 +179,24 @@ fun TasksScreen(
             isEdit = true
         )
     }
+
+    selectedTaskToEdit?.let { task ->
+        TaskFormDialog(
+            initialTitle = task.title,
+            onDismiss = { selectedTaskToEdit = null },
+            onConfirm = { newTitle ->
+                val effectiveListId = if (isGlobal) selectedListFilterId else taskListId
+                viewModel.updateTask(task.id, effectiveListId, newTitle)
+                selectedTaskToEdit = null
+            },
+            onDelete = {
+                val effectiveListId = if (isGlobal) selectedListFilterId else taskListId
+                viewModel.deleteTask(task.id, effectiveListId)
+                selectedTaskToEdit = null
+            },
+            isEdit = true
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -199,7 +220,8 @@ fun TasksViewContent(
     onReorderTask: (Int, Int, Int?) -> Unit,
     onShowEdit: () -> Unit,
     activeListId: Int?,
-    sortOrder: String = "updated_at"
+    sortOrder: String = "updated_at",
+    onTaskLongClick: ((com.lito.planify.data.api.TaskResponse) -> Unit)? = null
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         val colorHex = activeListId?.let { id -> taskLists.find { it.id == id }?.color } ?: "#4B4D99"
@@ -356,6 +378,7 @@ fun TasksViewContent(
                                             onDelete = { onTaskDelete(task.id, activeListId) },
                                             showLeftColorBar = isGlobal,
                                             modifier = Modifier.draggableHandle().animateItemPlacement(),
+                                            onLongClick = { onTaskLongClick?.invoke(task) },
                                             onClick = {}
                                         )
                                     }
@@ -370,6 +393,7 @@ fun TasksViewContent(
                                     onDelete = { onTaskDelete(task.id, activeListId) },
                                     showLeftColorBar = isGlobal,
                                     modifier = Modifier.animateItemPlacement(),
+                                    onLongClick = { onTaskLongClick?.invoke(task) },
                                     onClick = {}
                                 )
                             }
@@ -404,6 +428,7 @@ fun TasksViewContent(
                                 onDelete = { onTaskDelete(task.id, activeListId) },
                                 showLeftColorBar = isGlobal,
                                 modifier = Modifier.animateItemPlacement(),
+                                onLongClick = { onTaskLongClick?.invoke(task) },
                                 onClick = {}
                             )
                         }

@@ -796,3 +796,92 @@ fun EventFormDialog(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TaskFormDialog(
+    initialTitle: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+    onDelete: (() -> Unit)? = null,
+    isEdit: Boolean = true
+) {
+    var title by remember { mutableStateOf(initialTitle) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+
+    fun closeWithAnimation(action: () -> Unit) {
+        scope.launch { sheetState.hide() }.invokeOnCompletion { if (!sheetState.isVisible) action() }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        dragHandle = { BottomSheetDefaults.DragHandle(width = 36.dp, height = 4.dp, color = OutlineColor) },
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 40.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            Text(
+                text = if (isEdit) stringResource(R.string.tasks_edit_task) else stringResource(R.string.generic_create),
+                style = MaterialTheme.typography.headlineMedium
+            )
+
+            Column {
+                Text(
+                    text = stringResource(R.string.label_name).uppercase(),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+                CustomTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = "",
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                if (isEdit && onDelete != null) {
+                    IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(48.dp)) {
+                        Icon(androidx.compose.material.icons.Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+                OutlinedActionButton(text = stringResource(R.string.generic_cancel), onClick = { closeWithAnimation(onDismiss) }, modifier = Modifier.weight(1f))
+                PrimaryButton(
+                    text = if(isEdit) stringResource(R.string.generic_save) else stringResource(R.string.generic_create),
+                    onClick = { closeWithAnimation { onConfirm(title) } },
+                    enabled = title.isNotBlank(),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text(stringResource(R.string.delete_confirm_title)) },
+            text = { Text(stringResource(R.string.delete_confirm_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    closeWithAnimation(onDelete!!)
+                }) {
+                    Text(stringResource(R.string.generic_delete), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text(stringResource(R.string.generic_cancel))
+                }
+            }
+        )
+    }
+}
+

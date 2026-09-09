@@ -54,6 +54,7 @@
     <string name="events_filter_all">Todos</string>
     <string name="tasks_new_list">Nueva Lista</string>
     <string name="tasks_edit_list">Editar lista</string>
+    <string name="tasks_edit_task">Editar tarea</string>
     <string name="tasks_pending_count">%d pendientes</string>
     <string name="error_task_exists">Ya existe una tarea con este nombre en la lista</string>
     

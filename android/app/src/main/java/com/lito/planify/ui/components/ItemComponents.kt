@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -122,6 +123,7 @@ fun PlanifyRowItem(
 /**
  * Fila uniforme para Tareas y Eventos.
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PlanifyTaskRow(
     title: String,
@@ -133,16 +135,31 @@ fun PlanifyTaskRow(
     onDelete: (() -> Unit)? = null,
     showLeftColorBar: Boolean = false,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
     val color = try { Color(android.graphics.Color.parseColor(colorHex ?: "#4B4D99")) } catch(e: Exception) { Color(0xFF4B4D99) }
 
-    Box(
-        modifier = modifier
+    val rowModifier = if (onLongClick != null) {
+        modifier
+            .fillMaxWidth()
+            .alpha(if (isToggling) 0.5f else 1f)
+            .background(Color.White)
+            .combinedClickable(
+                enabled = !isToggling,
+                onClick = { if (onToggle != null) onToggle() else onClick() },
+                onLongClick = onLongClick
+            )
+    } else {
+        modifier
             .fillMaxWidth()
             .alpha(if (isToggling) 0.5f else 1f)
             .background(Color.White)
             .clickable(enabled = !isToggling) { if(onToggle != null) onToggle() else onClick() }
+    }
+
+    Box(
+        modifier = rowModifier
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
