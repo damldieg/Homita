@@ -110,6 +110,7 @@ class Calendar extends ModelAbstract
                        SELECT COUNT(*)
                        FROM `event` e
                        WHERE e.`calendar_id` = c.`id`
+                         AND e.`routine_id` IS NULL
                          AND e.`date_at` >= CURRENT_TIMESTAMP
                    ), 0) AS `upcoming_event_count`
             FROM `calendar` c

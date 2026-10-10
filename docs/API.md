@@ -135,6 +135,7 @@ When an endpoint returns an object or a list of objects, they map to the followi
   - `offset` (int, optional)
   - `order_mode` (string, optional: `ASC` or `DESC`)
   - `widget` (boolean, optional)
+  - `routine` (boolean, optional: `false` returns only regular events, `true` only routine sessions; omitted returns both)
 - **Output**: Array of `Event` objects.
 
 ### `GET /event/detail`

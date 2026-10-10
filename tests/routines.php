@@ -42,6 +42,10 @@ catch (InvalidArgumentException) {}
 $routine = Routine::create(1, 1, $data + ['alarm' => 15], 'UTC');
 $events = Event::findWithFilters(1, []);
 check(count($events) > 0, 'Sessions generated');
+$plain = Event::create(1, 'Plain event', $today->modify('+1 day')->format('Y-m-d').' 10:00:00');
+check(array_map(fn($event) => $event->id, Event::findWithFilters(1, ['routine' => 'false'])) === [$plain->id], 'Routine filter false returns only regular events');
+check(count(Event::findWithFilters(1, ['routine' => 'true'])) === count($events), 'Routine filter true returns only sessions');
+$plain->delete();
 $countBefore = $pdo->query('SELECT COUNT(*) FROM event')->fetchColumn();
 foreach ([App\Controllers\EventCreate::class, App\Controllers\EventUpdate::class] as $class) {
     $controller = new ReflectionClass($class)->newInstanceWithoutConstructor();

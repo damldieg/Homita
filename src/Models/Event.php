@@ -120,9 +120,13 @@ class Event extends ModelAbstract
             $params['widget'] = intval($value);
         }
 
+        if (($value = self::getFilterBool($filters, 'routine')) !== null) {
+            $params['routine'] = $value;
+        }
+
         $rows = self::database()->select(
             self::findWithFiltersSql($params),
-            Helper::arrayDenyKeys($params, ['order_mode'])
+            Helper::arrayDenyKeys($params, ['order_mode', 'routine'])
         );
 
         return array_map(static fn(array $row) => new self($row), $rows);
@@ -160,6 +164,10 @@ class Event extends ModelAbstract
 
         if (isset($params['widget'])) {
             $base .= ' AND cu.`widget` = :widget';
+        }
+
+        if (isset($params['routine'])) {
+            $base .= $params['routine'] ? ' AND e.`routine_id` IS NOT NULL' : ' AND e.`routine_id` IS NULL';
         }
 
         $order = strtoupper($params['order_mode'] ?? 'ASC');
