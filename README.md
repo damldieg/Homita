@@ -97,3 +97,13 @@ La sección Rutinas permite seleccionar días de la semana y una hora común, co
 Despliega primero la API y aplica `backend/migrations/0006_routine.sql` con el comando de migración del backend. La API genera los próximos 90 días al sincronizar; los avisos del móvil necesitan conexión periódica para renovar ese horizonte. La hora es local y sigue la zona del móvil.
 
 El móvil programa los 450 avisos más próximos y conserva el resto en caché. Cada aviso repone la cola sin necesitar conexión; sincronizar o reiniciar también la renueva.
+
+## Scripts locales
+
+Los scripts de `scripts/` son locales y están excluidos de Git:
+
+* `scripts/install.sh`: compila el APK release y lo instala en teléfonos conectados por USB.
+* `scripts/emulator.sh`: compila e instala la versión debug en el emulador.
+* `scripts/git-reset`: utilidad general para reiniciar el historial de un repositorio Git; no despliega la app ni el backend.
+
+El despliegue del backend corresponde a `../backend/scripts/install.sh`. Los scripts de instalación y emulador resuelven sus rutas desde su ubicación, por lo que pueden ejecutarse desde cualquier directorio.
