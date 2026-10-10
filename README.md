@@ -33,6 +33,16 @@ Backend robusto construido con PHP 8.5+, siguiendo una arquitectura orientada a 
     php -S localhost:8000 -t public
     ```
 
+## Despliegue con el script local
+
+Cuando esté disponible, `scripts/install.sh` sincroniza este backend con el servidor, ejecuta las migraciones y ajusta los permisos. Resuelve la carpeta del backend desde su propia ubicación y puede ejecutarse desde cualquier directorio:
+
+```bash
+./scripts/install.sh
+```
+
+El script conserva la base de datos, los logs y la configuración local del servidor. Detiene el despliegue si falla la sincronización, la migración o el ajuste de permisos. `scripts/` está excluido de Git porque contiene configuración de despliegue local.
+
 ## Arquitectura
 
 - **Action-Based Controllers**: Cada endpoint es una clase independiente en `src/Controllers/` que hereda de `ControllerAbstract`.
