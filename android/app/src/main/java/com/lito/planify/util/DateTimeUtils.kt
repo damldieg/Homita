@@ -5,7 +5,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 object DateTimeUtils {
-    private val apiFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+    private val apiFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT)
 
     fun formatEventDate(dateStr: String): String {
         return try {

@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
+import com.lito.planify.ui.components.currentLocale
 import com.lito.planify.R
 import com.lito.planify.ui.theme.PlanifyTheme
 import com.lito.planify.util.AlarmHelper
@@ -88,13 +88,7 @@ class AlarmActivity : ComponentActivity() {
             vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
         
-        val pattern = longArrayOf(0, 500, 500)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator?.vibrate(VibrationEffect.createWaveform(pattern, 0))
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator?.vibrate(pattern, 0)
-        }
+        vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 500), 0))
 
         setContent {
             PlanifyTheme {
@@ -106,14 +100,15 @@ class AlarmActivity : ComponentActivity() {
                     }
                 }
                 
-                val timeStr = SimpleDateFormat("H:mm", Locale.getDefault()).format(Date(currentTime))
-                val dateStr = SimpleDateFormat("EEEE, d 'de' MMMM", Locale.getDefault()).format(Date(currentTime)).replaceFirstChar { it.uppercase() }
+                val locale = currentLocale()
+                val timeStr = SimpleDateFormat("H:mm", locale).format(Date(currentTime))
+                val dateStr = SimpleDateFormat("EEEE, d 'de' MMMM", locale).format(Date(currentTime)).replaceFirstChar { it.uppercase() }
 
                 Surface(
                     modifier = Modifier.fillMaxSize().background(BackgroundBrush),
                     color = Color.Transparent
                 ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
+                    Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
                         Spacer(modifier = Modifier.height(80.dp))
                         
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {

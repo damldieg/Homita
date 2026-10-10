@@ -1,6 +1,10 @@
 package com.lito.planify
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -24,6 +28,9 @@ import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private var currentIntentState = mutableStateOf<android.content.Intent?>(null)
+
+    // Sin este permiso (Android 13+) los avisos de eventos y rutinas no se muestran.
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
@@ -53,6 +60,11 @@ class MainActivity : ComponentActivity() {
         currentIntentState.value = intent
         
         com.lito.planify.util.AlarmHelper.createNotificationChannel(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
         com.lito.planify.util.AlarmHelper.scheduleWidgetUpdate(this)
 
         // Ensure no system ActionBar or Title is shown

@@ -59,10 +59,6 @@
                 android:resource="@xml/routine_widget_info" />
         </receiver>
 
-        <service
-            android:name=".widget.WidgetRemoteViewsService"
-            android:permission="android.permission.BIND_REMOTEVIEWS" />
-
         <!-- Widget de Tareas (Planify) -->
         <receiver android:name=".widget.TasksWidgetProvider" android:exported="true" android:label="@string/widget_tasks_name">
             <intent-filter>
@@ -76,10 +72,6 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/tasks_widget_info" />
         </receiver>
-
-        <service
-            android:name=".widget.TasksWidgetRemoteViewsService"
-            android:permission="android.permission.BIND_REMOTEVIEWS" />
 
         <receiver android:name=".util.AlarmReceiver" android:exported="false" />
         <receiver android:name=".util.BootReceiver" android:exported="true">

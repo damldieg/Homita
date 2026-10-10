@@ -1,7 +1,6 @@
 package com.lito.planify.viewmodel
 
 import android.app.Application
-import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
@@ -33,11 +32,6 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         val clearIntent = Intent("com.lito.planify.widget.ACTION_CLEAR_CACHE")
         clearIntent.component = ComponentName(app, com.lito.planify.widget.CalendarWidgetProvider::class.java)
         app.sendBroadcast(clearIntent)
-        
-        val appWidgetManager = AppWidgetManager.getInstance(app)
-        val componentName = ComponentName(app, com.lito.planify.widget.CalendarWidgetProvider::class.java)
-        val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
-        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, com.lito.planify.R.id.widget_event_list)
     }
 
     fun fetchEvents(calendarId: Int? = null, search: String? = null, force: Boolean = false) {

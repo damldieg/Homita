@@ -313,7 +313,7 @@ fun EventListContent(
                             if (!isStandalone) {
                                 Text(
                                     text = LocalDate.now()
-                                        .format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM", java.util.Locale.getDefault()))
+                                        .format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM", currentLocale()))
                                         .replace(".", "")
                                         .replaceFirstChar { it.uppercaseChar() },
                                     style = MaterialTheme.typography.displayMedium,

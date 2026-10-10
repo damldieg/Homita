@@ -27,7 +27,6 @@ import com.lito.planify.ui.theme.*
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.format.TextStyle
-import java.util.Locale
 
 /**
  * Hoja inferior común a todos los formularios: título, contenido y botonera
@@ -278,7 +277,7 @@ fun AlarmSelectField(alarm: Int?, onChange: (Int?) -> Unit, enabled: Boolean = t
 /** Días de la semana (ISO 1-7) como círculos seleccionables. */
 @Composable
 fun WeekdaySelector(days: List<Int>, onChange: (List<Int>) -> Unit, enabled: Boolean = true) {
-    val locale = Locale.getDefault()
+    val locale = currentLocale()
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         (1..7).forEach { day ->
             val selected = day in days

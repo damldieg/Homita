@@ -118,89 +118,24 @@ object AlarmHelper {
     }
 
     fun createNotificationChannel(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "Avisos de Eventos"
-            val descriptionText = "Notificaciones para los eventos programados"
-            val importance = NotificationManager.IMPORTANCE_HIGH
-            val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
-                description = descriptionText
-            }
-            val notificationManager: NotificationManager =
-                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(CHANNEL_ID, "Avisos de Eventos", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "Notificaciones para los eventos programados"
         }
+        (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(channel)
     }
 
+    /** Refresca los tres widgets cada 15 minutos (cada widget vuelve a programarlo al recibir el aviso). */
     fun scheduleWidgetUpdate(context: Context) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-
-        // Tareas Widget
-        val taskIntent = Intent(context, com.lito.planify.widget.TasksWidgetProvider::class.java).apply {
-            action = "com.lito.planify.widget.ACTION_CLEAR_CACHE"
-        }
-        val pendingTask = PendingIntent.getBroadcast(
-            context,
-            2001,
-            taskIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // Calendario Widget
-        val calendarIntent = Intent(context, com.lito.planify.widget.CalendarWidgetProvider::class.java).apply {
-            action = "com.lito.planify.widget.ACTION_CLEAR_CACHE"
-        }
-        val pendingCalendar = PendingIntent.getBroadcast(
-            context,
-            2002,
-            calendarIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // Rutinas Widget
-        val routineIntent = Intent(context, com.lito.planify.widget.RoutineWidgetProvider::class.java).apply {
-            action = "com.lito.planify.widget.ACTION_CLEAR_CACHE"
-        }
-        val pendingRoutine = PendingIntent.getBroadcast(
-            context,
-            2003,
-            routineIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val interval = 15 * 60 * 1000L // 15 minutos
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setAndAllowWhileIdle(
-                AlarmManager.RTC,
-                System.currentTimeMillis() + interval,
-                pendingTask
-            )
-            alarmManager.setAndAllowWhileIdle(
-                AlarmManager.RTC,
-                System.currentTimeMillis() + interval,
-                pendingCalendar
-            )
-            alarmManager.setAndAllowWhileIdle(
-                AlarmManager.RTC,
-                System.currentTimeMillis() + interval,
-                pendingRoutine
-            )
-        } else {
-            alarmManager.set(
-                AlarmManager.RTC,
-                System.currentTimeMillis() + interval,
-                pendingTask
-            )
-            alarmManager.set(
-                AlarmManager.RTC,
-                System.currentTimeMillis() + interval,
-                pendingCalendar
-            )
-            alarmManager.set(
-                AlarmManager.RTC,
-                System.currentTimeMillis() + interval,
-                pendingRoutine
-            )
+        val triggerAt = System.currentTimeMillis() + 15 * 60 * 1000L
+        listOf(
+            2001 to com.lito.planify.widget.TasksWidgetProvider::class.java,
+            2002 to com.lito.planify.widget.CalendarWidgetProvider::class.java,
+            2003 to com.lito.planify.widget.RoutineWidgetProvider::class.java
+        ).forEach { (requestCode, provider) ->
+            val intent = Intent(context, provider).apply { action = "com.lito.planify.widget.ACTION_CLEAR_CACHE" }
+            val pendingIntent = PendingIntent.getBroadcast(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC, triggerAt, pendingIntent)
         }
     }
 

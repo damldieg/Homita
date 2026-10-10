@@ -12,6 +12,7 @@ import android.net.Uri
 import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
+import androidx.core.widget.RemoteViewsCompat
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.lito.planify.MainActivity
@@ -86,9 +87,7 @@ class TasksWidgetProvider : AppWidgetProvider() {
 
         prefs.edit().putInt(listIdKey(appWidgetId), newList.id).commit()
 
-        val manager = AppWidgetManager.getInstance(context)
-        renderFullWidget(context, manager, appWidgetId)
-        manager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_tasks_list)
+        renderFullWidget(context, AppWidgetManager.getInstance(context), appWidgetId)
     }
 
     private fun handleClick(context: Context, intent: Intent) {
@@ -106,7 +105,7 @@ class TasksWidgetProvider : AppWidgetProvider() {
         val manager = AppWidgetManager.getInstance(context)
         val allIds = allAppWidgetIds(context)
         for (id in allIds) {
-            manager.notifyAppWidgetViewDataChanged(id, R.id.widget_tasks_list)
+            renderFullWidget(context, manager, id)
         }
 
         CoroutineScope(Dispatchers.IO).launch {
@@ -176,7 +175,6 @@ class TasksWidgetProvider : AppWidgetProvider() {
         val manager = AppWidgetManager.getInstance(context)
         for (id in appWidgetIds) {
             renderFullWidget(context, manager, id)
-            manager.notifyAppWidgetViewDataChanged(id, R.id.widget_tasks_list)
         }
     }
 
@@ -193,11 +191,11 @@ class TasksWidgetProvider : AppWidgetProvider() {
 
         applyHeader(views, currentList, tasks)
 
-        val serviceIntent = Intent(context, TasksWidgetRemoteViewsService::class.java).apply {
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-            data = Uri.parse("tasks://widget/$appWidgetId")
-        }
-        views.setRemoteAdapter(R.id.widget_tasks_list, serviceIntent)
+        val toggling = prefs.getStringSet("widget_toggling_tasks", emptySet()).orEmpty().mapNotNull { it.toIntOrNull() }.toSet()
+        val items = RemoteViewsCompat.RemoteCollectionItems.Builder().setHasStableIds(true)
+        tasks.filter { currentList.id == 0 || it.task_list_id == currentList.id }
+            .forEach { items.addItem(it.id.toLong(), taskItem(context, it, it.id in toggling)) }
+        RemoteViewsCompat.setRemoteAdapter(context, views, appWidgetId, R.id.widget_tasks_list, items.build())
         views.setEmptyView(R.id.widget_tasks_list, R.id.widget_tasks_empty)
 
         // En la pantalla de bloqueo el widget es de solo lectura: sin navegación ni acciones
@@ -210,13 +208,24 @@ class TasksWidgetProvider : AppWidgetProvider() {
         appWidgetManager.updateAppWidget(appWidgetId, views)
     }
 
-    private fun buildHeaderRemoteViews(
-        context: Context,
-        list: TaskListResponse,
-        allTasks: List<TaskResponse>
-    ): RemoteViews {
-        val views = RemoteViews(context.packageName, R.layout.widget_tasks)
-        applyHeader(views, list, allTasks)
+    private fun taskItem(context: Context, task: TaskResponse, isToggling: Boolean): RemoteViews {
+        val views = RemoteViews(context.packageName, R.layout.widget_task_item)
+        views.setTextViewText(R.id.task_title, task.title)
+        views.setInt(R.id.task_check_circle, "setColorFilter", parseColorSafe(task.task_list_color ?: "#94A3B8"))
+        if (isToggling) {
+            views.setTextColor(R.id.task_title, android.graphics.Color.parseColor("#9E9E9E"))
+            views.setImageViewResource(R.id.task_check_circle, R.drawable.task_check_checked)
+            // Sin acción mientras se completa
+            views.setOnClickFillInIntent(R.id.widget_task_root, Intent())
+        } else {
+            views.setTextColor(R.id.task_title, android.graphics.Color.parseColor("#1D1B20"))
+            views.setImageViewResource(R.id.task_check_circle, R.drawable.task_check_outline)
+            views.setOnClickFillInIntent(R.id.widget_task_root, Intent().apply {
+                putExtra("action", "COMPLETE_TASK")
+                putExtra("taskId", task.id)
+                putExtra("taskListId", task.task_list_id)
+            })
+        }
         return views
     }
 

@@ -51,7 +51,7 @@ Bienvenido a **Planify**, una aplicación moderna y elegante para la organizaci�
 
 ## 🚀 Requisitos Previos
 
-*   [Android Studio](https://developer.android.com/studio) (Koala o superior recomendado).
+*   [Android Studio](https://developer.android.com/studio) en una versión compatible con Android Gradle Plugin 9.4, con el SDK de Android 37 instalado.
 *   **JDK 17** o superior.
 *   Un emulador Android o dispositivo físico ejecutando Android 8.0 (API 26) o superior.
 *   Para que la aplicación funcione, es indispensable tener el **Backend** configurado y en ejecución.

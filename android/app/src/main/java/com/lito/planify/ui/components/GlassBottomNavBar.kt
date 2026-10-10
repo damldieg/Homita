@@ -50,9 +50,9 @@ fun GlassBottomNavBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             val items = listOf(
-                Triple("calendars", Icons.Default.DateRange, "Calendarios"),
-                Triple("tasks", Icons.Default.CheckCircle, "Tareas"),
-                Triple("profile", Icons.Default.Person, "Perfil")
+                Triple("calendars", Icons.Default.DateRange, androidx.compose.ui.res.stringResource(com.lito.planify.R.string.nav_calendars)),
+                Triple("tasks", Icons.Default.CheckCircle, androidx.compose.ui.res.stringResource(com.lito.planify.R.string.nav_tasks)),
+                Triple("profile", Icons.Default.Person, androidx.compose.ui.res.stringResource(com.lito.planify.R.string.nav_profile))
             )
 
             items.forEach { (route, icon, label) ->

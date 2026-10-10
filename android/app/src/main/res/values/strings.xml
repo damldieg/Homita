@@ -3,7 +3,6 @@
     <string name="welcome_login">Iniciar sesión</string>
     <string name="welcome_register">Registrarse</string>
     <string name="welcome_subtitle">Tu día, tus listas, tus calendarios. Todo en un mismo lugar.</string>
-    <string name="welcome_login_prompt">¿Ya tienes una cuenta?</string>
     <string name="welcome_new_user">¿Nuevo por aquí?</string>
     <string name="welcome_create_account">Crear cuenta</string>
     
@@ -12,7 +11,6 @@
     
     <string name="login_title">Hola de nuevo</string>
     <string name="login_button">Entrar</string>
-    <string name="login_forgot_password">¿Olvidaste tu contraseña?</string>
     
     <string name="label_name">Nombre</string>
     <string name="label_email">Email</string>
@@ -20,16 +18,11 @@
     <string name="label_order">Orden</string>
     <string name="label_color">Color</string>
     <string name="label_title">Título</string>
-    <string name="label_location">Ubicación</string>
-    <string name="label_description">Descripción</string>
-    <string name="label_date_time">Fecha y hora</string>
     <string name="label_date">Fecha</string>
     <string name="label_time">Hora</string>
-    <string name="label_ai_text">Texto IA</string>
     <string name="label_general">General</string>
     <string name="label_users">Usuarios</string>
     <string name="label_invite_user">Invitar usuario</string>
-    <string name="placeholder_email">amigo@email.com</string>
     <string name="role_owner">Propietario</string>
     <string name="label_ai_assistant">Asistente IA</string>
     <string name="label_describe_event">Describe el evento</string>
@@ -45,7 +38,6 @@
     <string name="alarm_30">30 minutos</string>
     <string name="alarm_40">40 minutos</string>
     <string name="alarm_60">1 hora</string>
-    <string name="alarm_snooze">Posponer</string>
     <string name="alarm_stop">Detener</string>
 
     <string name="tasks_tab_lists">Listas</string>
@@ -59,12 +51,10 @@
     <string name="tasks_edit_list">Editar lista</string>
     <string name="tasks_edit_task">Editar tarea</string>
     <string name="tasks_new_task">Nueva tarea</string>
-    <string name="tasks_pending_count">%d pendientes</string>
     <string name="error_task_exists">Ya existe una tarea con este nombre en la lista</string>
     
     <string name="calendars_tab_all">Calendarios</string>
     <string name="calendars_tab_events">Eventos</string>
-    <string name="calendars_upcoming_count">%d eventos futuros</string>
     <string name="calendars_new">Nuevo calendario</string>
     <string name="calendars_edit">Editar calendario</string>
     <string name="calendars_new_event">Nuevo evento</string>
@@ -72,10 +62,8 @@
 
     <string name="profile_title">Perfil</string>
     <string name="profile_download_logs">Descargar log de errores</string>
-    <string name="profile_clear_logs">Borrar log de errores</string>
     <string name="profile_logs_cleared">Log borrado correctamente</string>
     <string name="profile_logout">Cerrar sesión</string>
-    <string name="profile_cancel">Cancelar</string>
     <string name="profile_save">Guardar</string>
     <string name="profile_logs_title">Log de errores:</string>
     <string name="profile_logs_empty">No se han registrado errores recientemente.</string>
@@ -119,7 +107,6 @@
     <string name="widget_routines_name">Rutinas</string>
     <string name="widget_empty_events">No hay ningún evento próximo</string>
     <string name="widget_empty_routines">No hay ninguna rutina próxima</string>
-    <string name="widget_btn_add">Añadir Evento</string>
     <string name="routines_title">Rutinas</string>
     <string name="routine_new">Nueva rutina</string>
     <string name="routine_edit">Editar rutina</string>
