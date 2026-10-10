@@ -189,7 +189,7 @@ fun <T> FormSelectField(
                 else -> null
             },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.menuAnchor().fillMaxWidth()
+            modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled).fillMaxWidth()
         )
         ExposedDropdownMenu(
             expanded = expanded,

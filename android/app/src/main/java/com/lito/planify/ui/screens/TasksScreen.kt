@@ -407,7 +407,7 @@ fun TasksViewContent(
                                             info = if (isGlobal) task.task_list_name else null,
                                             index = index,
                                             groupCount = pending.size,
-                                            modifier = Modifier.draggableHandle().animateItemPlacement(),
+                                            modifier = Modifier.draggableHandle().animateItem(),
                                             onLongClick = { onTaskLongClick?.invoke(task) },
                                             onClick = {}
                                         )
@@ -424,7 +424,7 @@ fun TasksViewContent(
                                     info = if (isGlobal) task.task_list_name else null,
                                     index = index,
                                     groupCount = pending.size,
-                                    modifier = Modifier.animateItemPlacement(),
+                                    modifier = Modifier.animateItem(),
                                     onLongClick = { onTaskLongClick?.invoke(task) },
                                     onClick = {}
                                 )
@@ -446,7 +446,7 @@ fun TasksViewContent(
                                 info = if (isGlobal) task.task_list_name else null,
                                 index = index,
                                 groupCount = completed.size,
-                                modifier = Modifier.animateItemPlacement(),
+                                modifier = Modifier.animateItem(),
                                 onLongClick = { onTaskLongClick?.invoke(task) },
                                 onClick = {}
                             )
