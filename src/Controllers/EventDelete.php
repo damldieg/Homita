@@ -3,11 +3,14 @@
 namespace App\Controllers;
 
 use App\Models\Event;
+use App\Models\Routine;
 
 class EventDelete extends ControllerAbstract
 {
     public function handle(): void
     {
+        Routine::materializeForUser($this->user->id, $this->getInputTimezone());
+
         $id = $this->getInputInt('id');
 
         if (empty($id)) {

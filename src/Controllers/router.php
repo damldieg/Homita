@@ -21,6 +21,13 @@ $router->post('/calendar/user', static fn () => new CalendarUserCreate()->middle
 $router->get('/calendar/user', static fn () => new CalendarUserIndex()->middlewareAuth()->handle());
 $router->delete('/calendar/user', static fn () => new CalendarUserDelete()->middlewareAuth()->handle());
 
+$router->get('/routine', static fn () => new RoutineIndex()->middlewareAuth()->handle());
+$router->get('/routine/detail', static fn () => new RoutineDetail()->middlewareAuth()->handle());
+$router->post('/routine/create', static fn () => new RoutineCreate()->middlewareAuth()->handle());
+$router->patch('/routine/update', static fn () => new RoutineUpdate()->middlewareAuth()->handle());
+$router->patch('/routine/alarm', static fn () => new RoutineAlarm()->middlewareAuth()->handle());
+$router->delete('/routine/delete', static fn () => new RoutineDelete()->middlewareAuth()->handle());
+
 $router->get('/event', static fn () => new EventIndex()->middlewareAuth()->handle());
 $router->get('/event/detail', static fn () => new EventDetail()->middlewareAuth()->handle());
 $router->post('/event/create', static fn () => new EventCreate()->middlewareAuth()->handle());

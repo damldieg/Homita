@@ -3,16 +3,20 @@
 namespace App\Controllers;
 
 use App\Models\Event;
+use App\Models\Routine;
 use App\Models\EventUser;
 
 class EventUpdate extends ControllerAbstract
 {
     public function handle(): void
     {
+        Routine::materializeForUser($this->user->id, $this->getInputTimezone());
+
         $id = $this->getInputInt('id');
         $title = $this->getInputString('title');
         $dateAt = $this->getInputDateHour('date_at');
         $alarm = $this->getInputInt('alarm');
+        Routine::validateAlarm($alarm);
 
         if (empty($id) || empty($title) || empty($dateAt)) {
             $this->response(['error' => 'Event ID, title, and date_at are required'], 400);

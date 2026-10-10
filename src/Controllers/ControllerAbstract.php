@@ -83,6 +83,14 @@ abstract class ControllerAbstract
         return ($value = $this->getInputString($key)) ? trim(strval($value)) : $default;
     }
 
+    protected function getInputTimezone(): string
+    {
+        $timezone = $this->getInput('timezone', 'UTC');
+        if (!is_string($timezone)) throw new \InvalidArgumentException('Invalid timezone');
+        \App\Models\Routine::cutoff($timezone);
+        return $timezone;
+    }
+
     public function setUser(UserModel $user): self
     {
         $this->user = $user;

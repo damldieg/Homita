@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Utils\Helper;
+use App\Utils\Database;
 
 class Event extends ModelAbstract
 {
     public int $id;
     public int $calendar_id;
+    public ?int $routine_id = null;
+    public ?string $routine_date = null;
     public ?string $calendar_color = null;
     public ?string $calendar_name = null;
     public string $title;
@@ -82,6 +85,7 @@ class Event extends ModelAbstract
 
     public static function findWithFilters(int $userId, array $filters): array
     {
+        Routine::materializeForUser($userId, $filters['timezone'] ?? 'UTC');
         $params = ['user_id' => $userId];
 
         if ($value = self::getFilterInt($filters, 'calendar_id')) {
@@ -201,11 +205,10 @@ class Event extends ModelAbstract
 
     public function update(string $title, string $dateAt): self
     {
-        self::database()->execute(self::updateSql(), [
-            'title' => $title,
-            'date_at' => $dateAt,
-            'id' => $this->id,
-        ]);
+        Database::transaction(function () use ($title, $dateAt) {
+            if ($this->routine_id !== null) Routine::saveException($this, $title, $dateAt, false);
+            self::database()->execute(self::updateSql(), ['title' => $title, 'date_at' => $dateAt, 'id' => $this->id]);
+        }, true);
 
         return self::findById($this->id);
     }
@@ -223,9 +226,10 @@ class Event extends ModelAbstract
 
     public function delete(): void
     {
-        self::database()->execute(self::deleteSql(), [
-            'id' => $this->id,
-        ]);
+        Database::transaction(function () {
+            if ($this->routine_id !== null) Routine::saveException($this, null, null, true);
+            self::database()->execute(self::deleteSql(), ['id' => $this->id]);
+        }, true);
     }
 
     private static function deleteSql(): string

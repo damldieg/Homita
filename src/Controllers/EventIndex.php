@@ -13,6 +13,6 @@ class EventIndex extends ControllerAbstract
 
     protected function list(): array
     {
-        return Event::findWithFilters($this->user->id, $this->input);
+        return Event::findWithFilters($this->user->id, array_replace($this->input, ['timezone' => $this->getInputTimezone()]));
     }
 }

@@ -2,30 +2,39 @@
 
 namespace App\Models;
 
+use App\Utils\Database;
+
 class EventUser extends ModelAbstract
 {
     public int $id;
     public int $event_id;
     public int $user_id;
-    public int $alarm;
+    public ?int $alarm;
     public string $created_at;
     public string $updated_at;
 
     public static function apply(int $eventId, int $userId, ?int $alarm): void
     {
-        if ($alarm === null) {
-            self::removeAlarm($eventId, $userId);
-        } else {
-            self::setAlarm($eventId, $userId, $alarm);
-        }
+        Routine::validateAlarm($alarm);
+        Database::transaction(function () use ($eventId, $userId, $alarm) {
+            $event = Event::findByIdAndUser($eventId, $userId);
+            if ($event->routine_id !== null) {
+                self::database()->execute('INSERT INTO routine_event_alarm (routine_id,routine_date,user_id,alarm) VALUES (:id,:date,:user_id,:alarm) ON CONFLICT(routine_id,routine_date,user_id) DO UPDATE SET alarm=excluded.alarm', ['id' => $event->routine_id, 'date' => $event->routine_date, 'user_id' => $userId, 'alarm' => $alarm]);
+                self::setAlarm($eventId, $userId, $alarm);
+            } elseif ($alarm === null) {
+                self::removeAlarm($eventId, $userId);
+            } else {
+                self::setAlarm($eventId, $userId, $alarm);
+            }
+        }, true);
     }
 
-    public static function setAlarm(int $eventId, int $userId, int $alarm): self
+    public static function setAlarm(int $eventId, int $userId, ?int $alarm): self
     {
         self::database()->execute(self::upsertSql(), [
             'event_id' => $eventId,
             'user_id' => $userId,
-            'alarm' => max(0, $alarm),
+            'alarm' => $alarm === null ? null : max(0, $alarm),
         ]);
 
         return self::findByEventAndUser($eventId, $userId);

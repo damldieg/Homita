@@ -3,6 +3,7 @@
 namespace App\Utils;
 
 use RuntimeException;
+use InvalidArgumentException;
 use Throwable;
 use App\Utils\Error;
 
@@ -78,6 +79,6 @@ class Router
     {
         Error::report($e);
 
-        $this->sendResponse(['error' => $e->getMessage()], 500);
+        $this->sendResponse(['error' => $e->getMessage()], $e instanceof InvalidArgumentException ? 400 : 500);
     }
 }

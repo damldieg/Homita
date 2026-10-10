@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\Event;
 use App\Models\EventUser;
+use App\Models\Routine;
 use App\Models\CalendarUser;
 use App\Utils\GeminiClient;
 
@@ -16,6 +17,7 @@ class EventCreate extends ControllerAbstract
         $title = $this->getInputString('title');
         $dateAt = $this->getInputDateHour('date_at');
         $alarm = $this->getInputInt('alarm');
+        Routine::validateAlarm($alarm);
 
         if (empty($calendarId)) {
             $this->response(['error' => 'Calendar ID is required'], 400);

@@ -31,6 +31,7 @@ class Database
         );
 
         self::$instance->exec('PRAGMA foreign_keys = ON;');
+        self::$instance->exec('PRAGMA busy_timeout = 5000;');
 
         return self::$instance;
     }
@@ -106,19 +107,19 @@ class Database
         DatabaseLog::log($sql, [], (microtime(true) - $start) * 1000);
     }
 
-    public static function transaction(callable $callback): mixed
+    public static function transaction(callable $callback, bool $immediate = false): mixed
     {
         $db = self::getInstance();
-        $db->beginTransaction();
+        $immediate ? $db->exec('BEGIN IMMEDIATE') : $db->beginTransaction();
 
         try {
             $result = $callback();
 
-            $db->commit();
+            $immediate ? $db->exec('COMMIT') : $db->commit();
 
             return $result;
         } catch (Throwable $e) {
-            $db->rollBack();
+            $immediate ? $db->exec('ROLLBACK') : $db->rollBack();
 
             throw $e;
         }

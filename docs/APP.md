@@ -7,7 +7,7 @@ Este documento detalla rigurosamente los patrones de diseño y estándares de co
 1.  **Tipado Estricto y PHP 8.5:** Todos los archivos deben comenzar con `<?php declare(strict_types=1);`. Se utilizan características modernas como `json_validate` (PHP 8.3+).
 2.  **Cero Comentarios:** El código debe ser 100% autodocumentado a través de nombres expresivos, separación en funciones pequeñas (`private function`) y firmas fuertemente tipadas.
 3.  **Encapsulamiento de Errores (Fail-Fast sin try/catch local):** Los Controladores **NUNCA** deben usar bloques `try/catch`. Si un dato no existe, se lanza una `Exception` (por ejemplo, desde `selectOneOrFail`) que se propaga libremente.
-4.  **Manejador Global de Errores:** El archivo `Router.php` envuelve la ejecución del controlador y atrapa cualquier `Throwable`, delegando su reporte a `App\Utils\Error::report($e)` y devolviendo automáticamente un HTTP 500 con el mensaje de la excepción en formato JSON.
+4.  **Manejador Global de Errores:** El archivo `Router.php` envuelve la ejecución del controlador y atrapa cualquier `Throwable`, delegando su reporte a `App\Utils\Error::report($e)` y devolviendo HTTP 400 para `InvalidArgumentException` de validación y HTTP 500 para los demás errores, con el mensaje de la excepción en formato JSON.
 
 ## 2. Arquitectura de Controladores (Action-Based)
 

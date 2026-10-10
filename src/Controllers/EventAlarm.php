@@ -3,12 +3,15 @@
 namespace App\Controllers;
 
 use App\Models\Event;
+use App\Models\Routine;
 use App\Models\EventUser;
 
 class EventAlarm extends ControllerAbstract
 {
     public function handle(): void
     {
+        Routine::materializeForUser($this->user->id, $this->getInputTimezone());
+
         $eventId = $this->getInputInt('event_id');
         $alarm = $this->getInputInt('alarm');
 
