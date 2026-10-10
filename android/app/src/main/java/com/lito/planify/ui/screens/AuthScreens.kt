@@ -45,11 +45,12 @@ fun RegisterScreen(
         modifier = Modifier
             .fillMaxSize()
             .systemBarsPadding()
+            .imePadding()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 20.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             Box(modifier = Modifier.padding(top = 24.dp)) {
@@ -72,12 +73,12 @@ fun RegisterScreen(
 
             Text(
                 text = stringResource(R.string.register_title),
-                style = MaterialTheme.typography.headlineLarge,
+                style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 CustomTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -118,7 +119,7 @@ fun RegisterScreen(
                 Text(text = error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(32.dp))
             Spacer(modifier = Modifier.weight(1f))
 
             PrimaryButton(
@@ -152,11 +153,12 @@ fun LoginScreen(
         modifier = Modifier
             .fillMaxSize()
             .systemBarsPadding()
+            .imePadding()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 20.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             Box(modifier = Modifier.padding(top = 24.dp)) {
@@ -179,12 +181,12 @@ fun LoginScreen(
 
             Text(
                 text = stringResource(R.string.login_title),
-                style = MaterialTheme.typography.headlineLarge,
+                style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 CustomTextField(
                     value = email,
                     onValueChange = { email = it },
@@ -217,7 +219,7 @@ fun LoginScreen(
                 Text(text = error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(32.dp))
             Spacer(modifier = Modifier.weight(1f))
 
             PrimaryButton(

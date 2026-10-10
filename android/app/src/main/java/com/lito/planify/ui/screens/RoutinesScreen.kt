@@ -11,6 +11,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -81,10 +84,28 @@ fun RoutinesScreen(
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 150.dp)) {
                     if (routines.isEmpty() && !isLoading) {
                         item {
-                            Text(
-                                stringResource(if (calendars.isEmpty()) R.string.routines_no_calendar else R.string.routines_empty),
-                                modifier = Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Column(
+                                modifier = Modifier.fillParentMaxSize().padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
+                            ) {
+                                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
+                                    Icon(
+                                        if (calendars.isEmpty()) Icons.Default.DateRange else Icons.Default.Repeat,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(16.dp).size(28.dp)
+                                    )
+                                }
+                                Text(
+                                    stringResource(if (calendars.isEmpty()) R.string.routines_no_calendar else R.string.routines_empty),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (calendars.isEmpty()) {
+                                    TextButton(onClick = { onNavigate("calendars") }) { Text(stringResource(R.string.nav_calendars)) }
+                                }
+                            }
                         }
                     }
                     itemsIndexed(routines, key = { _, routine -> routine.id }) { index, routine ->
@@ -164,17 +185,17 @@ private fun RoutineFormDialog(
     val canSave = title.isNotBlank() && days.isNotEmpty() && calendars.any { it.id == calendarId } && validDates
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
-            Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp),
+            Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(stringResource(if (initial == null) R.string.routine_new else R.string.routine_edit), style = MaterialTheme.typography.headlineMedium)
+            Text(stringResource(if (initial == null) R.string.routine_new else R.string.routine_edit), style = MaterialTheme.typography.headlineSmall)
             Text(stringResource(R.string.routine_future_only), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text(stringResource(R.string.label_title)) }, modifier = Modifier.fillMaxWidth(), enabled = !isSaving, singleLine = true)
+            CustomTextField(value = title, onValueChange = { title = it }, label = stringResource(R.string.label_title), modifier = Modifier.fillMaxWidth(), enabled = !isSaving, singleLine = true)
             ExposedDropdownMenuBox(expanded = calendarExpanded, onExpandedChange = { if (initial == null && !isSaving) calendarExpanded = !calendarExpanded }) {
-                OutlinedTextField(
+                CustomTextField(
                     value = calendars.find { it.id == calendarId }?.name ?: initial?.calendar_name.orEmpty(), onValueChange = {}, readOnly = true,
-                    label = { Text(stringResource(R.string.routine_calendar)) }, enabled = initial == null && !isSaving,
+                    label = stringResource(R.string.routine_calendar), enabled = initial == null && !isSaving,
                     modifier = Modifier.menuAnchor().fillMaxWidth(), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(calendarExpanded) }
                 )
                 ExposedDropdownMenu(expanded = calendarExpanded, onDismissRequest = { calendarExpanded = false }) {
@@ -215,9 +236,9 @@ private fun RoutineFormDialog(
                 30 to stringResource(R.string.alarm_30), 40 to stringResource(R.string.alarm_40), 60 to stringResource(R.string.alarm_60)
             )
             ExposedDropdownMenuBox(expanded = alarmExpanded, onExpandedChange = { if (!isSaving) alarmExpanded = !alarmExpanded }) {
-                OutlinedTextField(
+                CustomTextField(
                     value = alarmOptions.find { it.first == alarm }?.second ?: stringResource(R.string.alarm_no), onValueChange = {}, readOnly = true, enabled = !isSaving,
-                    label = { Text(stringResource(R.string.routine_personal_alarm)) }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(alarmExpanded) }, modifier = Modifier.menuAnchor().fillMaxWidth()
+                    label = stringResource(R.string.routine_personal_alarm), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(alarmExpanded) }, modifier = Modifier.menuAnchor().fillMaxWidth()
                 )
                 ExposedDropdownMenu(expanded = alarmExpanded, onDismissRequest = { alarmExpanded = false }) {
                     alarmOptions.forEach { option -> DropdownMenuItem(text = { Text(option.second) }, onClick = { alarm = option.first; alarmExpanded = false }) }

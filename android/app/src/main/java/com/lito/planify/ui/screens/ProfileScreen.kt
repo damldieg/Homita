@@ -82,9 +82,10 @@ fun ProfileScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
                 text = stringResource(R.string.profile_title),
@@ -102,50 +103,36 @@ fun ProfileScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .glass(androidx.compose.foundation.shape.RoundedCornerShape(28.dp))
-                    .padding(horizontal = 18.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Name Field
-                OutlinedTextField(
+                CustomTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Nombre") },
+                    label = stringResource(R.string.label_name),
                     leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = OnSurfaceVariantColor) },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = OutlineColor,
-                        focusedBorderColor = PrimaryColor,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedContainerColor = Color.Transparent
-                    ),
                     singleLine = true
                 )
 
                 // Email Field
-                OutlinedTextField(
+                CustomTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Email") },
-                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = OnSurfaceVariantColor) },
+                    label = stringResource(R.string.label_email),
+                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = OnSurfaceVariantColor) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = OutlineColor,
-                        focusedBorderColor = PrimaryColor,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedContainerColor = Color.Transparent
-                    ),
                     singleLine = true
                 )
 
                 // Password Field
-                OutlinedTextField(
+                CustomTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("Contraseña") },
-                    leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null, tint = OnSurfaceVariantColor) },
+                    label = stringResource(R.string.label_password),
+                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = OnSurfaceVariantColor) },
                     trailingIcon = {
                         val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -155,32 +142,16 @@ fun ProfileScreen(
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = OutlineColor,
-                        focusedBorderColor = PrimaryColor,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedContainerColor = Color.Transparent
-                    ),
                     singleLine = true
                 )
             }
 
-            // Save Button
-            Button(
-                onClick = { 
-                    viewModel.updateProfile(name, email, if (password.isEmpty()) null else password) { }
-                },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(26.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                } else {
-                    Text(stringResource(R.string.profile_save), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
+            PrimaryButton(
+                text = stringResource(R.string.profile_save),
+                onClick = { viewModel.updateProfile(name, email, if (password.isEmpty()) null else password) { } },
+                modifier = Modifier.fillMaxWidth(),
+                isLoading = isLoading
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -251,7 +222,7 @@ fun ProfileScreen(
                     TokenManager(context).clearToken()
                     viewModel.logout { onLogout() }
                 },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE6E8)),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFDC2626))
@@ -266,37 +237,6 @@ fun ProfileScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-fun ProfileInputField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    leadingIcon: @Composable (() -> Unit)? = null,
-    trailingIcon: @Composable (() -> Unit)? = null,
-    visualTransformation: VisualTransformation = VisualTransformation.None,
-    keyboardOptions: KeyboardOptions = KeyboardOptions.Default
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge.copy(
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            ),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        CustomTextField(
-            value = value,
-            onValueChange = onValueChange,
-            label = "", // Keep internal label empty as requested
-            leadingIcon = leadingIcon,
-            trailingIcon = trailingIcon,
-            visualTransformation = visualTransformation,
-            keyboardOptions = keyboardOptions
-        )
     }
 }
 

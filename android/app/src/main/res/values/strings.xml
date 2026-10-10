@@ -118,8 +118,8 @@
     <string name="routine_new">Nueva rutina</string>
     <string name="routine_edit">Editar rutina</string>
     <string name="routine_delete">Borrar rutina</string>
-    <string name="routines_empty">Crea una rutina para repetir tus eventos cada semana.</string>
-    <string name="routines_no_calendar">Crea o comparte un calendario antes de añadir una rutina.</string>
+    <string name="routines_empty">Sin rutinas</string>
+    <string name="routines_no_calendar">Sin calendarios</string>
     <string name="routine_calendar">Calendario</string>
     <string name="routine_days">Días de la semana</string>
     <string name="routine_time">Hora</string>

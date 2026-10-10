@@ -2,13 +2,14 @@ package com.lito.planify.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.filled.*
@@ -67,8 +68,8 @@ fun CreateCalendarDialog(
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            modifier = Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (isEdit) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -84,7 +85,7 @@ fun CreateCalendarDialog(
                                 color = MaterialTheme.colorScheme.primary
                             )
                         },
-                        modifier = Modifier.weight(1f).padding(bottom = 8.dp)
+                        modifier = Modifier.weight(1f)
                     ) {
                         Tab(
                             selected = selectedTab == 0,
@@ -99,22 +100,19 @@ fun CreateCalendarDialog(
                     }
                 }
             } else {
-                Text(text = stringResource(R.string.calendars_new), style = MaterialTheme.typography.headlineMedium)
+                Text(text = stringResource(R.string.calendars_new), style = MaterialTheme.typography.headlineSmall)
             }
 
             if (selectedTab == 0) {
-                Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CustomTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = stringResource(R.string.label_name),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+                    )
                     Column {
-                        Text(text = stringResource(R.string.label_name).uppercase(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
-                        CustomTextField(
-                            value = name, 
-                            onValueChange = { name = it }, 
-                            label = "",
-                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
-                        )
-                    }
-                    Column {
-                        Text(text = stringResource(R.string.label_color).uppercase(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 12.dp))
+                        Text(text = stringResource(R.string.label_color), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
                         HueColorPicker(currentColorHex = selectedColor, onColorChange = { selectedColor = it })
                     }
                     Row(
@@ -143,22 +141,16 @@ fun CreateCalendarDialog(
             } else {
                 // User Management Tab
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(text = stringResource(R.string.label_invite_user).uppercase(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OutlinedTextField(
+                        CustomTextField(
                             value = inviteEmail,
+                            label = stringResource(R.string.label_email),
                             onValueChange = { inviteEmail = it },
+                            keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Email),
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = OutlineColor,
-                                focusedBorderColor = PrimaryColor,
-                                unfocusedContainerColor = Color.White,
-                                focusedContainerColor = Color.White
-                            ),
                             singleLine = true
                         )
                         IconButton(
@@ -170,7 +162,7 @@ fun CreateCalendarDialog(
                             },
                             modifier = Modifier.size(48.dp).background(PrimaryColor, RoundedCornerShape(12.dp))
                         ) {
-                            Icon(Icons.Default.Add, null, tint = Color.White)
+                            Icon(Icons.Default.Add, stringResource(R.string.label_invite_user), tint = Color.White)
                         }
                     }
 
@@ -188,7 +180,7 @@ fun CreateCalendarDialog(
             }
 
             if (selectedTab == 0) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 16.dp).fillMaxWidth()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp).fillMaxWidth()) {
                     if (isEdit && onDelete != null) {
                         IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(48.dp)) {
                             Icon(androidx.compose.material.icons.Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
@@ -198,7 +190,7 @@ fun CreateCalendarDialog(
                     PrimaryButton(text = if(isEdit) stringResource(R.string.generic_save) else stringResource(R.string.generic_create), onClick = { closeWithAnimation { onConfirm(name, selectedColor, widget) } }, enabled = name.isNotBlank(), modifier = Modifier.weight(1f))
                 }
             } else {
-                Row(modifier = Modifier.padding(top = 16.dp).fillMaxWidth()) {
+                Row(modifier = Modifier.padding(top = 4.dp).fillMaxWidth()) {
                     OutlinedActionButton(text = stringResource(R.string.generic_close), onClick = { closeWithAnimation(onDismiss) }, modifier = Modifier.fillMaxWidth())
                 }
             }
@@ -317,8 +309,8 @@ fun CreateTaskListDialog(
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            modifier = Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (isEdit) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -334,7 +326,7 @@ fun CreateTaskListDialog(
                                 color = MaterialTheme.colorScheme.primary
                             )
                         },
-                        modifier = Modifier.weight(1f).padding(bottom = 8.dp)
+                        modifier = Modifier.weight(1f)
                     ) {
                         Tab(
                             selected = selectedTab == 0,
@@ -349,22 +341,18 @@ fun CreateTaskListDialog(
                     }
                 }
             } else {
-                Text(text = stringResource(R.string.tasks_new_list), style = MaterialTheme.typography.headlineMedium)
+                Text(text = stringResource(R.string.tasks_new_list), style = MaterialTheme.typography.headlineSmall)
             }
 
             if (selectedTab == 0) {
-                Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CustomTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = stringResource(R.string.label_name),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+                    )
                     Column {
-                        Text(text = stringResource(R.string.label_name).uppercase(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
-                        CustomTextField(
-                            value = name, 
-                            onValueChange = { name = it }, 
-                            label = "",
-                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
-                        )
-                    }
-                    Column {
-                        Text(text = stringResource(R.string.label_order).uppercase(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 10.dp))
                         
                         val sortOptions = listOf(
                             "updated_at" to stringResource(R.string.sort_activity),
@@ -377,24 +365,17 @@ fun CreateTaskListDialog(
                             expanded = expanded,
                             onExpandedChange = { expanded = !expanded }
                         ) {
-                            OutlinedTextField(
+                            CustomTextField(
                                 value = sortOptions.find { it.first == sortOrder }?.second ?: "",
+                                label = stringResource(R.string.label_order),
                                 onValueChange = {},
                                 readOnly = true,
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                                modifier = Modifier.menuAnchor().fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedBorderColor = OutlineColor,
-                                    focusedBorderColor = PrimaryColor,
-                                    unfocusedContainerColor = Color.White,
-                                    focusedContainerColor = Color.White
-                                )
+                                modifier = Modifier.menuAnchor().fillMaxWidth()
                             )
                             ExposedDropdownMenu(
                                 expanded = expanded,
-                                onDismissRequest = { expanded = false },
-                                modifier = Modifier.background(Color.White)
+                                onDismissRequest = { expanded = false }
                             ) {
                                 sortOptions.forEach { option ->
                                     DropdownMenuItem(
@@ -409,7 +390,7 @@ fun CreateTaskListDialog(
                         }
                     }
                     Column {
-                        Text(text = stringResource(R.string.label_color).uppercase(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 10.dp))
+                        Text(text = stringResource(R.string.label_color), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
                         HueColorPicker(currentColorHex = selectedColor, onColorChange = { selectedColor = it })
                     }
                     Row(
@@ -438,22 +419,16 @@ fun CreateTaskListDialog(
             } else {
                 // User Management Tab
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(text = stringResource(R.string.label_invite_user).uppercase(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OutlinedTextField(
+                        CustomTextField(
                             value = inviteEmail,
+                            label = stringResource(R.string.label_email),
                             onValueChange = { inviteEmail = it },
+                            keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Email),
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = OutlineColor,
-                                focusedBorderColor = PrimaryColor,
-                                unfocusedContainerColor = Color.White,
-                                focusedContainerColor = Color.White
-                            ),
                             singleLine = true
                         )
                         IconButton(
@@ -465,7 +440,7 @@ fun CreateTaskListDialog(
                             },
                             modifier = Modifier.size(48.dp).background(PrimaryColor, RoundedCornerShape(12.dp))
                         ) {
-                            Icon(Icons.Default.Add, null, tint = Color.White)
+                            Icon(Icons.Default.Add, stringResource(R.string.label_invite_user), tint = Color.White)
                         }
                     }
 
@@ -483,7 +458,7 @@ fun CreateTaskListDialog(
             }
 
             if (selectedTab == 0) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 4.dp).fillMaxWidth()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp).fillMaxWidth()) {
                     if (isEdit && onDelete != null) {
                         IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(48.dp)) {
                             Icon(androidx.compose.material.icons.Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
@@ -589,15 +564,13 @@ fun EventFormDialog(
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp).fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            modifier = Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Header
             Text(
                 text = if(isEdit) stringResource(R.string.calendars_edit_event) else stringResource(R.string.calendars_new_event), 
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontSize = 32.sp
-                )
+                style = MaterialTheme.typography.headlineSmall
             )
 
             if (initialEvent?.routine_id != null) {
@@ -612,7 +585,7 @@ fun EventFormDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(64.dp)
+                        .heightIn(min = 48.dp)
                         .background(
                             color = if (isAiMode) PrimaryContainerColor else SurfaceDimColor,
                             shape = RoundedCornerShape(12.dp)
@@ -649,79 +622,33 @@ fun EventFormDialog(
             }
 
             if (isAiMode && !isEdit) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(text = stringResource(R.string.label_describe_event).uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = OnSurfaceVariantColor)
-                    OutlinedTextField(
-                        value = text,
-                        onValueChange = { text = it },
-                        modifier = Modifier.fillMaxWidth().height(160.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = PrimaryColor,
-                            focusedBorderColor = PrimaryColor,
-                            unfocusedContainerColor = Color.White,
-                            focusedContainerColor = Color.White
-                        ),
-                        trailingIcon = {
-                            Box(modifier = Modifier.padding(top = 100.dp, end = 8.dp)) {
-                                FloatingActionButton(
-                                    onClick = {},
-                                    containerColor = PrimaryColor,
-                                    contentColor = Color.White,
-                                    shape = androidx.compose.foundation.shape.CircleShape,
-                                    modifier = Modifier.size(40.dp),
-                                    elevation = FloatingActionButtonDefaults.elevation(0.dp)
-                                ) {
-                                    Icon(androidx.compose.material.icons.Icons.Default.Mic, null)
-                                }
-                            }
-                        }
-                    )
-                }
+                CustomTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = stringResource(R.string.label_describe_event),
+                    singleLine = false,
+                    modifier = Modifier.heightIn(min = 120.dp)
+                )
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(text = stringResource(R.string.label_title).uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = OnSurfaceVariantColor)
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = OutlineColor,
-                            focusedBorderColor = PrimaryColor,
-                            unfocusedContainerColor = Color.White,
-                            focusedContainerColor = Color.White
-                        ),
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
-                    )
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(text = stringResource(R.string.label_date_time).uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = OnSurfaceVariantColor)
-                    OutlinedTextField(
-                        value = dateAt,
-                        onValueChange = {},
-                        readOnly = true,
-                        modifier = Modifier.fillMaxWidth().clickable { openDateTimePicker() },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = OutlineColor,
-                            focusedBorderColor = PrimaryColor,
-                            disabledBorderColor = OutlineColor,
-                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedContainerColor = Color.White,
-                            focusedContainerColor = Color.White,
-                            disabledContainerColor = Color.White
-                        ),
-                        enabled = false,
-                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Default.DateRange, null, tint = OnSurfaceVariantColor) },
-                        trailingIcon = { Icon(androidx.compose.material.icons.Icons.Default.ArrowDropDown, null, tint = OnSurfaceVariantColor) }
-                    )
-                }
+                CustomTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = stringResource(R.string.label_title),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+                )
+                CustomTextField(
+                    value = dateAt,
+                    onValueChange = {},
+                    label = stringResource(R.string.label_date_time),
+                    readOnly = true,
+                    enabled = false,
+                    modifier = Modifier.clickable { openDateTimePicker() },
+                    leadingIcon = { Icon(Icons.Default.DateRange, null, tint = OnSurfaceVariantColor) },
+                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, null, tint = OnSurfaceVariantColor) }
+                )
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(text = stringResource(R.string.label_alarm).uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = OnSurfaceVariantColor)
                 
                 val alarmOptions = listOf(
                     null to stringResource(R.string.alarm_no),
@@ -738,24 +665,17 @@ fun EventFormDialog(
                     expanded = alarmExpanded,
                     onExpandedChange = { alarmExpanded = !alarmExpanded }
                 ) {
-                    OutlinedTextField(
+                    CustomTextField(
+                        label = stringResource(R.string.label_alarm),
                         value = alarmOptions.find { it.first == alarm }?.second ?: stringResource(R.string.alarm_no),
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = alarmExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = OutlineColor,
-                            focusedBorderColor = PrimaryColor,
-                            unfocusedContainerColor = Color.White,
-                            focusedContainerColor = Color.White
-                        )
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
                     )
                     ExposedDropdownMenu(
                         expanded = alarmExpanded,
-                        onDismissRequest = { alarmExpanded = false },
-                        modifier = Modifier.background(Color.White)
+                        onDismissRequest = { alarmExpanded = false }
                     ) {
                         alarmOptions.forEach { option ->
                             DropdownMenuItem(
@@ -770,7 +690,7 @@ fun EventFormDialog(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 if (isEdit && onDelete != null) {
                     IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(48.dp)) {
                         Icon(androidx.compose.material.icons.Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
@@ -831,30 +751,22 @@ fun TaskFormDialog(
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            modifier = Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
                 text = if (isEdit) stringResource(R.string.tasks_edit_task) else stringResource(R.string.generic_create),
-                style = MaterialTheme.typography.headlineMedium
+                style = MaterialTheme.typography.headlineSmall
             )
 
-            Column {
-                Text(
-                    text = stringResource(R.string.label_name).uppercase(),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 6.dp)
-                )
-                CustomTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = "",
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
-                )
-            }
+            CustomTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = stringResource(R.string.label_name),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+            )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 if (isEdit && onDelete != null) {
                     IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(48.dp)) {
                         Icon(androidx.compose.material.icons.Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
