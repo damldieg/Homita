@@ -33,6 +33,7 @@ import com.lito.planify.data.api.CalendarUserResponse
 import com.lito.planify.data.api.CreateRoutineRequest
 import com.lito.planify.data.api.EventResponse
 import com.lito.planify.data.api.RoutineResponse
+import com.lito.planify.data.api.TaskListResponse
 import com.lito.planify.data.api.TaskListUserResponse
 import com.lito.planify.ui.theme.*
 import java.time.LocalDate
@@ -64,7 +65,7 @@ private fun showTimePicker(context: android.content.Context, time: LocalTime, on
 @Composable
 fun CreateCalendarDialog(
     initialName: String = "",
-    initialColor: String = "#5CB8D6",
+    initialColor: String? = null,
     initialWidget: Boolean = true,
     users: List<CalendarUserResponse> = emptyList(),
     onInviteUser: (String) -> Unit = {},
@@ -75,7 +76,7 @@ fun CreateCalendarDialog(
     isEdit: Boolean = false
 ) {
     var name by remember { mutableStateOf(initialName) }
-    var selectedColor by remember { mutableStateOf(initialColor) }
+    var selectedColor by remember { mutableStateOf(initialColor ?: randomHueColor()) }
     var widget by remember { mutableStateOf(initialWidget) }
     var selectedTab by remember { mutableStateOf(0) }
 
@@ -111,7 +112,7 @@ fun CreateCalendarDialog(
 @Composable
 fun CreateTaskListDialog(
     initialName: String = "",
-    initialColor: String = "#D65C5C",
+    initialColor: String? = null,
     initialSortOrder: String = "updated_at",
     initialWidget: Boolean = true,
     users: List<TaskListUserResponse> = emptyList(),
@@ -123,7 +124,7 @@ fun CreateTaskListDialog(
     isEdit: Boolean = false
 ) {
     var name by remember { mutableStateOf(initialName) }
-    var selectedColor by remember { mutableStateOf(initialColor) }
+    var selectedColor by remember { mutableStateOf(initialColor ?: randomHueColor()) }
     var sortOrder by remember { mutableStateOf(initialSortOrder) }
     var widget by remember { mutableStateOf(initialWidget) }
     var selectedTab by remember { mutableStateOf(0) }
@@ -331,20 +332,31 @@ fun RoutineFormDialog(
 fun TaskFormDialog(
     initialTitle: String,
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit,
+    onConfirm: (String, Int?) -> Unit,
     onDelete: (() -> Unit)? = null,
-    isEdit: Boolean = true
+    isEdit: Boolean = true,
+    taskLists: List<TaskListResponse> = emptyList()
 ) {
     var title by remember { mutableStateOf(initialTitle) }
+    var listId by remember { mutableStateOf(taskLists.firstOrNull()?.id) }
 
     PlanifyFormSheet(
         title = stringResource(if (isEdit) R.string.tasks_edit_task else R.string.tasks_new_task),
         onDismiss = onDismiss,
         confirmText = stringResource(if (isEdit) R.string.generic_save else R.string.generic_create),
         confirmEnabled = title.isNotBlank(),
-        onConfirm = { onConfirm(title.trim()) },
+        onConfirm = { onConfirm(title.trim(), listId) },
         onDelete = onDelete.takeIf { isEdit }
     ) {
+        if (taskLists.isNotEmpty()) {
+            FormSelectField(
+                label = stringResource(R.string.label_list),
+                selected = listId,
+                options = taskLists.map { it.id to it.name },
+                onSelect = { listId = it },
+                colorOf = { id -> parseHexColor(taskLists.find { it.id == id }?.color) }
+            )
+        }
         CustomTextField(
             value = title,
             onValueChange = { title = it },

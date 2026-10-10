@@ -11,7 +11,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -59,6 +62,7 @@ fun TasksScreen(
     var newTaskTitle by remember { mutableStateOf("") }
     var showEditDialog by remember { mutableStateOf(false) }
     var selectedTaskToEdit by remember { mutableStateOf<com.lito.planify.data.api.TaskResponse?>(null) }
+    var showCreateTaskDialog by remember { mutableStateOf(false) }
 
     if (isStandalone && onBack != null) {
         androidx.activity.compose.BackHandler(onBack = onBack)
@@ -102,6 +106,7 @@ fun TasksScreen(
                     newTaskTitle = newTaskTitle,
                     onTitleChange = { newTaskTitle = it },
                     onAddTask = { viewModel.createTask(taskListId, newTaskTitle); newTaskTitle = "" },
+                    onShowCreateTask = {},
                     onTaskToggle = { id, listId, comp -> viewModel.completeTask(id, listId, comp) },
                     onTaskDelete = { id, listId -> viewModel.deleteTask(id, listId) },
                     onReorderTask = { id, pos, lId -> viewModel.reorderTask(id, pos, lId) },
@@ -130,6 +135,7 @@ fun TasksScreen(
             newTaskTitle = newTaskTitle,
             onTitleChange = { newTaskTitle = it },
             onAddTask = { viewModel.createTask(selectedListFilterId, newTaskTitle); newTaskTitle = "" },
+            onShowCreateTask = { showCreateTaskDialog = true },
             onTaskToggle = { id, listId, comp -> viewModel.completeTask(id, listId, comp) },
             onTaskDelete = { id, listId -> viewModel.deleteTask(id, listId) },
             onReorderTask = { id, pos, lId -> viewModel.reorderTask(id, pos, lId) },
@@ -178,7 +184,7 @@ fun TasksScreen(
         TaskFormDialog(
             initialTitle = task.title,
             onDismiss = { selectedTaskToEdit = null },
-            onConfirm = { newTitle ->
+            onConfirm = { newTitle, _ ->
                 val effectiveListId = if (isGlobal) selectedListFilterId else taskListId
                 viewModel.updateTask(task.id, effectiveListId, newTitle)
                 selectedTaskToEdit = null
@@ -189,6 +195,19 @@ fun TasksScreen(
                 selectedTaskToEdit = null
             },
             isEdit = true
+        )
+    }
+
+    if (showCreateTaskDialog) {
+        TaskFormDialog(
+            initialTitle = "",
+            taskLists = taskListsState,
+            onDismiss = { showCreateTaskDialog = false },
+            onConfirm = { title, listId ->
+                viewModel.createTask(listId, title, refreshListId = selectedListFilterId)
+                showCreateTaskDialog = false
+            },
+            isEdit = false
         )
     }
 }
@@ -209,6 +228,7 @@ fun TasksViewContent(
     newTaskTitle: String,
     onTitleChange: (String) -> Unit,
     onAddTask: () -> Unit,
+    onShowCreateTask: () -> Unit,
     onTaskToggle: (Int, Int?, Boolean) -> Unit,
     onTaskDelete: (Int, Int?) -> Unit,
     onReorderTask: (Int, Int, Int?) -> Unit,
@@ -300,16 +320,47 @@ fun TasksViewContent(
                                 unfocusedIndicatorColor = Color.Transparent
                             ),
                             textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
-                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { if (newTaskTitle.isNotBlank()) onAddTask() })
                         )
+                        val canAdd = newTaskTitle.isNotBlank()
                         FloatingActionButton(
-                            onClick = onAddTask,
-                            containerColor = listColor,
+                            onClick = { if (canAdd) onAddTask() },
+                            containerColor = if (canAdd) listColor else listColor.copy(alpha = 0.35f),
                             contentColor = Color.White,
                             shape = CircleShape,
                             modifier = Modifier.size(44.dp),
                             elevation = FloatingActionButtonDefaults.elevation(0.dp)
                         ) { Icon(Icons.Default.Add, null) }
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = isGlobal && !showAdd && taskLists.isNotEmpty(),
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .fillMaxWidth()
+                            .glass(CircleShape)
+                            .clickable { onShowCreateTask() }
+                            .padding(start = 22.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.tasks_new_task),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Box(
+                            modifier = Modifier.size(44.dp).background(listColor, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Add, null, tint = Color.White)
+                        }
                     }
                 }
 

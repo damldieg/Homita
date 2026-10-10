@@ -51,7 +51,7 @@ Esta sección utiliza dos pestañas superiores:
 ### 3.2. Tab: Tareas (`TasksScreen` - Vista Global)
 - **Propósito:** Ver todos los pendientes de todas las listas.
 - **Filtro:** Icono de embudo para filtrar por una lista específica o ver "Todos".
-- **Añadido Rápido:** Si hay una lista filtrada, muestra un campo "Añadir nueva tarea..." con un botón `+` en la cabecera.
+- **Añadido Rápido:** Si hay una lista filtrada, muestra un campo "Añadir nueva tarea..." con un botón `+` (desactivado mientras el campo está vacío). Con "Todas", muestra "Nueva tarea", que abre el formulario con selector de lista.
 - **Listado:** Tareas pendientes arriba, completadas abajo (tachadas).
 - **Interacción:** Checkbox para marcar/desmarcar.
 

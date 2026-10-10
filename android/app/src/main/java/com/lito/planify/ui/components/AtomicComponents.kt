@@ -205,6 +205,13 @@ fun OutlinedActionButton(
     }
 }
 
+// Using S=0.6, V=0.75 for earthy/muted tones
+private fun hueToHex(hue: Float): String =
+    String.format("#%06X", 0xFFFFFF and android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.6f, 0.75f)))
+
+/** Color aleatorio dentro de la paleta del [HueColorPicker]. */
+fun randomHueColor(): String = hueToHex(kotlin.random.Random.nextFloat() * 360f)
+
 @Composable
 fun HueColorPicker(
     currentColorHex: String,
@@ -241,10 +248,7 @@ fun HueColorPicker(
             value = hue,
             onValueChange = { 
                 hue = it 
-                // Using S=0.6, V=0.75 for earthy/muted tones
-                val colorInt = android.graphics.Color.HSVToColor(floatArrayOf(it, 0.6f, 0.75f))
-                val hex = String.format("#%06X", 0xFFFFFF and colorInt)
-                onColorChange(hex)
+                onColorChange(hueToHex(it))
             },
             valueRange = 0f..360f,
             colors = SliderDefaults.colors(

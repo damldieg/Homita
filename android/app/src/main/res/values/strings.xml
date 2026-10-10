@@ -34,6 +34,7 @@
     <string name="label_ai_assistant">Asistente IA</string>
     <string name="label_describe_event">Describe el evento</string>
     <string name="label_calendar">Calendario</string>
+    <string name="label_list">Lista</string>
     <string name="label_show_in_widget">Mostrar en el widget</string>
     <string name="label_alarm">Alarma</string>
 

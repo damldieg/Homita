@@ -65,7 +65,7 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun createTask(taskListId: Int?, title: String) {
+    fun createTask(taskListId: Int?, title: String, refreshListId: Int? = taskListId) {
         val tId = taskListId ?: 0
         val exists = _tasks.value.any { it.title.trim().equals(title.trim(), ignoreCase = true) && it.task_list_id == tId }
         if (exists) {
@@ -81,7 +81,7 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 if (response.isSuccessful) {
                     notifyWidgetDataChanged()
-                    fetchTasks(if(tId > 0) tId else null, force = true)
+                    fetchTasks(refreshListId, force = true)
                 } else {
                     _error.value = response.getErrorMessage()
                 }
