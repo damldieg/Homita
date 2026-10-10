@@ -119,7 +119,7 @@ fun RoutinesScreen(
             ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 150.dp)
+                    contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     item(key = "hero") {
                         MonthCalendarCard(

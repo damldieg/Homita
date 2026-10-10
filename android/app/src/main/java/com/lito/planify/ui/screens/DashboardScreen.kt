@@ -32,7 +32,7 @@ fun DashboardScreen(
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 8.dp, bottom = 150.dp)
+                contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)
             ) {
                 itemsIndexed(calendars) { index, calendar ->
                     PlanifyRowItem(

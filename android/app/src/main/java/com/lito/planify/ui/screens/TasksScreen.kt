@@ -386,7 +386,7 @@ fun TasksViewContent(
                     LazyColumn(
                         state = lazyListState,
                         modifier = Modifier.fillMaxSize(), 
-                        contentPadding = PaddingValues(bottom = 150.dp)
+                        contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
                     if (pending.isNotEmpty()) {
                         item {

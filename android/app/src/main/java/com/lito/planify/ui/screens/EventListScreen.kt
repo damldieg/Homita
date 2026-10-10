@@ -306,7 +306,7 @@ fun EventListContent(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 150.dp)
+                    contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     item(key = "hero") {
                         Column(modifier = Modifier.padding(horizontal = 16.dp).padding(top = 6.dp)) {

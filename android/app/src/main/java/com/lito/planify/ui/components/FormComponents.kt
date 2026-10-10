@@ -4,6 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -55,27 +58,27 @@ fun PlanifyFormSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        // La hoja nunca llega a la barra de estado: si llegase, el margen superior cambiaría su
+        // altura y en algunos móviles rebotaría sin parar. Si no cabe, se desplazan los campos.
+        modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(top = 24.dp),
         dragHandle = { BottomSheetDefaults.DragHandle(width = 36.dp, height = 4.dp, color = OutlineColor) },
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(text = title, style = MaterialTheme.typography.headlineSmall, color = OnSurfaceColor)
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+            Text(text = title, style = MaterialTheme.typography.headlineSmall, color = OnSurfaceColor, modifier = Modifier.padding(bottom = 12.dp))
 
-            content()
+            Column(
+                // Sin efecto elástico: al arrastrar hacia arriba la hoja no recibe ni devuelve movimiento.
+                modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState(), overscrollEffect = null),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                content = content
+            )
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
+                modifier = Modifier.padding(top = 20.dp).fillMaxWidth()
             ) {
                 if (confirmText == null) {
                     OutlinedActionButton(text = stringResource(R.string.generic_close), onClick = { closeWithAnimation(onDismiss) }, modifier = Modifier.fillMaxWidth())

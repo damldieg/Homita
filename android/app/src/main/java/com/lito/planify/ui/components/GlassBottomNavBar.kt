@@ -83,20 +83,15 @@ fun GlassBottomNavBar(
     }
 }
 
-/**
- * Contenedor de pantalla con la barra de cristal superpuesta: el contenido ocupa toda la altura
- * y se desliza por debajo de la barra (el Scaffold de Material 3 lo recortaría encima).
- */
+/** Contenedor de pantalla con la barra de cristal debajo: el contenido termina encima de la barra. */
 @Composable
 fun GlassNavScaffold(
     currentRoute: String,
     onNavigate: (String) -> Unit,
     content: @Composable BoxScope.() -> Unit
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        content()
-        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
-            GlassBottomNavBar(currentRoute = currentRoute, onNavigate = onNavigate)
-        }
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.weight(1f).fillMaxWidth(), content = content)
+        GlassBottomNavBar(currentRoute = currentRoute, onNavigate = onNavigate)
     }
 }
