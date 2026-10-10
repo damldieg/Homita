@@ -67,17 +67,18 @@ fun Modifier.glassGroupRow(index: Int, count: Int): Modifier =
 fun parseHexColor(hex: String?, fallback: Color = PrimaryColor): Color =
     try { hex?.let { Color(android.graphics.Color.parseColor(it)) } ?: fallback } catch (e: Exception) { fallback }
 
-/** Selector segmentado en píldora que sustituye a las pestañas clásicas. */
+/** Selector segmentado en píldora que sustituye a las pestañas clásicas. [onSheet] lo adapta al fondo de las hojas. */
 @Composable
 fun GlassTabs(
     titles: List<String>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSheet: Boolean = false
 ) {
     Row(
         modifier = modifier
-            .glass(CircleShape)
+            .then(if (onSheet) Modifier.background(PillFillColor, CircleShape) else Modifier.glass(CircleShape))
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {

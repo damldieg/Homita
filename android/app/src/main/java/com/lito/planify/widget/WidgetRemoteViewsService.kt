@@ -17,50 +17,62 @@ import java.time.LocalDate
 
 class WidgetRemoteViewsService : RemoteViewsService() {
     override fun onGetViewFactory(intent: Intent): RemoteViewsFactory {
-        return WidgetViewsFactory(this.applicationContext)
+        return WidgetViewsFactory(this.applicationContext, intent.getBooleanExtra(WidgetViewsFactory.EXTRA_ROUTINE, false))
     }
 }
 
-class WidgetViewsFactory(private val context: Context) : RemoteViewsService.RemoteViewsFactory {
+/** Lista del widget de eventos o, con [routine], del widget de rutinas. Cada uno tiene su propia caché. */
+class WidgetViewsFactory(private val context: Context, private val routine: Boolean) : RemoteViewsService.RemoteViewsFactory {
     
     private var events: List<EventResponse> = emptyList()
+    private val state get() = states.getValue(routine)
 
     companion object {
-        var cachedEvents: List<EventResponse> = emptyList()
-        var lastFetchTime: Long = 0
-        var lastRedrawTime: Long = 0
+        const val EXTRA_ROUTINE = "routine"
 
-        fun clearCache(@Suppress("UNUSED_PARAMETER") context: Context) {
+        private class State {
+            var cachedEvents: List<EventResponse> = emptyList()
+            var lastFetchTime: Long = 0
+            var lastRedrawTime: Long = 0
+        }
+
+        private val states = mapOf(false to State(), true to State())
+
+        private fun cacheKey(routine: Boolean) = if (routine) "widget_routine_events_json" else "widget_calendar_events_json"
+
+        fun clearCache(@Suppress("UNUSED_PARAMETER") context: Context, routine: Boolean = false) {
             // No borramos la caché de persistencia para evitar pantallas en blanco si la red falla.
             // Solamente forzamos que la próxima vez se re-descargue todo.
-            lastFetchTime = 0
-            lastRedrawTime = 0
-            cachedEvents = emptyList()
+            val state = states.getValue(routine)
+            state.lastFetchTime = 0
+            state.lastRedrawTime = 0
+            state.cachedEvents = emptyList()
         }
         
-        fun loadCache(context: Context): List<EventResponse> {
-            if (cachedEvents.isNotEmpty()) return cachedEvents
+        fun loadCache(context: Context, routine: Boolean = false): List<EventResponse> {
+            val state = states.getValue(routine)
+            if (state.cachedEvents.isNotEmpty()) return state.cachedEvents
             val prefs = context.getSharedPreferences("PlanifyWidgets", Context.MODE_PRIVATE)
-            val json = prefs.getString("widget_calendar_events_json", null) ?: return emptyList()
+            val json = prefs.getString(cacheKey(routine), null) ?: return emptyList()
             try {
                 val type = object : TypeToken<List<EventResponse>>() {}.type
-                cachedEvents = Gson().fromJson(json, type) ?: emptyList()
+                state.cachedEvents = Gson().fromJson(json, type) ?: emptyList()
             } catch (e: Exception) {}
-            return cachedEvents
+            return state.cachedEvents
         }
 
-        fun saveCache(context: Context, events: List<EventResponse>) {
-            cachedEvents = events
+        fun saveCache(context: Context, events: List<EventResponse>, routine: Boolean = false) {
+            states.getValue(routine).cachedEvents = events
             val prefs = context.getSharedPreferences("PlanifyWidgets", Context.MODE_PRIVATE)
-            prefs.edit().putString("widget_calendar_events_json", Gson().toJson(events)).apply()
+            prefs.edit().putString(cacheKey(routine), Gson().toJson(events)).apply()
         }
 
-        fun getEventCountsPerDay(context: Context): Map<String, Pair<Int, String>> {
+        fun getEventCountsPerDay(context: Context, routine: Boolean = false): Map<String, Pair<Int, String>> {
             val counts = mutableMapOf<String, Pair<Int, String>>()
             val oneHourAgo = System.currentTimeMillis() - (60 * 60 * 1000)
             val apiFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
 
-            loadCache(context).forEach { event ->
+            loadCache(context, routine).forEach { event ->
                 try {
                     val eventTime = apiFormat.parse(event.date_at)?.time ?: 0L
                     if (eventTime > oneHourAgo) {
@@ -82,9 +94,9 @@ class WidgetViewsFactory(private val context: Context) : RemoteViewsService.Remo
                 val currentTime = System.currentTimeMillis()
                 
                 // Cargar primero desde caché persistente si está vacía
-                val currentCache = WidgetViewsFactory.loadCache(context)
+                val currentCache = WidgetViewsFactory.loadCache(context, routine)
 
-                if (currentTime - lastFetchTime > 1 * 60 * 1000 || currentCache.isEmpty()) {
+                if (currentTime - state.lastFetchTime > 1 * 60 * 1000 || currentCache.isEmpty()) {
                     val sessionManager = SessionManager(context)
                     val token = sessionManager.authTokenFlow.firstOrNull()
 
@@ -94,12 +106,12 @@ class WidgetViewsFactory(private val context: Context) : RemoteViewsService.Remo
                         val offset = java.util.TimeZone.getDefault().getOffset(nowMillis)
                         val yesterdayMillis = (nowMillis + offset) - java.util.concurrent.TimeUnit.DAYS.toMillis(1)
                         val yesterdaySeconds = (yesterdayMillis / 1000).toString()
-                        val response = RetrofitClient.apiService.getEvents(startDate = yesterdaySeconds, limit = 20, widget = true)
+                        val response = RetrofitClient.apiService.getEvents(startDate = yesterdaySeconds, limit = 20, widget = true, routine = routine)
                         if (response.isSuccessful) {
                             val newEvents = response.body() ?: emptyList()
-                            WidgetViewsFactory.saveCache(context, newEvents)
+                            WidgetViewsFactory.saveCache(context, newEvents, routine)
                             com.lito.planify.util.AlarmHelper.synchronizeAlarms(context)
-                            lastFetchTime = currentTime
+                            state.lastFetchTime = currentTime
                         } else {
                             Log.e("CalendarWidget", "API error: ${response.code()}")
                         }
@@ -114,7 +126,7 @@ class WidgetViewsFactory(private val context: Context) : RemoteViewsService.Remo
 
             try {
                 // Siempre cargar caché final para mostrar (ya sea vieja o recién actualizada)
-                val finalCache = WidgetViewsFactory.loadCache(context)
+                val finalCache = WidgetViewsFactory.loadCache(context, routine)
                 
                 val prefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
                 val selectedDateStr = prefs.getString("selected_date", null)
@@ -145,14 +157,14 @@ class WidgetViewsFactory(private val context: Context) : RemoteViewsService.Remo
             // Evitar bucle infinito: no redibujar si no han pasado al menos 5 segundos desde el último redibujado.
             // NotifyAppWidgetViewDataChanged -> onDataSetChanged -> ACTION_REDRAW_HEADER -> updateAppWidget
             val currentMillis = System.currentTimeMillis()
-            if (currentMillis - lastRedrawTime < 5000) {
+            if (currentMillis - state.lastRedrawTime < 5000) {
                 return@runBlocking
             }
-            lastRedrawTime = currentMillis
+            state.lastRedrawTime = currentMillis
 
             // Avisamos al widget provider de que ya tenemos los datos frescos para que pueda redibujar la cabecera (los puntos)
             val updateHeaderIntent = Intent("com.lito.planify.widget.ACTION_REDRAW_HEADER")
-            updateHeaderIntent.component = android.content.ComponentName(context, CalendarWidgetProvider::class.java)
+            updateHeaderIntent.component = android.content.ComponentName(context, if (routine) RoutineWidgetProvider::class.java else CalendarWidgetProvider::class.java)
             context.sendBroadcast(updateHeaderIntent)
         }
     }

@@ -20,6 +20,10 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         clearIntent.component = ComponentName(app, com.lito.planify.widget.CalendarWidgetProvider::class.java)
         app.sendBroadcast(clearIntent)
         
+        val routineIntent = Intent("com.lito.planify.widget.ACTION_CLEAR_CACHE")
+        routineIntent.component = ComponentName(app, com.lito.planify.widget.RoutineWidgetProvider::class.java)
+        app.sendBroadcast(routineIntent)
+
         val appWidgetManager = AppWidgetManager.getInstance(app)
         val componentName = ComponentName(app, com.lito.planify.widget.CalendarWidgetProvider::class.java)
         val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)

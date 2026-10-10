@@ -23,6 +23,8 @@
     <string name="label_location">Ubicación</string>
     <string name="label_description">Descripción</string>
     <string name="label_date_time">Fecha y hora</string>
+    <string name="label_date">Fecha</string>
+    <string name="label_time">Hora</string>
     <string name="label_ai_text">Texto IA</string>
     <string name="label_general">General</string>
     <string name="label_users">Usuarios</string>
@@ -52,18 +54,19 @@
     <string name="tasks_add_hint">Añadir nueva tarea...</string>
     <string name="tasks_filter_all">Todas</string>
     <string name="events_filter_all">Todos</string>
-    <string name="tasks_new_list">Nueva Lista</string>
+    <string name="tasks_new_list">Nueva lista</string>
     <string name="tasks_edit_list">Editar lista</string>
     <string name="tasks_edit_task">Editar tarea</string>
+    <string name="tasks_new_task">Nueva tarea</string>
     <string name="tasks_pending_count">%d pendientes</string>
     <string name="error_task_exists">Ya existe una tarea con este nombre en la lista</string>
     
     <string name="calendars_tab_all">Calendarios</string>
     <string name="calendars_tab_events">Eventos</string>
     <string name="calendars_upcoming_count">%d eventos futuros</string>
-    <string name="calendars_new">Nuevo Calendario</string>
+    <string name="calendars_new">Nuevo calendario</string>
     <string name="calendars_edit">Editar calendario</string>
-    <string name="calendars_new_event">Nuevo Evento</string>
+    <string name="calendars_new_event">Nuevo evento</string>
     <string name="calendars_edit_event">Editar evento</string>
 
     <string name="profile_title">Perfil</string>
@@ -112,28 +115,18 @@
     <!-- Widget Labels -->
     <string name="widget_calendar_name">Calendario</string>
     <string name="widget_tasks_name">Tareas</string>
+    <string name="widget_routines_name">Rutinas</string>
     <string name="widget_empty_events">No hay ningún evento próximo</string>
+    <string name="widget_empty_routines">No hay ninguna rutina próxima</string>
     <string name="widget_btn_add">Añadir Evento</string>
     <string name="routines_title">Rutinas</string>
     <string name="routine_new">Nueva rutina</string>
     <string name="routine_edit">Editar rutina</string>
-    <string name="routine_delete">Borrar rutina</string>
-    <string name="routines_empty">Sin rutinas</string>
-    <string name="routines_no_calendar">Sin calendarios</string>
-    <string name="routine_calendar">Calendario</string>
-    <string name="routine_days">Días de la semana</string>
-    <string name="routine_time">Hora</string>
+    <string name="routine_days">Días</string>
     <string name="routine_start">Inicio</string>
     <string name="routine_end">Fin</string>
-    <string name="routine_has_end">Fecha final</string>
-    <string name="routine_no_end">Sin fecha final</string>
+    <string name="routine_no_end">Sin fin</string>
     <string name="routine_active">Activa</string>
-    <string name="routine_inactive">Inactiva</string>
-    <string name="routine_invalid_dates">La fecha final debe ser igual o posterior al inicio.</string>
-    <string name="routine_personal_alarm">Mi aviso para las sesiones</string>
-    <string name="routine_future_only">Los cambios afectan a las próximas sesiones. Las pasadas se conservan.</string>
-    <string name="routine_delete_confirm">Se borrarán las próximas sesiones. Las sesiones pasadas se conservarán como eventos.</string>
-    <string name="routine_session_only">Este evento pertenece a una rutina. Editar o borrar aquí afecta solo a esta sesión.</string>
-    <string name="routine_open">Gestionar rutina</string>
-    <string name="routine_session_label">Rutina</string>
+    <string name="routine_paused">Pausada</string>
+    <string name="routine_section_paused">Pausadas</string>
 </resources>

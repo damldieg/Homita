@@ -156,6 +156,17 @@ object AlarmHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Rutinas Widget
+        val routineIntent = Intent(context, com.lito.planify.widget.RoutineWidgetProvider::class.java).apply {
+            action = "com.lito.planify.widget.ACTION_CLEAR_CACHE"
+        }
+        val pendingRoutine = PendingIntent.getBroadcast(
+            context,
+            2003,
+            routineIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val interval = 15 * 60 * 1000L // 15 minutos
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -169,6 +180,11 @@ object AlarmHelper {
                 System.currentTimeMillis() + interval,
                 pendingCalendar
             )
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.RTC,
+                System.currentTimeMillis() + interval,
+                pendingRoutine
+            )
         } else {
             alarmManager.set(
                 AlarmManager.RTC,
@@ -179,6 +195,11 @@ object AlarmHelper {
                 AlarmManager.RTC,
                 System.currentTimeMillis() + interval,
                 pendingCalendar
+            )
+            alarmManager.set(
+                AlarmManager.RTC,
+                System.currentTimeMillis() + interval,
+                pendingRoutine
             )
         }
     }

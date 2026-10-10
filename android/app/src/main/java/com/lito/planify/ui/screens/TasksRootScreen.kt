@@ -24,7 +24,6 @@ fun TasksRootScreen(
     taskViewModel: TaskViewModel,
     onNavigateToCalendars: () -> Unit,
     onNavigateToProfile: () -> Unit,
-    onNavigateToRoutines: () -> Unit,
     onNavigateToTaskListDetail: (Int, String) -> Unit,
     initialTab: Int = 0
 ) {
@@ -45,7 +44,6 @@ fun TasksRootScreen(
                 "tasks" -> coroutineScope.launch { pagerState.animateScrollToPage(0) }
                 "calendars" -> onNavigateToCalendars()
                 "profile" -> onNavigateToProfile()
-                "routines" -> onNavigateToRoutines()
             }
         }
     ) {

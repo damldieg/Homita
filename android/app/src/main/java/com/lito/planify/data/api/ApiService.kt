@@ -55,6 +55,7 @@ interface ApiService {
         @retrofit2.http.Query("limit") limit: Int? = null,
         @retrofit2.http.Query("order_mode") orderMode: String? = null,
         @retrofit2.http.Query("widget") widget: Boolean? = null,
+        @retrofit2.http.Query("routine") routine: Boolean? = null,
         @retrofit2.http.Query("timezone") timezone: String = java.util.TimeZone.getDefault().id
     ): Response<List<EventResponse>>
 

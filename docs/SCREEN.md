@@ -4,11 +4,10 @@ Planify es una aplicación de organización personal multi-usuario. Utiliza un s
 
 ## 1. Arquitectura de Navegación Global
 
-- **Bottom Navigation (4 secciones):**
-  1. **Tareas:** Icono `CheckCircle`. Ruta inicial.
-  2. **Calendarios:** Icono `DateRange`.
-  3. **Rutinas:** Icono `Repeat`.
-  4. **Perfil:** Icono `Person`.
+- **Bottom Navigation (3 secciones):**
+  1. **Calendarios:** Icono `DateRange`. Ruta inicial (eventos, rutinas y calendarios).
+  2. **Tareas:** Icono `CheckCircle`.
+  3. **Perfil:** Icono `Person`.
 - **Estilo Visual:** fondo degradado neutro claro, tarjetas de cristal translúcidas con esquinas redondeadas que agrupan las filas, tipografía sans en negrita, acento ciruela oscuro y pastillas de día "Hoy" (rojo) / "Mañana" (naranja). Los widgets usan cristal oscuro translúcido sobre el fondo de pantalla y en la pantalla de bloqueo son de solo lectura.
 
 ---
@@ -60,24 +59,25 @@ Esta sección utiliza dos pestañas superiores:
 
 ## 4. Módulo de Calendarios (`CalendarsRootScreen`)
 
-Dos pestañas superiores:
+Tres pestañas superiores: **Eventos**, **Rutinas** y **Calendarios**. Eventos y rutinas están separados: cada uno tiene su propia vista mensual, listado, formulario y widget; los calendarios son compartidos por ambos.
 
-### 4.1. Tab: Calendarios (`DashboardScreen`)
-- **Propósito:** Gestión de calendarios compartibles.
-- **UI:** Listado de tarjetas con color identificativo.
-- **Modal "Nuevo Calendario":** Campos `Nombre` y selector de `Color`.
+### 4.1. Tab: Eventos (`EventListScreen` - Vista Global)
+- **Propósito:** Agenda cronológica de los eventos (sin sesiones de rutina).
+- **Filtros:** Filtro por Calendario específico.
+- **UI:** Vista mensual con puntos de color, botón "Nuevo evento" y eventos agrupados por día; los pasados en su propia sección.
+- **Tarjetas de Evento:** Muestran Título, hora, calendario y **Fecha Relativa** ("14H 52M", "3D").
 
-### 4.2. Tab: Eventos (`EventListScreen` - Vista Global)
-- **Propósito:** Agenda cronológica de todos los eventos.
-- **Filtros:** Búsqueda por texto (lupa) y filtro por Calendario específico.
-- **Tarjetas de Evento:** Muestran Título, Fecha (con día de semana, ej: "Lun, 20 Abr") y **Fecha Relativa** ("En 2 h", "En 15 min", "Mañana").
-
-### 4.3. Sección Rutinas (`RoutinesScreen`)
-- **Ubicación:** Sección independiente de la barra inferior, después de Calendarios.
-- **Listado:** Nombre, calendario, días, hora y periodo; interruptor para activar o pausar.
-- **Formulario:** Calendario, título, días individuales, hora común, inicio, fin opcional, estado y aviso personal.
+### 4.2. Tab: Rutinas (`RoutinesScreen`)
+- **Propósito:** Gestión de rutinas semanales.
+- **Filtros:** Filtro por Calendario específico.
+- **UI:** Vista mensual con las sesiones, botón "Nueva rutina" y rutinas con el mismo diseño de fila que los eventos: título, hora, días y calendario, con el tiempo hasta la próxima sesión. Las pausadas aparecen en su propia sección.
 - **Permisos:** Todos los miembros del calendario pueden gestionar las rutinas.
-- **Sesiones:** Los eventos generados permiten editar o borrar solo una sesión, o abrir la rutina completa. Pausar y borrar conservan el historial.
+- **Edición:** Las rutinas se editan siempre completas; pausar y borrar conservan el historial.
+
+### 4.3. Tab: Calendarios (`DashboardScreen`)
+- **Propósito:** Gestión de calendarios compartibles.
+- **UI:** Listado de tarjetas con color identificativo y número de eventos próximos.
+- **Modal "Nuevo calendario":** Campos `Nombre`, `Color` y `Mostrar en el widget`.
 
 ---
 
@@ -92,7 +92,7 @@ Dos pestañas superiores:
 - Botón flotante (FAB) para añadir eventos.
 
 ### 5.3. Modal de Ajustes (Calendarios y Listas)
-Diseño de dos pestañas internas:
+Diseño de dos pestañas internas (selector segmentado):
 1. **General:** Editar Nombre, Color, y Orden (solo en listas). Botón "Guardar".
 2. **Usuarios:** 
    - Campo `Email` (teclado correo) + Botón `+` (alineado a la base).
@@ -101,14 +101,19 @@ Diseño de dos pestañas internas:
 
 ---
 
-## 6. Creación y Edición de Eventos
+## 6. Formularios
 
-### 6.1. Modal "Nuevo Evento"
-- **Modo Manual:** Título, selector de Calendario (si es global), y selector unificado de Fecha/Hora (abre diálogos nativos secuencialmente).
-- **Modo Asistente IA:** Switch para activar. Área de texto grande "Describe el evento y la fecha". Icono de **Micrófono** para dictado por voz nativo.
+Todos los formularios comparten la misma hoja inferior (`PlanifyFormSheet`): título, campos con el mismo estilo, interruptores sobre fondo suave y botonera fija (borrar · cancelar · guardar). Los componentes comunes están en `ui/components/FormComponents.kt`.
 
-### 6.2. Modal "Editar Evento"
-- Título, Fecha/Hora, Botón "Guardar" y opción de "Borrar".
+### 6.1. Modal "Nuevo evento"
+- **Modo Manual:** Calendario (si es global), Título, Fecha y Hora (diálogos nativos) y Alarma.
+- **Modo Asistente IA:** Interruptor para activar. Área de texto "Describe el evento".
+
+### 6.2. Modal "Editar evento"
+- Título, Fecha, Hora, Alarma, "Guardar" y "Borrar".
+
+### 6.3. Modal "Nueva rutina" / "Editar rutina"
+- Calendario (solo al crear), Título, Días (círculos L–D), Hora, Inicio, Fin opcional, Alarma y Activa (solo al editar).
 
 ---
 
@@ -128,7 +133,11 @@ Diseño de dos pestañas internas:
 - Lista de próximos eventos (clic para ir al calendario específico).
 - Caché de 1 minuto.
 
-### 8.2. Widget Tareas
+### 8.2. Widget Rutinas
+- Mismo diseño que el widget de calendario, pero solo con las sesiones de rutinas.
+- Al pulsarlo abre la pestaña Rutinas.
+
+### 8.3. Widget Tareas
 - Cabecera con nombre de lista y flechas para rotar entre listas.
 - Lista de tareas pendientes (clic en círculo para completar e hidratar).
 - Botón "Gestionar Tareas" (abre la lista actual en la app).

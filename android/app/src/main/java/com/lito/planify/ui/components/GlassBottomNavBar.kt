@@ -20,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Repeat
 import com.lito.planify.ui.theme.OnSurfaceColor
 import com.lito.planify.ui.theme.OnSurfaceVariantColor
 
@@ -52,7 +51,6 @@ fun GlassBottomNavBar(
         ) {
             val items = listOf(
                 Triple("calendars", Icons.Default.DateRange, "Calendarios"),
-                Triple("routines", Icons.Default.Repeat, androidx.compose.ui.res.stringResource(com.lito.planify.R.string.routines_title)),
                 Triple("tasks", Icons.Default.CheckCircle, "Tareas"),
                 Triple("profile", Icons.Default.Person, "Perfil")
             )

@@ -48,6 +48,17 @@
                 android:resource="@xml/calendar_widget_info" />
         </receiver>
 
+        <!-- Widget de Rutinas -->
+        <receiver android:name=".widget.RoutineWidgetProvider" android:exported="true" android:label="@string/widget_routines_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.lito.planify.widget.ACTION_CLEAR_CACHE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/routine_widget_info" />
+        </receiver>
+
         <service
             android:name=".widget.WidgetRemoteViewsService"
             android:permission="android.permission.BIND_REMOTEVIEWS" />

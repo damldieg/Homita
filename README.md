@@ -92,7 +92,7 @@ Al contribuir al desarrollo de la aplicación, por favor asegúrate de respetar 
 
 ## Rutinas semanales
 
-La sección Rutinas permite seleccionar días de la semana y una hora común, con fecha de inicio, fin opcional, estado activo y aviso personal. Todos los miembros del calendario pueden gestionar sus rutinas. Editar o borrar un evento generado afecta solo a esa sesión; los cambios de la rutina conservan el historial.
+La pestaña Rutinas (dentro de Calendarios, junto a Eventos y Calendarios) permite seleccionar días de la semana y una hora común, con fecha de inicio, fin opcional, estado activo y aviso personal. Todos los miembros del calendario pueden gestionar sus rutinas. Eventos y rutinas están separados: cada uno tiene su vista mensual, listado, formulario y widget. Las rutinas se editan completas y los cambios conservan el historial.
 
 Despliega primero la API y aplica `backend/migrations/0006_routine.sql` con el comando de migración del backend. La API genera los próximos 90 días al sincronizar; los avisos del móvil necesitan conexión periódica para renovar ese horizonte. La hora es local y sigue la zona del móvil.
 

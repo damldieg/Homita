@@ -45,8 +45,7 @@ fun ProfileScreen(
     sessionManager: SessionManager,
     onLogout: () -> Unit,
     onNavigateToTasks: () -> Unit,
-    onNavigateToCalendars: () -> Unit,
-    onNavigateToRoutines: () -> Unit
+    onNavigateToCalendars: () -> Unit
 ) {
     val userName by sessionManager.userNameFlow.collectAsState(initial = "")
     val userEmail by sessionManager.userEmailFlow.collectAsState(initial = "")
@@ -72,7 +71,6 @@ fun ProfileScreen(
                     when (route) {
                         "tasks" -> onNavigateToTasks()
                         "calendars" -> onNavigateToCalendars()
-                        "routines" -> onNavigateToRoutines()
                     }
                 }
             )

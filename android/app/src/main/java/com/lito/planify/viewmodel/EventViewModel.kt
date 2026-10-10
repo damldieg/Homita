@@ -57,7 +57,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                 val localNowSeconds = ((nowMillis + offset) / 1000).toString()
                 
                 // Fetch upcoming events
-                val upcomingResponse = RetrofitClient.apiService.getEvents(effectiveId, search, startDate = localNowSeconds)
+                val upcomingResponse = RetrofitClient.apiService.getEvents(effectiveId, search, startDate = localNowSeconds, routine = false)
                 if (upcomingResponse.isSuccessful) {
                     val events = upcomingResponse.body() ?: emptyList()
                     _upcomingEvents.value = events
@@ -66,7 +66,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 // Fetch past events
-                val pastResponse = RetrofitClient.apiService.getEvents(effectiveId, search, endDate = localNowSeconds, orderMode = "DESC")
+                val pastResponse = RetrofitClient.apiService.getEvents(effectiveId, search, endDate = localNowSeconds, orderMode = "DESC", routine = false)
                 if (pastResponse.isSuccessful) {
                     _pastEvents.value = pastResponse.body() ?: emptyList()
                 } else {
@@ -81,7 +81,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun createEvent(calendarId: Int, title: String, dateAt: String, text: String?, alarm: Int? = null) {
+    fun createEvent(calendarId: Int, title: String, dateAt: String, text: String?, alarm: Int? = null, refreshCalendarId: Int? = calendarId) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -91,7 +91,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                 if (response.isSuccessful) {
                     response.body()?.let { com.lito.planify.util.AlarmHelper.rememberEvent(getApplication(), it) }
                     notifyWidgetDataChanged()
-                    fetchEvents(calendarId, force = true)
+                    fetchEvents(refreshCalendarId, force = true)
                 } else {
                     _error.value = response.getErrorMessage()
                 }

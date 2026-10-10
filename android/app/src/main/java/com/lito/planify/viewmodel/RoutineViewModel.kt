@@ -7,7 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.lito.planify.data.api.*
 import com.lito.planify.data.api.util.NetworkUtils.getErrorMessage
 import com.lito.planify.util.AlarmHelper
-import com.lito.planify.widget.CalendarWidgetProvider
+import com.lito.planify.widget.RoutineWidgetProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -20,6 +20,8 @@ import kotlinx.coroutines.withContext
 class RoutineViewModel(application: Application) : AndroidViewModel(application) {
     private val _routines = MutableStateFlow<List<RoutineResponse>>(emptyList())
     val routines: StateFlow<List<RoutineResponse>> = _routines
+    private val _sessions = MutableStateFlow<List<EventResponse>>(emptyList())
+    val sessions: StateFlow<List<EventResponse>> = _sessions
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
     private val _isSaving = MutableStateFlow(false)
@@ -33,6 +35,7 @@ class RoutineViewModel(application: Application) : AndroidViewModel(application)
         sessionVersion++
         viewModelScope.coroutineContext.cancelChildren()
         _routines.value = emptyList()
+        _sessions.value = emptyList()
         _error.value = null
         _isLoading.value = false
         _isSaving.value = false
@@ -59,11 +62,17 @@ class RoutineViewModel(application: Application) : AndroidViewModel(application)
         val response = RetrofitClient.apiService.getRoutines()
         if (version != sessionVersion || read != readVersion) throw CancellationException("Request superseded")
         if (!response.isSuccessful) throw IllegalStateException(response.getErrorMessage())
+        // Sesiones desde el inicio del mes para la vista mensual y la próxima sesión de cada rutina.
+        val monthStart = java.time.YearMonth.now().atDay(1).atStartOfDay().toEpochSecond(java.time.ZoneOffset.UTC).toString()
+        val sessionsResponse = RetrofitClient.apiService.getEvents(startDate = monthStart, routine = true)
+        if (version != sessionVersion || read != readVersion) throw CancellationException("Request superseded")
+        if (!sessionsResponse.isSuccessful) throw IllegalStateException(sessionsResponse.getErrorMessage())
         _routines.value = response.body() ?: emptyList()
+        _sessions.value = sessionsResponse.body() ?: emptyList()
     }
 
-    fun saveRoutine(initial: RoutineResponse?, request: CreateRoutineRequest, onSuccess: () -> Unit) {
-        mutate(onSuccess) {
+    fun saveRoutine(initial: RoutineResponse?, request: CreateRoutineRequest) {
+        mutate {
             if (initial == null) {
                 val response = RetrofitClient.apiService.createRoutine(request)
                 if (!response.isSuccessful) throw IllegalStateException(response.getErrorMessage())
@@ -83,25 +92,15 @@ class RoutineViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun setActive(routine: RoutineResponse, active: Boolean) {
+    fun deleteRoutine(id: Int) {
         mutate {
-            val response = RetrofitClient.apiService.updateRoutine(
-                UpdateRoutineRequest(routine.id, routine.title, routine.days, routine.time, routine.start_date, routine.end_date, active)
-            )
-            if (!response.isSuccessful) throw IllegalStateException(response.getErrorMessage())
-            cancelRoutineAlarms(routine.id)
-        }
-    }
-
-    fun deleteRoutine(id: Int, onSuccess: () -> Unit) {
-        mutate(onSuccess) {
             val response = RetrofitClient.apiService.deleteRoutine(DeleteRequest(id))
             if (!response.isSuccessful) throw IllegalStateException(response.getErrorMessage())
             cancelRoutineAlarms(id)
         }
     }
 
-    private fun mutate(onSuccess: () -> Unit = {}, operation: suspend () -> Unit) {
+    private fun mutate(operation: suspend () -> Unit) {
         if (_isSaving.value) return
         _isSaving.value = true
         readVersion++
@@ -112,7 +111,6 @@ class RoutineViewModel(application: Application) : AndroidViewModel(application)
             try {
                 operation()
                 if (version != sessionVersion) throw CancellationException("Session changed")
-                onSuccess()
                 loadRoutines(version, ++readVersion)
             } catch (e: Exception) {
                 if (version == sessionVersion && e !is CancellationException) _error.value = e.message ?: "No se pudo guardar la rutina"
@@ -131,10 +129,8 @@ class RoutineViewModel(application: Application) : AndroidViewModel(application)
 
     private suspend fun refreshAlarmsAndWidget() {
         val app = getApplication<Application>()
-        if (!AlarmHelper.synchronizeAlarms(app) && _error.value == null) {
-            _error.value = "No se pudieron sincronizar los avisos. Actualiza de nuevo cuando tengas conexión."
-        }
-        app.sendBroadcast(Intent(app, CalendarWidgetProvider::class.java).apply {
+        AlarmHelper.synchronizeAlarms(app)
+        app.sendBroadcast(Intent(app, RoutineWidgetProvider::class.java).apply {
             action = "com.lito.planify.widget.ACTION_CLEAR_CACHE"
         })
     }

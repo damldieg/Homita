@@ -16,20 +16,20 @@ import com.lito.planify.ui.components.GlassNavScaffold
 import com.lito.planify.ui.components.GlassTabs
 import com.lito.planify.viewmodel.CalendarViewModel
 import com.lito.planify.viewmodel.EventViewModel
+import com.lito.planify.viewmodel.RoutineViewModel
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun CalendarsRootScreen(
     calendarViewModel: CalendarViewModel,
     eventViewModel: EventViewModel,
+    routineViewModel: RoutineViewModel,
     onNavigateToTasks: () -> Unit,
     onNavigateToProfile: () -> Unit,
-    onNavigateToRoutines: () -> Unit,
-    onNavigateToRoutine: (Int) -> Unit,
     onNavigateToCalendarDetail: (Int, String) -> Unit,
     initialTab: Int = 0
 ) {
-    val pagerState = rememberPagerState(initialPage = initialTab, pageCount = { 2 })
+    val pagerState = rememberPagerState(initialPage = initialTab, pageCount = { 3 })
     val coroutineScope = rememberCoroutineScope()
     val selectedTab = pagerState.currentPage
     
@@ -46,7 +46,6 @@ fun CalendarsRootScreen(
                 "calendars" -> coroutineScope.launch { pagerState.animateScrollToPage(0) }
                 "tasks" -> onNavigateToTasks()
                 "profile" -> onNavigateToProfile()
-                "routines" -> onNavigateToRoutines()
             }
         }
     ) {
@@ -55,7 +54,11 @@ fun CalendarsRootScreen(
                 .fillMaxSize()
         ) {
             GlassTabs(
-                titles = listOf(stringResource(R.string.calendars_tab_events), stringResource(R.string.calendars_tab_all)),
+                titles = listOf(
+                    stringResource(R.string.calendars_tab_events),
+                    stringResource(R.string.routines_title),
+                    stringResource(R.string.calendars_tab_all)
+                ),
                 selectedIndex = selectedTab,
                 onSelect = { coroutineScope.launch { pagerState.animateScrollToPage(it) } },
                 modifier = Modifier
@@ -73,10 +76,13 @@ fun CalendarsRootScreen(
                         calendarId = 0,
                         calendarName = "Global",
                         viewModel = eventViewModel,
-                        calendarViewModel = calendarViewModel,
-                        onNavigateToRoutine = onNavigateToRoutine
+                        calendarViewModel = calendarViewModel
                     )
-                    1 -> DashboardScreen(
+                    1 -> RoutinesScreen(
+                        viewModel = routineViewModel,
+                        calendarViewModel = calendarViewModel
+                    )
+                    2 -> DashboardScreen(
                         viewModel = calendarViewModel,
                         onNavigateToCalendar = onNavigateToCalendarDetail
                     )

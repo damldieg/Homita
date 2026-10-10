@@ -43,8 +43,7 @@ fun TasksScreen(
     onBack: (() -> Unit)? = null,
     onNavigateToTasks: (() -> Unit)? = null,
     onNavigateToCalendars: (() -> Unit)? = null,
-    onNavigateToProfile: (() -> Unit)? = null,
-    onNavigateToRoutines: (() -> Unit)? = null
+    onNavigateToProfile: (() -> Unit)? = null
 ) {
     val tasks by viewModel.tasks.collectAsState()
     val togglingTasks by viewModel.togglingTasks.collectAsState()
@@ -85,7 +84,6 @@ fun TasksScreen(
                     "tasks" -> onNavigateToTasks?.invoke()
                     "calendars" -> onNavigateToCalendars?.invoke()
                     "profile" -> onNavigateToProfile?.invoke()
-                    "routines" -> onNavigateToRoutines?.invoke()
                 }
             }
         ) {

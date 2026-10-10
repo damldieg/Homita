@@ -14,11 +14,14 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.*
 
-class CalendarWidgetProvider : AppWidgetProvider() {
+/** Widget de eventos. [RoutineWidgetProvider] reutiliza el mismo diseño para las sesiones de rutinas. */
+open class CalendarWidgetProvider : AppWidgetProvider() {
+
+    protected open val routine = false
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         for (appWidgetId in appWidgetIds) {
-            updateAppWidget(context, appWidgetManager, appWidgetId)
+            updateAppWidget(context, appWidgetManager, appWidgetId, routine)
             appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_event_list)
         }
     }
@@ -26,14 +29,14 @@ class CalendarWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action == "com.lito.planify.widget.ACTION_CLEAR_CACHE") {
-            WidgetViewsFactory.clearCache(context)
+            WidgetViewsFactory.clearCache(context, routine)
             
             val appWidgetManager = AppWidgetManager.getInstance(context)
-            val componentName = android.content.ComponentName(context, CalendarWidgetProvider::class.java)
+            val componentName = android.content.ComponentName(context, this::class.java)
             val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
             
             for (id in appWidgetIds) {
-                updateAppWidget(context, appWidgetManager, id)
+                updateAppWidget(context, appWidgetManager, id, routine)
                 appWidgetManager.notifyAppWidgetViewDataChanged(id, R.id.widget_event_list)
             }
             
@@ -41,30 +44,31 @@ class CalendarWidgetProvider : AppWidgetProvider() {
             com.lito.planify.util.AlarmHelper.scheduleWidgetUpdate(context)
         } else if (intent.action == "com.lito.planify.widget.ACTION_REDRAW_HEADER") {
             val appWidgetManager = AppWidgetManager.getInstance(context)
-            val componentName = android.content.ComponentName(context, CalendarWidgetProvider::class.java)
+            val componentName = android.content.ComponentName(context, this::class.java)
             val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
             
             for (id in appWidgetIds) {
-                updateAppWidget(context, appWidgetManager, id)
+                updateAppWidget(context, appWidgetManager, id, routine)
             }
         }
     }
 
     override fun onAppWidgetOptionsChanged(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, newOptions: android.os.Bundle) {
         super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
-        updateAppWidget(context, appWidgetManager, appWidgetId)
+        updateAppWidget(context, appWidgetManager, appWidgetId, routine)
     }
 
     companion object {
 
-        fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
+        fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, routine: Boolean = false) {
             val views = RemoteViews(context.packageName, R.layout.widget_calendar)
+            views.setTextViewText(R.id.widget_empty_view, context.getString(if (routine) R.string.widget_empty_routines else R.string.widget_empty_events))
             
-            // General Click -> Global Events
+            // General Click -> Global Events (o la pestaña de Rutinas)
             val globalIntent = Intent(context, MainActivity::class.java).apply {
                 putExtra("calendarId", 0)
                 putExtra("calendarName", "Global")
-                data = Uri.parse("calendar://global_events")
+                data = Uri.parse(if (routine) "calendar://routines" else "calendar://global_events")
             }
             val pendingGlobal = PendingIntent.getActivity(context, 0, globalIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
@@ -75,7 +79,7 @@ class CalendarWidgetProvider : AppWidgetProvider() {
             }
 
             val today = LocalDate.now()
-            val eventCounts = WidgetViewsFactory.getEventCountsPerDay(context)
+            val eventCounts = WidgetViewsFactory.getEventCountsPerDay(context, routine)
 
             views.removeAllViews(R.id.widget_header_days_container)
             
@@ -122,6 +126,7 @@ class CalendarWidgetProvider : AppWidgetProvider() {
             // RemoteViews Service attached to ListView
             val serviceIntent = Intent(context, WidgetRemoteViewsService::class.java).apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                putExtra(WidgetViewsFactory.EXTRA_ROUTINE, routine)
                 data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
             }
             views.setRemoteAdapter(R.id.widget_event_list, serviceIntent)
@@ -129,7 +134,7 @@ class CalendarWidgetProvider : AppWidgetProvider() {
 
             if (!isReadOnly) {
                 val clickIntentTemplate = Intent(context, MainActivity::class.java).apply {
-                    data = Uri.parse("calendar://open_main_from_list")
+                    data = Uri.parse(if (routine) "calendar://routines" else "calendar://open_main_from_list")
                 }
                 val clickPendingIntentTemplate = PendingIntent.getActivity(context, 0, clickIntentTemplate, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
                 views.setPendingIntentTemplate(R.id.widget_event_list, clickPendingIntentTemplate)
@@ -138,4 +143,8 @@ class CalendarWidgetProvider : AppWidgetProvider() {
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
     }
+}
+
+class RoutineWidgetProvider : CalendarWidgetProvider() {
+    override val routine = true
 }

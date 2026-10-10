@@ -42,9 +42,7 @@ fun EventListScreen(
     onBack: (() -> Unit)? = null,
     onNavigateToCalendars: (() -> Unit)? = null,
     onNavigateToTasks: (() -> Unit)? = null,
-    onNavigateToProfile: (() -> Unit)? = null,
-    onNavigateToRoutines: (() -> Unit)? = null,
-    onNavigateToRoutine: ((Int) -> Unit)? = null
+    onNavigateToProfile: (() -> Unit)? = null
 ) {
     val upcomingEvents by viewModel.upcomingEvents.collectAsState()
     val pastEvents by viewModel.pastEvents.collectAsState()
@@ -86,7 +84,6 @@ fun EventListScreen(
                     "calendars" -> onNavigateToCalendars?.invoke()
                     "tasks" -> onNavigateToTasks?.invoke()
                     "profile" -> onNavigateToProfile?.invoke()
-                    "routines" -> onNavigateToRoutines?.invoke()
                 }
             }
         ) {
@@ -133,6 +130,8 @@ fun EventListScreen(
         }
     }
 
+    val refreshCalendarId = if (isGlobal) (selectedCalendarFilterId ?: 0) else calendarId
+
     if (showCreateDialog) {
         val activeCalId = if (isGlobal) {
             selectedCalendarFilterId ?: calendars.firstOrNull()?.id ?: 0
@@ -141,9 +140,10 @@ fun EventListScreen(
         }
         EventFormDialog(
             calendarId = activeCalId,
+            calendars = if (isGlobal) calendars else emptyList(),
             onDismiss = { showCreateDialog = false },
             onConfirm = { selectedCalId, eventTitle, eventDateAt, aiText, alarm ->
-                viewModel.createEvent(selectedCalId, eventTitle, eventDateAt, aiText, alarm)
+                viewModel.createEvent(selectedCalId, eventTitle, eventDateAt, aiText, alarm, refreshCalendarId)
                 showCreateDialog = false
             }
         )
@@ -153,14 +153,13 @@ fun EventListScreen(
         EventFormDialog(
             calendarId = event.calendar_id,
             initialEvent = event,
-            onOpenRoutine = event.routine_id?.let { id -> onNavigateToRoutine?.let { navigate -> { selectedEventToEdit = null; navigate(id) } } },
             onDismiss = { selectedEventToEdit = null },
-            onConfirm = { selectedCalId, eventTitle, eventDateAt, _, alarm ->
-                viewModel.updateEvent(event.id, selectedCalId, eventTitle, eventDateAt, alarm)
+            onConfirm = { _, eventTitle, eventDateAt, _, alarm ->
+                viewModel.updateEvent(event.id, refreshCalendarId, eventTitle, eventDateAt, alarm)
                 selectedEventToEdit = null
             },
             onDelete = {
-                viewModel.deleteEvent(event.id, if (isGlobal) (selectedCalendarFilterId ?: 0) else calendarId)
+                viewModel.deleteEvent(event.id, refreshCalendarId)
                 selectedEventToEdit = null
             },
             isEdit = true
@@ -229,6 +228,7 @@ fun EventListContent(
         val activeCal = calendarsList.find { it.id == calendarId }
         val displayCalendarName = activeCal?.name ?: calendarName
         val listColor = parseHexColor(activeCal?.color)
+        val addColor = if (isGlobal) parseHexColor(calendarsList.find { it.id == selectedCalendarFilterId }?.color) else listColor
         val calendarColor: (EventResponse) -> String? = { event -> calendarsList.find { it.id == event.calendar_id }?.color ?: event.calendar_color }
 
         if (isStandalone) {
@@ -277,19 +277,15 @@ fun EventListContent(
             }
         }
 
-        val routineLabel = stringResource(R.string.routine_session_label)
         val subtitleOf: (EventResponse) -> String? = { event ->
-            listOfNotNull(
-                if (event.routine_id != null) routineLabel else null,
-                if (isGlobal) calendarsList.find { it.id == event.calendar_id }?.name ?: event.calendar_name else null
-            ).joinToString(" · ").takeIf { it.isNotEmpty() }
+            if (isGlobal) calendarsList.find { it.id == event.calendar_id }?.name ?: event.calendar_name else null
         }
 
         val dateOf: (EventResponse) -> LocalDate = { DateTimeUtils.parseLocalDate(it.date_at) ?: LocalDate.now() }
         val upcomingGroups = upcomingEvents.groupBy(dateOf)
         val pastGroups = pastEvents.groupBy(dateOf)
         val dotColors = (upcomingEvents + pastEvents).groupBy(dateOf).mapValues { (_, events) -> events.map { parseHexColor(calendarColor(it)) } }
-        val canAdd = if (isGlobal) selectedCalendarFilterId != null else true
+        val canAdd = !isGlobal || calendarsList.isNotEmpty()
 
         // Posición en la lista de la cabecera de cada día, para saltar desde el mini calendario.
         val dayIndex = remember(upcomingGroups, pastGroups, canAdd) {
@@ -352,7 +348,7 @@ fun EventListContent(
                                     modifier = Modifier.weight(1f)
                                 )
                                 Box(
-                                    modifier = Modifier.size(44.dp).background(listColor, CircleShape),
+                                    modifier = Modifier.size(44.dp).background(addColor, CircleShape),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(Icons.Default.Add, null, tint = Color.White)

@@ -41,6 +41,11 @@ class MainActivity : ComponentActivity() {
             action = "com.lito.planify.widget.ACTION_CLEAR_CACHE"
         }
         sendBroadcast(updateEventsIntent)
+
+        val updateRoutinesIntent = android.content.Intent(this, com.lito.planify.widget.RoutineWidgetProvider::class.java).apply {
+            action = "com.lito.planify.widget.ACTION_CLEAR_CACHE"
+        }
+        sendBroadcast(updateRoutinesIntent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,17 +96,21 @@ class MainActivity : ComponentActivity() {
                             // We check if we are not already at the tasks global screen
                             if (navController.currentDestination?.route != "tasks") {
                                 navController.navigate("tasks") {
-                                    popUpTo("calendars") { inclusive = false }
+                                    popUpTo("calendars?tab={tab}") { inclusive = false }
                                 }
                             }
                         } else if (intent.data?.scheme == "calendar" && (intent.data?.host == "global_events" || intent.data?.host == "open_main_from_list")) {
                             val prefs = getSharedPreferences("planify_prefs", android.content.Context.MODE_PRIVATE)
                             prefs.edit().putInt("selected_calendar_filter", -1).apply()
                             
-                            if (navController.currentDestination?.route != "calendars") {
+                            if (navController.currentDestination?.route?.startsWith("calendars") != true) {
                                 navController.navigate("calendars") {
                                     popUpTo(0)
                                 }
+                            }
+                        } else if (intent.data?.scheme == "calendar" && intent.data?.host == "routines") {
+                            navController.navigate("calendars?tab=1") {
+                                popUpTo(0)
                             }
                         }
                     }
@@ -125,15 +134,13 @@ class MainActivity : ComponentActivity() {
                     } else if (isGlobalEventsIntent) {
                         val prefs = getSharedPreferences("planify_prefs", android.content.Context.MODE_PRIVATE)
                         prefs.edit().putInt("selected_calendar_filter", -1).apply()
-                        "calendars"
+                        "calendars?tab={tab}"
                     } else {
-                        "calendars"
+                        "calendars?tab={tab}"
                     }
                 } else "welcome"
 
                 com.lito.planify.ui.components.PlanifyBackground {
-                val navigateToRoutines: () -> Unit = { navController.navigate("routines") { popUpTo(0) } }
-                val navigateToRoutine: (Int) -> Unit = { id -> navController.navigate("routines?routineId=$id") { popUpTo(0) } }
                 NavHost(navController = navController, startDestination = startDestination) {
                     composable("welcome") {
                         WelcomeScreen(
@@ -174,20 +181,21 @@ class MainActivity : ComponentActivity() {
                             onNavigateToCalendars = { navController.navigate("calendars") { popUpTo(0) } },
                             onNavigateToProfile = { navController.navigate("profile") { popUpTo(0) } },
                             onNavigateToTaskListDetail = { id, name -> navController.navigate("task_list/$id/$name") },
-                            onNavigateToRoutines = navigateToRoutines,
                             initialTab = initialTab
                         )
                     }
-                    composable("calendars") { backStackEntry ->
-                        val initialTab = backStackEntry.savedStateHandle.get<Int>("initialTab") ?: 0
+                    composable(
+                        "calendars?tab={tab}",
+                        arguments = listOf(navArgument("tab") { type = NavType.IntType; defaultValue = 0 })
+                    ) { backStackEntry ->
+                        val initialTab = backStackEntry.savedStateHandle.get<Int>("initialTab") ?: backStackEntry.arguments?.getInt("tab") ?: 0
                         CalendarsRootScreen(
                             calendarViewModel = calendarViewModel,
                             eventViewModel = eventViewModel,
+                            routineViewModel = routineViewModel,
                             onNavigateToTasks = { navController.navigate("tasks") { popUpTo(0) } },
                             onNavigateToProfile = { navController.navigate("profile") { popUpTo(0) } },
                             onNavigateToCalendarDetail = { id, name -> navController.navigate("calendar/$id/$name") },
-                            onNavigateToRoutines = navigateToRoutines,
-                            onNavigateToRoutine = navigateToRoutine,
                             initialTab = initialTab
                         )
                     }
@@ -205,20 +213,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onNavigateToTasks = { navController.navigate("tasks") { popUpTo(0) } },
-                            onNavigateToCalendars = { navController.navigate("calendars") { popUpTo(0) } },
-                            onNavigateToRoutines = navigateToRoutines
-                        )
-                    }
-
-                    composable(
-                        "routines?routineId={routineId}",
-                        arguments = listOf(navArgument("routineId") { type = NavType.IntType; defaultValue = -1 })
-                    ) { entry ->
-                        RoutinesScreen(
-                            viewModel = routineViewModel,
-                            calendarViewModel = calendarViewModel,
-                            initialRoutineId = entry.arguments?.getInt("routineId")?.takeIf { it > 0 },
-                            onNavigate = { route -> navController.navigate(route) { popUpTo(0) } }
+                            onNavigateToCalendars = { navController.navigate("calendars") { popUpTo(0) } }
                         )
                     }
 
@@ -244,8 +239,7 @@ class MainActivity : ComponentActivity() {
                             },
                             onNavigateToTasks = { navController.navigate("tasks") { popUpTo("tasks") { inclusive = true } } },
                             onNavigateToCalendars = { navController.navigate("calendars") { popUpTo(0) } },
-                            onNavigateToProfile = { navController.navigate("profile") { popUpTo(0) } },
-                            onNavigateToRoutines = navigateToRoutines
+                            onNavigateToProfile = { navController.navigate("profile") { popUpTo(0) } }
                         )
                     }
                     composable(
@@ -264,14 +258,12 @@ class MainActivity : ComponentActivity() {
                             calendarViewModel = calendarViewModel,
                             isStandalone = true,
                             onBack = { 
-                                navController.previousBackStackEntry?.savedStateHandle?.set("initialTab", 1)
+                                navController.previousBackStackEntry?.savedStateHandle?.set("initialTab", 2)
                                 navController.popBackStack()
                             },
-                            onNavigateToCalendars = { navController.navigate("calendars") { popUpTo("calendars") { inclusive = true } } },
+                            onNavigateToCalendars = { navController.navigate("calendars") { popUpTo(0) } },
                             onNavigateToTasks = { navController.navigate("tasks") { popUpTo(0) } },
-                            onNavigateToProfile = { navController.navigate("profile") { popUpTo(0) } },
-                            onNavigateToRoutines = navigateToRoutines,
-                            onNavigateToRoutine = navigateToRoutine
+                            onNavigateToProfile = { navController.navigate("profile") { popUpTo(0) } }
                         )
                     }
                 }
