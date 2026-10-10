@@ -3,8 +3,6 @@ package com.lito.planify.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -13,11 +11,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lito.planify.ui.theme.GlassBorderColor
+import com.lito.planify.ui.theme.GlassColor
+import com.lito.planify.ui.theme.OnSurfaceColor
+import com.lito.planify.ui.theme.OnSurfaceVariantColor
 
 @Composable
 fun PlanifyFilterChip(
-    label: String, 
-    isSelected: Boolean, 
+    label: String,
+    isSelected: Boolean,
     colorHex: String? = null,
     onClick: () -> Unit
 ) {
@@ -26,12 +28,12 @@ fun PlanifyFilterChip(
     Surface(
         onClick = onClick,
         shape = CircleShape,
-        color = if (isSelected) Color(0xFFD3E3FD) else Color.Transparent,
-        border = if (!isSelected) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFC8C5BD)) else null,
+        color = if (isSelected) OnSurfaceColor else GlassColor,
+        border = if (!isSelected) androidx.compose.foundation.BorderStroke(1.dp, GlassBorderColor) else null,
         modifier = Modifier.height(36.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp),
+            modifier = Modifier.padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
@@ -46,10 +48,10 @@ fun PlanifyFilterChip(
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
                 ),
-                color = if (isSelected) Color(0xFF0B57D0) else Color(0xFF5A5853)
+                color = if (isSelected) Color.White else OnSurfaceVariantColor
             )
         }
     }

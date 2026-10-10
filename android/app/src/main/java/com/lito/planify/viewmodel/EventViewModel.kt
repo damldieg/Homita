@@ -61,9 +61,6 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                 if (upcomingResponse.isSuccessful) {
                     val events = upcomingResponse.body() ?: emptyList()
                     _upcomingEvents.value = events
-                    events.forEach { event ->
-                        com.lito.planify.util.AlarmHelper.scheduleAlarm(getApplication(), event)
-                    }
                 } else {
                     _error.value = upcomingResponse.getErrorMessage()
                 }
@@ -75,6 +72,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     if (_error.value == null) _error.value = pastResponse.getErrorMessage()
                 }
+                com.lito.planify.util.AlarmHelper.synchronizeAlarms(getApplication())
             } catch (e: Exception) {
                 _error.value = "Error: ${e.message}"
             } finally {
@@ -91,7 +89,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     CreateEventRequest(calendarId, text, title, dateAt, alarm)
                 )
                 if (response.isSuccessful) {
-                    response.body()?.let { com.lito.planify.util.AlarmHelper.scheduleAlarm(getApplication(), it) }
+                    response.body()?.let { com.lito.planify.util.AlarmHelper.rememberEvent(getApplication(), it) }
                     notifyWidgetDataChanged()
                     fetchEvents(calendarId, force = true)
                 } else {
@@ -113,7 +111,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     UpdateEventRequest(id, title, dateAt, alarm)
                 )
                 if (response.isSuccessful) {
-                    response.body()?.let { com.lito.planify.util.AlarmHelper.scheduleAlarm(getApplication(), it) }
+                    response.body()?.let { com.lito.planify.util.AlarmHelper.rememberEvent(getApplication(), it) }
                     notifyWidgetDataChanged()
                     fetchEvents(calendarId, force = true)
                 } else {
@@ -135,7 +133,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     SetEventAlarmRequest(id, alarm)
                 )
                 if (response.isSuccessful) {
-                    response.body()?.let { com.lito.planify.util.AlarmHelper.scheduleAlarm(getApplication(), it) }
+                    response.body()?.let { com.lito.planify.util.AlarmHelper.rememberEvent(getApplication(), it) }
                     notifyWidgetDataChanged()
                     fetchEvents(calendarId, force = true)
                 } else {

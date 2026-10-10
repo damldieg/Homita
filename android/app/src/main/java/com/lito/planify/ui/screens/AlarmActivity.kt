@@ -39,6 +39,7 @@ import java.util.Locale
 import com.lito.planify.R
 import com.lito.planify.ui.theme.PlanifyTheme
 import com.lito.planify.util.AlarmHelper
+import com.lito.planify.ui.theme.*
 
 class AlarmActivity : ComponentActivity() {
     private var ringtone: Ringtone? = null
@@ -65,7 +66,7 @@ class AlarmActivity : ComponentActivity() {
         val eventTitle = intent.getStringExtra("eventTitle") ?: "Evento"
         val calendarName = intent.getStringExtra("calendarName")
         val calendarColorHex = intent.getStringExtra("calendarColor") ?: "#0B57D0"
-        val calendarColor = try { Color(android.graphics.Color.parseColor(calendarColorHex)) } catch(e: Exception) { Color(0xFF0B57D0) }
+        val calendarColor = try { Color(android.graphics.Color.parseColor(calendarColorHex)) } catch(e: Exception) { PrimaryColor }
 
         val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
@@ -109,8 +110,8 @@ class AlarmActivity : ComponentActivity() {
                 val dateStr = SimpleDateFormat("EEEE, d 'de' MMMM", Locale.getDefault()).format(Date(currentTime)).replaceFirstChar { it.uppercase() }
 
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = Color(0xFFF9F9F9)
+                    modifier = Modifier.fillMaxSize().background(BackgroundBrush),
+                    color = Color.Transparent
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         Spacer(modifier = Modifier.height(80.dp))
@@ -119,17 +120,17 @@ class AlarmActivity : ComponentActivity() {
                             Text(
                                 text = timeStr,
                                 style = MaterialTheme.typography.displayLarge.copy(
-                                    fontSize = 80.sp,
-                                    fontFamily = FontFamily.Serif,
-                                    fontWeight = FontWeight.Light
+                                    fontSize = 96.sp,
+                                    lineHeight = 96.sp,
+                                    fontWeight = FontWeight.Black
                                 ),
-                                color = Color(0xFF1D1B20)
+                                color = OnSurfaceColor
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = dateStr,
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = Color(0xFF757575)
+                                color = OnSurfaceVariantColor
                             )
                         }
                         
@@ -163,10 +164,9 @@ class AlarmActivity : ComponentActivity() {
                             Text(
                                 text = eventTitle,
                                 style = MaterialTheme.typography.headlineMedium.copy(
-                                    fontFamily = FontFamily.Serif,
                                     fontSize = 28.sp
                                 ),
-                                color = Color(0xFF1D1B20),
+                                color = OnSurfaceColor,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(horizontal = 24.dp)
                             )
@@ -174,7 +174,7 @@ class AlarmActivity : ComponentActivity() {
                                 Text(
                                     text = calendarName,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = Color(0xFF757575),
+                                    color = OnSurfaceVariantColor,
                                     modifier = Modifier.padding(top = 8.dp)
                                 )
                             }
@@ -192,9 +192,9 @@ class AlarmActivity : ComponentActivity() {
                             Button(
                                 onClick = { finish() },
                                 modifier = Modifier.weight(1f).height(56.dp),
-                                shape = RoundedCornerShape(16.dp),
+                                shape = CircleShape,
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF1D1B20),
+                                    containerColor = OnSurfaceColor,
                                     contentColor = Color.White
                                 )
                             ) {

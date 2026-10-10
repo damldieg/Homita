@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
@@ -17,6 +18,9 @@ import com.lito.planify.viewmodel.*
 import com.lito.planify.viewmodel.factory.ViewModelFactory
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private var currentIntentState = mutableStateOf<android.content.Intent?>(null)
@@ -49,7 +53,10 @@ class MainActivity : ComponentActivity() {
         // Ensure no system ActionBar or Title is shown
         actionBar?.hide()
         
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+        )
 
         val sessionManager = SessionManager(this)
         val authToken = runBlocking { sessionManager.authTokenFlow.firstOrNull() }
@@ -64,6 +71,7 @@ class MainActivity : ComponentActivity() {
                 val authViewModel: AuthViewModel = viewModel(factory = factory)
                 val calendarViewModel: CalendarViewModel = viewModel(factory = factory)
                 val eventViewModel: EventViewModel = viewModel(factory = factory)
+                val routineViewModel: RoutineViewModel = viewModel(factory = factory)
                 val taskListViewModel: TaskListViewModel = viewModel(factory = factory)
                 val taskViewModel: TaskViewModel = viewModel(factory = factory)
 
@@ -123,6 +131,9 @@ class MainActivity : ComponentActivity() {
                     }
                 } else "welcome"
 
+                com.lito.planify.ui.components.PlanifyBackground {
+                val navigateToRoutines: () -> Unit = { navController.navigate("routines") { popUpTo(0) } }
+                val navigateToRoutine: (Int) -> Unit = { id -> navController.navigate("routines?routineId=$id") { popUpTo(0) } }
                 NavHost(navController = navController, startDestination = startDestination) {
                     composable("welcome") {
                         WelcomeScreen(
@@ -163,6 +174,7 @@ class MainActivity : ComponentActivity() {
                             onNavigateToCalendars = { navController.navigate("calendars") { popUpTo(0) } },
                             onNavigateToProfile = { navController.navigate("profile") { popUpTo(0) } },
                             onNavigateToTaskListDetail = { id, name -> navController.navigate("task_list/$id/$name") },
+                            onNavigateToRoutines = navigateToRoutines,
                             initialTab = initialTab
                         )
                     }
@@ -174,6 +186,8 @@ class MainActivity : ComponentActivity() {
                             onNavigateToTasks = { navController.navigate("tasks") { popUpTo(0) } },
                             onNavigateToProfile = { navController.navigate("profile") { popUpTo(0) } },
                             onNavigateToCalendarDetail = { id, name -> navController.navigate("calendar/$id/$name") },
+                            onNavigateToRoutines = navigateToRoutines,
+                            onNavigateToRoutine = navigateToRoutine,
                             initialTab = initialTab
                         )
                     }
@@ -181,9 +195,30 @@ class MainActivity : ComponentActivity() {
                         ProfileScreen(
                             viewModel = authViewModel,
                             sessionManager = sessionManager,
-                            onLogout = { navController.navigate("welcome") { popUpTo(0) } },
+                            onLogout = {
+                                routineViewModel.reset()
+                                lifecycleScope.launch {
+                                    withContext(Dispatchers.IO) {
+                                        com.lito.planify.util.AlarmHelper.cancelAll(this@MainActivity)
+                                    }
+                                    navController.navigate("welcome") { popUpTo(0) }
+                                }
+                            },
                             onNavigateToTasks = { navController.navigate("tasks") { popUpTo(0) } },
-                            onNavigateToCalendars = { navController.navigate("calendars") { popUpTo(0) } }
+                            onNavigateToCalendars = { navController.navigate("calendars") { popUpTo(0) } },
+                            onNavigateToRoutines = navigateToRoutines
+                        )
+                    }
+
+                    composable(
+                        "routines?routineId={routineId}",
+                        arguments = listOf(navArgument("routineId") { type = NavType.IntType; defaultValue = -1 })
+                    ) { entry ->
+                        RoutinesScreen(
+                            viewModel = routineViewModel,
+                            calendarViewModel = calendarViewModel,
+                            initialRoutineId = entry.arguments?.getInt("routineId")?.takeIf { it > 0 },
+                            onNavigate = { route -> navController.navigate(route) { popUpTo(0) } }
                         )
                     }
 
@@ -209,7 +244,8 @@ class MainActivity : ComponentActivity() {
                             },
                             onNavigateToTasks = { navController.navigate("tasks") { popUpTo("tasks") { inclusive = true } } },
                             onNavigateToCalendars = { navController.navigate("calendars") { popUpTo(0) } },
-                            onNavigateToProfile = { navController.navigate("profile") { popUpTo(0) } }
+                            onNavigateToProfile = { navController.navigate("profile") { popUpTo(0) } },
+                            onNavigateToRoutines = navigateToRoutines
                         )
                     }
                     composable(
@@ -233,9 +269,12 @@ class MainActivity : ComponentActivity() {
                             },
                             onNavigateToCalendars = { navController.navigate("calendars") { popUpTo("calendars") { inclusive = true } } },
                             onNavigateToTasks = { navController.navigate("tasks") { popUpTo(0) } },
-                            onNavigateToProfile = { navController.navigate("profile") { popUpTo(0) } }
+                            onNavigateToProfile = { navController.navigate("profile") { popUpTo(0) } },
+                            onNavigateToRoutines = navigateToRoutines,
+                            onNavigateToRoutine = navigateToRoutine
                         )
                     }
+                }
                 }
             }
         }

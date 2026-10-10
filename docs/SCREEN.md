@@ -4,11 +4,12 @@ Planify es una aplicación de organización personal multi-usuario. Utiliza un s
 
 ## 1. Arquitectura de Navegación Global
 
-- **Bottom Navigation (3 secciones):**
+- **Bottom Navigation (4 secciones):**
   1. **Tareas:** Icono `CheckCircle`. Ruta inicial.
   2. **Calendarios:** Icono `DateRange`.
-  3. **Perfil:** Icono `Person`.
-- **Estilo Visual:** Glassmorphism (fondo translúcido con desenfoque), esquinas rectas para elementos de lista (`RectangleShape`), y colores vibrantes sobre fondos claros.
+  3. **Rutinas:** Icono `Repeat`.
+  4. **Perfil:** Icono `Person`.
+- **Estilo Visual:** fondo degradado neutro claro, tarjetas de cristal translúcidas con esquinas redondeadas que agrupan las filas, tipografía sans en negrita, acento ciruela oscuro y pastillas de día "Hoy" (rojo) / "Mañana" (naranja). Los widgets usan cristal oscuro translúcido sobre el fondo de pantalla y en la pantalla de bloqueo son de solo lectura.
 
 ---
 
@@ -70,6 +71,13 @@ Dos pestañas superiores:
 - **Propósito:** Agenda cronológica de todos los eventos.
 - **Filtros:** Búsqueda por texto (lupa) y filtro por Calendario específico.
 - **Tarjetas de Evento:** Muestran Título, Fecha (con día de semana, ej: "Lun, 20 Abr") y **Fecha Relativa** ("En 2 h", "En 15 min", "Mañana").
+
+### 4.3. Sección Rutinas (`RoutinesScreen`)
+- **Ubicación:** Sección independiente de la barra inferior, después de Calendarios.
+- **Listado:** Nombre, calendario, días, hora y periodo; interruptor para activar o pausar.
+- **Formulario:** Calendario, título, días individuales, hora común, inicio, fin opcional, estado y aviso personal.
+- **Permisos:** Todos los miembros del calendario pueden gestionar las rutinas.
+- **Sesiones:** Los eventos generados permiten editar o borrar solo una sesión, o abrir la rutina completa. Pausar y borrar conservan el historial.
 
 ---
 

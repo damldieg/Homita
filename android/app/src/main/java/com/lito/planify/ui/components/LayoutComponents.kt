@@ -60,34 +60,26 @@ fun PlanifyPullToRefreshBox(
                 .graphicsLayer {
                     alpha = if (state.isRefreshing || state.progress > 0f) 1f else 0f
                 },
-            containerColor = Color.White,
+            containerColor = com.lito.planify.ui.theme.SurfaceColor,
             contentColor = MaterialTheme.colorScheme.primary
         )
     }
 }
 
 /**
- * Centraliza la cabecera blanca con padding de sistema.
- * Elimina cualquier fuga de blanco hacia abajo.
+ * Cabecera transparente sobre el degradado, con padding de sistema.
  */
 @Composable
 fun PlanifyHeader(
     content: @Composable () -> Unit
 ) {
-    Surface(
-        color = Color.White,
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.statusBarsPadding()) {
-            content()
-        }
+    Column(modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
+        content()
     }
 }
 
 /**
- * El contenedor estándar para listados sobre fondo crema.
+ * El contenedor estándar para listados sobre el fondo degradado.
  */
 @Composable
 fun PlanifyContentContainer(
@@ -98,7 +90,6 @@ fun PlanifyContentContainer(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
             .padding(top = topPadding)
     ) {
         content()

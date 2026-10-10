@@ -98,6 +98,7 @@ class WidgetViewsFactory(private val context: Context) : RemoteViewsService.Remo
                         if (response.isSuccessful) {
                             val newEvents = response.body() ?: emptyList()
                             WidgetViewsFactory.saveCache(context, newEvents)
+                            com.lito.planify.util.AlarmHelper.synchronizeAlarms(context)
                             lastFetchTime = currentTime
                         } else {
                             Log.e("CalendarWidget", "API error: ${response.code()}")

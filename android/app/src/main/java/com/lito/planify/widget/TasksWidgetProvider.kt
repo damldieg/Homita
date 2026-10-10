@@ -3,6 +3,7 @@ package com.lito.planify.widget
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.appwidget.AppWidgetProviderInfo
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -46,6 +47,11 @@ class TasksWidgetProvider : AppWidgetProvider() {
             renderFullWidget(context, appWidgetManager, appWidgetId)
         }
         fetchAndRefresh(context, appWidgetIds, pendingResult)
+    }
+
+    override fun onAppWidgetOptionsChanged(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, newOptions: android.os.Bundle) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+        renderFullWidget(context, appWidgetManager, appWidgetId)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -194,7 +200,12 @@ class TasksWidgetProvider : AppWidgetProvider() {
         views.setRemoteAdapter(R.id.widget_tasks_list, serviceIntent)
         views.setEmptyView(R.id.widget_tasks_list, R.id.widget_tasks_empty)
 
-        applyClickListeners(context, views, appWidgetId, currentList.id)
+        // En la pantalla de bloqueo el widget es de solo lectura: sin navegación ni acciones
+        if (isLockScreenWidget(appWidgetManager, appWidgetId)) {
+            views.setViewVisibility(R.id.nav_container, View.GONE)
+        } else {
+            applyClickListeners(context, views, appWidgetId, currentList.id)
+        }
 
         appWidgetManager.updateAppWidget(appWidgetId, views)
     }
@@ -280,6 +291,11 @@ class TasksWidgetProvider : AppWidgetProvider() {
 
     private fun listIdKey(appWidgetId: Int) = "widget_${appWidgetId}_listId"
 }
+
+/** true si el widget está alojado en la pantalla de bloqueo (se muestra en modo solo lectura). */
+internal fun isLockScreenWidget(appWidgetManager: AppWidgetManager, appWidgetId: Int): Boolean =
+    appWidgetManager.getAppWidgetOptions(appWidgetId)
+        .getInt(AppWidgetManager.OPTION_APPWIDGET_HOST_CATEGORY, -1) == AppWidgetProviderInfo.WIDGET_CATEGORY_KEYGUARD
 
 internal fun readLists(prefs: SharedPreferences): List<TaskListResponse> {
     val json = prefs.getString(PREFS_KEY_ALL_LISTS, null) ?: return emptyList()

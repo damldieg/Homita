@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.style.TextOverflow
+import java.time.LocalDate
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -22,7 +26,6 @@ import androidx.compose.ui.unit.sp
 import com.lito.planify.R
 import com.lito.planify.data.api.EventResponse
 import com.lito.planify.ui.components.*
-import com.lito.planify.ui.theme.OutlineDimColor
 import com.lito.planify.util.DateTimeUtils
 import com.lito.planify.viewmodel.CalendarViewModel
 import com.lito.planify.viewmodel.EventViewModel
@@ -39,7 +42,9 @@ fun EventListScreen(
     onBack: (() -> Unit)? = null,
     onNavigateToCalendars: (() -> Unit)? = null,
     onNavigateToTasks: (() -> Unit)? = null,
-    onNavigateToProfile: (() -> Unit)? = null
+    onNavigateToProfile: (() -> Unit)? = null,
+    onNavigateToRoutines: (() -> Unit)? = null,
+    onNavigateToRoutine: ((Int) -> Unit)? = null
 ) {
     val upcomingEvents by viewModel.upcomingEvents.collectAsState()
     val pastEvents by viewModel.pastEvents.collectAsState()
@@ -70,26 +75,22 @@ fun EventListScreen(
 
     LaunchedEffect(calendarId, selectedCalendarFilterId) {
         val effectiveId = if (isGlobal) selectedCalendarFilterId else calendarId
-        viewModel.fetchEvents(calendarId = effectiveId, force = false)
+        viewModel.fetchEvents(calendarId = effectiveId, force = true)
     }
 
     if (isStandalone) {
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            bottomBar = {
-                GlassBottomNavBar(
-                    currentRoute = "calendars",
-                    onNavigate = { route ->
-                        when (route) {
-                            "calendars" -> onNavigateToCalendars?.invoke()
-                            "tasks" -> onNavigateToTasks?.invoke()
-                            "profile" -> onNavigateToProfile?.invoke()
-                        }
-                    }
-                )
+        GlassNavScaffold(
+            currentRoute = "calendars",
+            onNavigate = { route ->
+                when (route) {
+                    "calendars" -> onNavigateToCalendars?.invoke()
+                    "tasks" -> onNavigateToTasks?.invoke()
+                    "profile" -> onNavigateToProfile?.invoke()
+                    "routines" -> onNavigateToRoutines?.invoke()
+                }
             }
-        ) { padding ->
-            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 EventListContent(
                     calendarId = calendarId,
                     calendarName = calendarName,
@@ -152,6 +153,7 @@ fun EventListScreen(
         EventFormDialog(
             calendarId = event.calendar_id,
             initialEvent = event,
+            onOpenRoutine = event.routine_id?.let { id -> onNavigateToRoutine?.let { navigate -> { selectedEventToEdit = null; navigate(id) } } },
             onDismiss = { selectedEventToEdit = null },
             onConfirm = { selectedCalId, eventTitle, eventDateAt, _, alarm ->
                 viewModel.updateEvent(event.id, selectedCalId, eventTitle, eventDateAt, alarm)
@@ -220,59 +222,83 @@ fun EventListContent(
     onEditEvent: (EventResponse) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
     Column(modifier = Modifier.fillMaxSize()) {
         val activeCal = calendarsList.find { it.id == calendarId }
         val displayCalendarName = activeCal?.name ?: calendarName
-        val colorHex = activeCal?.color ?: "#4B4D99"
-        val listColor = try { Color(android.graphics.Color.parseColor(colorHex)) } catch (e: Exception) { Color(0xFF4B4D99) }
+        val listColor = parseHexColor(activeCal?.color)
+        val calendarColor: (EventResponse) -> String? = { event -> calendarsList.find { it.id == event.calendar_id }?.color ?: event.calendar_color }
 
         if (isStandalone) {
             PlanifyHeader {
                 Row(
-                    modifier = Modifier.padding(top = 0.dp, start = 24.dp, end = 20.dp, bottom = 16.dp).fillMaxWidth(),
+                    modifier = Modifier.padding(top = 8.dp, start = 24.dp, end = 16.dp, bottom = 8.dp).fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(modifier = Modifier.size(14.dp).background(listColor, androidx.compose.foundation.shape.CircleShape))
+                    Box(modifier = Modifier.size(14.dp).background(listColor, CircleShape))
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = displayCalendarName, 
-                        style = MaterialTheme.typography.titleLarge.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Serif, fontSize = 34.sp)
+                        text = displayCalendarName,
+                        style = MaterialTheme.typography.headlineLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
-                    Spacer(modifier = Modifier.weight(1f))
-                    IconButton(onClick = onShowEditCalendar) { Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onSurface) }
+                    IconButton(onClick = onShowEditCalendar, modifier = Modifier.glass(CircleShape)) {
+                        Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onSurface)
+                    }
                 }
-                HorizontalDivider(thickness = 0.5.dp, color = OutlineDimColor)
             }
         }
 
         if (isGlobal) {
-            Surface(color = Color.White, modifier = Modifier.fillMaxWidth()) {
-                Column {
-                    HorizontalDivider(thickness = 0.5.dp, color = OutlineDimColor)
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                        contentPadding = PaddingValues(horizontal = 20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        item {
-                            PlanifyFilterChip(
-                                label = stringResource(R.string.events_filter_all),
-                                isSelected = selectedCalendarFilterId == null,
-                                onClick = { onSetFilter(null) }
-                            )
-                        }
-                        itemsIndexed(calendarsList) { _, cal ->
-                            PlanifyFilterChip(
-                                label = cal.name,
-                                isSelected = selectedCalendarFilterId == cal.id,
-                                colorHex = cal.color,
-                                onClick = { onSetFilter(cal.id) }
-                            )
-                        }
-                    }
-                    HorizontalDivider(thickness = 0.5.dp, color = OutlineDimColor)
+            LazyRow(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item {
+                    PlanifyFilterChip(
+                        label = stringResource(R.string.events_filter_all),
+                        isSelected = selectedCalendarFilterId == null,
+                        onClick = { onSetFilter(null) }
+                    )
+                }
+                itemsIndexed(calendarsList) { _, cal ->
+                    PlanifyFilterChip(
+                        label = cal.name,
+                        isSelected = selectedCalendarFilterId == cal.id,
+                        colorHex = cal.color,
+                        onClick = { onSetFilter(cal.id) }
+                    )
                 }
             }
+        }
+
+        val routineLabel = stringResource(R.string.routine_session_label)
+        val subtitleOf: (EventResponse) -> String? = { event ->
+            listOfNotNull(
+                if (event.routine_id != null) routineLabel else null,
+                if (isGlobal) calendarsList.find { it.id == event.calendar_id }?.name ?: event.calendar_name else null
+            ).joinToString(" · ").takeIf { it.isNotEmpty() }
+        }
+
+        val dateOf: (EventResponse) -> LocalDate = { DateTimeUtils.parseLocalDate(it.date_at) ?: LocalDate.now() }
+        val upcomingGroups = upcomingEvents.groupBy(dateOf)
+        val pastGroups = pastEvents.groupBy(dateOf)
+        val dotColors = (upcomingEvents + pastEvents).groupBy(dateOf).mapValues { (_, events) -> events.map { parseHexColor(calendarColor(it)) } }
+        val canAdd = if (isGlobal) selectedCalendarFilterId != null else true
+
+        // Posición en la lista de la cabecera de cada día, para saltar desde el mini calendario.
+        val dayIndex = remember(upcomingGroups, pastGroups, canAdd) {
+            val map = mutableMapOf<LocalDate, Int>()
+            var index = if (canAdd) 2 else 1
+            upcomingGroups.forEach { (date, events) -> map[date] = index; index += events.size + 1 }
+            if (pastGroups.isNotEmpty()) index++
+            pastGroups.forEach { (date, events) -> map.putIfAbsent(date, index); index += events.size + 1 }
+            map
         }
 
         PlanifyContentContainer(topPadding = 0.dp) {
@@ -282,106 +308,107 @@ fun EventListContent(
                 modifier = Modifier.fillMaxSize()
             ) {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 120.dp)
+                    contentPadding = PaddingValues(bottom = 150.dp)
                 ) {
-                    val canAdd = if (isGlobal) selectedCalendarFilterId != null else true
+                    item(key = "hero") {
+                        Column(modifier = Modifier.padding(horizontal = 16.dp).padding(top = 6.dp)) {
+                            if (!isStandalone) {
+                                Text(
+                                    text = LocalDate.now()
+                                        .format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM", java.util.Locale.getDefault()))
+                                        .replace(".", "")
+                                        .replaceFirstChar { it.uppercaseChar() },
+                                    style = MaterialTheme.typography.displayMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 14.dp)
+                                )
+                            }
+                            MonthCalendarCard(
+                                eventColorsByDate = dotColors,
+                                onDayClick = { date ->
+                                    dayIndex[date]?.let { scope.launch { listState.animateScrollToItem(it) } }
+                                }
+                            )
+                        }
+                    }
+
                     if (canAdd) {
-                    item {
-                        Column(modifier = Modifier.background(Color.White)) {
+                        item(key = "add") {
                             Row(
                                 modifier = Modifier
-                                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                                    .padding(start = 16.dp, end = 16.dp, top = 16.dp)
                                     .fillMaxWidth()
-                                    .clickable { onShowCreateEvent() },
+                                    .glass(CircleShape)
+                                    .clickable { onShowCreateEvent() }
+                                    .padding(start = 22.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = stringResource(R.string.calendars_new_event), 
-                                    color = Color(0xFF757575), 
-                                    fontSize = 16.sp,
-                                    modifier = Modifier.weight(1f).padding(vertical = 14.dp) // Padding to simulate TextField height
+                                    text = stringResource(R.string.calendars_new_event),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1f)
                                 )
-                                
-                                FloatingActionButton(
-                                    onClick = onShowCreateEvent,
-                                    containerColor = listColor,
-                                    contentColor = Color.White,
-                                    shape = androidx.compose.foundation.shape.CircleShape,
-                                    modifier = Modifier.size(40.dp),
-                                    elevation = FloatingActionButtonDefaults.elevation(0.dp)
-                                ) { 
-                                    Icon(Icons.Default.Add, null) 
+                                Box(
+                                    modifier = Modifier.size(44.dp).background(listColor, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Add, null, tint = Color.White)
                                 }
                             }
-                            HorizontalDivider(thickness = 0.5.dp, color = OutlineDimColor)
                         }
                     }
-                }
-                
-                if (upcomingEvents.isNotEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color(0xFFF7F5F2))
-                                .padding(horizontal = 20.dp, vertical = 18.dp)
-                        ) {
-                            Text(
-                                text = "${stringResource(R.string.event_section_upcoming)} · ${upcomingEvents.size}",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                    fontSize = 12.sp,
-                                    letterSpacing = 1.2.sp
-                                ),
-                                color = Color(0xFF757575)
-                            )
-                        }
-                    }
-                    itemsIndexed(upcomingEvents) { _, event ->
-                        val updatedColor = calendarsList.find { it.id == event.calendar_id }?.color ?: event.calendar_color
-                        PlanifyEventRow(
-                            title = event.title,
-                            dateInfo = DateTimeUtils.formatEventDate(event.date_at),
-                            relativeTime = DateTimeUtils.getRelativeTime(context, event.date_at),
-                            colorHex = updatedColor,
-                            hasAlarm = event.alarm != null,
-                            onClick = { onEditEvent(event) }
-                        )
-                    }
-                }
 
-                if (pastEvents.isNotEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color(0xFFF7F5F2))
-                                .padding(horizontal = 20.dp, vertical = 18.dp)
-                        ) {
-                            Text(
-                                text = "${stringResource(R.string.event_section_past)} · ${pastEvents.size}",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                    fontSize = 12.sp,
-                                    letterSpacing = 1.2.sp
-                                ),
-                                color = Color(0xFF757575)
+                    upcomingGroups.forEach { (date, events) ->
+                        item(key = "up-day-$date") {
+                            DayPill(date = date, modifier = Modifier.padding(start = 24.dp, top = 22.dp, bottom = 10.dp))
+                        }
+                        itemsIndexed(events, key = { _, e -> "up-${e.id}" }) { index, event ->
+                            PlanifyEventRow(
+                                title = event.title,
+                                time = DateTimeUtils.formatTime(event.date_at),
+                                subtitle = subtitleOf(event),
+                                relativeTime = DateTimeUtils.getRelativeTime(context, event.date_at),
+                                colorHex = calendarColor(event),
+                                hasAlarm = event.alarm != null,
+                                index = index,
+                                groupCount = events.size,
+                                onClick = { onEditEvent(event) }
                             )
                         }
                     }
-                    itemsIndexed(pastEvents) { _, event ->
-                        val updatedColor = calendarsList.find { it.id == event.calendar_id }?.color ?: event.calendar_color
-                        PlanifyEventRow(
-                            title = event.title,
-                            dateInfo = DateTimeUtils.formatEventDate(event.date_at),
-                            relativeTime = DateTimeUtils.getRelativeTime(context, event.date_at),
-                            colorHex = updatedColor,
-                            hasAlarm = event.alarm != null,
-                            onClick = { onEditEvent(event) }
-                        )
+
+                    if (pastGroups.isNotEmpty()) {
+                        item(key = "past-label") {
+                            GlassSectionHeader(
+                                icon = Icons.Default.History,
+                                title = stringResource(R.string.event_section_past_title),
+                                count = pastEvents.size,
+                                modifier = Modifier.padding(top = 28.dp)
+                            )
+                        }
+                        pastGroups.forEach { (date, events) ->
+                            item(key = "past-day-$date") {
+                                DayPill(date = date, modifier = Modifier.padding(start = 24.dp, top = 22.dp, bottom = 10.dp))
+                            }
+                            itemsIndexed(events, key = { _, e -> "past-${e.id}" }) { index, event ->
+                                PlanifyEventRow(
+                                    title = event.title,
+                                    time = DateTimeUtils.formatTime(event.date_at),
+                                    subtitle = subtitleOf(event),
+                                    relativeTime = DateTimeUtils.getRelativeTime(context, event.date_at),
+                                    colorHex = calendarColor(event),
+                                    hasAlarm = event.alarm != null,
+                                    isPast = true,
+                                    index = index,
+                                    groupCount = events.size,
+                                    onClick = { onEditEvent(event) }
+                                )
+                            }
+                        }
                     }
-                }
                 }
             }
         }

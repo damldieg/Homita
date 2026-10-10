@@ -29,6 +29,7 @@ import com.lito.planify.data.api.TaskListUserResponse
 import com.lito.planify.ui.theme.OutlineColor
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import kotlinx.coroutines.launch
+import com.lito.planify.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -133,7 +134,7 @@ fun CreateCalendarDialog(
                                 checkedThumbColor = Color.White,
                                 checkedTrackColor = MaterialTheme.colorScheme.primary,
                                 uncheckedThumbColor = Color.White,
-                                uncheckedTrackColor = Color(0xFFC8C5BD),
+                                uncheckedTrackColor = OutlineColor,
                                 uncheckedBorderColor = Color.Transparent
                             )
                         )
@@ -153,8 +154,8 @@ fun CreateCalendarDialog(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color(0xFFC8C5BD),
-                                focusedBorderColor = Color(0xFF0B57D0),
+                                unfocusedBorderColor = OutlineColor,
+                                focusedBorderColor = PrimaryColor,
                                 unfocusedContainerColor = Color.White,
                                 focusedContainerColor = Color.White
                             ),
@@ -167,7 +168,7 @@ fun CreateCalendarDialog(
                                     inviteEmail = ""
                                 }
                             },
-                            modifier = Modifier.size(48.dp).background(Color(0xFF0B57D0), RoundedCornerShape(12.dp))
+                            modifier = Modifier.size(48.dp).background(PrimaryColor, RoundedCornerShape(12.dp))
                         ) {
                             Icon(Icons.Default.Add, null, tint = Color.White)
                         }
@@ -236,13 +237,13 @@ fun UserListItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFF0EBE1), RoundedCornerShape(16.dp))
+            .background(SurfaceDimColor, RoundedCornerShape(16.dp))
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
             shape = androidx.compose.foundation.shape.CircleShape,
-            color = Color(0xFF2874D4),
+            color = PrimaryColor,
             modifier = Modifier.size(40.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -253,26 +254,26 @@ fun UserListItem(
         Spacer(modifier = Modifier.width(12.dp))
         
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1D1B20))
-            Text(text = email, style = MaterialTheme.typography.bodySmall, color = Color(0xFF757575))
+            Text(text = name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold), color = OnSurfaceColor)
+            Text(text = email, style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariantColor)
         }
 
         if (role == "owner") {
             Surface(
                 shape = androidx.compose.foundation.shape.CircleShape,
-                color = Color(0xFFD3E3FD),
+                color = PrimaryContainerColor,
                 modifier = Modifier.padding(start = 8.dp)
             ) {
                 Text(
                     text = stringResource(R.string.role_owner), 
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFF041E49)
+                    color = OnPrimaryContainerColor
                 )
             }
         } else {
             IconButton(onClick = onRemove) {
-                Icon(Icons.Default.Delete, null, tint = Color(0xFF1D1B20), modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Delete, null, tint = OnSurfaceColor, modifier = Modifier.size(20.dp))
             }
         }
     }
@@ -384,8 +385,8 @@ fun CreateTaskListDialog(
                                 modifier = Modifier.menuAnchor().fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedBorderColor = Color(0xFFC8C5BD),
-                                    focusedBorderColor = Color(0xFF0B57D0),
+                                    unfocusedBorderColor = OutlineColor,
+                                    focusedBorderColor = PrimaryColor,
                                     unfocusedContainerColor = Color.White,
                                     focusedContainerColor = Color.White
                                 )
@@ -428,7 +429,7 @@ fun CreateTaskListDialog(
                                 checkedThumbColor = Color.White,
                                 checkedTrackColor = MaterialTheme.colorScheme.primary,
                                 uncheckedThumbColor = Color.White,
-                                uncheckedTrackColor = Color(0xFFC8C5BD),
+                                uncheckedTrackColor = OutlineColor,
                                 uncheckedBorderColor = Color.Transparent
                             )
                         )
@@ -448,8 +449,8 @@ fun CreateTaskListDialog(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color(0xFFC8C5BD),
-                                focusedBorderColor = Color(0xFF0B57D0),
+                                unfocusedBorderColor = OutlineColor,
+                                focusedBorderColor = PrimaryColor,
                                 unfocusedContainerColor = Color.White,
                                 focusedContainerColor = Color.White
                             ),
@@ -462,7 +463,7 @@ fun CreateTaskListDialog(
                                     inviteEmail = ""
                                 }
                             },
-                            modifier = Modifier.size(48.dp).background(Color(0xFF0B57D0), RoundedCornerShape(12.dp))
+                            modifier = Modifier.size(48.dp).background(PrimaryColor, RoundedCornerShape(12.dp))
                         ) {
                             Icon(Icons.Default.Add, null, tint = Color.White)
                         }
@@ -529,7 +530,8 @@ fun EventFormDialog(
     onDismiss: () -> Unit,
     onConfirm: (Int, String, String, String, Int?) -> Unit,
     onDelete: (() -> Unit)? = null,
-    isEdit: Boolean = false
+    isEdit: Boolean = false,
+    onOpenRoutine: (() -> Unit)? = null
 ) {
     val defaultDate = remember {
         val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:00", java.util.Locale.getDefault())
@@ -594,10 +596,16 @@ fun EventFormDialog(
             Text(
                 text = if(isEdit) stringResource(R.string.calendars_edit_event) else stringResource(R.string.calendars_new_event), 
                 style = MaterialTheme.typography.headlineMedium.copy(
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
                     fontSize = 32.sp
                 )
             )
+
+            if (initialEvent?.routine_id != null) {
+                Text(stringResource(R.string.routine_session_only), style = MaterialTheme.typography.bodySmall)
+                onOpenRoutine?.let { open ->
+                    TextButton(onClick = { closeWithAnimation(open) }) { Text(stringResource(R.string.routine_open)) }
+                }
+            }
 
             // AI Toggle Box
             if (!isEdit) {
@@ -606,7 +614,7 @@ fun EventFormDialog(
                         .fillMaxWidth()
                         .height(64.dp)
                         .background(
-                            color = if (isAiMode) Color(0xFFD3E3FD) else Color(0xFFF0EBE1),
+                            color = if (isAiMode) PrimaryContainerColor else SurfaceDimColor,
                             shape = RoundedCornerShape(12.dp)
                         )
                         .padding(horizontal = 16.dp),
@@ -617,13 +625,13 @@ fun EventFormDialog(
                         Icon(
                             androidx.compose.material.icons.Icons.Default.Star, 
                             contentDescription = null,
-                            tint = if (isAiMode) Color(0xFF041E49) else Color(0xFF5A5853),
+                            tint = if (isAiMode) OnPrimaryContainerColor else OnSurfaceVariantColor,
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
                             text = stringResource(R.string.label_ai_assistant),
                             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                            color = if (isAiMode) Color(0xFF041E49) else Color(0xFF5A5853)
+                            color = if (isAiMode) OnPrimaryContainerColor else OnSurfaceVariantColor
                         )
                     }
                     Switch(
@@ -631,9 +639,9 @@ fun EventFormDialog(
                         onCheckedChange = { isAiMode = it },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
-                            checkedTrackColor = Color(0xFF0B57D0),
+                            checkedTrackColor = PrimaryColor,
                             uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = Color(0xFFC8C5BD),
+                            uncheckedTrackColor = OutlineColor,
                             uncheckedBorderColor = Color.Transparent
                         )
                     )
@@ -642,15 +650,15 @@ fun EventFormDialog(
 
             if (isAiMode && !isEdit) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(text = stringResource(R.string.label_describe_event).uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = Color(0xFF757575))
+                    Text(text = stringResource(R.string.label_describe_event).uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = OnSurfaceVariantColor)
                     OutlinedTextField(
                         value = text,
                         onValueChange = { text = it },
                         modifier = Modifier.fillMaxWidth().height(160.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = Color(0xFF0B57D0),
-                            focusedBorderColor = Color(0xFF0B57D0),
+                            unfocusedBorderColor = PrimaryColor,
+                            focusedBorderColor = PrimaryColor,
                             unfocusedContainerColor = Color.White,
                             focusedContainerColor = Color.White
                         ),
@@ -658,7 +666,7 @@ fun EventFormDialog(
                             Box(modifier = Modifier.padding(top = 100.dp, end = 8.dp)) {
                                 FloatingActionButton(
                                     onClick = {},
-                                    containerColor = Color(0xFF0B57D0),
+                                    containerColor = PrimaryColor,
                                     contentColor = Color.White,
                                     shape = androidx.compose.foundation.shape.CircleShape,
                                     modifier = Modifier.size(40.dp),
@@ -672,15 +680,15 @@ fun EventFormDialog(
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(text = stringResource(R.string.label_title).uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = Color(0xFF757575))
+                    Text(text = stringResource(R.string.label_title).uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = OnSurfaceVariantColor)
                     OutlinedTextField(
                         value = title,
                         onValueChange = { title = it },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = Color(0xFFC8C5BD),
-                            focusedBorderColor = Color(0xFF0B57D0),
+                            unfocusedBorderColor = OutlineColor,
+                            focusedBorderColor = PrimaryColor,
                             unfocusedContainerColor = Color.White,
                             focusedContainerColor = Color.White
                         ),
@@ -689,7 +697,7 @@ fun EventFormDialog(
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(text = stringResource(R.string.label_date_time).uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = Color(0xFF757575))
+                    Text(text = stringResource(R.string.label_date_time).uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = OnSurfaceVariantColor)
                     OutlinedTextField(
                         value = dateAt,
                         onValueChange = {},
@@ -697,23 +705,23 @@ fun EventFormDialog(
                         modifier = Modifier.fillMaxWidth().clickable { openDateTimePicker() },
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = Color(0xFFC8C5BD),
-                            focusedBorderColor = Color(0xFF0B57D0),
-                            disabledBorderColor = Color(0xFFC8C5BD),
+                            unfocusedBorderColor = OutlineColor,
+                            focusedBorderColor = PrimaryColor,
+                            disabledBorderColor = OutlineColor,
                             disabledTextColor = MaterialTheme.colorScheme.onSurface,
                             unfocusedContainerColor = Color.White,
                             focusedContainerColor = Color.White,
                             disabledContainerColor = Color.White
                         ),
                         enabled = false,
-                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Default.DateRange, null, tint = Color(0xFF757575)) },
-                        trailingIcon = { Icon(androidx.compose.material.icons.Icons.Default.ArrowDropDown, null, tint = Color(0xFF757575)) }
+                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Default.DateRange, null, tint = OnSurfaceVariantColor) },
+                        trailingIcon = { Icon(androidx.compose.material.icons.Icons.Default.ArrowDropDown, null, tint = OnSurfaceVariantColor) }
                     )
                 }
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(text = stringResource(R.string.label_alarm).uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = Color(0xFF757575))
+                Text(text = stringResource(R.string.label_alarm).uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = OnSurfaceVariantColor)
                 
                 val alarmOptions = listOf(
                     null to stringResource(R.string.alarm_no),
@@ -738,8 +746,8 @@ fun EventFormDialog(
                         modifier = Modifier.menuAnchor().fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = Color(0xFFC8C5BD),
-                            focusedBorderColor = Color(0xFF0B57D0),
+                            unfocusedBorderColor = OutlineColor,
+                            focusedBorderColor = PrimaryColor,
                             unfocusedContainerColor = Color.White,
                             focusedContainerColor = Color.White
                         )

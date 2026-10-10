@@ -18,11 +18,104 @@ import com.lito.planify.data.local.SessionManager
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 object AlarmHelper {
     private const val CHANNEL_ID = "event_alarms"
+    private val syncMutex = Mutex()
+    private val stateLock = Any()
+    private var stateVersion = 0L
+
+    suspend fun synchronizeAlarms(context: Context): Boolean = withContext(Dispatchers.IO) {
+        syncMutex.withLock {
+            val version = synchronized(stateLock) { stateVersion }
+            val session = SessionManager(context)
+            val token = session.authTokenFlow.firstOrNull()
+            if (token == null) {
+                cancelAll(context)
+                return@withLock true
+            }
+            try {
+                val now = System.currentTimeMillis()
+                val localNow = ((now + java.util.TimeZone.getDefault().getOffset(now)) / 1000).toString()
+                val response = RetrofitClient.apiService.getEvents(startDate = localNow)
+                if (!response.isSuccessful) return@withLock false
+                if (session.authTokenFlow.firstOrNull() != token) return@withLock false
+                val events = response.body() ?: return@withLock false
+                synchronized(stateLock) {
+                    if (version != stateVersion) return@withLock false
+                    reconcileAlarms(context, events)
+                }
+            } catch (e: Exception) {
+                Log.e("AlarmHelper", "No se pudieron sincronizar los avisos", e)
+                false
+            }
+        }
+    }
+
+    private fun cachedEvents(context: Context): List<EventResponse> {
+        try {
+            val json = context.getSharedPreferences("event_alarm_state", Context.MODE_PRIVATE).getString("events", null) ?: return emptyList()
+            val type = object : TypeToken<List<EventResponse>>() {}.type
+            return Gson().fromJson<List<EventResponse>>(json, type) ?: emptyList()
+        } catch (e: Exception) {
+            Log.e("AlarmHelper", "No se pudieron restaurar los avisos", e)
+            return emptyList()
+        }
+    }
+
+    private fun reconcileAlarms(context: Context, events: List<EventResponse>): Boolean {
+        val selected = upcomingAlarms(events, System.currentTimeMillis())
+        val ids = selected.map { it.id.toString() }.toSet()
+        val prefs = context.getSharedPreferences("event_alarm_state", Context.MODE_PRIVATE)
+        prefs.getStringSet("ids", emptySet()).orEmpty().filterNot { it in ids }
+            .forEach { it.toIntOrNull()?.let { id -> cancelAlarm(context, id) } }
+        if (!prefs.edit().putStringSet("ids", ids).putString("events", Gson().toJson(events)).commit()) return false
+        selected.forEach { scheduleAlarm(context, it) }
+        return true
+    }
+
+    // Keep room for widget alarms below Android's per-app limit; fired alarms refill from cache.
+    internal fun upcomingAlarms(events: List<EventResponse>, now: Long): List<EventResponse> =
+        events.mapNotNull { event -> alarmTime(event)?.takeIf { it > now }?.let { event to it } }
+            .sortedBy { it.second }.take(450).map { it.first }
+
+    private fun alarmTime(event: EventResponse): Long? {
+        val alarm = event.alarm ?: return null
+        val date = try { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(event.date_at) }
+            catch (e: Exception) { null } ?: return null
+        return date.time - alarm * 60_000L
+    }
+
+    fun rescheduleCachedAlarms(context: Context) = synchronized(stateLock) {
+        reconcileAlarms(context, cachedEvents(context))
+    }
+
+    suspend fun rememberEvent(context: Context, event: EventResponse) = withContext(Dispatchers.IO) {
+        synchronized(stateLock) {
+            stateVersion++
+            reconcileAlarms(context, cachedEvents(context).filterNot { it.id == event.id } + event)
+        }
+    }
+
+    fun cancelRoutineAlarms(context: Context, routineId: Int) = synchronized(stateLock) {
+        stateVersion++
+        cachedEvents(context).filter { it.routine_id == routineId }.forEach { cancelAlarm(context, it.id) }
+    }
+
+    fun cancelAll(context: Context) = synchronized(stateLock) {
+        stateVersion++
+        val prefs = context.getSharedPreferences("event_alarm_state", Context.MODE_PRIVATE)
+        prefs.getStringSet("ids", emptySet()).orEmpty().forEach { it.toIntOrNull()?.let { id -> cancelAlarm(context, id) } }
+        prefs.edit().clear().apply()
+    }
 
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -90,7 +183,7 @@ object AlarmHelper {
         }
     }
 
-    fun scheduleAlarm(context: Context, event: EventResponse) {
+    private fun scheduleAlarm(context: Context, event: EventResponse) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, AlarmReceiver::class.java).apply {
             putExtra("eventId", event.id)
@@ -111,10 +204,7 @@ object AlarmHelper {
             return
         }
 
-        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-        val date = try { sdf.parse(event.date_at) } catch(e: Exception) { null } ?: return
-        val alarmTime = date.time - (event.alarm * 60 * 1000L)
-
+        val alarmTime = alarmTime(event) ?: return
         Log.d("AlarmHelper", "Intentando programar alarma para: ${event.title} a las $alarmTime (Actual: ${System.currentTimeMillis()})")
 
         if (alarmTime > System.currentTimeMillis()) {
@@ -137,11 +227,13 @@ object AlarmHelper {
                 alarmManager.set(AlarmManager.RTC_WAKEUP, alarmTime, pendingIntent)
             }
         } else {
+            alarmManager.cancel(pendingIntent)
             Log.d("AlarmHelper", "No se programó porque alarmTime es pasado.")
         }
     }
 
-    fun cancelAlarm(context: Context, eventId: Int) {
+    fun cancelAlarm(context: Context, eventId: Int) = synchronized(stateLock) {
+        stateVersion++
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, AlarmReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(
@@ -151,6 +243,9 @@ object AlarmHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         alarmManager.cancel(pendingIntent)
+        val prefs = context.getSharedPreferences("event_alarm_state", Context.MODE_PRIVATE)
+        prefs.edit().putStringSet("ids", prefs.getStringSet("ids", emptySet()).orEmpty() - eventId.toString())
+            .putString("events", Gson().toJson(cachedEvents(context).filterNot { it.id == eventId })).apply()
     }
 }
 
@@ -193,12 +288,24 @@ class AlarmReceiver : BroadcastReceiver() {
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(eventId, builder.build())
+        val pendingResult = goAsync()
+        @Suppress("OPT_IN_USAGE")
+        GlobalScope.launch(Dispatchers.IO) {
+            try {
+                AlarmHelper.cancelAlarm(context, eventId)
+                AlarmHelper.rescheduleCachedAlarms(context)
+            } catch (e: Exception) {
+                Log.e("AlarmReceiver", "No se pudieron renovar los avisos", e)
+            } finally {
+                pendingResult.finish()
+            }
+        }
     }
 }
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+        if (intent.action in listOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_TIMEZONE_CHANGED, Intent.ACTION_TIME_CHANGED)) {
             AlarmHelper.scheduleWidgetUpdate(context)
             val pendingResult = goAsync()
             @Suppress("OPT_IN_USAGE")
@@ -208,16 +315,10 @@ class BootReceiver : BroadcastReceiver() {
                     val token = sm.authTokenFlow.firstOrNull()
                     if (token != null) {
                         RetrofitClient.setToken(token)
-                        val nowMillis = System.currentTimeMillis()
-                        val offset = java.util.TimeZone.getDefault().getOffset(nowMillis)
-                        val localNowSeconds = ((nowMillis + offset) / 1000).toString()
-                        val response = RetrofitClient.apiService.getEvents(startDate = localNowSeconds)
-                        if (response.isSuccessful) {
-                            val events = response.body() ?: emptyList()
-                            events.forEach { event ->
-                                AlarmHelper.scheduleAlarm(context, event)
-                            }
-                        }
+                        AlarmHelper.rescheduleCachedAlarms(context)
+                        AlarmHelper.synchronizeAlarms(context)
+                    } else {
+                        AlarmHelper.cancelAll(context)
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()

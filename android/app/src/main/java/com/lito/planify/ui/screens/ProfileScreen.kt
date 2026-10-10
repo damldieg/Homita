@@ -30,12 +30,14 @@ import com.lito.planify.R
 import com.lito.planify.data.local.SessionManager
 import com.lito.planify.ui.components.CustomTextField
 import com.lito.planify.ui.components.GlassBottomNavBar
+import com.lito.planify.ui.components.glass
 import com.lito.planify.ui.components.OutlinedActionButton
 import com.lito.planify.ui.components.PrimaryButton
 import com.lito.planify.ui.components.TonalButton
 import com.lito.planify.util.TokenManager
 import com.lito.planify.viewmodel.AuthViewModel
 import java.io.File
+import com.lito.planify.ui.theme.*
 
 @Composable
 fun ProfileScreen(
@@ -43,7 +45,8 @@ fun ProfileScreen(
     sessionManager: SessionManager,
     onLogout: () -> Unit,
     onNavigateToTasks: () -> Unit,
-    onNavigateToCalendars: () -> Unit
+    onNavigateToCalendars: () -> Unit,
+    onNavigateToRoutines: () -> Unit
 ) {
     val userName by sessionManager.userNameFlow.collectAsState(initial = "")
     val userEmail by sessionManager.userEmailFlow.collectAsState(initial = "")
@@ -61,7 +64,7 @@ fun ProfileScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
         bottomBar = {
             GlassBottomNavBar(
                 currentRoute = "profile",
@@ -69,6 +72,7 @@ fun ProfileScreen(
                     when (route) {
                         "tasks" -> onNavigateToTasks()
                         "calendars" -> onNavigateToCalendars()
+                        "routines" -> onNavigateToRoutines()
                     }
                 }
             )
@@ -85,75 +89,82 @@ fun ProfileScreen(
             Text(
                 text = stringResource(R.string.profile_title),
                 style = MaterialTheme.typography.displayMedium.copy(
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
                     fontSize = 44.sp,
                     lineHeight = 44.sp,
-                    fontWeight = FontWeight.Normal,
+                    fontWeight = FontWeight.ExtraBold,
                     letterSpacing = (-1).sp
                 ),
-                color = Color(0xFF1D1B20),
+                color = OnSurfaceColor,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            // Name Field
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Nombre") },
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF5A5853)) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = Color(0xFFC8C5BD),
-                    focusedBorderColor = Color(0xFF0B57D0),
-                    unfocusedContainerColor = Color.White,
-                    focusedContainerColor = Color.White
-                ),
-                singleLine = true
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glass(androidx.compose.foundation.shape.RoundedCornerShape(28.dp))
+                    .padding(horizontal = 18.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Name Field
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Nombre") },
+                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = OnSurfaceVariantColor) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = OutlineColor,
+                        focusedBorderColor = PrimaryColor,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedContainerColor = Color.Transparent
+                    ),
+                    singleLine = true
+                )
 
-            // Email Field
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Email") },
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF5A5853)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                modifier = Modifier.fillMaxWidth(),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = Color(0xFF0B57D0),
-                    focusedBorderColor = Color(0xFF0B57D0),
-                    unfocusedContainerColor = Color.White,
-                    focusedContainerColor = Color.White
-                ),
-                singleLine = true
-            )
+                // Email Field
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email") },
+                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = OnSurfaceVariantColor) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = OutlineColor,
+                        focusedBorderColor = PrimaryColor,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedContainerColor = Color.Transparent
+                    ),
+                    singleLine = true
+                )
 
-            // Password Field
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Contraseña") },
-                leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null, tint = Color(0xFF5A5853)) },
-                trailingIcon = {
-                    val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(imageVector = image, contentDescription = null, tint = Color(0xFF5A5853))
-                    }
-                },
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth(),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = Color(0xFFC8C5BD),
-                    focusedBorderColor = Color(0xFF0B57D0),
-                    unfocusedContainerColor = Color.White,
-                    focusedContainerColor = Color.White
-                ),
-                singleLine = true
-            )
+                // Password Field
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Contraseña") },
+                    leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null, tint = OnSurfaceVariantColor) },
+                    trailingIcon = {
+                        val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(imageVector = image, contentDescription = null, tint = OnSurfaceVariantColor)
+                        }
+                    },
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = OutlineColor,
+                        focusedBorderColor = PrimaryColor,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedContainerColor = Color.Transparent
+                    ),
+                    singleLine = true
+                )
+            }
 
             // Save Button
             Button(
@@ -162,7 +173,7 @@ fun ProfileScreen(
                 },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(26.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0B57D0))
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
@@ -193,13 +204,13 @@ fun ProfileScreen(
                         Text(
                             text = stringResource(R.string.profile_logs_title),
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                            color = Color(0xFF1D1B20)
+                            color = OnSurfaceColor
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = logDate,
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF757575)
+                            color = OnSurfaceVariantColor
                         )
                     }
                     Spacer(modifier = Modifier.weight(1f))
@@ -209,11 +220,11 @@ fun ProfileScreen(
                         modifier = Modifier
                             .size(36.dp)
                             .background(Color.White, androidx.compose.foundation.shape.CircleShape)
-                            .border(1.dp, Color(0xFFC8C5BD), androidx.compose.foundation.shape.CircleShape)
+                            .border(1.dp, OutlineColor, androidx.compose.foundation.shape.CircleShape)
                             .clickable { downloadErrorLog(context) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_download), null, modifier = Modifier.size(18.dp), tint = Color(0xFF1D1B20))
+                        Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_download), null, modifier = Modifier.size(18.dp), tint = OnSurfaceColor)
                     }
                     
                     Spacer(modifier = Modifier.width(8.dp))

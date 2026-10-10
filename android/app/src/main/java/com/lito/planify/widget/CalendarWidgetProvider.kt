@@ -50,6 +50,11 @@ class CalendarWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    override fun onAppWidgetOptionsChanged(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, newOptions: android.os.Bundle) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+        updateAppWidget(context, appWidgetManager, appWidgetId)
+    }
+
     companion object {
 
         fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
@@ -62,7 +67,12 @@ class CalendarWidgetProvider : AppWidgetProvider() {
                 data = Uri.parse("calendar://global_events")
             }
             val pendingGlobal = PendingIntent.getActivity(context, 0, globalIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            views.setOnClickPendingIntent(R.id.widget_header_days_container, pendingGlobal)
+
+            // En la pantalla de bloqueo el widget es de solo lectura: sin acciones
+            val isReadOnly = isLockScreenWidget(appWidgetManager, appWidgetId)
+            if (!isReadOnly) {
+                views.setOnClickPendingIntent(R.id.widget_header_days_container, pendingGlobal)
+            }
 
             val today = LocalDate.now()
             val eventCounts = WidgetViewsFactory.getEventCountsPerDay(context)
@@ -80,7 +90,7 @@ class CalendarWidgetProvider : AppWidgetProvider() {
                 
                 val isToday = date == today
                 if (isToday) {
-                    dayView.setTextColor(R.id.day_name, android.graphics.Color.parseColor("#0B57D0")) // Light blue/primary
+                    dayView.setTextColor(R.id.day_name, android.graphics.Color.parseColor("#3A1859")) // Plum/primary
                     dayView.setTextColor(R.id.day_number, android.graphics.Color.parseColor("#1D1B20")) // Dark text for soft bg
                     dayView.setInt(R.id.day_container, "setBackgroundResource", R.drawable.widget_active_day_bg)
                 } else {
@@ -95,14 +105,16 @@ class CalendarWidgetProvider : AppWidgetProvider() {
                     dayView.setViewVisibility(R.id.day_badge_container, android.view.View.VISIBLE)
                     dayView.setTextViewText(R.id.day_badge_text, dayInfo.first.toString())
                     
-                    // Rojo con un poco de transparencia: ~85% opacity (D9)
-                    val badgeColor = android.graphics.Color.parseColor("#D9D32F2F") 
+                    // Rojo suave (mismo tono que la etiqueta "Hoy" de la app)
+                    val badgeColor = android.graphics.Color.parseColor("#E5484D")
                     dayView.setInt(R.id.day_badge_bg, "setColorFilter", badgeColor)
                 } else {
                     dayView.setViewVisibility(R.id.day_badge_container, android.view.View.INVISIBLE)
                 }
 
-                dayView.setOnClickPendingIntent(R.id.day_container, pendingGlobal)
+                if (!isReadOnly) {
+                    dayView.setOnClickPendingIntent(R.id.day_container, pendingGlobal)
+                }
 
                 views.addView(R.id.widget_header_days_container, dayView)
             }
@@ -115,11 +127,13 @@ class CalendarWidgetProvider : AppWidgetProvider() {
             views.setRemoteAdapter(R.id.widget_event_list, serviceIntent)
             views.setEmptyView(R.id.widget_event_list, R.id.widget_empty_view)
 
-            val clickIntentTemplate = Intent(context, MainActivity::class.java).apply {
-                data = Uri.parse("calendar://open_main_from_list")
+            if (!isReadOnly) {
+                val clickIntentTemplate = Intent(context, MainActivity::class.java).apply {
+                    data = Uri.parse("calendar://open_main_from_list")
+                }
+                val clickPendingIntentTemplate = PendingIntent.getActivity(context, 0, clickIntentTemplate, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
+                views.setPendingIntentTemplate(R.id.widget_event_list, clickPendingIntentTemplate)
             }
-            val clickPendingIntentTemplate = PendingIntent.getActivity(context, 0, clickIntentTemplate, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
-            views.setPendingIntentTemplate(R.id.widget_event_list, clickPendingIntentTemplate)
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }

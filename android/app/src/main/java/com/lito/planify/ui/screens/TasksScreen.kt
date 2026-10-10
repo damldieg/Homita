@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lito.planify.R
 import com.lito.planify.ui.components.*
-import com.lito.planify.ui.theme.OutlineDimColor
 import com.lito.planify.viewmodel.TaskListViewModel
 import com.lito.planify.viewmodel.TaskViewModel
 import sh.calvin.reorderable.ReorderableItem
@@ -44,7 +43,8 @@ fun TasksScreen(
     onBack: (() -> Unit)? = null,
     onNavigateToTasks: (() -> Unit)? = null,
     onNavigateToCalendars: (() -> Unit)? = null,
-    onNavigateToProfile: (() -> Unit)? = null
+    onNavigateToProfile: (() -> Unit)? = null,
+    onNavigateToRoutines: (() -> Unit)? = null
 ) {
     val tasks by viewModel.tasks.collectAsState()
     val togglingTasks by viewModel.togglingTasks.collectAsState()
@@ -78,22 +78,18 @@ fun TasksScreen(
     }
 
     if (isStandalone) {
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            bottomBar = {
-                GlassBottomNavBar(
-                    currentRoute = "tasks",
-                    onNavigate = { route ->
-                        when (route) {
-                            "tasks" -> onNavigateToTasks?.invoke()
-                            "calendars" -> onNavigateToCalendars?.invoke()
-                            "profile" -> onNavigateToProfile?.invoke()
-                        }
-                    }
-                )
+        GlassNavScaffold(
+            currentRoute = "tasks",
+            onNavigate = { route ->
+                when (route) {
+                    "tasks" -> onNavigateToTasks?.invoke()
+                    "calendars" -> onNavigateToCalendars?.invoke()
+                    "profile" -> onNavigateToProfile?.invoke()
+                    "routines" -> onNavigateToRoutines?.invoke()
+                }
             }
-        ) { padding ->
-            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 TasksViewContent(
                     displayName = displayName,
                     isStandalone = true,
@@ -224,55 +220,51 @@ fun TasksViewContent(
     onTaskLongClick: ((com.lito.planify.data.api.TaskResponse) -> Unit)? = null
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        val colorHex = activeListId?.let { id -> taskLists.find { it.id == id }?.color } ?: "#4B4D99"
-        val listColor = try { Color(android.graphics.Color.parseColor(colorHex)) } catch (e: Exception) { Color(0xFF4B4D99) }
+        val colorHex = activeListId?.let { id -> taskLists.find { it.id == id }?.color }
+        val listColor = parseHexColor(colorHex)
 
         if (isStandalone) {
             PlanifyHeader {
                 Row(
-                    modifier = Modifier.padding(top = 0.dp, start = 24.dp, end = 20.dp, bottom = 16.dp).fillMaxWidth(),
+                    modifier = Modifier.padding(top = 8.dp, start = 24.dp, end = 16.dp, bottom = 8.dp).fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(modifier = Modifier.size(14.dp).background(listColor, CircleShape))
                     Spacer(modifier = Modifier.width(12.dp))
-                    
                     Text(
-                        text = displayName, 
-                        style = MaterialTheme.typography.titleLarge.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Serif, fontSize = 34.sp)
+                        text = displayName,
+                        style = MaterialTheme.typography.headlineLarge,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
-                    Spacer(modifier = Modifier.weight(1f))
-                    IconButton(onClick = onShowEdit) { Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onSurface) }
+                    IconButton(onClick = onShowEdit, modifier = Modifier.glass(CircleShape)) {
+                        Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onSurface)
+                    }
                 }
-                HorizontalDivider(thickness = 0.5.dp, color = OutlineDimColor)
             }
         }
 
         if (isGlobal) {
-            Surface(color = Color.White, modifier = Modifier.fillMaxWidth()) {
-                Column {
-                    HorizontalDivider(thickness = 0.5.dp, color = OutlineDimColor)
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 10.dp),
-                        contentPadding = PaddingValues(horizontal = 20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        item {
-                            PlanifyFilterChip(
-                                label = stringResource(R.string.tasks_filter_all),
-                                isSelected = selectedListFilterId == null,
-                                onClick = { onSetFilter(null) }
-                            )
-                        }
-                        itemsIndexed(taskLists) { _, list ->
-                            PlanifyFilterChip(
-                                label = list.name,
-                                isSelected = selectedListFilterId == list.id,
-                                colorHex = list.color,
-                                onClick = { onSetFilter(list.id) }
-                            )
-                        }
-                    }
-                    HorizontalDivider(thickness = 0.5.dp, color = OutlineDimColor)
+            LazyRow(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item {
+                    PlanifyFilterChip(
+                        label = stringResource(R.string.tasks_filter_all),
+                        isSelected = selectedListFilterId == null,
+                        onClick = { onSetFilter(null) }
+                    )
+                }
+                itemsIndexed(taskLists) { _, list ->
+                    PlanifyFilterChip(
+                        label = list.name,
+                        isSelected = selectedListFilterId == list.id,
+                        colorHex = list.color,
+                        onClick = { onSetFilter(list.id) }
+                    )
                 }
             }
         }
@@ -288,36 +280,38 @@ fun TasksViewContent(
                     enter = expandVertically() + fadeIn(),
                     exit = shrinkVertically() + fadeOut()
                 ) {
-                    Column(modifier = Modifier.background(Color.White)) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp).fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            TextField(
-                                value = newTaskTitle,
-                                onValueChange = onTitleChange,
-                                placeholder = { Text(stringResource(R.string.tasks_add_hint), color = Color(0xFF757575), fontSize = 16.sp) },
-                                modifier = Modifier.weight(1f),
-                                colors = TextFieldDefaults.colors(
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent,
-                                    focusedIndicatorColor = Color.Transparent,
-                                    unfocusedIndicatorColor = Color.Transparent
-                                ),
-                                textStyle = LocalTextStyle.current.copy(fontSize = 16.sp),
-                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
-                            )
-                            FloatingActionButton(
-                                onClick = onAddTask,
-                                containerColor = listColor,
-                                contentColor = Color.White,
-                                shape = CircleShape,
-                                modifier = Modifier.size(40.dp),
-                                elevation = FloatingActionButtonDefaults.elevation(0.dp)
-                            ) { Icon(Icons.Default.Add, null) }
-                        }
-                        HorizontalDivider(thickness = 0.5.dp, color = OutlineDimColor)
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .fillMaxWidth()
+                            .glass(CircleShape)
+                            .padding(start = 6.dp, end = 6.dp, top = 2.dp, bottom = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TextField(
+                            value = newTaskTitle,
+                            onValueChange = onTitleChange,
+                            placeholder = { Text(stringResource(R.string.tasks_add_hint), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+                        )
+                        FloatingActionButton(
+                            onClick = onAddTask,
+                            containerColor = listColor,
+                            contentColor = Color.White,
+                            shape = CircleShape,
+                            modifier = Modifier.size(44.dp),
+                            elevation = FloatingActionButtonDefaults.elevation(0.dp)
+                        ) { Icon(Icons.Default.Add, null) }
                     }
                 }
 
@@ -343,32 +337,17 @@ fun TasksViewContent(
                     LazyColumn(
                         state = lazyListState,
                         modifier = Modifier.fillMaxSize(), 
-                        contentPadding = PaddingValues(bottom = 120.dp)
+                        contentPadding = PaddingValues(bottom = 150.dp)
                     ) {
                     if (pending.isNotEmpty()) {
                         item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(Color(0xFFF7F5F2))
-                                    .padding(horizontal = 20.dp, vertical = 18.dp)
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.tasks_section_pending, pending.size),
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        letterSpacing = 1.2.sp
-                                    ),
-                                    color = Color(0xFF757575)
-                                )
-                            }
+                            GlassSectionLabel(stringResource(R.string.tasks_section_pending, pending.size))
                         }
-                        itemsIndexed(pending, key = { _, task -> task.id }) { _, task ->
+                        itemsIndexed(pending, key = { _, task -> task.id }) { index, task ->
                             if (isReorderEnabled) {
                                 ReorderableItem(reorderableLazyColumnState, key = task.id) { isDragging ->
                                     val elevation by animateDpAsState(if (isDragging) 8.dp else 0.dp)
-                                    Surface(shadowElevation = elevation) {
+                                    Surface(shadowElevation = elevation, color = Color.Transparent, shape = groupShape(index, pending.size)) {
                                         PlanifyTaskRow(
                                             title = task.title, 
                                             colorHex = task.task_list_color, 
@@ -376,7 +355,9 @@ fun TasksViewContent(
                                             isToggling = togglingTasks.contains(task.id),
                                             onToggle = { onTaskToggle(task.id, activeListId, true) }, 
                                             onDelete = { onTaskDelete(task.id, activeListId) },
-                                            showLeftColorBar = isGlobal,
+                                            info = if (isGlobal) task.task_list_name else null,
+                                            index = index,
+                                            groupCount = pending.size,
                                             modifier = Modifier.draggableHandle().animateItemPlacement(),
                                             onLongClick = { onTaskLongClick?.invoke(task) },
                                             onClick = {}
@@ -391,7 +372,9 @@ fun TasksViewContent(
                                     isToggling = togglingTasks.contains(task.id),
                                     onToggle = { onTaskToggle(task.id, activeListId, true) }, 
                                     onDelete = { onTaskDelete(task.id, activeListId) },
-                                    showLeftColorBar = isGlobal,
+                                    info = if (isGlobal) task.task_list_name else null,
+                                    index = index,
+                                    groupCount = pending.size,
                                     modifier = Modifier.animateItemPlacement(),
                                     onLongClick = { onTaskLongClick?.invoke(task) },
                                     onClick = {}
@@ -401,24 +384,9 @@ fun TasksViewContent(
                     }
                     if (completed.isNotEmpty()) {
                         item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(Color(0xFFF7F5F2))
-                                    .padding(horizontal = 20.dp, vertical = 18.dp)
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.tasks_section_completed, completed.size),
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        letterSpacing = 1.2.sp
-                                    ),
-                                    color = Color(0xFF757575)
-                                )
-                            }
+                            GlassSectionLabel(stringResource(R.string.tasks_section_completed, completed.size))
                         }
-                        itemsIndexed(completed, key = { _, task -> task.id }) { _, task ->
+                        itemsIndexed(completed, key = { _, task -> task.id }) { index, task ->
                             PlanifyTaskRow(
                                 title = task.title, 
                                 colorHex = task.task_list_color, 
@@ -426,7 +394,9 @@ fun TasksViewContent(
                                 isToggling = togglingTasks.contains(task.id),
                                 onToggle = { onTaskToggle(task.id, activeListId, false) }, 
                                 onDelete = { onTaskDelete(task.id, activeListId) },
-                                showLeftColorBar = isGlobal,
+                                info = if (isGlobal) task.task_list_name else null,
+                                index = index,
+                                groupCount = completed.size,
                                 modifier = Modifier.animateItemPlacement(),
                                 onLongClick = { onTaskLongClick?.invoke(task) },
                                 onClick = {}

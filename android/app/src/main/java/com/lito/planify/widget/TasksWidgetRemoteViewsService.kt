@@ -58,6 +58,12 @@ class TasksWidgetViewsFactory(
         views.setTextViewText(R.id.task_title, task.title)
         
         val isToggling = togglingTaskIds.contains(task.id)
+        val listColor = try {
+            android.graphics.Color.parseColor(task.task_list_color ?: "#94A3B8")
+        } catch (e: Exception) {
+            android.graphics.Color.parseColor("#94A3B8")
+        }
+        views.setInt(R.id.task_check_circle, "setColorFilter", listColor)
         if (isToggling) {
             views.setTextColor(R.id.task_title, android.graphics.Color.parseColor("#9E9E9E")) // Gray text
             views.setImageViewResource(R.id.task_check_circle, R.drawable.task_check_checked)

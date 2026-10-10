@@ -32,13 +32,15 @@ fun DashboardScreen(
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 120.dp)
+                contentPadding = PaddingValues(top = 8.dp, bottom = 150.dp)
             ) {
-                itemsIndexed(calendars) { _, calendar ->
+                itemsIndexed(calendars) { index, calendar ->
                     PlanifyRowItem(
                         title = calendar.name,
                         count = calendar.upcoming_event_count ?: 0,
                         colorHex = calendar.color,
+                        index = index,
+                        groupCount = calendars.size,
                         onClick = { onNavigateToCalendar(calendar.id, calendar.name) }
                     )
                 }

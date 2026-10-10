@@ -32,13 +32,15 @@ fun TaskListsScreen(
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 120.dp)
+                contentPadding = PaddingValues(top = 8.dp, bottom = 150.dp)
             ) {
-                itemsIndexed(taskLists) { _, taskList ->
+                itemsIndexed(taskLists) { index, taskList ->
                     PlanifyRowItem(
                         title = taskList.name,
                         count = taskList.pending_task_count ?: 0,
                         colorHex = taskList.color,
+                        index = index,
+                        groupCount = taskLists.size,
                         onClick = { onNavigateToTaskList(taskList.id, taskList.name) }
                     )
                 }

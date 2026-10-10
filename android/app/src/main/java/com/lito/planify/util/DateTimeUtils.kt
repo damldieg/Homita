@@ -19,6 +19,25 @@ object DateTimeUtils {
         }
     }
 
+    fun parseLocalDate(dateStr: String): java.time.LocalDate? =
+        try { java.time.LocalDate.parse(dateStr.substringBefore(" ")) } catch (e: Exception) { null }
+
+    fun formatTime(dateStr: String): String =
+        dateStr.substringAfter(" ", "").take(5)
+
+    /** "Hoy", "Mañana" o "Lun 5 oct" según la fecha. */
+    fun dayLabel(context: android.content.Context, date: java.time.LocalDate): String {
+        val today = java.time.LocalDate.now()
+        return when (date) {
+            today -> context.getString(com.lito.planify.R.string.day_today)
+            today.plusDays(1) -> context.getString(com.lito.planify.R.string.day_tomorrow)
+            today.minusDays(1) -> context.getString(com.lito.planify.R.string.day_yesterday)
+            else -> date.format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault()))
+                .replace(".", "")
+                .replaceFirstChar { it.uppercaseChar() }
+        }
+    }
+
     fun getRelativeTime(context: android.content.Context, dateStr: String): String? {
         return try {
             val eventDate = apiFormat.parse(dateStr) ?: return null

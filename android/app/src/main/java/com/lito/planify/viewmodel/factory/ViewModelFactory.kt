@@ -23,6 +23,9 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(EventViewModel::class.java) -> {
                 EventViewModel(application) as T
             }
+            modelClass.isAssignableFrom(RoutineViewModel::class.java) -> {
+                RoutineViewModel(application) as T
+            }
             modelClass.isAssignableFrom(TaskListViewModel::class.java) -> {
                 TaskListViewModel(application) as T
             }

@@ -44,7 +44,6 @@ fun RegisterScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
             .systemBarsPadding()
     ) {
         Column(
@@ -152,7 +151,6 @@ fun LoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
             .systemBarsPadding()
     ) {
         Column(

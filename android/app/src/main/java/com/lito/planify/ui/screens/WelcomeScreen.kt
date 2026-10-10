@@ -18,6 +18,7 @@ import com.lito.planify.R
 import com.lito.planify.ui.components.PlanifyLogo
 import com.lito.planify.ui.components.PrimaryButton
 import com.lito.planify.ui.components.TonalButton
+import com.lito.planify.ui.theme.*
 
 @Composable
 fun WelcomeScreen(
@@ -27,7 +28,7 @@ fun WelcomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFEAF4FB))
+            .background(Color.Transparent)
             .systemBarsPadding()
     ) {
         Column(
@@ -49,12 +50,18 @@ fun WelcomeScreen(
                 Text(
                     text = "Planify",
                     style = MaterialTheme.typography.displayLarge.copy(
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
-                        fontSize = 56.sp,
-                        fontWeight = FontWeight.Normal,
-                        letterSpacing = (-1).sp
+                        fontSize = 60.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-2).sp
                     ),
-                    color = Color(0xFF1D1B20)
+                    color = OnSurfaceColor
+                )
+                Text(
+                    text = stringResource(R.string.welcome_subtitle),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = OnSurfaceVariantColor,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 12.dp, start = 16.dp, end = 16.dp)
                 )
             }
 
@@ -67,7 +74,7 @@ fun WelcomeScreen(
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = CircleShape,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2874D4),
+                        containerColor = PrimaryColor,
                         contentColor = Color.White
                     )
                 ) {
@@ -79,8 +86,8 @@ fun WelcomeScreen(
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = CircleShape,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFD2E4F9),
-                        contentColor = Color(0xFF041E49)
+                        containerColor = GlassStrongColor,
+                        contentColor = OnSurfaceColor
                     ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp)
                 ) {

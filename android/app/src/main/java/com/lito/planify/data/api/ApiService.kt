@@ -54,7 +54,8 @@ interface ApiService {
         @retrofit2.http.Query("end_date") endDate: String? = null,
         @retrofit2.http.Query("limit") limit: Int? = null,
         @retrofit2.http.Query("order_mode") orderMode: String? = null,
-        @retrofit2.http.Query("widget") widget: Boolean? = null
+        @retrofit2.http.Query("widget") widget: Boolean? = null,
+        @retrofit2.http.Query("timezone") timezone: String = java.util.TimeZone.getDefault().id
     ): Response<List<EventResponse>>
 
     @GET("event/detail")
@@ -64,13 +65,32 @@ interface ApiService {
     suspend fun createEvent(@Body request: CreateEventRequest): Response<EventResponse>
 
     @PATCH("event/update")
-    suspend fun updateEvent(@Body request: UpdateEventRequest): Response<EventResponse>
+    suspend fun updateEvent(@Body request: UpdateEventRequest, @retrofit2.http.Query("timezone") timezone: String = java.util.TimeZone.getDefault().id): Response<EventResponse>
 
     @PATCH("event/alarm")
-    suspend fun setEventAlarm(@Body request: SetEventAlarmRequest): Response<EventResponse>
+    suspend fun setEventAlarm(@Body request: SetEventAlarmRequest, @retrofit2.http.Query("timezone") timezone: String = java.util.TimeZone.getDefault().id): Response<EventResponse>
 
     @retrofit2.http.HTTP(method = "DELETE", path = "event/delete", hasBody = true)
-    suspend fun deleteEvent(@Body request: DeleteRequest): Response<Map<String, Any>>
+    suspend fun deleteEvent(@Body request: DeleteRequest, @retrofit2.http.Query("timezone") timezone: String = java.util.TimeZone.getDefault().id): Response<Map<String, Any>>
+
+    // Routines use floating local times, like calendar events.
+    @GET("routine")
+    suspend fun getRoutines(@retrofit2.http.Query("timezone") timezone: String = java.util.TimeZone.getDefault().id): Response<List<RoutineResponse>>
+
+    @GET("routine/detail")
+    suspend fun getRoutineDetail(@retrofit2.http.Query("id") id: Int, @retrofit2.http.Query("timezone") timezone: String = java.util.TimeZone.getDefault().id): Response<RoutineResponse>
+
+    @POST("routine/create")
+    suspend fun createRoutine(@Body request: CreateRoutineRequest, @retrofit2.http.Query("timezone") timezone: String = java.util.TimeZone.getDefault().id): Response<RoutineResponse>
+
+    @PATCH("routine/update")
+    suspend fun updateRoutine(@Body request: UpdateRoutineRequest, @retrofit2.http.Query("timezone") timezone: String = java.util.TimeZone.getDefault().id): Response<RoutineResponse>
+
+    @PATCH("routine/alarm")
+    suspend fun setRoutineAlarm(@Body request: SetRoutineAlarmRequest, @retrofit2.http.Query("timezone") timezone: String = java.util.TimeZone.getDefault().id): Response<RoutineResponse>
+
+    @retrofit2.http.HTTP(method = "DELETE", path = "routine/delete", hasBody = true)
+    suspend fun deleteRoutine(@Body request: DeleteRequest, @retrofit2.http.Query("timezone") timezone: String = java.util.TimeZone.getDefault().id): Response<Map<String, Any>>
 
     // --- Task Lists ---
     @GET("task-list")

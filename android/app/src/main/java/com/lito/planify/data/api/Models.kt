@@ -85,8 +85,47 @@ data class EventResponse(
     val date_at: String,
     val alarm: Int? = null,
     val created_at: String,
-    val updated_at: String
+    val updated_at: String,
+    val routine_id: Int? = null,
+    val routine_date: String? = null
 )
+
+data class RoutineResponse(
+    val id: Int,
+    val calendar_id: Int,
+    val calendar_name: String?,
+    val calendar_color: String?,
+    val title: String,
+    val days: List<Int>,
+    val time: String,
+    val start_date: String,
+    val end_date: String?,
+    val active: Boolean,
+    val alarm: Int? = null
+)
+
+data class CreateRoutineRequest(
+    val calendar_id: Int,
+    val title: String,
+    val days: List<Int>,
+    val time: String,
+    val start_date: String,
+    val end_date: String?,
+    val active: Boolean,
+    val alarm: Int?
+)
+
+data class UpdateRoutineRequest(
+    val id: Int,
+    val title: String,
+    val days: List<Int>,
+    val time: String,
+    val start_date: String,
+    val end_date: String?,
+    val active: Boolean
+)
+
+data class SetRoutineAlarmRequest(val id: Int, val alarm: Int?)
 
 data class CreateEventRequest(
     val calendar_id: Int,

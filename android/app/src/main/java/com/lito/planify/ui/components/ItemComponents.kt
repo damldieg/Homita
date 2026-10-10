@@ -11,10 +11,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,313 +28,287 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lito.planify.ui.theme.OutlineDimColor
+import com.lito.planify.ui.theme.GlassColor
+import com.lito.planify.ui.theme.OnSurfaceColor
+import com.lito.planify.ui.theme.OnSurfaceVariantColor
+
+/** Separador fino entre filas de una misma tarjeta de cristal. */
+@Composable
+private fun GroupDivider(modifier: Modifier = Modifier) {
+    HorizontalDivider(modifier = modifier.padding(horizontal = 18.dp), thickness = 1.dp, color = com.lito.planify.ui.theme.OutlineDimColor)
+}
 
 /**
- * Fila uniforme para Listas y Calendarios (Punto + Texto + Badge + Flecha).
+ * Fila uniforme para Listas y Calendarios (Barra de color + Texto + Badge + Flecha).
  */
 @Composable
 fun PlanifyRowItem(
     title: String,
     count: Int,
     colorHex: String,
+    index: Int = 0,
+    groupCount: Int = 1,
     onClick: () -> Unit
 ) {
-    val color = try { Color(android.graphics.Color.parseColor(colorHex)) } catch (e: Exception) { Color(0xFF4B4D99) }
-    
-    Box(
+    val color = parseHexColor(colorHex)
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(72.dp)
-            .background(Color.White)
+            .glassGroupRow(index, groupCount)
             .clickable { onClick() }
     ) {
         Row(
-            modifier = Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Thick color bar on the left
             Box(
                 modifier = Modifier
-                    .width(8.dp)
-                    .fillMaxHeight()
-                    .background(color)
+                    .width(5.dp)
+                    .height(32.dp)
+                    .background(color, CircleShape)
             )
-            
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
+                color = OnSurfaceColor,
+                modifier = Modifier.weight(1f)
+            )
+            if (count >= 0) {
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 18.sp,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.SansSerif
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
+                    text = count.toString(),
+                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
+                    color = OnSurfaceColor,
+                    modifier = Modifier
+                        .background(com.lito.planify.ui.theme.PillFillColor, CircleShape)
+                        .padding(horizontal = 11.dp, vertical = 5.dp)
                 )
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    if (count >= 0) {
-                        Surface(
-                            shape = CircleShape,
-                            color = Color(0xFFF0F0F0),
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = count.toString(),
-                                    style = MaterialTheme.typography.labelLarge.copy(
-                                        fontWeight = FontWeight.Bold, 
-                                        fontSize = 12.sp
-                                    ),
-                                    color = Color(0xFF9E9E9E)
-                                )
-                            }
-                        }
-                    }
-                    Icon(
-                        Icons.Default.ChevronRight, 
-                        null, 
-                        tint = Color(0xFFBDBDBD), 
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
             }
+            Icon(Icons.Default.ChevronRight, null, tint = OnSurfaceVariantColor, modifier = Modifier.size(20.dp))
         }
-        HorizontalDivider(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(start = 8.dp),
-            thickness = 0.5.dp, 
-            color = OutlineDimColor
-        )
+        if (index < groupCount - 1) GroupDivider()
     }
 }
 
 /**
- * Fila uniforme para Tareas y Eventos.
+ * Casilla cuadrada redondeada en el color de la lista.
+ */
+@Composable
+fun PlanifyCheckBox(isChecked: Boolean, color: Color, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(7.dp)
+    Box(
+        modifier = modifier
+            .size(24.dp)
+            .then(
+                if (isChecked) Modifier.background(color, shape)
+                else Modifier.border(2.2.dp, color, shape)
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (isChecked) {
+            Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
+/**
+ * Fila uniforme para Tareas.
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PlanifyTaskRow(
     title: String,
-    info: String? = null, // Fecha u hora
+    info: String? = null, // Lista a la que pertenece (vista global)
     colorHex: String?,
     isChecked: Boolean = false,
     isToggling: Boolean = false,
     onToggle: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
-    showLeftColorBar: Boolean = false,
+    index: Int = 0,
+    groupCount: Int = 1,
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
-    val color = try { Color(android.graphics.Color.parseColor(colorHex ?: "#4B4D99")) } catch(e: Exception) { Color(0xFF4B4D99) }
+    val color = parseHexColor(colorHex)
 
-    val rowModifier = if (onLongClick != null) {
-        modifier
-            .fillMaxWidth()
-            .alpha(if (isToggling) 0.5f else 1f)
-            .background(Color.White)
-            .combinedClickable(
-                enabled = !isToggling,
-                onClick = { if (onToggle != null) onToggle() else onClick() },
-                onLongClick = onLongClick
-            )
+    val clickModifier = if (onLongClick != null) {
+        Modifier.combinedClickable(
+            enabled = !isToggling,
+            onClick = { if (onToggle != null) onToggle() else onClick() },
+            onLongClick = onLongClick
+        )
     } else {
-        modifier
-            .fillMaxWidth()
-            .alpha(if (isToggling) 0.5f else 1f)
-            .background(Color.White)
-            .clickable(enabled = !isToggling) { if(onToggle != null) onToggle() else onClick() }
+        Modifier.clickable(enabled = !isToggling) { if (onToggle != null) onToggle() else onClick() }
     }
 
-    Box(
-        modifier = rowModifier
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .glassGroupRow(index, groupCount)
+            .then(clickModifier)
+            .alpha(if (isToggling) 0.5f else 1f)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            if (showLeftColorBar) {
-                Box(modifier = Modifier.width(6.dp).fillMaxHeight().background(color))
-            }
-            
-            Row(
-                modifier = Modifier.padding(horizontal = if (showLeftColorBar) 14.dp else 20.dp, vertical = 20.dp).fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-            // Checkbox area
             if (onToggle != null) {
-                if (isChecked) {
-                    Box(
-                        modifier = Modifier.size(24.dp).background(color, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(androidx.compose.material.icons.Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier.size(24.dp).border(width = 2.dp, color = Color(0xFFC8C5BD), shape = CircleShape)
-                    )
-                }
+                PlanifyCheckBox(isChecked = isChecked, color = color)
             }
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Normal,
+                        fontSize = 16.sp,
+                        fontWeight = if (isChecked) FontWeight.Medium else FontWeight.SemiBold,
                         textDecoration = if (isChecked) TextDecoration.LineThrough else TextDecoration.None
                     ),
-                    color = if (isChecked) Color(0xFF757575) else MaterialTheme.colorScheme.onSurface
+                    color = if (isChecked) OnSurfaceVariantColor else OnSurfaceColor
                 )
                 if (info != null) {
-                    Text(text = info, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = info,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = OnSurfaceVariantColor
+                    )
                 }
             }
 
             if (onDelete != null) {
                 IconButton(
                     onClick = { onDelete() },
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
-                        androidx.compose.material.icons.Icons.Default.Delete,
+                        Icons.Default.Close,
                         contentDescription = "Borrar",
-                        tint = Color.Black.copy(alpha = 0.15f),
+                        tint = OnSurfaceColor.copy(alpha = 0.3f),
                         modifier = Modifier.size(18.dp)
                     )
                 }
             }
-            } // Close the inner Row
-        } // Close the outer Row
-        HorizontalDivider(modifier = Modifier.align(Alignment.BottomEnd), thickness = 0.5.dp, color = OutlineDimColor)
+        }
+        if (index < groupCount - 1) GroupDivider()
     }
 }
 
 /**
- * Fila uniforme para Eventos.
+ * Fila uniforme para Eventos (estilo agenda: barra fina de color, título en negrita y hora con reloj).
  */
 @Composable
 fun PlanifyEventRow(
     title: String,
-    dateInfo: String,
+    time: String,
+    subtitle: String? = null,
     relativeTime: String? = null,
     colorHex: String?,
     hasAlarm: Boolean = false,
+    isPast: Boolean = false,
+    index: Int = 0,
+    groupCount: Int = 1,
     onClick: () -> Unit
 ) {
-    val color = try { Color(android.graphics.Color.parseColor(colorHex ?: "#4B4D99")) } catch(e: Exception) { Color(0xFF4B4D99) }
+    val color = parseHexColor(colorHex)
+    val secondary = OnSurfaceVariantColor
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .glassGroupRow(index, groupCount)
             .clickable { onClick() }
     ) {
-        Row(modifier = Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
-            // Borde grueso a la izquierda
-            Box(modifier = Modifier.width(6.dp).fillMaxHeight().background(color))
-            
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+                .padding(horizontal = 18.dp, vertical = 14.dp)
+                .alpha(if (isPast) 0.55f else 1f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .background(color, CircleShape)
+            )
             Column(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp).fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.padding(start = 14.dp).weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = dateInfo.uppercase(),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            ),
-                            color = Color(0xFF757575)
-                        )
-                        if (hasAlarm) {
-                            Icon(
-                                androidx.compose.material.icons.Icons.Default.Notifications,
-                                contentDescription = "Alarma",
-                                tint = Color(0xFF757575),
-                                modifier = Modifier.padding(start = 6.dp).size(14.dp)
-                            )
-                        }
-                    }
-                    
-                    if (relativeTime != null) {
-                        Surface(
-                            color = Color(0xFFE0E0E0),
-                            shape = RoundedCornerShape(4.dp)
-                        ) {
-                            Text(
-                                text = relativeTime.uppercase(),
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp
-                                ),
-                                color = Color(0xFF757575),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                }
-
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Normal
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface
+                    style = MaterialTheme.typography.titleMedium,
+                    color = OnSurfaceColor
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Schedule, null, tint = secondary, modifier = Modifier.size(14.dp))
+                    Text(
+                        text = if (subtitle != null) "$time  ·  $subtitle" else time,
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = secondary,
+                        modifier = Modifier.padding(start = 5.dp)
+                    )
+                    if (hasAlarm) {
+                        Icon(
+                            Icons.Default.Notifications,
+                            contentDescription = "Alarma",
+                            tint = secondary,
+                            modifier = Modifier.padding(start = 6.dp).size(13.dp)
+                        )
+                    }
+                }
+            }
+            if (relativeTime != null) {
+                Text(
+                    text = relativeTime.uppercase(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = OnSurfaceColor,
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .background(com.lito.planify.ui.theme.PillFillColor, CircleShape)
+                        .padding(horizontal = 9.dp, vertical = 4.dp)
                 )
             }
         }
-        HorizontalDivider(modifier = Modifier.align(Alignment.BottomEnd), thickness = 0.5.dp, color = OutlineDimColor)
+        if (index < groupCount - 1) GroupDivider()
     }
 }
+
 @Composable
 fun PlanifyDashedCard(
     text: String,
     onClick: () -> Unit
 ) {
-    val outlineColor = Color(0xFFE0E0E0)
+    val shape = RoundedCornerShape(22.dp)
     Box(
         modifier = Modifier
-            .padding(horizontal = 20.dp, vertical = 24.dp)
+            .padding(horizontal = 16.dp, vertical = 20.dp)
             .fillMaxWidth()
-            .height(72.dp)
-            .background(Color.White, RoundedCornerShape(16.dp))
-            .clip(RoundedCornerShape(16.dp))
+            .height(64.dp)
+            .clip(shape)
+            .background(GlassColor.copy(alpha = 0.35f), shape)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.matchParentSize()) {
             drawRoundRect(
-                color = outlineColor,
-                style = Stroke(width = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx())
+                color = com.lito.planify.ui.theme.OutlineColor,
+                style = Stroke(width = 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f), 0f)),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(22.dp.toPx())
             )
         }
-        Text(
-            text = text, 
-            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), 
-            color = Color(0xFF757575)
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Add, null, tint = OnSurfaceColor, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                color = OnSurfaceColor
+            )
+        }
     }
 }

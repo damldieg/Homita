@@ -20,6 +20,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Repeat
+import com.lito.planify.ui.theme.OnSurfaceColor
+import com.lito.planify.ui.theme.OnSurfaceVariantColor
 
 @Composable
 fun GlassBottomNavBar(
@@ -32,31 +35,24 @@ fun GlassBottomNavBar(
             .navigationBarsPadding()
             .padding(horizontal = 12.dp, vertical = 16.dp)
     ) {
-        // Floating pill container
+        // Floating glass pill container
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp)
                 .shadow(
-                    elevation = 24.dp,
+                    elevation = 18.dp,
                     shape = CircleShape,
-                    spotColor = Color(0x1F14120F)
+                    spotColor = Color(0x3314120F)
                 )
-                .background(
-                    color = Color.White.copy(alpha = 0.82f),
-                    shape = CircleShape
-                )
-                .border(
-                    width = 1.dp,
-                    color = Color.White.copy(alpha = 0.6f),
-                    shape = CircleShape
-                )
+                .glass(CircleShape, strong = true)
                 .padding(6.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
             val items = listOf(
                 Triple("calendars", Icons.Default.DateRange, "Calendarios"),
+                Triple("routines", Icons.Default.Repeat, androidx.compose.ui.res.stringResource(com.lito.planify.R.string.routines_title)),
                 Triple("tasks", Icons.Default.CheckCircle, "Tareas"),
                 Triple("profile", Icons.Default.Person, "Perfil")
             )
@@ -68,9 +64,9 @@ fun GlassBottomNavBar(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .padding(vertical = 4.dp, horizontal = 8.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                        .padding(horizontal = 6.dp)
+                        .clip(CircleShape)
+                        .background(if (isSelected) OnSurfaceColor else Color.Transparent)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
@@ -80,11 +76,29 @@ fun GlassBottomNavBar(
                     Icon(
                         imageVector = icon,
                         contentDescription = label,
-                        tint = if (isSelected) Color.White else Color(0xFF5A5853),
+                        tint = if (isSelected) Color.White else OnSurfaceVariantColor,
                         modifier = Modifier.size(26.dp)
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Contenedor de pantalla con la barra de cristal superpuesta: el contenido ocupa toda la altura
+ * y se desliza por debajo de la barra (el Scaffold de Material 3 lo recortaría encima).
+ */
+@Composable
+fun GlassNavScaffold(
+    currentRoute: String,
+    onNavigate: (String) -> Unit,
+    content: @Composable BoxScope.() -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        content()
+        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+            GlassBottomNavBar(currentRoute = currentRoute, onNavigate = onNavigate)
         }
     }
 }

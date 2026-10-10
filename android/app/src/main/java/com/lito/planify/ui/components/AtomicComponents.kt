@@ -35,7 +35,7 @@ fun PlanifyLogo(size: Dp = 120.dp) {
         
         // Approximate colors for oklch(0.60 0.15 255) to oklch(0.50 0.15 280)
         val gradient = Brush.linearGradient(
-            colors = listOf(Color(0xFF4A7DDF), Color(0xFF4749AD)),
+            colors = listOf(Color(0xFF6B3F96), Color(0xFF2E1247)),
             start = Offset(rectOffset, rectOffset),
             end = Offset(rectOffset + rectSize, rectOffset + rectSize)
         )
