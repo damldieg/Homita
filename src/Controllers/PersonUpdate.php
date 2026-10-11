@@ -10,6 +10,6 @@ class PersonUpdate extends PersonControllerAbstract
     {
         $person = $this->person();
         $person->update($this->input);
-        return Person::findByIdAndOwner($person->id, $this->user->id);
+        return $this->present(Person::findByIdAndOwner($person->id, $this->user->id));
     }
 }

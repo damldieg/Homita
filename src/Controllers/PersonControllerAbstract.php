@@ -15,6 +15,12 @@ abstract class PersonControllerAbstract extends ControllerAbstract
         return Person::findByIdAndOwner($id, $this->user->id);
     }
 
+    /** `editable` indica si el usuario actual es el creador. */
+    protected function present(Person $person): array
+    {
+        return $person->toArray() + ['editable' => $person->user_id === $this->user->id];
+    }
+
     final public function handle(): void
     {
         $this->response($this->run(), 200);

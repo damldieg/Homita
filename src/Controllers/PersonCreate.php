@@ -8,6 +8,6 @@ class PersonCreate extends PersonControllerAbstract
 {
     protected function run(): mixed
     {
-        return Person::create($this->user->id, $this->input);
+        return $this->present(Person::create($this->user->id, $this->input));
     }
 }

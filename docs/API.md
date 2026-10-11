@@ -335,9 +335,9 @@ Deploy migration `0007_person.sql` first. Persons (family members, for example) 
 
 | Endpoint | Input | Output |
 | --- | --- | --- |
-| `GET /person` | — | Array of visible `Person` objects, ordered by name |
-| `POST /person/create` | `name` (1–50 characters), `color` (`#RRGGBB`) | `Person` |
-| `PATCH /person/update` | `id`, `name`, `color` | `Person` |
+| `GET /person` | — | Array of visible `Person` objects, ordered by name, each with `editable` (true when the requesting user created it) |
+| `POST /person/create` | `name` (1–50 characters), `color` (`#RRGGBB`) | `Person` with `editable` |
+| `PATCH /person/update` | `id`, `name`, `color` | `Person` with `editable` |
 | `DELETE /person/delete` | `id` | `{"success":true}` |
 
 Events and routines return `persons` (`[{"id","user_id","name","color"}]`, empty when none). Create and update accept `person_ids`: an array replaces the current assignment, `[]` clears it and omitting it keeps it. Unknown or non-visible IDs fail with `Invalid person` and nothing is saved. Routine sessions always show the persons of their routine, so changes to the routine apply immediately; deleting a routine copies them onto the detached past sessions. Deleting a person removes its assignments.

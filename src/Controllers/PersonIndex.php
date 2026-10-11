@@ -8,6 +8,6 @@ class PersonIndex extends PersonControllerAbstract
 {
     protected function run(): mixed
     {
-        return array_map(static fn(Person $person) => $person->toArray(), Person::findVisibleForUser($this->user->id));
+        return array_map($this->present(...), Person::findVisibleForUser($this->user->id));
     }
 }
