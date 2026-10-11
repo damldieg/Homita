@@ -16,6 +16,7 @@ class Event extends ModelAbstract
     public string $title;
     public string $date_at;
     public ?int $alarm = null;
+    public array $persons = [];
     public string $created_at;
     public string $updated_at;
 
@@ -124,12 +125,28 @@ class Event extends ModelAbstract
             $params['routine'] = $value;
         }
 
+        if ($value = self::getFilterInt($filters, 'person_id')) {
+            $params['person_id'] = $value;
+        }
+
         $rows = self::database()->select(
             self::findWithFiltersSql($params),
             Helper::arrayDenyKeys($params, ['order_mode', 'routine'])
         );
 
-        return array_map(static fn(array $row) => new self($row), $rows);
+        return self::withPersons(array_map(static fn(array $row) => new self($row), $rows));
+    }
+
+    /** Añade `persons` a cada evento con una sola consulta. */
+    public static function withPersons(array $events): array
+    {
+        $persons = Person::byEvent(array_map(static fn(self $event) => $event->id, $events));
+
+        foreach ($events as $event) {
+            $event->attributes['persons'] = $event->persons = $persons[$event->id] ?? [];
+        }
+
+        return $events;
     }
 
     private static function findWithFiltersSql(array $params): string
@@ -170,6 +187,12 @@ class Event extends ModelAbstract
             $base .= $params['routine'] ? ' AND e.`routine_id` IS NOT NULL' : ' AND e.`routine_id` IS NULL';
         }
 
+        if (isset($params['person_id'])) {
+            // Las sesiones de rutina heredan las personas de su rutina
+            $base .= ' AND (EXISTS (SELECT 1 FROM `event_person` ep WHERE e.`routine_id` IS NULL AND ep.`event_id` = e.`id` AND ep.`person_id` = :person_id)'
+                .' OR EXISTS (SELECT 1 FROM `routine_person` rp WHERE rp.`routine_id` = e.`routine_id` AND rp.`person_id` = :person_id))';
+        }
+
         $order = strtoupper($params['order_mode'] ?? 'ASC');
 
         if (in_array($order, ['ASC', 'DESC'], true) === false) {
@@ -191,10 +214,10 @@ class Event extends ModelAbstract
 
     public static function findByIdAndUser(int $id, int $userId): self
     {
-        return new self(self::database()->selectOneOrFail(self::findByIdAndUserSql(), [
+        return self::withPersons([new self(self::database()->selectOneOrFail(self::findByIdAndUserSql(), [
             'id' => $id,
             'user_id' => $userId,
-        ]));
+        ]))])[0];
     }
 
     private static function findByIdAndUserSql(): string

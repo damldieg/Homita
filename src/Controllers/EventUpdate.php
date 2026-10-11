@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\Event;
 use App\Models\Routine;
 use App\Models\EventUser;
+use App\Models\Person;
 
 class EventUpdate extends ControllerAbstract
 {
@@ -17,6 +18,7 @@ class EventUpdate extends ControllerAbstract
         $dateAt = $this->getInputDateHour('date_at');
         $alarm = $this->getInputInt('alarm');
         Routine::validateAlarm($alarm);
+        $personIds = Person::validateIds($this->getInput('person_ids'), $this->user->id);
 
         if (empty($id) || empty($title) || empty($dateAt)) {
             $this->response(['error' => 'Event ID, title, and date_at are required'], 400);
@@ -25,6 +27,10 @@ class EventUpdate extends ControllerAbstract
         Event::findByIdAndUser($id, $this->user->id)->update($title, $dateAt);
 
         EventUser::apply($id, $this->user->id, $alarm);
+
+        if ($personIds !== null) {
+            Person::syncEvent($id, $personIds);
+        }
 
         $this->response(Event::findByIdAndUser($id, $this->user->id), 200);
     }

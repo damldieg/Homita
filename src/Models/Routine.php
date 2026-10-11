@@ -21,6 +21,7 @@ class Routine extends ModelAbstract
     public bool $active;
     public string $available_from;
     public ?int $alarm = null;
+    public array $persons = [];
     public string $created_at;
     public string $updated_at;
 
@@ -92,13 +93,21 @@ class Routine extends ModelAbstract
 
     public static function findByIdAndUser(int $id, int $userId): self
     {
-        return new self(self::database()->selectOneOrFail(self::SELECT.' AND r.id=:id', ['id' => $id, 'user_id' => $userId]));
+        return self::withPersons([new self(self::database()->selectOneOrFail(self::SELECT.' AND r.id=:id', ['id' => $id, 'user_id' => $userId]))])[0];
+    }
+
+    /** Añade `persons` a cada rutina con una sola consulta. */
+    public static function withPersons(array $routines): array
+    {
+        $persons = Person::byRoutine(array_map(static fn(self $routine) => $routine->id, $routines));
+        foreach ($routines as $routine) $routine->attributes['persons'] = $routine->persons = $persons[$routine->id] ?? [];
+        return $routines;
     }
 
     public static function findByUser(int $userId, string $timezone = 'UTC'): array
     {
         self::materializeForUser($userId, $timezone);
-        return array_map(static fn($row) => new self($row), self::database()->select(self::SELECT.' ORDER BY r.title, r.id', ['user_id' => $userId]));
+        return self::withPersons(array_map(static fn($row) => new self($row), self::database()->select(self::SELECT.' ORDER BY r.title, r.id', ['user_id' => $userId])));
     }
 
     public static function materializeForUser(int $userId, string $timezone = 'UTC'): void
@@ -180,6 +189,8 @@ class Routine extends ModelAbstract
         $now = self::cutoff($timezone);
         Database::transaction(function () use ($now) {
             self::database()->execute('DELETE FROM event WHERE routine_id=:id AND date_at>=:now', ['id' => $this->id, 'now' => $now]);
+            // El historial desvinculado conserva las personas que heredaba de la rutina
+            self::database()->execute('INSERT OR IGNORE INTO event_person (event_id,person_id) SELECT e.id,rp.person_id FROM event e INNER JOIN routine_person rp ON rp.routine_id=e.routine_id WHERE e.routine_id=:id', ['id' => $this->id]);
             self::database()->execute('UPDATE event SET routine_id=NULL,routine_date=NULL WHERE routine_id=:id', ['id' => $this->id]);
             self::database()->execute('DELETE FROM routine WHERE id=:id', ['id' => $this->id]);
         }, true);

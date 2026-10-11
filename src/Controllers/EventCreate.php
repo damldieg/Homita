@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\Event;
 use App\Models\EventUser;
+use App\Models\Person;
 use App\Models\Routine;
 use App\Models\CalendarUser;
 use App\Utils\GeminiClient;
@@ -18,6 +19,7 @@ class EventCreate extends ControllerAbstract
         $dateAt = $this->getInputDateHour('date_at');
         $alarm = $this->getInputInt('alarm');
         Routine::validateAlarm($alarm);
+        $personIds = Person::validateIds($this->getInput('person_ids'), $this->user->id);
 
         if (empty($calendarId)) {
             $this->response(['error' => 'Calendar ID is required'], 400);
@@ -36,6 +38,10 @@ class EventCreate extends ControllerAbstract
         }
 
         EventUser::apply($event->id, $this->user->id, $alarm);
+
+        if ($personIds !== null) {
+            Person::syncEvent($event->id, $personIds);
+        }
 
         $this->response(Event::findByIdAndUser($event->id, $this->user->id), 200);
     }
