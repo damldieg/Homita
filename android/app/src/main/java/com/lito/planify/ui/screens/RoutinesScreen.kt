@@ -23,6 +23,7 @@ import com.lito.planify.data.api.RoutineResponse
 import com.lito.planify.ui.components.*
 import com.lito.planify.util.DateTimeUtils
 import com.lito.planify.viewmodel.CalendarViewModel
+import com.lito.planify.viewmodel.PersonViewModel
 import com.lito.planify.viewmodel.RoutineViewModel
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -32,11 +33,13 @@ import java.util.Locale
 @Composable
 fun RoutinesScreen(
     viewModel: RoutineViewModel,
-    calendarViewModel: CalendarViewModel
+    calendarViewModel: CalendarViewModel,
+    personViewModel: PersonViewModel
 ) {
     val routines by viewModel.routines.collectAsState()
     val sessions by viewModel.sessions.collectAsState()
     val calendars by calendarViewModel.calendars.collectAsState()
+    val persons by personViewModel.persons.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -52,6 +55,7 @@ fun RoutinesScreen(
 
     LaunchedEffect(Unit) {
         calendarViewModel.fetchCalendars()
+        personViewModel.fetchPersons()
         viewModel.fetchRoutines()
     }
 
@@ -69,6 +73,7 @@ fun RoutinesScreen(
     val subtitleOf: (RoutineResponse) -> String = { routine ->
         listOfNotNull(
             routine.days.sorted().joinToString(" ") { weekdayLabel(it) },
+            routine.persons.orEmpty().joinToString(", ") { it.name }.ifEmpty { null },
             if (selectedCalendarFilterId == null) calendars.find { it.id == routine.calendar_id }?.name ?: routine.calendar_name else null
         ).joinToString("  ·  ")
     }
@@ -207,6 +212,7 @@ fun RoutinesScreen(
             initial = null,
             calendars = calendars,
             initialCalendarId = selectedCalendarFilterId,
+            persons = persons,
             onDismiss = { showCreateDialog = false },
             onConfirm = { request ->
                 viewModel.saveRoutine(null, request)
@@ -220,6 +226,7 @@ fun RoutinesScreen(
             initial = routine,
             calendars = calendars,
             initialCalendarId = routine.calendar_id,
+            persons = persons,
             onDismiss = { selectedRoutineToEdit = null },
             onConfirm = { request ->
                 viewModel.saveRoutine(routine, request)

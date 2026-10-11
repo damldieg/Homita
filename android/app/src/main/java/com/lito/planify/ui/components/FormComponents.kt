@@ -26,6 +26,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lito.planify.R
+import com.lito.planify.data.api.PersonResponse
 import com.lito.planify.ui.theme.*
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
@@ -299,6 +300,38 @@ fun WeekdaySelector(days: List<Int>, onChange: (List<Int>) -> Unit, enabled: Boo
                     style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                     color = if (selected) Color.White else OnSurfaceVariantColor
                 )
+            }
+        }
+    }
+}
+
+/** Personas asignadas (multiselección). Cada chip seleccionado toma el color de su persona. */
+@Composable
+fun PersonSelector(persons: List<PersonResponse>, selected: List<Int>, onChange: (List<Int>) -> Unit, enabled: Boolean = true) {
+    Column {
+        FormLabel(stringResource(R.string.label_persons))
+        Spacer(Modifier.height(6.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            persons.forEach { person ->
+                val isSelected = person.id in selected
+                val color = parseHexColor(person.color)
+                Row(
+                    modifier = Modifier
+                        .heightIn(min = 40.dp)
+                        .clip(CircleShape)
+                        .background(if (isSelected) color else PillFillColor)
+                        .clickable(enabled = enabled) { onChange(if (isSelected) selected - person.id else selected + person.id) }
+                        .padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(Modifier.size(10.dp).background(if (isSelected) Color.White else color, CircleShape))
+                    Text(
+                        text = person.name,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = if (isSelected) Color.White else OnSurfaceColor
+                    )
+                }
             }
         }
     }

@@ -98,6 +98,10 @@ Despliega primero la API y aplica `backend/migrations/0006_routine.sql` con el c
 
 El móvil programa los 450 avisos más próximos y conserva el resto en caché. Cada aviso repone la cola sin necesitar conexión; sincronizar o reiniciar también la renueva.
 
+## Personas
+
+Desde Perfil se crean personas (por ejemplo, los miembros de la familia) con nombre y color, y se asignan una o varias a cada evento o rutina. Las ven y asignan todos los usuarios que comparten algún calendario con quien las creó; solo el creador puede editarlas o borrarlas. Las sesiones de una rutina muestran las personas de la rutina. Requiere la migración `backend/migrations/0007_person.sql`.
+
 ## Scripts locales
 
 Los scripts de `scripts/` son locales y están excluidos de Git:

@@ -65,7 +65,7 @@ Tres pestañas superiores: **Eventos**, **Rutinas** y **Calendarios**. Eventos y
 - **Propósito:** Agenda cronológica de los eventos (sin sesiones de rutina).
 - **Filtros:** Filtro por Calendario específico.
 - **UI:** Vista mensual con puntos de color, botón "Nuevo evento" y eventos agrupados por día; los pasados en su propia sección.
-- **Tarjetas de Evento:** Muestran Título, hora, calendario y **Fecha Relativa** ("14H 52M", "3D").
+- **Tarjetas de Evento:** Muestran Título, hora, personas asignadas, calendario y **Fecha Relativa** ("14H 52M", "3D").
 
 ### 4.2. Tab: Rutinas (`RoutinesScreen`)
 - **Propósito:** Gestión de rutinas semanales.
@@ -106,14 +106,19 @@ Diseño de dos pestañas internas (selector segmentado):
 Todos los formularios comparten la misma hoja inferior (`PlanifyFormSheet`): título, campos con el mismo estilo, interruptores sobre fondo suave y botonera fija (borrar · cancelar · guardar). Los componentes comunes están en `ui/components/FormComponents.kt`.
 
 ### 6.1. Modal "Nuevo evento"
-- **Modo Manual:** Calendario (si es global), Título, Fecha y Hora (diálogos nativos) y Alarma.
+- **Modo Manual:** Calendario (si es global), Título, Fecha y Hora (diálogos nativos), Personas y Alarma.
 - **Modo Asistente IA:** Interruptor para activar. Área de texto "Describe el evento".
 
 ### 6.2. Modal "Editar evento"
-- Título, Fecha, Hora, Alarma, "Guardar" y "Borrar".
+- Título, Fecha, Hora, Personas, Alarma, "Guardar" y "Borrar".
 
 ### 6.3. Modal "Nueva rutina" / "Editar rutina"
-- Calendario (solo al crear), Título, Días (círculos L–D), Hora, Inicio, Fin opcional, Alarma y Activa (solo al editar).
+- Calendario (solo al crear), Título, Días (círculos L–D), Hora, Inicio, Fin opcional, Personas, Alarma y Activa (solo al editar).
+
+### 6.4. Modal "Nueva persona" / "Editar persona"
+- Nombre y Color (aleatorio por defecto). Solo quien creó la persona puede editarla o borrarla.
+
+El selector de **Personas** (chips multiselección con el color de cada persona) solo aparece si hay personas creadas.
 
 ---
 
@@ -121,6 +126,7 @@ Todos los formularios comparten la misma hoja inferior (`PlanifyFormSheet`): tí
 
 - **Información:** Muestra Nombre y Email actuales.
 - **Edición:** Activa campos de texto para actualizar Nombre, Email o Contraseña (con las optimizaciones de teclado antes mencionadas).
+- **Personas:** Lista de personas asignables a eventos y rutinas, con botón "Nueva persona". Las creadas por otros usuarios que comparten calendario aparecen como "Compartida" y no se pueden editar.
 - **Crash Reporter:** Si hubo un cierre inesperado, muestra una tarjeta roja para ver o borrar el log de errores.
 - **Acciones:** Botón "Guardar", "Editar" y "Salir" (limpia caché de widgets).
 

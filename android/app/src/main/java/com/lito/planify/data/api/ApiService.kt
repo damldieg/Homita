@@ -75,6 +75,18 @@ interface ApiService {
     suspend fun deleteEvent(@Body request: DeleteRequest, @retrofit2.http.Query("timezone") timezone: String = java.util.TimeZone.getDefault().id): Response<Map<String, Any>>
 
     // Routines use floating local times, like calendar events.
+    @GET("person")
+    suspend fun getPersons(): Response<List<PersonResponse>>
+
+    @POST("person/create")
+    suspend fun createPerson(@Body request: PersonRequest): Response<PersonResponse>
+
+    @PATCH("person/update")
+    suspend fun updatePerson(@Body request: PersonRequest): Response<PersonResponse>
+
+    @retrofit2.http.HTTP(method = "DELETE", path = "person/delete", hasBody = true)
+    suspend fun deletePerson(@Body request: DeleteRequest): Response<Map<String, Any>>
+
     @GET("routine")
     suspend fun getRoutines(@retrofit2.http.Query("timezone") timezone: String = java.util.TimeZone.getDefault().id): Response<List<RoutineResponse>>
 

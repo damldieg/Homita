@@ -28,6 +28,7 @@
     <string name="label_describe_event">Describe el evento</string>
     <string name="label_calendar">Calendario</string>
     <string name="label_list">Lista</string>
+    <string name="label_persons">Personas</string>
     <string name="label_show_in_widget">Mostrar en el widget</string>
     <string name="label_alarm">Alarma</string>
 
@@ -66,6 +67,10 @@
     <string name="profile_logout">Cerrar sesión</string>
     <string name="profile_save">Guardar</string>
     <string name="profile_logs_title">Log de errores:</string>
+    <string name="persons_title">Personas</string>
+    <string name="person_new">Nueva persona</string>
+    <string name="person_edit">Editar persona</string>
+    <string name="person_shared">Compartida</string>
     <string name="profile_logs_empty">No se han registrado errores recientemente.</string>
 
     <string name="nav_tasks">Tareas</string>

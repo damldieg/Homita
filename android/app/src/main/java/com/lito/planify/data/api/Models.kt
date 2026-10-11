@@ -87,7 +87,8 @@ data class EventResponse(
     val created_at: String,
     val updated_at: String,
     val routine_id: Int? = null,
-    val routine_date: String? = null
+    val routine_date: String? = null,
+    val persons: List<PersonResponse>? = null
 )
 
 data class RoutineResponse(
@@ -101,7 +102,8 @@ data class RoutineResponse(
     val start_date: String,
     val end_date: String?,
     val active: Boolean,
-    val alarm: Int? = null
+    val alarm: Int? = null,
+    val persons: List<PersonResponse>? = null
 )
 
 data class CreateRoutineRequest(
@@ -112,7 +114,8 @@ data class CreateRoutineRequest(
     val start_date: String,
     val end_date: String?,
     val active: Boolean,
-    val alarm: Int?
+    val alarm: Int?,
+    val person_ids: List<Int>
 )
 
 data class UpdateRoutineRequest(
@@ -122,7 +125,8 @@ data class UpdateRoutineRequest(
     val time: String,
     val start_date: String,
     val end_date: String?,
-    val active: Boolean
+    val active: Boolean,
+    val person_ids: List<Int>
 )
 
 data class SetRoutineAlarmRequest(val id: Int, val alarm: Int?)
@@ -132,14 +136,31 @@ data class CreateEventRequest(
     val text: String? = null,
     val title: String? = null,
     val date_at: String? = null,
-    val alarm: Int? = null
+    val alarm: Int? = null,
+    val person_ids: List<Int> = emptyList()
 )
 
 data class UpdateEventRequest(
     val id: Int,
     val title: String,
     val date_at: String,
-    val alarm: Int? = null
+    val alarm: Int? = null,
+    val person_ids: List<Int>? = null
+)
+
+/** Persona asignable a eventos y rutinas. Solo su creador puede editarla ([editable]). */
+data class PersonResponse(
+    val id: Int,
+    val user_id: Int,
+    val name: String,
+    val color: String,
+    val editable: Boolean = false
+)
+
+data class PersonRequest(
+    val id: Int? = null,
+    val name: String,
+    val color: String
 )
 
 data class SetEventAlarmRequest(

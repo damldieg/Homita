@@ -36,12 +36,19 @@ import com.lito.planify.ui.components.PrimaryButton
 import com.lito.planify.ui.components.TonalButton
 import com.lito.planify.util.TokenManager
 import com.lito.planify.viewmodel.AuthViewModel
+import com.lito.planify.viewmodel.PersonViewModel
+import com.lito.planify.data.api.PersonResponse
+import com.lito.planify.ui.components.PersonFormDialog
+import com.lito.planify.ui.components.groupShape
+import androidx.compose.ui.draw.clip
+import com.lito.planify.ui.components.parseHexColor
 import java.io.File
 import com.lito.planify.ui.theme.*
 
 @Composable
 fun ProfileScreen(
     viewModel: AuthViewModel,
+    personViewModel: PersonViewModel,
     sessionManager: SessionManager,
     onLogout: () -> Unit,
     onNavigateToTasks: () -> Unit,
@@ -61,6 +68,13 @@ fun ProfileScreen(
         name = userName ?: ""
         email = userEmail ?: ""
     }
+
+    val persons by personViewModel.persons.collectAsState()
+    val personError by personViewModel.error.collectAsState()
+    var editingPerson by remember { mutableStateOf<PersonResponse?>(null) }
+    var showNewPerson by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) { personViewModel.fetchPersons() }
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -151,6 +165,14 @@ fun ProfileScreen(
                 isLoading = isLoading
             )
 
+            PersonsSection(
+                persons = persons,
+                error = personError,
+                onErrorClick = { personViewModel.clearError() },
+                onEdit = { editingPerson = it },
+                onAdd = { showNewPerson = true }
+            )
+
             Spacer(modifier = Modifier.height(8.dp))
 
             var hasLogs by remember { mutableStateOf(com.lito.planify.util.CrashReporter.hasCrashDump(context)) }
@@ -233,6 +255,95 @@ fun ProfileScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(R.string.profile_logout), fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 }
+            }
+        }
+    }
+
+    if (showNewPerson) {
+        PersonFormDialog(
+            initial = null,
+            onDismiss = { showNewPerson = false },
+            onConfirm = { personName, color ->
+                personViewModel.savePerson(null, personName, color)
+                showNewPerson = false
+            }
+        )
+    }
+
+    editingPerson?.let { person ->
+        PersonFormDialog(
+            initial = person,
+            onDismiss = { editingPerson = null },
+            onConfirm = { personName, color ->
+                personViewModel.savePerson(person.id, personName, color)
+                editingPerson = null
+            },
+            onDelete = {
+                personViewModel.deletePerson(person.id)
+                editingPerson = null
+            }
+        )
+    }
+}
+
+/** Personas asignables a eventos y rutinas. Las compartidas (de otros usuarios) solo se muestran. */
+@Composable
+private fun PersonsSection(
+    persons: List<PersonResponse>,
+    error: String?,
+    onErrorClick: () -> Unit,
+    onEdit: (PersonResponse) -> Unit,
+    onAdd: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
+        Text(stringResource(R.string.persons_title), style = MaterialTheme.typography.titleLarge, color = OnSurfaceColor)
+
+        error?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.clickable(onClick = onErrorClick))
+        }
+
+        if (persons.isNotEmpty()) {
+            Column {
+                persons.forEachIndexed { index, person ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(groupShape(index, persons.size))
+                            .background(GlassColor)
+                            .clickable(enabled = person.editable) { onEdit(person) }
+                            .heightIn(min = 56.dp)
+                            .padding(horizontal = 18.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Box(Modifier.size(14.dp).background(parseHexColor(person.color), androidx.compose.foundation.shape.CircleShape))
+                        Text(person.name, style = MaterialTheme.typography.titleMedium, color = OnSurfaceColor, modifier = Modifier.weight(1f))
+                        if (person.editable) {
+                            Icon(Icons.Default.ChevronRight, null, tint = OnSurfaceVariantColor, modifier = Modifier.size(20.dp))
+                        } else {
+                            Text(
+                                stringResource(R.string.person_shared),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = OnSurfaceVariantColor,
+                                modifier = Modifier.background(PillFillColor, androidx.compose.foundation.shape.CircleShape).padding(horizontal = 9.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glass(androidx.compose.foundation.shape.CircleShape)
+                .clickable(onClick = onAdd)
+                .padding(start = 22.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(stringResource(R.string.person_new), style = MaterialTheme.typography.bodyLarge, color = OnSurfaceVariantColor, modifier = Modifier.weight(1f))
+            Box(Modifier.size(44.dp).background(PrimaryColor, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Add, null, tint = Color.White)
             }
         }
     }

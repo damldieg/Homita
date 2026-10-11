@@ -29,6 +29,7 @@ import com.lito.planify.ui.components.*
 import com.lito.planify.util.DateTimeUtils
 import com.lito.planify.viewmodel.CalendarViewModel
 import com.lito.planify.viewmodel.EventViewModel
+import com.lito.planify.viewmodel.PersonViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,6 +39,7 @@ fun EventListScreen(
     calendarName: String,
     viewModel: EventViewModel,
     calendarViewModel: CalendarViewModel,
+    personViewModel: PersonViewModel,
     isStandalone: Boolean = false,
     onBack: (() -> Unit)? = null,
     onNavigateToCalendars: (() -> Unit)? = null,
@@ -47,6 +49,7 @@ fun EventListScreen(
     val upcomingEvents by viewModel.upcomingEvents.collectAsState()
     val pastEvents by viewModel.pastEvents.collectAsState()
     val calendars by calendarViewModel.calendars.collectAsState()
+    val persons by personViewModel.persons.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isGlobal = calendarId == 0
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -69,6 +72,7 @@ fun EventListScreen(
         if (isGlobal) {
             calendarViewModel.fetchCalendars()
         }
+        personViewModel.fetchPersons()
     }
 
     LaunchedEffect(calendarId, selectedCalendarFilterId) {
@@ -141,9 +145,10 @@ fun EventListScreen(
         EventFormDialog(
             calendarId = activeCalId,
             calendars = if (isGlobal) calendars else emptyList(),
+            persons = persons,
             onDismiss = { showCreateDialog = false },
-            onConfirm = { selectedCalId, eventTitle, eventDateAt, aiText, alarm ->
-                viewModel.createEvent(selectedCalId, eventTitle, eventDateAt, aiText, alarm, refreshCalendarId)
+            onConfirm = { selectedCalId, eventTitle, eventDateAt, aiText, alarm, personIds ->
+                viewModel.createEvent(selectedCalId, eventTitle, eventDateAt, aiText, alarm, personIds, refreshCalendarId)
                 showCreateDialog = false
             }
         )
@@ -153,9 +158,10 @@ fun EventListScreen(
         EventFormDialog(
             calendarId = event.calendar_id,
             initialEvent = event,
+            persons = persons,
             onDismiss = { selectedEventToEdit = null },
-            onConfirm = { _, eventTitle, eventDateAt, _, alarm ->
-                viewModel.updateEvent(event.id, refreshCalendarId, eventTitle, eventDateAt, alarm)
+            onConfirm = { _, eventTitle, eventDateAt, _, alarm, personIds ->
+                viewModel.updateEvent(event.id, refreshCalendarId, eventTitle, eventDateAt, alarm, personIds)
                 selectedEventToEdit = null
             },
             onDelete = {
@@ -278,7 +284,10 @@ fun EventListContent(
         }
 
         val subtitleOf: (EventResponse) -> String? = { event ->
-            if (isGlobal) calendarsList.find { it.id == event.calendar_id }?.name ?: event.calendar_name else null
+            listOfNotNull(
+                event.persons.orEmpty().joinToString(", ") { it.name }.ifEmpty { null },
+                if (isGlobal) calendarsList.find { it.id == event.calendar_id }?.name ?: event.calendar_name else null
+            ).joinToString("  ·  ").ifEmpty { null }
         }
 
         val dateOf: (EventResponse) -> LocalDate = { DateTimeUtils.parseLocalDate(it.date_at) ?: LocalDate.now() }

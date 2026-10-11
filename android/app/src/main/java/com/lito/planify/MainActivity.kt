@@ -89,6 +89,7 @@ class MainActivity : ComponentActivity() {
                 val calendarViewModel: CalendarViewModel = viewModel(factory = factory)
                 val eventViewModel: EventViewModel = viewModel(factory = factory)
                 val routineViewModel: RoutineViewModel = viewModel(factory = factory)
+                val personViewModel: PersonViewModel = viewModel(factory = factory)
                 val taskListViewModel: TaskListViewModel = viewModel(factory = factory)
                 val taskViewModel: TaskViewModel = viewModel(factory = factory)
 
@@ -205,6 +206,7 @@ class MainActivity : ComponentActivity() {
                             calendarViewModel = calendarViewModel,
                             eventViewModel = eventViewModel,
                             routineViewModel = routineViewModel,
+                            personViewModel = personViewModel,
                             onNavigateToTasks = { navController.navigate("tasks") { popUpTo(0) } },
                             onNavigateToProfile = { navController.navigate("profile") { popUpTo(0) } },
                             onNavigateToCalendarDetail = { id, name -> navController.navigate("calendar/$id/$name") },
@@ -214,9 +216,11 @@ class MainActivity : ComponentActivity() {
                     composable("profile") {
                         ProfileScreen(
                             viewModel = authViewModel,
+                            personViewModel = personViewModel,
                             sessionManager = sessionManager,
                             onLogout = {
                                 routineViewModel.reset()
+                                personViewModel.reset()
                                 lifecycleScope.launch {
                                     withContext(Dispatchers.IO) {
                                         com.lito.planify.util.AlarmHelper.cancelAll(this@MainActivity)
@@ -268,6 +272,7 @@ class MainActivity : ComponentActivity() {
                             calendarName = name,
                             viewModel = eventViewModel,
                             calendarViewModel = calendarViewModel,
+                            personViewModel = personViewModel,
                             isStandalone = true,
                             onBack = { 
                                 navController.previousBackStackEntry?.savedStateHandle?.set("initialTab", 2)

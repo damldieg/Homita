@@ -75,12 +75,12 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun createEvent(calendarId: Int, title: String, dateAt: String, text: String?, alarm: Int? = null, refreshCalendarId: Int? = calendarId) {
+    fun createEvent(calendarId: Int, title: String, dateAt: String, text: String?, alarm: Int? = null, personIds: List<Int> = emptyList(), refreshCalendarId: Int? = calendarId) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 val response = RetrofitClient.apiService.createEvent(
-                    CreateEventRequest(calendarId, text, title, dateAt, alarm)
+                    CreateEventRequest(calendarId, text, title, dateAt, alarm, personIds)
                 )
                 if (response.isSuccessful) {
                     response.body()?.let { com.lito.planify.util.AlarmHelper.rememberEvent(getApplication(), it) }
@@ -97,12 +97,12 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateEvent(id: Int, calendarId: Int, title: String, dateAt: String, alarm: Int? = null) {
+    fun updateEvent(id: Int, calendarId: Int, title: String, dateAt: String, alarm: Int? = null, personIds: List<Int>? = null) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 val response = RetrofitClient.apiService.updateEvent(
-                    UpdateEventRequest(id, title, dateAt, alarm)
+                    UpdateEventRequest(id, title, dateAt, alarm, personIds)
                 )
                 if (response.isSuccessful) {
                     response.body()?.let { com.lito.planify.util.AlarmHelper.rememberEvent(getApplication(), it) }

@@ -17,7 +17,8 @@ When an endpoint returns an object or a list of objects, they map to the followi
 - **User**: `{"id": 1, "name": "...", "email": "...", "token": "..." (only on auth/create), "created_at": "...", "updated_at": "..."}` *(Note: `password` is never exposed).*
 - **Calendar**: `{"id": 1, "name": "...", "color": "...", "token": "...", "upcoming_event_count": 0, "widget": 1, "created_at": "...", "updated_at": "..."}`
 - **CalendarUser**: `{"id": 1, "calendar_id": 1, "user_id": 1, "role": "owner", "widget": 1, "created_at": "..."}`
-- **Event**: `{"id": 1, "calendar_id": 1, "calendar_color": "...", "calendar_name": "...", "title": "...", "date_at": "Y-m-d H:i:s", "alarm": null, "created_at": "...", "updated_at": "..."}`
+- **Event**: `{"id": 1, "calendar_id": 1, "calendar_color": "...", "calendar_name": "...", "title": "...", "date_at": "Y-m-d H:i:s", "routine_id": null, "routine_date": null, "alarm": null, "persons": [{"id": 1, "user_id": 1, "name": "...", "color": "#RRGGBB"}], "created_at": "...", "updated_at": "..."}`
+- **Person**: `{"id": 1, "user_id": 1, "name": "...", "color": "#RRGGBB", "created_at": "...", "updated_at": "..."}`
 - **TaskList**: `{"id": 1, "name": "...", "color": "...", "token": "...", "sort": "...", "pending_task_count": 0, "widget": 1, "created_at": "...", "updated_at": "..."}`
 - **TaskListUser**: `{"id": 1, "task_list_id": 1, "user_id": 1, "role": "owner", "widget": 1, "created_at": "..."}`
 - **Task**: `{"id": 1, "task_list_id": 1, "task_list_color": "...", "task_list_name": "...", "title": "...", "order": 1, "completed_at": null, "created_at": "...", "updated_at": "..."}`
@@ -135,6 +136,8 @@ When an endpoint returns an object or a list of objects, they map to the followi
   - `offset` (int, optional)
   - `order_mode` (string, optional: `ASC` or `DESC`)
   - `widget` (boolean, optional)
+  - `routine` (boolean, optional: `false` returns only regular events, `true` only routine sessions; omitted returns both)
+  - `person_id` (int, optional: events assigned to that person, including routine sessions through their routine)
 - **Output**: Array of `Event` objects.
 
 ### `GET /event/detail`
@@ -150,6 +153,7 @@ When an endpoint returns an object or a list of objects, they map to the followi
   - `title` (string)
   - `date_at` (string in `Y-m-d H:i:s` format)
   - `alarm` (int, optional)
+  - `person_ids` (int[], optional: replaces the assigned persons; omitted keeps them)
 - **Output**: `Event` object.
 
 ### `PATCH /event/update`
@@ -159,6 +163,7 @@ When an endpoint returns an object or a list of objects, they map to the followi
   - `title` (string)
   - `date_at` (string in `Y-m-d H:i:s` format)
   - `alarm` (int, optional)
+  - `person_ids` (int[], optional: replaces the assigned persons; omitted keeps them)
 - **Output**: `Event` object.
 
 ### `PATCH /event/alarm`
@@ -288,3 +293,53 @@ When an endpoint returns an object or a list of objects, they map to the followi
 - **Input**:
   - `id` (int)
 - **Output**: `{"success": true}`
+
+---
+
+## Routines
+
+Deploy migration `0006_routine.sql` before deploying this API or the Android routines feature. Routine and event requests accept an optional IANA `timezone` query parameter (for example `Europe/Madrid`), defaulting to `UTC`. Event dates and routine times remain floating local values: the timezone determines the current local cutoff; it does not convert or fix the recurrence to that zone.
+
+All endpoints require authentication and calendar membership. Owners and other related members can create, edit, pause and delete routines. Alarms belong only to the requesting user.
+
+**Routine response:**
+
+```json
+{"id":1,"calendar_id":1,"calendar_name":"Training","calendar_color":"#6923E2","title":"Workout","days":[1,3,5],"time":"18:30","start_date":"2026-10-10","end_date":null,"active":true,"alarm":15}
+```
+
+Additional creation/update timestamps may be returned. `days` uses ISO weekdays (Monday 1 through Sunday 7). Dates use `YYYY-MM-DD` and are inclusive; the optional end date must not precede the start. Time uses `HH:mm`, with one shared hour for all selected days. `active` is boolean. `alarm` is nonnegative minutes or `null` for no reminder.
+
+| Endpoint | Input | Output |
+| --- | --- | --- |
+| `GET /routine` | Optional `timezone` | Array of accessible routines |
+| `GET /routine/detail` | `id`, optional `timezone` | Routine |
+| `POST /routine/create` | `calendar_id`, `title`, `days`, `time`, `start_date`, `end_date` (optional), `active`, `alarm` (optional), `person_ids` (optional) | Routine |
+| `PATCH /routine/update` | `id`, `title`, `days`, `time`, `start_date`, `end_date` (optional), `active`, `person_ids` (optional) | Routine |
+| `PATCH /routine/alarm` | `id`, `alarm` | Routine with requesting user's alarm |
+| `DELETE /routine/delete` | `id` | `{"success":true}` |
+
+The calendar cannot be changed after creation. Routine edits do not change anyone's personal alarm. Use `/routine/alarm` separately when editing your reminder.
+
+Active routines materialize real events for today and the following 89 days on routine/event reads and routine creation/update. Repeated and concurrent reads retain event IDs and do not duplicate sessions. Past sessions are never generated retroactively or rewritten by routine edits. Future individual edits and cancellations override the series, including after pausing and reactivating. An edited session can remain outside the normal generation window.
+
+Pausing removes future sessions, retaining history and exceptions. Reactivation starts from the current local time. Deleting removes future sessions and detaches past sessions while retaining their personal alarm snapshots.
+
+Event responses now include `routine_id` and `routine_date` (nullable); `routine_date` is the original occurrence date, even when an individual event is moved. Existing `/event/update` and `/event/delete` modify/cancel only that session. `/event/alarm` with `alarm:null` explicitly mutes a routine session, overriding the routine reminder; other users' reminders are unchanged. Clients must reconcile the complete list of future events after routine edits and cancel local alarms for removed event IDs.
+
+Run the isolated behavioral check with `php tests/routines.php`. It uses a temporary SQLite database and never migrates or writes the deployed database. When `pcntl` is available it also checks generation through concurrent SQLite connections.
+
+## Persons
+
+Deploy migration `0007_person.sql` first. Persons (family members, for example) can be assigned to events and routines. A person belongs to the user who created it and is visible to that user and to every user who shares at least one calendar with them. Anyone who sees a person can assign it; only its creator can edit or delete it.
+
+| Endpoint | Input | Output |
+| --- | --- | --- |
+| `GET /person` | — | Array of visible `Person` objects, ordered by name, each with `editable` (true when the requesting user created it) |
+| `POST /person/create` | `name` (1–50 characters), `color` (`#RRGGBB`) | `Person` with `editable` |
+| `PATCH /person/update` | `id`, `name`, `color` | `Person` with `editable` |
+| `DELETE /person/delete` | `id` | `{"success":true}` |
+
+Events and routines return `persons` (`[{"id","user_id","name","color"}]`, empty when none). Create and update accept `person_ids`: an array replaces the current assignment, `[]` clears it and omitting it keeps it. Unknown or non-visible IDs fail with `Invalid person` and nothing is saved. Routine sessions always show the persons of their routine, so changes to the routine apply immediately; deleting a routine copies them onto the detached past sessions. Deleting a person removes its assignments.
+
+Run the isolated behavioral check with `php tests/persons.php`.

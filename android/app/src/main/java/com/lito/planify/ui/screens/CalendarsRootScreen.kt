@@ -16,6 +16,7 @@ import com.lito.planify.ui.components.GlassNavScaffold
 import com.lito.planify.ui.components.GlassTabs
 import com.lito.planify.viewmodel.CalendarViewModel
 import com.lito.planify.viewmodel.EventViewModel
+import com.lito.planify.viewmodel.PersonViewModel
 import com.lito.planify.viewmodel.RoutineViewModel
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -24,6 +25,7 @@ fun CalendarsRootScreen(
     calendarViewModel: CalendarViewModel,
     eventViewModel: EventViewModel,
     routineViewModel: RoutineViewModel,
+    personViewModel: PersonViewModel,
     onNavigateToTasks: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToCalendarDetail: (Int, String) -> Unit,
@@ -76,11 +78,13 @@ fun CalendarsRootScreen(
                         calendarId = 0,
                         calendarName = "Global",
                         viewModel = eventViewModel,
-                        calendarViewModel = calendarViewModel
+                        calendarViewModel = calendarViewModel,
+                        personViewModel = personViewModel
                     )
                     1 -> RoutinesScreen(
                         viewModel = routineViewModel,
-                        calendarViewModel = calendarViewModel
+                        calendarViewModel = calendarViewModel,
+                        personViewModel = personViewModel
                     )
                     2 -> DashboardScreen(
                         viewModel = calendarViewModel,

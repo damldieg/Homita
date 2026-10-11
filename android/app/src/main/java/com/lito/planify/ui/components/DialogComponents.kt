@@ -32,6 +32,7 @@ import com.lito.planify.data.api.CalendarResponse
 import com.lito.planify.data.api.CalendarUserResponse
 import com.lito.planify.data.api.CreateRoutineRequest
 import com.lito.planify.data.api.EventResponse
+import com.lito.planify.data.api.PersonResponse
 import com.lito.planify.data.api.RoutineResponse
 import com.lito.planify.data.api.TaskListResponse
 import com.lito.planify.data.api.TaskListUserResponse
@@ -174,8 +175,9 @@ fun EventFormDialog(
     calendarId: Int,
     calendars: List<CalendarResponse> = emptyList(),
     initialEvent: EventResponse? = null,
+    persons: List<PersonResponse> = emptyList(),
     onDismiss: () -> Unit,
-    onConfirm: (Int, String, String, String, Int?) -> Unit,
+    onConfirm: (Int, String, String, String, Int?, List<Int>) -> Unit,
     onDelete: (() -> Unit)? = null,
     isEdit: Boolean = false
 ) {
@@ -191,6 +193,7 @@ fun EventFormDialog(
     var time by remember { mutableStateOf(initialDateTime.toLocalTime()) }
     var alarm by remember { mutableStateOf(initialEvent?.alarm) }
     var selectedCalendarId by remember { mutableStateOf(calendarId) }
+    var personIds by remember { mutableStateOf(initialEvent?.persons.orEmpty().map { it.id }) }
     var isAiMode by remember { mutableStateOf(false) }
 
     PlanifyFormSheet(
@@ -198,7 +201,7 @@ fun EventFormDialog(
         onDismiss = onDismiss,
         confirmText = stringResource(if (isEdit) R.string.generic_save else R.string.generic_create),
         confirmEnabled = if (isAiMode) text.isNotBlank() else title.isNotBlank(),
-        onConfirm = { onConfirm(selectedCalendarId, title.trim(), LocalDateTime.of(date, time).format(apiDateTimeFormat), text, alarm) },
+        onConfirm = { onConfirm(selectedCalendarId, title.trim(), LocalDateTime.of(date, time).format(apiDateTimeFormat), text, alarm, personIds) },
         onDelete = onDelete.takeIf { isEdit }
     ) {
         if (!isEdit && calendars.isNotEmpty()) {
@@ -242,6 +245,7 @@ fun EventFormDialog(
             }
         }
 
+        if (persons.isNotEmpty()) PersonSelector(persons, personIds, onChange = { personIds = it })
         AlarmSelectField(alarm = alarm, onChange = { alarm = it })
     }
 }
@@ -251,6 +255,7 @@ fun RoutineFormDialog(
     initial: RoutineResponse?,
     calendars: List<CalendarResponse>,
     initialCalendarId: Int?,
+    persons: List<PersonResponse> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (CreateRoutineRequest) -> Unit,
     onDelete: (() -> Unit)? = null
@@ -266,6 +271,7 @@ fun RoutineFormDialog(
     var endDate by remember { mutableStateOf(initial?.end_date?.let { runCatching { LocalDate.parse(it) }.getOrNull() }) }
     var active by remember { mutableStateOf(initial?.active ?: true) }
     var alarm by remember { mutableStateOf(initial?.alarm) }
+    var personIds by remember { mutableStateOf(initial?.persons.orEmpty().map { it.id }) }
 
     PlanifyFormSheet(
         title = stringResource(if (isEdit) R.string.routine_edit else R.string.routine_new),
@@ -273,7 +279,7 @@ fun RoutineFormDialog(
         confirmText = stringResource(if (isEdit) R.string.generic_save else R.string.generic_create),
         confirmEnabled = title.isNotBlank() && days.isNotEmpty() && calendars.any { it.id == calendarId },
         onConfirm = {
-            onConfirm(CreateRoutineRequest(calendarId, title.trim(), days.sorted(), time.format(timeFormat), startDate.toString(), endDate?.toString(), active, alarm))
+            onConfirm(CreateRoutineRequest(calendarId, title.trim(), days.sorted(), time.format(timeFormat), startDate.toString(), endDate?.toString(), active, alarm, personIds))
         },
         onDelete = onDelete.takeIf { isEdit }
     ) {
@@ -321,10 +327,39 @@ fun RoutineFormDialog(
                 }
             }
         }
+        if (persons.isNotEmpty()) PersonSelector(persons, personIds, onChange = { personIds = it })
         AlarmSelectField(alarm = alarm, onChange = { alarm = it })
         if (isEdit) {
             FormSwitchRow(label = stringResource(R.string.routine_active), checked = active, onCheckedChange = { active = it })
         }
+    }
+}
+
+@Composable
+fun PersonFormDialog(
+    initial: PersonResponse?,
+    onDismiss: () -> Unit,
+    onConfirm: (String, String) -> Unit,
+    onDelete: (() -> Unit)? = null
+) {
+    var name by remember { mutableStateOf(initial?.name.orEmpty()) }
+    var color by remember { mutableStateOf(initial?.color ?: randomHueColor()) }
+
+    PlanifyFormSheet(
+        title = stringResource(if (initial != null) R.string.person_edit else R.string.person_new),
+        onDismiss = onDismiss,
+        confirmText = stringResource(if (initial != null) R.string.generic_save else R.string.generic_create),
+        confirmEnabled = name.isNotBlank(),
+        onConfirm = { onConfirm(name.trim(), color) },
+        onDelete = onDelete.takeIf { initial != null }
+    ) {
+        CustomTextField(
+            value = name,
+            onValueChange = { name = it.take(50) },
+            label = stringResource(R.string.label_name),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
+        )
+        ColorField(color) { color = it }
     }
 }
 
