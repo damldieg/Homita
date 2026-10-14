@@ -87,12 +87,6 @@ interface ApiService {
     @retrofit2.http.HTTP(method = "DELETE", path = "person/delete", hasBody = true)
     suspend fun deletePerson(@Body request: DeleteRequest): Response<Map<String, Any>>
 
-    @GET("dashboard")
-    suspend fun getDashboard(): Response<DashboardConfigResponse>
-
-    @POST("dashboard/update")
-    suspend fun updateDashboard(@Body request: DashboardUpdateRequest): Response<DashboardConfigResponse>
-
     @GET("routine")
     suspend fun getRoutines(@retrofit2.http.Query("timezone") timezone: String = java.util.TimeZone.getDefault().id): Response<List<RoutineResponse>>
 

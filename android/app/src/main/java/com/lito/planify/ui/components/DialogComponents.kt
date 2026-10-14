@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.EventBusy
@@ -31,7 +32,6 @@ import com.lito.planify.R
 import com.lito.planify.data.api.CalendarResponse
 import com.lito.planify.data.api.CalendarUserResponse
 import com.lito.planify.data.api.CreateRoutineRequest
-import com.lito.planify.data.api.DashboardConfigResponse
 import com.lito.planify.data.api.EventResponse
 import com.lito.planify.data.api.PersonResponse
 import com.lito.planify.data.api.RoutineResponse
@@ -69,17 +69,19 @@ fun CreateCalendarDialog(
     initialName: String = "",
     initialColor: String? = null,
     initialWidget: Boolean = true,
+    initialDashboard: Boolean = true,
     users: List<CalendarUserResponse> = emptyList(),
     onInviteUser: (String) -> Unit = {},
     onRemoveUser: (Int) -> Unit = {},
     onDismiss: () -> Unit,
-    onConfirm: (String, String, Boolean) -> Unit,
+    onConfirm: (name: String, color: String, widget: Boolean, dashboard: Boolean) -> Unit,
     onDelete: (() -> Unit)? = null,
     isEdit: Boolean = false
 ) {
     var name by remember { mutableStateOf(initialName) }
     var selectedColor by remember { mutableStateOf(initialColor ?: randomHueColor()) }
     var widget by remember { mutableStateOf(initialWidget) }
+    var dashboard by remember { mutableStateOf(initialDashboard) }
     var selectedTab by remember { mutableStateOf(0) }
 
     PlanifyFormSheet(
@@ -87,7 +89,7 @@ fun CreateCalendarDialog(
         onDismiss = onDismiss,
         confirmText = if (selectedTab == 0) stringResource(if (isEdit) R.string.generic_save else R.string.generic_create) else null,
         confirmEnabled = name.isNotBlank(),
-        onConfirm = { onConfirm(name.trim(), selectedColor, widget) },
+        onConfirm = { onConfirm(name.trim(), selectedColor, widget, dashboard) },
         onDelete = onDelete.takeIf { isEdit }
     ) {
         if (isEdit) SettingsTabs(selectedTab) { selectedTab = it }
@@ -101,6 +103,7 @@ fun CreateCalendarDialog(
             )
             ColorField(selectedColor) { selectedColor = it }
             FormSwitchRow(label = stringResource(R.string.label_show_in_widget), checked = widget, onCheckedChange = { widget = it }, icon = Icons.Default.Widgets)
+            FormSwitchRow(label = stringResource(R.string.label_show_in_dashboard), checked = dashboard, onCheckedChange = { dashboard = it }, icon = Icons.Default.Tv)
         } else {
             UsersSection(
                 users = users.map { SharedUser(it.user_id, it.name, it.email, it.role) },
@@ -117,11 +120,12 @@ fun CreateTaskListDialog(
     initialColor: String? = null,
     initialSortOrder: String = "updated_at",
     initialWidget: Boolean = true,
+    initialDashboard: Boolean = true,
     users: List<TaskListUserResponse> = emptyList(),
     onInviteUser: (String) -> Unit = {},
     onRemoveUser: (Int) -> Unit = {},
     onDismiss: () -> Unit,
-    onConfirm: (String, String, String, Boolean) -> Unit,
+    onConfirm: (name: String, color: String, sortOrder: String, widget: Boolean, dashboard: Boolean) -> Unit,
     onDelete: (() -> Unit)? = null,
     isEdit: Boolean = false
 ) {
@@ -129,6 +133,7 @@ fun CreateTaskListDialog(
     var selectedColor by remember { mutableStateOf(initialColor ?: randomHueColor()) }
     var sortOrder by remember { mutableStateOf(initialSortOrder) }
     var widget by remember { mutableStateOf(initialWidget) }
+    var dashboard by remember { mutableStateOf(initialDashboard) }
     var selectedTab by remember { mutableStateOf(0) }
 
     PlanifyFormSheet(
@@ -136,7 +141,7 @@ fun CreateTaskListDialog(
         onDismiss = onDismiss,
         confirmText = if (selectedTab == 0) stringResource(if (isEdit) R.string.generic_save else R.string.generic_create) else null,
         confirmEnabled = name.isNotBlank(),
-        onConfirm = { onConfirm(name.trim(), selectedColor, sortOrder, widget) },
+        onConfirm = { onConfirm(name.trim(), selectedColor, sortOrder, widget, dashboard) },
         onDelete = onDelete.takeIf { isEdit }
     ) {
         if (isEdit) SettingsTabs(selectedTab) { selectedTab = it }
@@ -161,6 +166,7 @@ fun CreateTaskListDialog(
             )
             ColorField(selectedColor) { selectedColor = it }
             FormSwitchRow(label = stringResource(R.string.label_show_in_widget), checked = widget, onCheckedChange = { widget = it }, icon = Icons.Default.Widgets)
+            FormSwitchRow(label = stringResource(R.string.label_show_in_dashboard), checked = dashboard, onCheckedChange = { dashboard = it }, icon = Icons.Default.Tv)
         } else {
             UsersSection(
                 users = users.map { SharedUser(it.user_id, it.name, it.email, it.role) },
@@ -361,39 +367,6 @@ fun PersonFormDialog(
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
         )
         ColorField(color) { color = it }
-    }
-}
-
-/** Elige qué calendarios y listas se muestran en el dashboard de pared. */
-@Composable
-fun DashboardFormDialog(
-    config: DashboardConfigResponse,
-    onDismiss: () -> Unit,
-    onConfirm: (List<Int>, List<Int>) -> Unit
-) {
-    val calendars = remember { config.calendars.filter { it.dashboard }.map { it.id }.toMutableStateList() }
-    val taskLists = remember { config.task_lists.filter { it.dashboard }.map { it.id }.toMutableStateList() }
-
-    PlanifyFormSheet(
-        title = stringResource(R.string.dashboard_title),
-        onDismiss = onDismiss,
-        confirmText = stringResource(R.string.generic_save),
-        onConfirm = { onConfirm(calendars.toList(), taskLists.toList()) }
-    ) {
-        listOf(R.string.nav_calendars to (config.calendars to calendars), R.string.tasks_tab_lists to (config.task_lists to taskLists))
-            .forEach { (label, group) ->
-                val (items, selected) = group
-                if (items.isEmpty()) return@forEach
-                FormLabel(stringResource(label))
-                items.forEach { item ->
-                    FormSwitchRow(
-                        label = item.name,
-                        checked = item.id in selected,
-                        onCheckedChange = { if (it) selected.add(item.id) else selected.remove(item.id) },
-                        dotColor = parseHexColor(item.color)
-                    )
-                }
-            }
     }
 }
 

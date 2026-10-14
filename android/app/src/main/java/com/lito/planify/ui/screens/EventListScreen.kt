@@ -187,12 +187,13 @@ fun EventListScreen(
                 initialName = cal.name,
                 initialColor = cal.color,
                 initialWidget = cal.widget ?: true,
+                initialDashboard = cal.dashboard ?: true,
                 users = calendarUsers,
                 onInviteUser = { email -> calendarViewModel.addCalendarUser(cal.id, email) },
                 onRemoveUser = { userId -> calendarViewModel.removeCalendarUser(cal.id, userId) },
                 onDismiss = { showEditCalendarDialog = false },
-                onConfirm = { name, color, widget ->
-                    calendarViewModel.updateCalendar(cal.id, name, color, widget) {
+                onConfirm = { name, color, widget, dashboard ->
+                    calendarViewModel.updateCalendar(cal.id, name, color, widget, dashboard) {
                         viewModel.fetchEvents(calendarId = cal.id, force = true)
                     }
                     showEditCalendarDialog = false

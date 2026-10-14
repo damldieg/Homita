@@ -47,6 +47,7 @@ Esta sección utiliza dos pestañas superiores:
   - Campo `Nombre`.
   - Campo `Orden`: RadioButtons para elegir "Por Actividad" (`updated_at`) o "Alfabético" (`title`).
   - Selector `Color`: `HueColorPicker` (slider de arcoíris).
+  - Interruptores `Mostrar en el widget` y `Mostrar en el dashboard`.
 
 ### 3.2. Tab: Tareas (`TasksScreen` - Vista Global)
 - **Propósito:** Ver todos los pendientes de todas las listas.
@@ -77,7 +78,7 @@ Tres pestañas superiores: **Eventos**, **Rutinas** y **Calendarios**. Eventos y
 ### 4.3. Tab: Calendarios (`DashboardScreen`)
 - **Propósito:** Gestión de calendarios compartibles.
 - **UI:** Listado de tarjetas con color identificativo y número de eventos próximos.
-- **Modal "Nuevo calendario":** Campos `Nombre`, `Color` y `Mostrar en el widget`.
+- **Modal "Nuevo calendario":** Campos `Nombre`, `Color`, `Mostrar en el widget` y `Mostrar en el dashboard` (el dashboard de pared solo enseña los calendarios y listas marcados; la opción es de cada usuario).
 
 ---
 
@@ -93,7 +94,7 @@ Tres pestañas superiores: **Eventos**, **Rutinas** y **Calendarios**. Eventos y
 
 ### 5.3. Modal de Ajustes (Calendarios y Listas)
 Diseño de dos pestañas internas (selector segmentado):
-1. **General:** Editar Nombre, Color, y Orden (solo en listas). Botón "Guardar".
+1. **General:** Editar Nombre, Color, y Orden (solo en listas), y los interruptores `Mostrar en el widget` y `Mostrar en el dashboard`. Botón "Guardar".
 2. **Usuarios:** 
    - Campo `Email` (teclado correo) + Botón `+` (alineado a la base).
    - Lista de usuarios con su rol ("Propietario" / "Invitado") e icono de borrar para expulsar.
@@ -120,9 +121,6 @@ Todos los formularios comparten la misma hoja inferior (`PlanifyFormSheet`): tí
 
 El selector de **Personas** (chips multiselección con el color de cada persona) solo aparece si hay personas creadas.
 
-### 6.5. Modal "Dashboard"
-- Dos grupos, Calendarios y Listas, con un interruptor y el punto de color de cada uno. "Guardar" deja visibles en el dashboard de pared exactamente los marcados.
-
 ---
 
 ## 7. Perfil de Usuario (`ProfileScreen`)
@@ -130,7 +128,6 @@ El selector de **Personas** (chips multiselección con el color de cada persona)
 - **Información:** Muestra Nombre y Email actuales.
 - **Edición:** Activa campos de texto para actualizar Nombre, Email o Contraseña (con las optimizaciones de teclado antes mencionadas).
 - **Personas:** Lista de personas asignables a eventos y rutinas, con botón "Nueva persona". Las creadas por otros usuarios que comparten calendario aparecen como "Compartida" y no se pueden editar.
-- **Dashboard:** Fila "Calendarios y listas" con el resumen ("2 de 3 calendarios · 1 de 2 listas") que abre el modal Dashboard (6.5).
 - **Crash Reporter:** Si hubo un cierre inesperado, muestra una tarjeta roja para ver o borrar el log de errores.
 - **Acciones:** Botón "Guardar", "Editar" y "Salir" (limpia caché de widgets).
 

@@ -92,11 +92,11 @@ class TaskListViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun createTaskList(name: String, color: String? = null, sortOrder: String? = null, widget: Boolean? = true, onSuccess: (Int, String) -> Unit) {
+    fun createTaskList(name: String, color: String? = null, sortOrder: String? = null, widget: Boolean? = true, dashboard: Boolean? = true, onSuccess: (Int, String) -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val response = RetrofitClient.apiService.createTaskList(CreateTaskListRequest(name, color, sortOrder, widget))
+                val response = RetrofitClient.apiService.createTaskList(CreateTaskListRequest(name, color, sortOrder, widget, dashboard))
                 if (response.isSuccessful && response.body() != null) {
                     val newList = response.body()!!
                     fetchTaskLists(force = true)
@@ -131,11 +131,11 @@ class TaskListViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun updateTaskList(id: Int, name: String, color: String, sortOrder: String, widget: Boolean? = true, onSuccess: (() -> Unit)? = null) {
+    fun updateTaskList(id: Int, name: String, color: String, sortOrder: String, widget: Boolean? = true, dashboard: Boolean? = true, onSuccess: (() -> Unit)? = null) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val response = RetrofitClient.apiService.updateTaskList(UpdateTaskListRequest(id, name, color, sortOrder, widget))
+                val response = RetrofitClient.apiService.updateTaskList(UpdateTaskListRequest(id, name, color, sortOrder, widget, dashboard))
                 if (response.isSuccessful) {
                     fetchTaskLists(force = true)
                     notifyWidgetDataChanged()

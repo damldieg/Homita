@@ -30,6 +30,7 @@
     <string name="label_list">Lista</string>
     <string name="label_persons">Personas</string>
     <string name="label_show_in_widget">Mostrar en el widget</string>
+    <string name="label_show_in_dashboard">Mostrar en el dashboard</string>
     <string name="label_alarm">Alarma</string>
 
     <string name="alarm_no">Sin alarma</string>
@@ -71,9 +72,6 @@
     <string name="person_new">Nueva persona</string>
     <string name="person_edit">Editar persona</string>
     <string name="person_shared">Compartida</string>
-    <string name="dashboard_title">Dashboard</string>
-    <string name="dashboard_row">Calendarios y listas</string>
-    <string name="dashboard_summary">%1$d de %2$d calendarios · %3$d de %4$d listas</string>
     <string name="profile_logs_empty">No se han registrado errores recientemente.</string>
 
     <string name="nav_tasks">Tareas</string>

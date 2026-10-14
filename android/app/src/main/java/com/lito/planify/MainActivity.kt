@@ -90,7 +90,6 @@ class MainActivity : ComponentActivity() {
                 val eventViewModel: EventViewModel = viewModel(factory = factory)
                 val routineViewModel: RoutineViewModel = viewModel(factory = factory)
                 val personViewModel: PersonViewModel = viewModel(factory = factory)
-                val dashboardViewModel: DashboardViewModel = viewModel(factory = factory)
                 val taskListViewModel: TaskListViewModel = viewModel(factory = factory)
                 val taskViewModel: TaskViewModel = viewModel(factory = factory)
 
@@ -218,12 +217,10 @@ class MainActivity : ComponentActivity() {
                         ProfileScreen(
                             viewModel = authViewModel,
                             personViewModel = personViewModel,
-                            dashboardViewModel = dashboardViewModel,
                             sessionManager = sessionManager,
                             onLogout = {
                                 routineViewModel.reset()
                                 personViewModel.reset()
-                                dashboardViewModel.reset()
                                 lifecycleScope.launch {
                                     withContext(Dispatchers.IO) {
                                         com.lito.planify.util.AlarmHelper.cancelAll(this@MainActivity)

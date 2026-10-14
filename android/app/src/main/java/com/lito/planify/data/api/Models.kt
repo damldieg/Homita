@@ -38,20 +38,23 @@ data class CalendarResponse(
     val created_at: String,
     val updated_at: String,
     val widget: Boolean? = true,
+    val dashboard: Boolean? = true,
     val upcoming_event_count: Int? = 0
 )
 
 data class CreateCalendarRequest(
     val name: String,
     val color: String? = null,
-    val widget: Boolean? = true
+    val widget: Boolean? = true,
+    val dashboard: Boolean? = true
 )
 
 data class UpdateCalendarRequest(
     val id: Int,
     val name: String,
     val color: String,
-    val widget: Boolean? = true
+    val widget: Boolean? = true,
+    val dashboard: Boolean? = true
 )
 
 data class DeleteRequest(
@@ -163,25 +166,6 @@ data class PersonRequest(
     val color: String
 )
 
-/** Calendario o lista del usuario con su marca de "mostrar en el dashboard". */
-data class DashboardItem(
-    val id: Int,
-    val name: String,
-    val color: String,
-    val dashboard: Boolean
-)
-
-data class DashboardConfigResponse(
-    val calendars: List<DashboardItem> = emptyList(),
-    val task_lists: List<DashboardItem> = emptyList()
-)
-
-/** Los ids indicados se muestran en el dashboard y el resto se ocultan. */
-data class DashboardUpdateRequest(
-    val calendar_ids: List<Int>,
-    val task_list_ids: List<Int>
-)
-
 data class SetEventAlarmRequest(
     val event_id: Int,
     val alarm: Int?
@@ -198,6 +182,7 @@ data class TaskListResponse(
     val created_at: String,
     val updated_at: String,
     val widget: Boolean? = true,
+    val dashboard: Boolean? = true,
     val pending_task_count: Int? = 0
 )
 
@@ -205,7 +190,8 @@ data class CreateTaskListRequest(
     val name: String,
     val color: String? = null,
     val sort: String? = null,
-    val widget: Boolean? = true
+    val widget: Boolean? = true,
+    val dashboard: Boolean? = true
 )
 
 data class UpdateTaskListRequest(
@@ -213,7 +199,8 @@ data class UpdateTaskListRequest(
     val name: String,
     val color: String,
     val sort: String,
-    val widget: Boolean? = true
+    val widget: Boolean? = true,
+    val dashboard: Boolean? = true
 )
 
 data class TaskListUserResponse(

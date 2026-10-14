@@ -96,11 +96,11 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun createCalendar(name: String, color: String? = null, widget: Boolean? = true, onSuccess: (Int, String) -> Unit) {
+    fun createCalendar(name: String, color: String? = null, widget: Boolean? = true, dashboard: Boolean? = true, onSuccess: (Int, String) -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val response = RetrofitClient.apiService.createCalendar(CreateCalendarRequest(name, color, widget))
+                val response = RetrofitClient.apiService.createCalendar(CreateCalendarRequest(name, color, widget, dashboard))
                 if (response.isSuccessful && response.body() != null) {
                     val newCal = response.body()!!
                     fetchCalendars(force = true)
@@ -135,11 +135,11 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun updateCalendar(id: Int, name: String, color: String, widget: Boolean? = true, onSuccess: (() -> Unit)? = null) {
+    fun updateCalendar(id: Int, name: String, color: String, widget: Boolean? = true, dashboard: Boolean? = true, onSuccess: (() -> Unit)? = null) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val response = RetrofitClient.apiService.updateCalendar(UpdateCalendarRequest(id, name, color, widget))
+                val response = RetrofitClient.apiService.updateCalendar(UpdateCalendarRequest(id, name, color, widget, dashboard))
                 if (response.isSuccessful) {
                     fetchCalendars(force = true)
                     notifyWidgetDataChanged()

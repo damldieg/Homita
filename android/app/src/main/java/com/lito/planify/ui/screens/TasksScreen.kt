@@ -160,12 +160,13 @@ fun TasksScreen(
             initialColor = currentList.color,
             initialSortOrder = currentList.sort,
             initialWidget = currentList.widget ?: true,
+            initialDashboard = currentList.dashboard ?: true,
             users = taskListUsers,
             onInviteUser = { email -> taskListViewModel.addTaskListUser(taskListId, email) },
             onRemoveUser = { userId -> taskListViewModel.removeTaskListUser(taskListId, userId) },
             onDismiss = { showEditDialog = false },
-            onConfirm = { name, color, sortOrder, widget ->
-                taskListViewModel.updateTaskList(taskListId, name, color, sortOrder, widget) {
+            onConfirm = { name, color, sortOrder, widget, dashboard ->
+                taskListViewModel.updateTaskList(taskListId, name, color, sortOrder, widget, dashboard) {
                     viewModel.fetchTasks(taskListId = taskListId, force = true)
                 }
                 showEditDialog = false

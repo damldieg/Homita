@@ -220,8 +220,7 @@ fun FormSwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     icon: ImageVector? = null,
-    enabled: Boolean = true,
-    dotColor: Color? = null
+    enabled: Boolean = true
 ) {
     Row(
         modifier = Modifier
@@ -236,9 +235,6 @@ fun FormSwitchRow(
     ) {
         if (icon != null) {
             Icon(icon, contentDescription = null, tint = OnSurfaceVariantColor, modifier = Modifier.size(22.dp))
-        }
-        if (dotColor != null) {
-            Box(Modifier.size(12.dp).background(dotColor, CircleShape))
         }
         Text(
             text = label,

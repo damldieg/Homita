@@ -57,8 +57,8 @@ fun DashboardScreen(
     if (showCreateDialog) {
         CreateCalendarDialog(
             onDismiss = { showCreateDialog = false },
-            onConfirm = { name, color, widget ->
-                viewModel.createCalendar(name, color, widget) { id, calName ->
+            onConfirm = { name, color, widget, dashboard ->
+                viewModel.createCalendar(name, color, widget, dashboard) { id, calName ->
                     showCreateDialog = false
                     onNavigateToCalendar(id, calName)
                 }

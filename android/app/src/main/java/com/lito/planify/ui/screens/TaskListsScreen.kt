@@ -57,8 +57,8 @@ fun TaskListsScreen(
     if (showCreateDialog) {
         CreateTaskListDialog(
             onDismiss = { showCreateDialog = false },
-            onConfirm = { name, color, sortOrder, widget ->
-                viewModel.createTaskList(name, color, sortOrder, widget) { id, listName ->
+            onConfirm = { name, color, sortOrder, widget, dashboard ->
+                viewModel.createTaskList(name, color, sortOrder, widget, dashboard) { id, listName ->
                     showCreateDialog = false
                     onNavigateToTaskList(id, listName)
                 }
