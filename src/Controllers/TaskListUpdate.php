@@ -14,6 +14,7 @@ class TaskListUpdate extends ControllerAbstract
         $color = $this->getInputString('color');
         $sort = $this->getInputString('sort');
         $widget = $this->getInputBool('widget', true);
+        $dashboard = $this->getInputBool('dashboard', true);
 
         if (empty($id) || empty($name) || empty($color) || empty($sort)) {
             $this->response(['error' => 'Task list ID, name, color and sort are required'], 400);
@@ -26,6 +27,7 @@ class TaskListUpdate extends ControllerAbstract
         TaskListUser::check($id, $this->user->id);
 
         TaskListUser::setWidget($id, $this->user->id, $widget);
+        TaskListUser::setDashboard($id, $this->user->id, $dashboard);
 
         $this->response(TaskList::findById($id)->update($name, $color, $sort), 200);
     }

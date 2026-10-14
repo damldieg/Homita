@@ -41,18 +41,22 @@ Event::create(2, 'Meeting', $tomorrow->format('Y-m-d').' 09:00:00');
 Task::create(1, 'Milk');
 Task::create(2, 'Laundry');
 
-CalendarUser::setDashboard(1, [1]);
-TaskListUser::setDashboard(1, [1]);
-check(array_column(array_map(fn($c) => $c->toArray(), Calendar::findByUser(1)), 'dashboard', 'name') === ['Home' => 1, 'Work' => 0], 'Only the given calendars stay on the dashboard');
+// Se marca por calendario y por lista, igual que el widget
+CalendarUser::setDashboard(2, 1, false);
+TaskListUser::setDashboard(2, 1, false);
+check(array_column(array_map(fn($c) => $c->toArray(), Calendar::findByUser(1)), 'dashboard', 'name') === ['Home' => 1, 'Work' => 0], 'A calendar can be hidden from the dashboard');
 check(array_map(fn($e) => $e->id, Event::findWithFilters(1, ['dashboard' => 'true'])) === [$home->id], 'Event filter keeps dashboard calendars');
 check(count(Event::findWithFilters(1, ['dashboard' => 'false'])) === 1, 'Event filter can list the hidden ones');
 check(array_map(fn($t) => $t->title, Task::findWithFilters(1, ['dashboard' => 'true'])) === ['Milk'], 'Task filter keeps dashboard lists');
 check(count(Event::findWithFilters(1, [])) === 2, 'Without the filter nothing changes');
 
-check(flags(Calendar::findByUser(2)) === [1] && count(Event::findWithFilters(2, ['dashboard' => 'true'])) === 1, 'The selection is per user');
+CalendarUser::setDashboard(1, 1, false);
+check(flags(Calendar::findByUser(2)) === [1] && count(Event::findWithFilters(2, ['dashboard' => 'true'])) === 1, 'The choice is per user');
 
-CalendarUser::setDashboard(1, []);
-TaskListUser::setDashboard(1, [2, 1]);
-check(Event::findWithFilters(1, ['dashboard' => 'true']) === [], 'An empty list hides every calendar');
-check(flags(TaskList::findByUser(1)) === [1, 1], 'Several lists can be selected');
+CalendarUser::setDashboard(1, 1, true);
+check(flags(Calendar::findByUser(1)) === [1, 0], 'A calendar can be shown again');
+
+// Al crear se puede indicar directamente
+$pdo->exec("INSERT INTO calendar (id,name,token) VALUES (3,'Gym','g'); INSERT INTO task_list (id,name,token) VALUES (3,'Ideas','i')");
+check(CalendarUser::create(3, 1, 'owner', true, false)->dashboard === 0 && TaskListUser::create(3, 1, 'owner')->dashboard === 1, 'Create sets the flag, shown by default');
 echo "Dashboard behavioral checks passed\n";

@@ -12,6 +12,7 @@ class CalendarCreate extends ControllerAbstract
         $name = $this->getInputString('name');
         $color = $this->getInputString('color');
         $widget = $this->getInputBool('widget', true);
+        $dashboard = $this->getInputBool('dashboard', true);
 
         if (empty($name)) {
             $this->response(['error' => 'Name is required'], 400);
@@ -19,7 +20,7 @@ class CalendarCreate extends ControllerAbstract
 
         $calendar = Calendar::create($name, $color);
 
-        CalendarUser::create($calendar->id, $this->user->id, 'owner', $widget);
+        CalendarUser::create($calendar->id, $this->user->id, 'owner', $widget, $dashboard);
 
         $this->response($calendar, 201);
     }

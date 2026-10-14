@@ -12,21 +12,22 @@ class TaskListUser extends ModelAbstract
     public int $dashboard = 1;
     public string $created_at;
 
-    public static function create(int $taskListId, int $userId, string $role, bool $widget = true): self
+    public static function create(int $taskListId, int $userId, string $role, bool $widget = true, bool $dashboard = true): self
     {
         return self::findById(self::database()->insert(self::createSql(), [
             'task_list_id' => $taskListId,
             'user_id' => $userId,
             'role' => $role,
             'widget' => intval($widget),
+            'dashboard' => intval($dashboard),
         ]));
     }
 
     private static function createSql(): string
     {
         return <<<'SQL'
-            INSERT INTO `task_list_user` (`task_list_id`, `user_id`, `role`, `widget`)
-            VALUES (:task_list_id, :user_id, :role, :widget)
+            INSERT INTO `task_list_user` (`task_list_id`, `user_id`, `role`, `widget`, `dashboard`)
+            VALUES (:task_list_id, :user_id, :role, :widget, :dashboard)
         SQL;
     }
 
@@ -49,12 +50,12 @@ class TaskListUser extends ModelAbstract
         SQL;
     }
 
-    /** Marca para el dashboard exactamente los ids indicados entre los del usuario. */
-    public static function setDashboard(int $userId, array $ids): void
+    public static function setDashboard(int $taskListId, int $userId, bool $dashboard): void
     {
         self::database()->execute(self::setDashboardSql(), [
+            'task_list_id' => $taskListId,
             'user_id' => $userId,
-            'ids' => json_encode(array_values($ids)),
+            'dashboard' => intval($dashboard),
         ]);
     }
 
@@ -62,8 +63,9 @@ class TaskListUser extends ModelAbstract
     {
         return <<<'SQL'
             UPDATE `task_list_user`
-            SET `dashboard` = (`task_list_id` IN (SELECT `value` FROM json_each(:ids)))
-            WHERE `user_id` = :user_id
+            SET `dashboard` = :dashboard
+            WHERE `task_list_id` = :task_list_id
+              AND `user_id` = :user_id
         SQL;
     }
 

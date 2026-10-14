@@ -12,21 +12,22 @@ class CalendarUser extends ModelAbstract
     public int $dashboard = 1;
     public string $created_at;
 
-    public static function create(int $calendarId, int $userId, string $role, bool $widget = true): self
+    public static function create(int $calendarId, int $userId, string $role, bool $widget = true, bool $dashboard = true): self
     {
         return self::findById(self::database()->insert(self::createSql(), [
             'calendar_id' => $calendarId,
             'user_id' => $userId,
             'role' => $role,
             'widget' => intval($widget),
+            'dashboard' => intval($dashboard),
         ]));
     }
 
     private static function createSql(): string
     {
         return <<<'SQL'
-            INSERT INTO `calendar_user` (`calendar_id`, `user_id`, `role`, `widget`)
-            VALUES (:calendar_id, :user_id, :role, :widget)
+            INSERT INTO `calendar_user` (`calendar_id`, `user_id`, `role`, `widget`, `dashboard`)
+            VALUES (:calendar_id, :user_id, :role, :widget, :dashboard)
         SQL;
     }
 
@@ -49,12 +50,12 @@ class CalendarUser extends ModelAbstract
         SQL;
     }
 
-    /** Marca para el dashboard exactamente los ids indicados entre los del usuario. */
-    public static function setDashboard(int $userId, array $ids): void
+    public static function setDashboard(int $calendarId, int $userId, bool $dashboard): void
     {
         self::database()->execute(self::setDashboardSql(), [
+            'calendar_id' => $calendarId,
             'user_id' => $userId,
-            'ids' => json_encode(array_values($ids)),
+            'dashboard' => intval($dashboard),
         ]);
     }
 
@@ -62,8 +63,9 @@ class CalendarUser extends ModelAbstract
     {
         return <<<'SQL'
             UPDATE `calendar_user`
-            SET `dashboard` = (`calendar_id` IN (SELECT `value` FROM json_each(:ids)))
-            WHERE `user_id` = :user_id
+            SET `dashboard` = :dashboard
+            WHERE `calendar_id` = :calendar_id
+              AND `user_id` = :user_id
         SQL;
     }
 

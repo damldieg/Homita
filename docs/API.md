@@ -80,6 +80,7 @@ When an endpoint returns an object or a list of objects, they map to the followi
   - `name` (string)
   - `color` (string)
   - `widget` (boolean, optional)
+  - `dashboard` (boolean, optional: show it on the wall dashboard, default true)
 - **Output**: `Calendar` object.
 
 ### `PATCH /calendar/update`
@@ -89,6 +90,7 @@ When an endpoint returns an object or a list of objects, they map to the followi
   - `name` (string)
   - `color` (string)
   - `widget` (boolean, optional)
+  - `dashboard` (boolean, optional: show it on the wall dashboard, default true)
 - **Output**: `Calendar` object.
 
 ### `DELETE /calendar/delete`
@@ -202,6 +204,7 @@ When an endpoint returns an object or a list of objects, they map to the followi
   - `color` (string)
   - `sort` (string)
   - `widget` (boolean, optional)
+  - `dashboard` (boolean, optional: show it on the wall dashboard, default true)
 - **Output**: `TaskList` object.
 
 ### `PATCH /task-list/update`
@@ -212,6 +215,7 @@ When an endpoint returns an object or a list of objects, they map to the followi
   - `color` (string)
   - `sort` (string)
   - `widget` (boolean, optional)
+  - `dashboard` (boolean, optional: show it on the wall dashboard, default true)
 - **Output**: `TaskList` object.
 
 ### `DELETE /task-list/delete`
@@ -348,13 +352,8 @@ Run the isolated behavioral check with `php tests/persons.php`.
 
 ## Dashboard
 
-Deploy migration `0008_dashboard.sql` first. Each user chooses which of their calendars and task lists the wall dashboard shows (`calendar_user.dashboard` / `task_list_user.dashboard`, all shown by default). The choice is per user, so sharing a calendar does not change what other users show.
+Deploy migration `0008_dashboard.sql` first. Each user chooses which of their calendars and task lists the wall dashboard shows (`calendar_user.dashboard` / `task_list_user.dashboard`, all shown by default), like `widget`: it is the `dashboard` input of `calendar/create`, `calendar/update`, `task-list/create` and `task-list/update`, and comes back in `Calendar` and `TaskList` from the index endpoints. As with `widget`, an update that omits it sets it to true. The choice is per user, so sharing a calendar does not change what other users show.
 
-| Endpoint | Input | Output |
-| --- | --- | --- |
-| `GET /dashboard` | — | `{"calendars":[{"id","name","color","dashboard"}],"task_lists":[{"id","name","color","dashboard"}]}` with `dashboard` as boolean |
-| `POST /dashboard/update` | `calendar_ids` (int[], optional), `task_list_ids` (int[], optional) | Same as `GET /dashboard` |
-
-`POST /dashboard/update` sets exactly the given IDs to shown and the rest of the user's calendars (or lists) to hidden; `[]` hides all and omitting a key keeps it. IDs the user does not belong to fail with `Invalid calendar` / `Invalid task list` and nothing is saved. The dashboard reads its content with `GET /event?dashboard=true` and `GET /task?dashboard=true`.
+The dashboard reads its content with `GET /event?dashboard=true` and `GET /task?dashboard=true`.
 
 Run the isolated behavioral check with `php tests/dashboard.php`.

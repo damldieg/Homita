@@ -13,6 +13,7 @@ class TaskListCreate extends ControllerAbstract
         $color = $this->getInputString('color');
         $sort = $this->getInputString('sort', 'updated_at');
         $widget = $this->getInputBool('widget', true);
+        $dashboard = $this->getInputBool('dashboard', true);
 
         if (empty($name)) {
             $this->response(['error' => 'Name is required'], 400);
@@ -24,7 +25,7 @@ class TaskListCreate extends ControllerAbstract
 
         $taskList = TaskList::create($name, $color ?: '#6923E2', $sort);
 
-        TaskListUser::create($taskList->id, $this->user->id, 'owner', $widget);
+        TaskListUser::create($taskList->id, $this->user->id, 'owner', $widget, $dashboard);
 
         $this->response($taskList, 201);
     }
