@@ -120,6 +120,9 @@ Todos los formularios comparten la misma hoja inferior (`PlanifyFormSheet`): tí
 
 El selector de **Personas** (chips multiselección con el color de cada persona) solo aparece si hay personas creadas.
 
+### 6.5. Modal "Dashboard"
+- Dos grupos, Calendarios y Listas, con un interruptor y el punto de color de cada uno. "Guardar" deja visibles en el dashboard de pared exactamente los marcados.
+
 ---
 
 ## 7. Perfil de Usuario (`ProfileScreen`)
@@ -127,6 +130,7 @@ El selector de **Personas** (chips multiselección con el color de cada persona)
 - **Información:** Muestra Nombre y Email actuales.
 - **Edición:** Activa campos de texto para actualizar Nombre, Email o Contraseña (con las optimizaciones de teclado antes mencionadas).
 - **Personas:** Lista de personas asignables a eventos y rutinas, con botón "Nueva persona". Las creadas por otros usuarios que comparten calendario aparecen como "Compartida" y no se pueden editar.
+- **Dashboard:** Fila "Calendarios y listas" con el resumen ("2 de 3 calendarios · 1 de 2 listas") que abre el modal Dashboard (6.5).
 - **Crash Reporter:** Si hubo un cierre inesperado, muestra una tarjeta roja para ver o borrar el log de errores.
 - **Acciones:** Botón "Guardar", "Editar" y "Salir" (limpia caché de widgets).
 

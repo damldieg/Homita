@@ -163,6 +163,25 @@ data class PersonRequest(
     val color: String
 )
 
+/** Calendario o lista del usuario con su marca de "mostrar en el dashboard". */
+data class DashboardItem(
+    val id: Int,
+    val name: String,
+    val color: String,
+    val dashboard: Boolean
+)
+
+data class DashboardConfigResponse(
+    val calendars: List<DashboardItem> = emptyList(),
+    val task_lists: List<DashboardItem> = emptyList()
+)
+
+/** Los ids indicados se muestran en el dashboard y el resto se ocultan. */
+data class DashboardUpdateRequest(
+    val calendar_ids: List<Int>,
+    val task_list_ids: List<Int>
+)
+
 data class SetEventAlarmRequest(
     val event_id: Int,
     val alarm: Int?

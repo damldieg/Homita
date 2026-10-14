@@ -26,6 +26,9 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(PersonViewModel::class.java) -> {
                 PersonViewModel() as T
             }
+            modelClass.isAssignableFrom(DashboardViewModel::class.java) -> {
+                DashboardViewModel() as T
+            }
             modelClass.isAssignableFrom(RoutineViewModel::class.java) -> {
                 RoutineViewModel(application) as T
             }

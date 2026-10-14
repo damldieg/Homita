@@ -102,6 +102,10 @@ El móvil programa los 450 avisos más próximos y conserva el resto en caché. 
 
 Desde Perfil se crean personas (por ejemplo, los miembros de la familia) con nombre y color, y se asignan una o varias a cada evento o rutina. Las ven y asignan todos los usuarios que comparten algún calendario con quien las creó; solo el creador puede editarlas o borrarlas. Las sesiones de una rutina muestran las personas de la rutina. Requiere la migración `backend/migrations/0007_person.sql`.
 
+## Dashboard
+
+En Perfil → Dashboard cada usuario elige qué calendarios y listas se muestran en el dashboard de pared (`dashboard/`). Por defecto se muestra todo y la elección es personal: no afecta a quienes comparten esos calendarios o listas. Requiere la migración `backend/migrations/0008_dashboard.sql`.
+
 ## Scripts locales
 
 Los scripts de `scripts/` son locales y están excluidos de Git:

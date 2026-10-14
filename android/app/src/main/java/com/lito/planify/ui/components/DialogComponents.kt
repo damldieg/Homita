@@ -31,6 +31,7 @@ import com.lito.planify.R
 import com.lito.planify.data.api.CalendarResponse
 import com.lito.planify.data.api.CalendarUserResponse
 import com.lito.planify.data.api.CreateRoutineRequest
+import com.lito.planify.data.api.DashboardConfigResponse
 import com.lito.planify.data.api.EventResponse
 import com.lito.planify.data.api.PersonResponse
 import com.lito.planify.data.api.RoutineResponse
@@ -360,6 +361,39 @@ fun PersonFormDialog(
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
         )
         ColorField(color) { color = it }
+    }
+}
+
+/** Elige qué calendarios y listas se muestran en el dashboard de pared. */
+@Composable
+fun DashboardFormDialog(
+    config: DashboardConfigResponse,
+    onDismiss: () -> Unit,
+    onConfirm: (List<Int>, List<Int>) -> Unit
+) {
+    val calendars = remember { config.calendars.filter { it.dashboard }.map { it.id }.toMutableStateList() }
+    val taskLists = remember { config.task_lists.filter { it.dashboard }.map { it.id }.toMutableStateList() }
+
+    PlanifyFormSheet(
+        title = stringResource(R.string.dashboard_title),
+        onDismiss = onDismiss,
+        confirmText = stringResource(R.string.generic_save),
+        onConfirm = { onConfirm(calendars.toList(), taskLists.toList()) }
+    ) {
+        listOf(R.string.nav_calendars to (config.calendars to calendars), R.string.tasks_tab_lists to (config.task_lists to taskLists))
+            .forEach { (label, group) ->
+                val (items, selected) = group
+                if (items.isEmpty()) return@forEach
+                FormLabel(stringResource(label))
+                items.forEach { item ->
+                    FormSwitchRow(
+                        label = item.name,
+                        checked = item.id in selected,
+                        onCheckedChange = { if (it) selected.add(item.id) else selected.remove(item.id) },
+                        dotColor = parseHexColor(item.color)
+                    )
+                }
+            }
     }
 }
 

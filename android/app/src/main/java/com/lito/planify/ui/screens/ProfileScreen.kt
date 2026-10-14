@@ -37,6 +37,9 @@ import com.lito.planify.ui.components.TonalButton
 import com.lito.planify.util.TokenManager
 import com.lito.planify.viewmodel.AuthViewModel
 import com.lito.planify.viewmodel.PersonViewModel
+import com.lito.planify.viewmodel.DashboardViewModel
+import com.lito.planify.data.api.DashboardConfigResponse
+import com.lito.planify.ui.components.DashboardFormDialog
 import com.lito.planify.data.api.PersonResponse
 import com.lito.planify.ui.components.PersonFormDialog
 import com.lito.planify.ui.components.groupShape
@@ -49,6 +52,7 @@ import com.lito.planify.ui.theme.*
 fun ProfileScreen(
     viewModel: AuthViewModel,
     personViewModel: PersonViewModel,
+    dashboardViewModel: DashboardViewModel,
     sessionManager: SessionManager,
     onLogout: () -> Unit,
     onNavigateToTasks: () -> Unit,
@@ -74,7 +78,14 @@ fun ProfileScreen(
     var editingPerson by remember { mutableStateOf<PersonResponse?>(null) }
     var showNewPerson by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) { personViewModel.fetchPersons() }
+    val dashboardConfig by dashboardViewModel.config.collectAsState()
+    val dashboardError by dashboardViewModel.error.collectAsState()
+    var showDashboard by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        personViewModel.fetchPersons()
+        dashboardViewModel.fetchConfig()
+    }
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -173,6 +184,15 @@ fun ProfileScreen(
                 onAdd = { showNewPerson = true }
             )
 
+            dashboardConfig?.let { config ->
+                DashboardSection(
+                    config = config,
+                    error = dashboardError,
+                    onErrorClick = { dashboardViewModel.clearError() },
+                    onOpen = { showDashboard = true }
+                )
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             var hasLogs by remember { mutableStateOf(com.lito.planify.util.CrashReporter.hasCrashDump(context)) }
@@ -270,6 +290,17 @@ fun ProfileScreen(
         )
     }
 
+    dashboardConfig?.takeIf { showDashboard }?.let { config ->
+        DashboardFormDialog(
+            config = config,
+            onDismiss = { showDashboard = false },
+            onConfirm = { calendarIds, taskListIds ->
+                dashboardViewModel.save(calendarIds, taskListIds)
+                showDashboard = false
+            }
+        )
+    }
+
     editingPerson?.let { person ->
         PersonFormDialog(
             initial = person,
@@ -345,6 +376,50 @@ private fun PersonsSection(
             Box(Modifier.size(44.dp).background(PrimaryColor, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
                 Icon(Icons.Default.Add, null, tint = Color.White)
             }
+        }
+    }
+}
+
+/** Acceso a la selección de calendarios y listas que se ven en el dashboard de pared. */
+@Composable
+private fun DashboardSection(
+    config: DashboardConfigResponse,
+    error: String?,
+    onErrorClick: () -> Unit,
+    onOpen: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
+        Text(stringResource(R.string.dashboard_title), style = MaterialTheme.typography.titleLarge, color = OnSurfaceColor)
+
+        error?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.clickable(onClick = onErrorClick))
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(groupShape(0, 1))
+                .background(GlassColor)
+                .clickable(onClick = onOpen)
+                .heightIn(min = 64.dp)
+                .padding(horizontal = 18.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Icon(Icons.Default.Dashboard, null, tint = OnSurfaceVariantColor, modifier = Modifier.size(22.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.dashboard_row), style = MaterialTheme.typography.titleMedium, color = OnSurfaceColor)
+                Text(
+                    stringResource(
+                        R.string.dashboard_summary,
+                        config.calendars.count { it.dashboard }, config.calendars.size,
+                        config.task_lists.count { it.dashboard }, config.task_lists.size
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = OnSurfaceVariantColor
+                )
+            }
+            Icon(Icons.Default.ChevronRight, null, tint = OnSurfaceVariantColor, modifier = Modifier.size(20.dp))
         }
     }
 }

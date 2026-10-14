@@ -71,6 +71,9 @@
     <string name="person_new">Nueva persona</string>
     <string name="person_edit">Editar persona</string>
     <string name="person_shared">Compartida</string>
+    <string name="dashboard_title">Dashboard</string>
+    <string name="dashboard_row">Calendarios y listas</string>
+    <string name="dashboard_summary">%1$d de %2$d calendarios · %3$d de %4$d listas</string>
     <string name="profile_logs_empty">No se han registrado errores recientemente.</string>
 
     <string name="nav_tasks">Tareas</string>
