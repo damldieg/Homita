@@ -12,6 +12,7 @@ class Calendar extends ModelAbstract
     public string $updated_at;
     public int $upcoming_event_count = 0;
     public int $widget = 1;
+    public int $dashboard = 1;
 
     public static function create(string $name, string $color = '#6923E2'): self
     {
@@ -106,6 +107,7 @@ class Calendar extends ModelAbstract
         return <<<'SQL'
             SELECT c.*,
                    cu.`widget` AS `widget`,
+                   cu.`dashboard` AS `dashboard`,
                    COALESCE((
                        SELECT COUNT(*)
                        FROM `event` e

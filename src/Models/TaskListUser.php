@@ -9,6 +9,7 @@ class TaskListUser extends ModelAbstract
     public int $user_id;
     public string $role;
     public int $widget = 1;
+    public int $dashboard = 1;
     public string $created_at;
 
     public static function create(int $taskListId, int $userId, string $role, bool $widget = true): self
@@ -45,6 +46,24 @@ class TaskListUser extends ModelAbstract
             SET `widget` = :widget
             WHERE `task_list_id` = :task_list_id
               AND `user_id` = :user_id
+        SQL;
+    }
+
+    /** Marca para el dashboard exactamente los ids indicados entre los del usuario. */
+    public static function setDashboard(int $userId, array $ids): void
+    {
+        self::database()->execute(self::setDashboardSql(), [
+            'user_id' => $userId,
+            'ids' => json_encode(array_values($ids)),
+        ]);
+    }
+
+    private static function setDashboardSql(): string
+    {
+        return <<<'SQL'
+            UPDATE `task_list_user`
+            SET `dashboard` = (`task_list_id` IN (SELECT `value` FROM json_each(:ids)))
+            WHERE `user_id` = :user_id
         SQL;
     }
 

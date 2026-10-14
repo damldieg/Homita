@@ -21,6 +21,9 @@ $router->post('/calendar/user', static fn () => new CalendarUserCreate()->middle
 $router->get('/calendar/user', static fn () => new CalendarUserIndex()->middlewareAuth()->handle());
 $router->delete('/calendar/user', static fn () => new CalendarUserDelete()->middlewareAuth()->handle());
 
+$router->get('/dashboard', static fn () => new DashboardIndex()->middlewareAuth()->handle());
+$router->post('/dashboard/update', static fn () => new DashboardUpdate()->middlewareAuth()->handle());
+
 $router->get('/person', static fn () => new PersonIndex()->middlewareAuth()->handle());
 $router->post('/person/create', static fn () => new PersonCreate()->middlewareAuth()->handle());
 $router->patch('/person/update', static fn () => new PersonUpdate()->middlewareAuth()->handle());

@@ -13,6 +13,7 @@ class TaskList extends ModelAbstract
     public string $updated_at;
     public int $pending_task_count = 0;
     public int $widget = 1;
+    public int $dashboard = 1;
 
     public static function create(string $name, string $color = '#6923E2', string $sort = 'updated_at'): self
     {
@@ -108,6 +109,7 @@ class TaskList extends ModelAbstract
         return <<<'SQL'
             SELECT tl.*,
                    tlu.`widget` AS `widget`,
+                   tlu.`dashboard` AS `dashboard`,
                    COALESCE((
                        SELECT COUNT(*)
                        FROM `task` t

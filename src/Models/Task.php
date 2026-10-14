@@ -84,6 +84,10 @@ class Task extends ModelAbstract
             $params['widget'] = $value ? 1 : 0;
         }
 
+        if (($value = self::getFilterBool($filters, 'dashboard')) !== null) {
+            $params['dashboard'] = $value ? 1 : 0;
+        }
+
         $rows = self::database()->select(self::findWithFiltersSql($params), $params);
 
         return array_map(static fn(array $row) => new self($row), $rows);
@@ -107,6 +111,10 @@ class Task extends ModelAbstract
 
         if (isset($params['widget'])) {
             $base .= ' AND tlu.`widget` = :widget';
+        }
+
+        if (isset($params['dashboard'])) {
+            $base .= ' AND tlu.`dashboard` = :dashboard';
         }
 
         $base .= ' ORDER BY (t.`completed_at` IS NOT NULL) ASC, t.`order` ASC';

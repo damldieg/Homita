@@ -9,6 +9,7 @@ class CalendarUser extends ModelAbstract
     public int $user_id;
     public string $role;
     public int $widget = 1;
+    public int $dashboard = 1;
     public string $created_at;
 
     public static function create(int $calendarId, int $userId, string $role, bool $widget = true): self
@@ -45,6 +46,24 @@ class CalendarUser extends ModelAbstract
             SET `widget` = :widget
             WHERE `calendar_id` = :calendar_id
               AND `user_id` = :user_id
+        SQL;
+    }
+
+    /** Marca para el dashboard exactamente los ids indicados entre los del usuario. */
+    public static function setDashboard(int $userId, array $ids): void
+    {
+        self::database()->execute(self::setDashboardSql(), [
+            'user_id' => $userId,
+            'ids' => json_encode(array_values($ids)),
+        ]);
+    }
+
+    private static function setDashboardSql(): string
+    {
+        return <<<'SQL'
+            UPDATE `calendar_user`
+            SET `dashboard` = (`calendar_id` IN (SELECT `value` FROM json_each(:ids)))
+            WHERE `user_id` = :user_id
         SQL;
     }
 

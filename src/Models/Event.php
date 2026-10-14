@@ -121,6 +121,10 @@ class Event extends ModelAbstract
             $params['widget'] = intval($value);
         }
 
+        if (($value = self::getFilterBool($filters, 'dashboard')) !== null) {
+            $params['dashboard'] = intval($value);
+        }
+
         if (($value = self::getFilterBool($filters, 'routine')) !== null) {
             $params['routine'] = $value;
         }
@@ -181,6 +185,10 @@ class Event extends ModelAbstract
 
         if (isset($params['widget'])) {
             $base .= ' AND cu.`widget` = :widget';
+        }
+
+        if (isset($params['dashboard'])) {
+            $base .= ' AND cu.`dashboard` = :dashboard';
         }
 
         if (isset($params['routine'])) {

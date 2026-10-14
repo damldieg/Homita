@@ -15,12 +15,12 @@ This document describes all the available API endpoints in the backend, includin
 When an endpoint returns an object or a list of objects, they map to the following public property structures:
 
 - **User**: `{"id": 1, "name": "...", "email": "...", "token": "..." (only on auth/create), "created_at": "...", "updated_at": "..."}` *(Note: `password` is never exposed).*
-- **Calendar**: `{"id": 1, "name": "...", "color": "...", "token": "...", "upcoming_event_count": 0, "widget": 1, "created_at": "...", "updated_at": "..."}`
-- **CalendarUser**: `{"id": 1, "calendar_id": 1, "user_id": 1, "role": "owner", "widget": 1, "created_at": "..."}`
+- **Calendar**: `{"id": 1, "name": "...", "color": "...", "token": "...", "upcoming_event_count": 0, "widget": 1, "dashboard": 1, "created_at": "...", "updated_at": "..."}`
+- **CalendarUser**: `{"id": 1, "calendar_id": 1, "user_id": 1, "role": "owner", "widget": 1, "dashboard": 1, "created_at": "..."}`
 - **Event**: `{"id": 1, "calendar_id": 1, "calendar_color": "...", "calendar_name": "...", "title": "...", "date_at": "Y-m-d H:i:s", "routine_id": null, "routine_date": null, "alarm": null, "persons": [{"id": 1, "user_id": 1, "name": "...", "color": "#RRGGBB"}], "created_at": "...", "updated_at": "..."}`
 - **Person**: `{"id": 1, "user_id": 1, "name": "...", "color": "#RRGGBB", "created_at": "...", "updated_at": "..."}`
-- **TaskList**: `{"id": 1, "name": "...", "color": "...", "token": "...", "sort": "...", "pending_task_count": 0, "widget": 1, "created_at": "...", "updated_at": "..."}`
-- **TaskListUser**: `{"id": 1, "task_list_id": 1, "user_id": 1, "role": "owner", "widget": 1, "created_at": "..."}`
+- **TaskList**: `{"id": 1, "name": "...", "color": "...", "token": "...", "sort": "...", "pending_task_count": 0, "widget": 1, "dashboard": 1, "created_at": "...", "updated_at": "..."}`
+- **TaskListUser**: `{"id": 1, "task_list_id": 1, "user_id": 1, "role": "owner", "widget": 1, "dashboard": 1, "created_at": "..."}`
 - **Task**: `{"id": 1, "task_list_id": 1, "task_list_color": "...", "task_list_name": "...", "title": "...", "order": 1, "completed_at": null, "created_at": "...", "updated_at": "..."}`
 
 ---
@@ -136,6 +136,7 @@ When an endpoint returns an object or a list of objects, they map to the followi
   - `offset` (int, optional)
   - `order_mode` (string, optional: `ASC` or `DESC`)
   - `widget` (boolean, optional)
+  - `dashboard` (boolean, optional: only events from calendars the user shows on the dashboard)
   - `routine` (boolean, optional: `false` returns only regular events, `true` only routine sessions; omitted returns both)
   - `person_id` (int, optional: events assigned to that person, including routine sessions through their routine)
 - **Output**: Array of `Event` objects.
@@ -252,6 +253,7 @@ When an endpoint returns an object or a list of objects, they map to the followi
 - **Input** (Filters):
   - `task_list_id` (int, optional)
   - `widget` (boolean, optional)
+  - `dashboard` (boolean, optional: only tasks from lists the user shows on the dashboard)
 - **Output**: Array of `Task` objects.
 
 ### `GET /task/detail`
@@ -343,3 +345,16 @@ Deploy migration `0007_person.sql` first. Persons (family members, for example) 
 Events and routines return `persons` (`[{"id","user_id","name","color"}]`, empty when none). Create and update accept `person_ids`: an array replaces the current assignment, `[]` clears it and omitting it keeps it. Unknown or non-visible IDs fail with `Invalid person` and nothing is saved. Routine sessions always show the persons of their routine, so changes to the routine apply immediately; deleting a routine copies them onto the detached past sessions. Deleting a person removes its assignments.
 
 Run the isolated behavioral check with `php tests/persons.php`.
+
+## Dashboard
+
+Deploy migration `0008_dashboard.sql` first. Each user chooses which of their calendars and task lists the wall dashboard shows (`calendar_user.dashboard` / `task_list_user.dashboard`, all shown by default). The choice is per user, so sharing a calendar does not change what other users show.
+
+| Endpoint | Input | Output |
+| --- | --- | --- |
+| `GET /dashboard` | — | `{"calendars":[{"id","name","color","dashboard"}],"task_lists":[{"id","name","color","dashboard"}]}` with `dashboard` as boolean |
+| `POST /dashboard/update` | `calendar_ids` (int[], optional), `task_list_ids` (int[], optional) | Same as `GET /dashboard` |
+
+`POST /dashboard/update` sets exactly the given IDs to shown and the rest of the user's calendars (or lists) to hidden; `[]` hides all and omitting a key keeps it. IDs the user does not belong to fail with `Invalid calendar` / `Invalid task list` and nothing is saved. The dashboard reads its content with `GET /event?dashboard=true` and `GET /task?dashboard=true`.
+
+Run the isolated behavioral check with `php tests/dashboard.php`.
