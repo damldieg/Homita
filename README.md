@@ -4,6 +4,14 @@ Backend robusto construido con PHP 8.5+, siguiendo una arquitectura orientada a 
 
 > **Nota:** Este es el repositorio exclusivo para el Backend (API) de Planify. Si buscas el código fuente de la aplicación móvil (Android/Kotlin), visita el repositorio oficial [Planify-APP (GitHub)](https://github.com/eusonlito/Planify-APP).
 
+## 🧩 Ecosistema Planify
+
+| Repositorio | Qué es |
+|---|---|
+| [Planify-Backend](https://github.com/eusonlito/Planify-Backend) | API en PHP y SQLite con los datos de todos |
+| [Planify-APP](https://github.com/eusonlito/Planify-APP) | App Android para crear y gestionar calendarios, eventos, rutinas y tareas |
+| [Planify-Dashboard](https://github.com/eusonlito/Planify-Dashboard) | Pantalla de pared de solo lectura en un marco digital Android, con la misma cuenta |
+
 ## Requisitos
 
 - **PHP 8.5+**
