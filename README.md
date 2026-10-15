@@ -14,6 +14,16 @@ Bienvenido a **Planify**, una aplicación moderna y elegante para la organizaci�
 
 ---
 
+## 🧩 Ecosistema Planify
+
+| Repositorio | Qué es |
+|---|---|
+| [Planify-Backend](https://github.com/eusonlito/Planify-Backend) | API en PHP y SQLite con los datos de todos |
+| [Planify-APP](https://github.com/eusonlito/Planify-APP) | App Android para crear y gestionar calendarios, eventos, rutinas y tareas |
+| [Planify-Dashboard](https://github.com/eusonlito/Planify-Dashboard) | Pantalla de pared de solo lectura en un marco digital Android, con la misma cuenta |
+
+---
+
 ## 📸 Capturas de Pantalla
 
 ### Bienvenida y Autenticación
