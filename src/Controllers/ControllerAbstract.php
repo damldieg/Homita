@@ -75,7 +75,14 @@ abstract class ControllerAbstract
 
     protected function getInputBool(string $key, ?bool $default = null): ?bool
     {
-        return filter_var($this->input[$key] ?? null, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $default;
+        // filter_var(null) da false, no null: sin este control, un campo ausente nunca tomaría el valor por defecto
+        $value = $this->getInput($key);
+
+        if ($value === null) {
+            return $default;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $default;
     }
 
     protected function getInputEmail(string $key, mixed $default = null): ?string
