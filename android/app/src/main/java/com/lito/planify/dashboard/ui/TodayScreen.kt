@@ -153,12 +153,14 @@ private fun ClockColumn(state: UiState, modifier: Modifier) {
 }
 
 /**
- * Lo siguiente: el primer evento o sesión de rutina que aún no ha empezado. Va en su tarjeta; si es un evento, no se
- * repite en la lista de próximos (las rutinas siguen todas en la suya).
+ * Lo siguiente: el primer evento o sesión de rutina que aún no ha empezado, si es de hoy o de mañana. Va en su tarjeta;
+ * si es un evento, no se repite en la lista de próximos (las rutinas siguen todas en la suya). Si es más tarde, no hay
+ * tarjeta y el evento sale en la lista como los demás.
  */
 private fun nextUp(state: UiState): Event? {
     val content = state.content ?: return null
-    return (content.events + content.sessions).filter { !it.at.isBefore(state.now) }.minByOrNull { it.at }
+    val next = (content.events + content.sessions).filter { !it.at.isBefore(state.now) }.minByOrNull { it.at } ?: return null
+    return next.takeIf { it.at.toLocalDate() <= state.now.toLocalDate().plusDays(1) }
 }
 
 /**
