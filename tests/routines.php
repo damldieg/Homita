@@ -136,4 +136,37 @@ $farDate = $today->modify('+200 days')->format('Y-m-d').' 12:00:00';
 $far->update('Far exception', $farDate);
 $wide->update(array_replace($data, ['days' => [1,2,3,4,5,6,7], 'end_date' => null]), 'UTC');
 check(Event::findByIdAndUser($far->id, 1)->date_at === $farDate, 'Future exceptions outside generation horizon remain');
+// Frecuencias: cada X días, semanas o meses desde el inicio
+foreach ([['frequency' => 'yearly'], ['interval' => 0], ['interval' => 100], ['interval' => '2'], ['frequency' => 'weekly', 'days' => []]] as $invalid) {
+    try { Routine::validate(array_replace($data, $invalid)); throw new RuntimeException('Invalid frequency accepted'); }
+    catch (InvalidArgumentException) {}
+}
+check(Routine::validate(array_replace($data, ['frequency' => 'daily', 'days' => []]))['days'] === '[]', 'Daily ignores weekdays');
+$sessionDates = function (array $values) use ($data): array {
+    $routine = Routine::create(1, 1, array_replace($data, ['end_date' => null], $values), 'UTC');
+    return array_values(array_map(fn($event) => $event->routine_date, array_filter(Event::findWithFilters(1, []), fn($event) => $event->routine_id === $routine->id)));
+};
+$monday = $today->modify('monday next week');
+$fortnight = $sessionDates(['days' => [1, 5], 'frequency' => 'weekly', 'interval' => 2, 'start_date' => $monday->format('Y-m-d')]);
+check(array_slice($fortnight, 0, 4) === [$monday->format('Y-m-d'), $monday->modify('+4 days')->format('Y-m-d'), $monday->modify('+14 days')->format('Y-m-d'), $monday->modify('+18 days')->format('Y-m-d')], 'Every 2 weeks on Monday and Friday');
+$sunday = $monday->modify('+6 days');
+check(array_slice($sessionDates(['days' => [1, 7], 'interval' => 2, 'start_date' => $sunday->format('Y-m-d')]), 0, 2) === [$sunday->format('Y-m-d'), $sunday->modify('+8 days')->format('Y-m-d')], 'Weeks counted from the Monday of the start week');
+$daily = $sessionDates(['frequency' => 'daily', 'interval' => 3, 'days' => [], 'start_date' => $monday->format('Y-m-d')]);
+check(array_slice($daily, 0, 3) === [$monday->format('Y-m-d'), $monday->modify('+3 days')->format('Y-m-d'), $monday->modify('+6 days')->format('Y-m-d')], 'Every 3 days');
+$monthStart = $today->modify('first day of next month');
+$monthly = $sessionDates(['frequency' => 'monthly', 'interval' => 1, 'start_date' => $monthStart->format('Y-m-d')]);
+check(array_slice($monthly, 0, 2) === [$monthStart->format('Y-m-d'), $monthStart->modify('+1 month')->format('Y-m-d')], 'Monthly on the same day');
+$routineAt = function (string $start, array $values): Routine {
+    $routine = new ReflectionClass(Routine::class)->newInstanceWithoutConstructor();
+    foreach ($values + ['frequency' => 'monthly', 'interval' => 1, 'days' => [], 'start_date' => $start] as $key => $value) $routine->$key = $value;
+    return $routine;
+};
+$matches = new ReflectionMethod(Routine::class, 'matches');
+$lastDay = $routineAt('2027-01-31', []);
+check($matches->invoke($lastDay, new DateTimeImmutable('2027-02-28')) && $matches->invoke($lastDay, new DateTimeImmutable('2027-04-30')) && !$matches->invoke($lastDay, new DateTimeImmutable('2027-04-29')), 'Monthly falls back to the last day of shorter months');
+$bimonthly = $routineAt('2027-01-15', ['interval' => 2]);
+check($matches->invoke($bimonthly, new DateTimeImmutable('2027-03-15')) && !$matches->invoke($bimonthly, new DateTimeImmutable('2027-02-15')), 'Every 2 months');
+$legacy = Routine::create(1, 1, array_replace($data, ['frequency' => 'weekly', 'interval' => 2]), 'UTC');
+$legacy->update(array_diff_key($data, ['frequency' => 0, 'interval' => 0]), 'UTC');
+check(Routine::findByIdAndUser($legacy->id, 1)->interval === 2, 'Updates without frequency keep the current one');
 echo "Routine behavioral checks passed\n";

@@ -311,17 +311,17 @@ All endpoints require authentication and calendar membership. Owners and other r
 **Routine response:**
 
 ```json
-{"id":1,"calendar_id":1,"calendar_name":"Training","calendar_color":"#6923E2","title":"Workout","days":[1,3,5],"time":"18:30","start_date":"2026-10-10","end_date":null,"active":true,"alarm":15}
+{"id":1,"calendar_id":1,"calendar_name":"Training","calendar_color":"#6923E2","title":"Workout","frequency":"weekly","interval":1,"days":[1,3,5],"time":"18:30","start_date":"2026-10-10","end_date":null,"active":true,"alarm":15}
 ```
 
-Additional creation/update timestamps may be returned. `days` uses ISO weekdays (Monday 1 through Sunday 7). Dates use `YYYY-MM-DD` and are inclusive; the optional end date must not precede the start. Time uses `HH:mm`, with one shared hour for all selected days. `active` is boolean. `alarm` is nonnegative minutes or `null` for no reminder.
+Additional creation/update timestamps may be returned. `frequency` is `daily`, `weekly` or `monthly` and `interval` (1 to 99) repeats it every that many days, weeks or months, counted from `start_date` (migration `0009_routine_frequency.sql`). Weekly routines use `days`, ISO weekdays (Monday 1 through Sunday 7), and count weeks from the Monday of the start week: `"interval":2` with `[1]` is every other Monday. Daily routines ignore `days` and return `[]`; monthly routines also ignore them and repeat on the start day of the month, or the last day of months without it. Both fields are optional: creation defaults to weekly every 1, and updates without them keep the current values. Dates use `YYYY-MM-DD` and are inclusive; the optional end date must not precede the start. Time uses `HH:mm`, with one shared hour for all selected days. `active` is boolean. `alarm` is nonnegative minutes or `null` for no reminder.
 
 | Endpoint | Input | Output |
 | --- | --- | --- |
 | `GET /routine` | Optional `timezone` | Array of accessible routines |
 | `GET /routine/detail` | `id`, optional `timezone` | Routine |
-| `POST /routine/create` | `calendar_id`, `title`, `days`, `time`, `start_date`, `end_date` (optional), `active`, `alarm` (optional), `person_ids` (optional) | Routine |
-| `PATCH /routine/update` | `id`, `title`, `days`, `time`, `start_date`, `end_date` (optional), `active`, `person_ids` (optional) | Routine |
+| `POST /routine/create` | `calendar_id`, `title`, `frequency` (optional), `interval` (optional), `days`, `time`, `start_date`, `end_date` (optional), `active`, `alarm` (optional), `person_ids` (optional) | Routine |
+| `PATCH /routine/update` | `id`, `title`, `frequency` (optional), `interval` (optional), `days`, `time`, `start_date`, `end_date` (optional), `active`, `person_ids` (optional) | Routine |
 | `PATCH /routine/alarm` | `id`, `alarm` | Routine with requesting user's alarm |
 | `DELETE /routine/delete` | `id` | `{"success":true}` |
 

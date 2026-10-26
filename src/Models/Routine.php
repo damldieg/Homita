@@ -14,6 +14,8 @@ class Routine extends ModelAbstract
     public ?string $calendar_name = null;
     public ?string $calendar_color = null;
     public string $title;
+    public string $frequency;
+    public int $interval;
     public array $days;
     public string $time;
     public string $start_date;
@@ -40,15 +42,23 @@ class Routine extends ModelAbstract
         return new DateTimeImmutable('now', $zone)->format('Y-m-d H:i:s');
     }
 
-    public static function validate(array $data): array
+    private const FREQUENCIES = ['daily', 'weekly', 'monthly'];
+
+    /** Sin `frequency` o `interval` (clientes anteriores), se mantienen los de [$current] o semanal cada 1. */
+    public static function validate(array $data, ?array $current = null): array
     {
         if (!is_string($data['title'] ?? null)) throw new InvalidArgumentException('Title is required');
         $title = trim($data['title']);
-        $days = $data['days'] ?? null;
+        $frequency = $data['frequency'] ?? $current['frequency'] ?? 'weekly';
+        $interval = $data['interval'] ?? $current['interval'] ?? 1;
+        if (!in_array($frequency, self::FREQUENCIES, true)) throw new InvalidArgumentException('Frequency must be daily, weekly or monthly');
+        if (!is_int($interval) || $interval < 1 || $interval > 99) throw new InvalidArgumentException('Interval must be 1 to 99');
+        // Solo la semanal usa días de la semana: la diaria cuenta desde el inicio y la mensual repite su día del mes
+        $days = $frequency === 'weekly' ? $data['days'] ?? null : [];
         $time = $data['time'] ?? null;
         $start = $data['start_date'] ?? null;
         $end = $data['end_date'] ?? null;
-        if ($title === '' || !is_array($days) || $days === [] || !array_is_list($days)) {
+        if ($title === '' || !is_array($days) || ($frequency === 'weekly' && $days === []) || !array_is_list($days)) {
             throw new InvalidArgumentException('Title and selected days are required');
         }
         foreach ($days as $day) {
@@ -65,7 +75,7 @@ class Routine extends ModelAbstract
         }
         if ($start === null || ($end !== null && $end < $start)) throw new InvalidArgumentException('Invalid date range');
         if (!is_bool($data['active'] ?? null)) throw new InvalidArgumentException('Active must be boolean');
-        return ['title' => $title, 'days' => json_encode($days), 'time' => $time, 'start_date' => $start, 'end_date' => $end, 'active' => (int)$data['active']];
+        return ['title' => $title, 'frequency' => $frequency, 'interval' => $interval, 'days' => json_encode($days), 'time' => $time, 'start_date' => $start, 'end_date' => $end, 'active' => (int)$data['active']];
     }
 
     public static function validateAlarm(mixed $alarm): ?int
@@ -81,7 +91,7 @@ class Routine extends ModelAbstract
         $now = self::cutoff($timezone);
         return Database::transaction(function () use ($calendarId, $userId, $values, $alarm, $now) {
             CalendarUser::check($calendarId, $userId);
-            $id = self::database()->insert('INSERT INTO routine (calendar_id,title,days,time,start_date,end_date,active,available_from) VALUES (:calendar_id,:title,:days,:time,:start_date,:end_date,:active,:available_from)', $values + ['calendar_id' => $calendarId, 'available_from' => $now]);
+            $id = self::database()->insert('INSERT INTO routine (calendar_id,title,frequency,interval,days,time,start_date,end_date,active,available_from) VALUES (:calendar_id,:title,:frequency,:interval,:days,:time,:start_date,:end_date,:active,:available_from)', $values + ['calendar_id' => $calendarId, 'available_from' => $now]);
             self::database()->execute('INSERT INTO routine_user (routine_id,user_id,alarm) VALUES (:routine_id,:user_id,:alarm)', ['routine_id' => $id, 'user_id' => $userId, 'alarm' => $alarm]);
             $routine = self::findByIdAndUser($id, $userId);
             $routine->materialize($now);
@@ -120,12 +130,12 @@ class Routine extends ModelAbstract
 
     public function update(array $data, string $timezone = 'UTC'): void
     {
-        $values = self::validate($data);
+        $values = self::validate($data, ['frequency' => $this->frequency, 'interval' => $this->interval]);
         $now = self::cutoff($timezone);
         Database::transaction(function () use ($values, $now) {
             $current = self::database()->selectOneOrFail('SELECT * FROM routine WHERE id=:id', ['id' => $this->id]);
             $available = !$current['active'] && $values['active'] ? $now : $current['available_from'];
-            self::database()->execute('UPDATE routine SET title=:title,days=:days,time=:time,start_date=:start_date,end_date=:end_date,active=:active,available_from=:available_from,updated_at=CURRENT_TIMESTAMP WHERE id=:id', $values + ['id' => $this->id, 'available_from' => $available]);
+            self::database()->execute('UPDATE routine SET title=:title,frequency=:frequency,interval=:interval,days=:days,time=:time,start_date=:start_date,end_date=:end_date,active=:active,available_from=:available_from,updated_at=CURRENT_TIMESTAMP WHERE id=:id', $values + ['id' => $this->id, 'available_from' => $available]);
             $row = array_replace($current, $values, ['available_from' => $available]);
             new self($row)->materialize($now, true);
         }, true);
@@ -141,7 +151,7 @@ class Routine extends ModelAbstract
         for ($day = new DateTimeImmutable($from); $day->format('Y-m-d') <= $last; $day = $day->modify('+1 day')) {
             $date = $day->format('Y-m-d');
             $dateAt = $date.' '.$this->time.':00';
-            if (in_array((int)$day->format('N'), $this->days, true) && $dateAt >= max($now, $this->available_from)) $dates[$date] = ['title' => $this->title, 'date_at' => $dateAt];
+            if ($this->matches($day) && $dateAt >= max($now, $this->available_from)) $dates[$date] = ['title' => $this->title, 'date_at' => $dateAt];
         }
         foreach (self::database()->select('SELECT * FROM routine_exception WHERE routine_id=:id', ['id' => $this->id]) as $exception) {
             $date = $exception['routine_date'];
@@ -149,6 +159,21 @@ class Routine extends ModelAbstract
             elseif ($exception['date_at'] >= max($now, $this->available_from)) $dates[$date] = ['title' => $exception['title'], 'date_at' => $exception['date_at']];
         }
         return $dates;
+    }
+
+    /** Si toca sesión ese día, contando cada [interval] días, semanas o meses desde el inicio. */
+    private function matches(DateTimeImmutable $day): bool
+    {
+        $start = new DateTimeImmutable($this->start_date);
+        return match ($this->frequency) {
+            'daily' => $start->diff($day)->days % $this->interval === 0,
+            // Semanas de lunes a domingo: la del inicio es la primera
+            'weekly' => in_array((int)$day->format('N'), $this->days, true)
+                && intdiv($start->modify('monday this week')->diff($day->modify('monday this week'))->days, 7) % $this->interval === 0,
+            // El día del mes del inicio o, en los meses que no lo tienen (31 en abril), el último
+            'monthly' => ((int)$day->format('Y') * 12 + (int)$day->format('n') - (int)$start->format('Y') * 12 - (int)$start->format('n')) % $this->interval === 0
+                && (int)$day->format('j') === min((int)$start->format('j'), (int)$day->format('t')),
+        };
     }
 
     private function materialize(string $now, bool $reconcile = false): void
