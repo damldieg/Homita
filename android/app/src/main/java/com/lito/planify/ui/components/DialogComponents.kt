@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.PlayCircle
+import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material3.*
@@ -23,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -272,6 +274,8 @@ fun RoutineFormDialog(
 
     var title by remember { mutableStateOf(initial?.title.orEmpty()) }
     var calendarId by remember { mutableStateOf(initial?.calendar_id ?: initialCalendarId ?: calendars.firstOrNull()?.id ?: 0) }
+    var frequency by remember { mutableStateOf(initial?.frequency ?: "weekly") }
+    var interval by remember { mutableStateOf(initial?.interval ?: 1) }
     var days by remember { mutableStateOf(initial?.days ?: emptyList()) }
     var time by remember { mutableStateOf(initial?.time?.let { runCatching { LocalTime.parse(it) }.getOrNull() } ?: LocalTime.of(18, 0)) }
     var startDate by remember { mutableStateOf(initial?.start_date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()) }
@@ -284,9 +288,10 @@ fun RoutineFormDialog(
         title = stringResource(if (isEdit) R.string.routine_edit else R.string.routine_new),
         onDismiss = onDismiss,
         confirmText = stringResource(if (isEdit) R.string.generic_save else R.string.generic_create),
-        confirmEnabled = title.isNotBlank() && days.isNotEmpty() && calendars.any { it.id == calendarId },
+        confirmEnabled = title.isNotBlank() && (frequency != "weekly" || days.isNotEmpty()) && calendars.any { it.id == calendarId },
         onConfirm = {
-            onConfirm(CreateRoutineRequest(calendarId, title.trim(), days.sorted(), time.format(timeFormat), startDate.toString(), endDate?.toString(), active, alarm, personIds))
+            val weekdays = if (frequency == "weekly") days.sorted() else emptyList()
+            onConfirm(CreateRoutineRequest(calendarId, title.trim(), frequency, interval, weekdays, time.format(timeFormat), startDate.toString(), endDate?.toString(), active, alarm, personIds))
         },
         onDelete = onDelete.takeIf { isEdit }
     ) {
@@ -299,8 +304,43 @@ fun RoutineFormDialog(
             label = stringResource(R.string.label_title),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
         )
-        FormLabel(stringResource(R.string.routine_days))
-        WeekdaySelector(days = days, onChange = { days = it })
+        // Cada X días, semanas o meses, contando desde el inicio
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            FormSelectField(
+                label = stringResource(R.string.routine_interval),
+                selected = interval,
+                options = (1..maxInterval(frequency)).map { it to "$it" },
+                onSelect = { interval = it },
+                icon = Icons.Outlined.Repeat,
+                modifier = Modifier.weight(1f)
+            )
+            FormSelectField(
+                label = stringResource(R.string.routine_frequency),
+                selected = frequency,
+                options = listOf(
+                    "daily" to pluralStringResource(R.plurals.routine_unit_daily, interval),
+                    "weekly" to pluralStringResource(R.plurals.routine_unit_weekly, interval),
+                    "monthly" to pluralStringResource(R.plurals.routine_unit_monthly, interval)
+                ),
+                onSelect = {
+                    frequency = it
+                    interval = interval.coerceAtMost(maxInterval(it))
+                },
+                modifier = Modifier.weight(1f)
+            )
+        }
+        when (frequency) {
+            "weekly" -> {
+                FormLabel(stringResource(R.string.routine_days))
+                WeekdaySelector(days = days, onChange = { days = it })
+            }
+            "monthly" -> Text(
+                text = stringResource(R.string.routine_monthly_hint, startDate.dayOfMonth),
+                style = MaterialTheme.typography.bodySmall,
+                color = OnSurfaceVariantColor,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+        }
         FormPickerField(
             label = stringResource(R.string.label_time),
             value = time.format(timeFormat),
@@ -341,6 +381,9 @@ fun RoutineFormDialog(
         }
     }
 }
+
+/** Hasta cuántos días, semanas o meses se puede espaciar una rutina. */
+private fun maxInterval(frequency: String): Int = if (frequency == "daily") 30 else 12
 
 @Composable
 fun PersonFormDialog(

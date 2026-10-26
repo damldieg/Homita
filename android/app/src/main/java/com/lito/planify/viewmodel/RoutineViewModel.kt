@@ -78,7 +78,7 @@ class RoutineViewModel(application: Application) : AndroidViewModel(application)
                 if (!response.isSuccessful) throw IllegalStateException(response.getErrorMessage())
             } else {
                 val response = RetrofitClient.apiService.updateRoutine(
-                    UpdateRoutineRequest(initial.id, request.title, request.days, request.time, request.start_date, request.end_date, request.active, request.person_ids)
+                    UpdateRoutineRequest(initial.id, request.title, request.frequency, request.interval, request.days, request.time, request.start_date, request.end_date, request.active, request.person_ids)
                 )
                 if (!response.isSuccessful) throw IllegalStateException(response.getErrorMessage())
                 cancelRoutineAlarms(initial.id)

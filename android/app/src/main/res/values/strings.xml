@@ -117,6 +117,26 @@
     <string name="routine_new">Nueva rutina</string>
     <string name="routine_edit">Editar rutina</string>
     <string name="routine_days">Días</string>
+    <string name="routine_interval">Repetir cada</string>
+    <string name="routine_frequency">Periodo</string>
+    <plurals name="routine_unit_daily">
+        <item quantity="one">día</item>
+        <item quantity="other">días</item>
+    </plurals>
+    <plurals name="routine_unit_weekly">
+        <item quantity="one">semana</item>
+        <item quantity="other">semanas</item>
+    </plurals>
+    <plurals name="routine_unit_monthly">
+        <item quantity="one">mes</item>
+        <item quantity="other">meses</item>
+    </plurals>
+    <string name="routine_monthly_hint">El día %1$d del mes, o el último si el mes no lo tiene</string>
+    <string name="routine_every_day">Cada día</string>
+    <string name="routine_every_days">Cada %1$d días</string>
+    <string name="routine_every_weeks">Cada %1$d semanas: %2$s</string>
+    <string name="routine_monthly_day">Día %1$d de cada mes</string>
+    <string name="routine_every_months_day">Día %1$d cada %2$d meses</string>
     <string name="routine_start">Inicio</string>
     <string name="routine_end">Fin</string>
     <string name="routine_no_end">Sin fin</string>

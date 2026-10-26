@@ -72,7 +72,7 @@ fun RoutinesScreen(
     val pausedLabel = stringResource(R.string.routine_paused)
     val subtitleOf: (RoutineResponse) -> String = { routine ->
         listOfNotNull(
-            routine.days.sorted().joinToString(" ") { weekdayLabel(it) },
+            repeatLabel(context, routine),
             routine.persons.orEmpty().joinToString(", ") { it.name }.ifEmpty { null },
             if (selectedCalendarFilterId == null) calendars.find { it.id == routine.calendar_id }?.name ?: routine.calendar_name else null
         ).joinToString("  ·  ")
@@ -242,6 +242,17 @@ fun RoutinesScreen(
 
 private fun String.isPast(): Boolean =
     try { java.time.LocalDateTime.parse(this.replace(" ", "T")).isBefore(java.time.LocalDateTime.now()) } catch (e: Exception) { false }
+
+/** Cuándo se repite: los días de la semana (y cada cuántas semanas), cada X días o el día del mes. */
+private fun repeatLabel(context: android.content.Context, routine: RoutineResponse): String {
+    val interval = routine.interval ?: 1
+    val day = runCatching { LocalDate.parse(routine.start_date).dayOfMonth }.getOrDefault(1)
+    return when (routine.frequency) {
+        "daily" -> if (interval == 1) context.getString(R.string.routine_every_day) else context.getString(R.string.routine_every_days, interval)
+        "monthly" -> if (interval == 1) context.getString(R.string.routine_monthly_day, day) else context.getString(R.string.routine_every_months_day, day, interval)
+        else -> routine.days.sorted().joinToString(" ") { weekdayLabel(it) }.let { if (interval == 1) it else context.getString(R.string.routine_every_weeks, interval, it) }
+    }
+}
 
 private fun weekdayLabel(day: Int): String =
     DayOfWeek.of(day).getDisplayName(TextStyle.SHORT, Locale.getDefault()).replace(".", "").replaceFirstChar { it.uppercaseChar() }

@@ -69,9 +69,9 @@ Tres pestañas superiores: **Eventos**, **Rutinas** y **Calendarios**. Eventos y
 - **Tarjetas de Evento:** Muestran Título, hora, personas asignadas, calendario y **Fecha Relativa** ("14H 52M", "3D").
 
 ### 4.2. Tab: Rutinas (`RoutinesScreen`)
-- **Propósito:** Gestión de rutinas semanales.
+- **Propósito:** Gestión de rutinas: cada X días, semanas (en los días de la semana elegidos) o meses (el día del mes del inicio), contando desde la fecha de inicio.
 - **Filtros:** Filtro por Calendario específico.
-- **UI:** Vista mensual con las sesiones, botón "Nueva rutina" y rutinas con el mismo diseño de fila que los eventos: título, hora, días y calendario, con el tiempo hasta la próxima sesión. Las pausadas aparecen en su propia sección.
+- **UI:** Vista mensual con las sesiones, botón "Nueva rutina" y rutinas con el mismo diseño de fila que los eventos: título, hora, cuándo se repite ("Lun Vie", "Cada 2 semanas: Lun Vie", "Cada 3 días", "Día 15 de cada mes") y calendario, con el tiempo hasta la próxima sesión. Las pausadas aparecen en su propia sección.
 - **Permisos:** Todos los miembros del calendario pueden gestionar las rutinas.
 - **Edición:** Las rutinas se editan siempre completas; pausar y borrar conservan el historial.
 

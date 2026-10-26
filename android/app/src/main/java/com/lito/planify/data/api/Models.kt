@@ -100,6 +100,9 @@ data class RoutineResponse(
     val calendar_name: String?,
     val calendar_color: String?,
     val title: String,
+    // Nulos con un backend anterior: semanal cada 1
+    val frequency: String? = null,
+    val interval: Int? = null,
     val days: List<Int>,
     val time: String,
     val start_date: String,
@@ -112,6 +115,8 @@ data class RoutineResponse(
 data class CreateRoutineRequest(
     val calendar_id: Int,
     val title: String,
+    val frequency: String,
+    val interval: Int,
     val days: List<Int>,
     val time: String,
     val start_date: String,
@@ -124,6 +129,8 @@ data class CreateRoutineRequest(
 data class UpdateRoutineRequest(
     val id: Int,
     val title: String,
+    val frequency: String,
+    val interval: Int,
     val days: List<Int>,
     val time: String,
     val start_date: String,

@@ -100,11 +100,11 @@ Planify ha sido desarrollada nativamente para Android priorizando una arquitectu
 ## 🤝 Contribuir
 Al contribuir al desarrollo de la aplicación, por favor asegúrate de respetar las convenciones de nomenclatura, mantener un código limpio e hidratar el diseño base definido en las capturas de pantalla de la carpeta `design/`.
 
-## Rutinas semanales
+## Rutinas
 
-La pestaña Rutinas (dentro de Calendarios, junto a Eventos y Calendarios) permite seleccionar días de la semana y una hora común, con fecha de inicio, fin opcional, estado activo y aviso personal. Todos los miembros del calendario pueden gestionar sus rutinas. Eventos y rutinas están separados: cada uno tiene su vista mensual, listado, formulario y widget. Las rutinas se editan completas y los cambios conservan el historial.
+La pestaña Rutinas (dentro de Calendarios, junto a Eventos y Calendarios) permite repetir cada X días, semanas o meses (por ejemplo, lunes y viernes cada 2 semanas) a una hora común, con fecha de inicio, fin opcional, estado activo y aviso personal. Todos los miembros del calendario pueden gestionar sus rutinas. Eventos y rutinas están separados: cada uno tiene su vista mensual, listado, formulario y widget. Las rutinas se editan completas y los cambios conservan el historial.
 
-Despliega primero la API y aplica `backend/migrations/0006_routine.sql` con el comando de migración del backend. La API genera los próximos 90 días al sincronizar; los avisos del móvil necesitan conexión periódica para renovar ese horizonte. La hora es local y sigue la zona del móvil.
+Despliega primero la API y aplica `backend/migrations/0006_routine.sql` y `0009_routine_frequency.sql` con el comando de migración del backend. La API genera los próximos 90 días al sincronizar; los avisos del móvil necesitan conexión periódica para renovar ese horizonte. La hora es local y sigue la zona del móvil.
 
 El móvil programa los 450 avisos más próximos y conserva el resto en caché. Cada aviso repone la cola sin necesitar conexión; sincronizar o reiniciar también la renueva.
 
