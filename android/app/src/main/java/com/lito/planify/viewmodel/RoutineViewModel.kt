@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.lito.planify.data.api.*
 import com.lito.planify.data.api.util.NetworkUtils.getErrorMessage
 import com.lito.planify.util.AlarmHelper
+import com.lito.planify.widget.CalendarWidgetProvider
 import com.lito.planify.widget.RoutineWidgetProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -130,9 +131,10 @@ class RoutineViewModel(application: Application) : AndroidViewModel(application)
     private suspend fun refreshAlarmsAndWidget() {
         val app = getApplication<Application>()
         AlarmHelper.synchronizeAlarms(app)
-        app.sendBroadcast(Intent(app, RoutineWidgetProvider::class.java).apply {
-            action = "com.lito.planify.widget.ACTION_CLEAR_CACHE"
-        })
+        // El widget de eventos también muestra las sesiones de rutinas
+        listOf(RoutineWidgetProvider::class.java, CalendarWidgetProvider::class.java).forEach {
+            app.sendBroadcast(Intent(app, it).apply { action = "com.lito.planify.widget.ACTION_CLEAR_CACHE" })
+        }
     }
 
     fun clearError() { _error.value = null }

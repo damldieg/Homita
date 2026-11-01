@@ -60,7 +60,7 @@ Esta sección utiliza dos pestañas superiores:
 
 ## 4. Módulo de Calendarios (`CalendarsRootScreen`)
 
-Tres pestañas superiores: **Eventos**, **Rutinas** y **Calendarios**. Eventos y rutinas están separados: cada uno tiene su propia vista mensual, listado, formulario y widget; los calendarios son compartidos por ambos.
+Tres pestañas superiores: **Eventos**, **Rutinas** y **Calendarios**. Eventos y rutinas están separados: cada uno tiene su propia vista mensual, listado, formulario y widget (el de eventos incluye también las sesiones de rutinas); los calendarios son compartidos por ambos.
 
 ### 4.1. Tab: Eventos (`EventListScreen` - Vista Global)
 - **Propósito:** Agenda cronológica de los eventos (sin sesiones de rutina).
@@ -137,7 +137,7 @@ El selector de **Personas** (chips multiselección con el color de cada persona)
 
 ### 8.1. Widget Calendario
 - Vista de 7 días con números de eventos en badges rojos semi-trasparentes (90% opacidad).
-- Lista de próximos eventos (clic para ir al calendario específico).
+- Lista de los próximos 50 eventos como máximo, incluidas las sesiones de rutinas (clic para ir al calendario específico).
 - Caché de 1 minuto.
 
 ### 8.2. Widget Rutinas

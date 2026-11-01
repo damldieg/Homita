@@ -32,7 +32,7 @@ import java.util.Locale
 import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
-/** Widget de eventos. [RoutineWidgetProvider] reutiliza el mismo diseño para las sesiones de rutinas. */
+/** Widget de eventos (con las sesiones de rutinas). [RoutineWidgetProvider] reutiliza el mismo diseño solo para las sesiones de rutinas. */
 open class CalendarWidgetProvider : AppWidgetProvider() {
 
     protected open val routine = false
@@ -75,6 +75,9 @@ open class CalendarWidgetProvider : AppWidgetProvider() {
 
     companion object {
 
+        /** Máximo de eventos en la lista del widget. */
+        const val MAX_EVENTS = 50
+
         private val apiFormat get() = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
         fun render(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, routine: Boolean) {
@@ -95,7 +98,7 @@ open class CalendarWidgetProvider : AppWidgetProvider() {
             renderDays(context, views, events, openApp.takeUnless { isReadOnly })
 
             val items = RemoteViewsCompat.RemoteCollectionItems.Builder().setHasStableIds(true)
-            events.take(10).forEach { items.addItem(it.id.toLong(), eventItem(context, it)) }
+            events.take(MAX_EVENTS).forEach { items.addItem(it.id.toLong(), eventItem(context, it)) }
             RemoteViewsCompat.setRemoteAdapter(context, views, appWidgetId, R.id.widget_event_list, items.build())
             views.setEmptyView(R.id.widget_event_list, R.id.widget_empty_view)
 
@@ -199,7 +202,7 @@ internal object EventWidgetData {
         }
     }
 
-    /** Descarga los próximos eventos (desde ayer) y los guarda. Devuelve false si no hay sesión o falla la red. */
+    /** Descarga los próximos eventos (desde ayer) y los guarda: el widget de eventos incluye también las sesiones de rutinas. Devuelve false si no hay sesión o falla la red. */
     suspend fun fetch(context: Context, routine: Boolean): Boolean {
         val token = SessionManager(context).authTokenFlow.firstOrNull() ?: return false
         RetrofitClient.setToken(token)
@@ -207,7 +210,8 @@ internal object EventWidgetData {
         val now = System.currentTimeMillis()
         val yesterday = ((now + TimeZone.getDefault().getOffset(now) - TimeUnit.DAYS.toMillis(1)) / 1000).toString()
         return try {
-            val response = RetrofitClient.apiService.getEvents(startDate = yesterday, limit = 20, widget = true, routine = routine)
+            // Margen para los de ayer que ya no se muestran
+            val response = RetrofitClient.apiService.getEvents(startDate = yesterday, limit = CalendarWidgetProvider.MAX_EVENTS * 2, widget = true, routine = if (routine) true else null)
             if (!response.isSuccessful) {
                 Log.e("CalendarWidget", "API error: ${response.code()}")
                 return false
