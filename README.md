@@ -102,7 +102,7 @@ Al contribuir al desarrollo de la aplicación, por favor asegúrate de respetar 
 
 ## Rutinas
 
-La pestaña Rutinas (dentro de Calendarios, junto a Eventos y Calendarios) permite repetir cada X días, semanas o meses (por ejemplo, lunes y viernes cada 2 semanas) a una hora común, con fecha de inicio, fin opcional, estado activo y aviso personal. Todos los miembros del calendario pueden gestionar sus rutinas. Eventos y rutinas están separados: cada uno tiene su vista mensual, listado, formulario y widget. Las rutinas se editan completas y los cambios conservan el historial.
+La pestaña Rutinas (dentro de Calendarios, junto a Eventos y Calendarios) permite repetir cada X días, semanas o meses (por ejemplo, lunes y viernes cada 2 semanas) a una hora común, con fecha de inicio, fin opcional, estado activo y aviso personal. Todos los miembros del calendario pueden gestionar sus rutinas. Eventos y rutinas están separados: cada uno tiene su vista mensual, listado, formulario y widget (el de eventos incluye también las sesiones de rutinas). Las rutinas se editan completas y los cambios conservan el historial.
 
 Despliega primero la API y aplica `backend/migrations/0006_routine.sql` y `0009_routine_frequency.sql` con el comando de migración del backend. La API genera los próximos 90 días al sincronizar; los avisos del móvil necesitan conexión periódica para renovar ese horizonte. La hora es local y sigue la zona del móvil.
 
@@ -116,7 +116,7 @@ Desde Perfil se crean personas (por ejemplo, los miembros de la familia) con nom
 
 Los scripts de `scripts/` son locales y están excluidos de Git:
 
-* `scripts/install.sh`: compila el APK release y lo instala en teléfonos conectados por USB.
+* `scripts/install.sh`: compila el APK release y lo instala solo en el móvil (`ANDROID_SERIAL` permite elegir otro dispositivo).
 * `scripts/emulator.sh`: compila e instala la versión debug en el emulador.
 * `scripts/git-reset`: utilidad general para reiniciar el historial de un repositorio Git; no despliega la app ni el backend.
 
