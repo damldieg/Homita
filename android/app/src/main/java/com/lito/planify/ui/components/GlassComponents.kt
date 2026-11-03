@@ -206,6 +206,7 @@ fun MonthCalendarCard(
 
     HorizontalPager(
         state = pagerState,
+        verticalAlignment = Alignment.Top,
         modifier = modifier.glass(RoundedCornerShape(28.dp))
     ) { page ->
         val month = currentMonth.plusMonths((page - initialPage).toLong())
