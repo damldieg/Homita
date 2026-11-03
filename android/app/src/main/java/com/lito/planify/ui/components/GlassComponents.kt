@@ -6,6 +6,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
@@ -196,53 +198,58 @@ fun MonthCalendarCard(
 ) {
     val locale = currentLocale()
     val today = LocalDate.now()
-    val month = YearMonth.from(today)
+    val currentMonth = YearMonth.from(today)
+    val initialPage = Int.MAX_VALUE / 2
+    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { Int.MAX_VALUE })
     val firstDayOfWeek = WeekFields.of(locale).firstDayOfWeek
-    val leadingBlanks = (month.atDay(1).dayOfWeek.value - firstDayOfWeek.value + 7) % 7
-    val cells = List(leadingBlanks) { null } + (1..month.lengthOfMonth()).map { month.atDay(it) }
     val weekdays = (0..6).map { firstDayOfWeek.plus(it.toLong()).getDisplayName(TextStyle.NARROW, locale) }
 
-    Column(
-        modifier = modifier
-            .glass(RoundedCornerShape(28.dp))
-            .padding(horizontal = 18.dp, vertical = 16.dp)
-    ) {
-        Text(
-            text = month.month.getDisplayName(TextStyle.FULL_STANDALONE, locale).replaceFirstChar { it.uppercaseChar() },
-            style = MaterialTheme.typography.titleLarge,
-            color = OnSurfaceColor,
-            modifier = Modifier.padding(bottom = 10.dp)
-        )
-        Row(modifier = Modifier.fillMaxWidth()) {
-            weekdays.forEach {
-                Text(
-                    text = it.uppercase(locale),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = OnSurfaceColor,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        cells.chunked(7).forEach { week ->
+    HorizontalPager(
+        state = pagerState,
+        modifier = modifier.glass(RoundedCornerShape(28.dp))
+    ) { page ->
+        val month = currentMonth.plusMonths((page - initialPage).toLong())
+        val leadingBlanks = (month.atDay(1).dayOfWeek.value - firstDayOfWeek.value + 7) % 7
+        val cells = List(leadingBlanks) { null } + (1..month.lengthOfMonth()).map { month.atDay(it) }
+        val monthName = month.month.getDisplayName(TextStyle.FULL_STANDALONE, locale).replaceFirstChar { it.uppercaseChar() }
+
+        Column(Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
+            Text(
+                text = if (month.year == today.year) monthName else "$monthName ${month.year}",
+                style = MaterialTheme.typography.titleLarge,
+                color = OnSurfaceColor,
+                modifier = Modifier.padding(bottom = 10.dp)
+            )
             Row(modifier = Modifier.fillMaxWidth()) {
-                (0 until 7).forEach { i ->
-                    val date = week.getOrNull(i)
-                    Box(modifier = Modifier.weight(1f).height(36.dp), contentAlignment = Alignment.TopCenter) {
-                        if (date != null) {
-                            MonthDayCell(
-                                date = date,
-                                isToday = date == today,
-                                dots = eventColorsByDate[date].orEmpty(),
-                                onClick = onDayClick?.takeIf { eventColorsByDate.containsKey(date) }
-                            )
+                weekdays.forEach {
+                    Text(
+                        text = it.uppercase(locale),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = OnSurfaceColor,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            cells.chunked(7).forEach { week ->
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    (0 until 7).forEach { i ->
+                        val date = week.getOrNull(i)
+                        Box(modifier = Modifier.weight(1f).height(36.dp), contentAlignment = Alignment.TopCenter) {
+                            if (date != null) {
+                                MonthDayCell(
+                                    date = date,
+                                    isToday = date == today,
+                                    dots = eventColorsByDate[date].orEmpty(),
+                                    onClick = onDayClick?.takeIf { eventColorsByDate.containsKey(date) }
+                                )
+                            }
                         }
                     }
                 }
             }
         }
-
     }
 }
 
