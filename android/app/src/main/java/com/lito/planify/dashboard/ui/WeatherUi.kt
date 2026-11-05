@@ -384,8 +384,8 @@ fun WeatherCard(
 }
 
 /**
- * Cabecera del tiempo: icono grande, temperatura y estado, ubicación con máxima y mínima, y lluvia, humedad y viento.
- * Sin [selected] es el tiempo de ahora (con la máxima y la mínima de hoy); con un día, su previsión.
+ * Cabecera del tiempo: icono grande, temperatura y estado, ubicación con mínima y máxima, y lluvia, humedad y viento.
+ * Sin [selected] es el tiempo de ahora (con la mínima y la máxima de hoy); con un día, su previsión.
  */
 @Composable
 fun WeatherHeader(forecast: Forecast, location: String, today: LocalDate, selected: LocalDate?, compact: Boolean = false) {
@@ -407,7 +407,7 @@ fun WeatherHeader(forecast: Forecast, location: String, today: LocalDate, select
                 maxLines = 1
             )
             Text(
-                listOfNotNull(location, day.takeIf { it >= 0 }?.let { "Máx ${daily.temperature_2m_max[it].degrees()} · Mín ${daily.temperature_2m_min[it].degrees()}" }).joinToString("  ·  "),
+                listOfNotNull(location, day.takeIf { it >= 0 }?.let { "Mín ${daily.temperature_2m_min[it].degrees()} · Máx ${daily.temperature_2m_max[it].degrees()}" }).joinToString("  ·  "),
                 style = Type.Small,
                 maxLines = 1
             )
@@ -459,7 +459,7 @@ private fun DaysPager(forecast: Forecast, today: LocalDate, perPage: Int, highli
 }
 
 /**
- * Una columna por día: nombre, icono, máx/mín y lluvia (probabilidad y, si no es [compact], total). [highlight] resalta un día (hoy o el elegido).
+ * Una columna por día: nombre, icono, mín/máx y lluvia (probabilidad y, si no es [compact], total). [highlight] resalta un día (hoy o el elegido).
  * [keepSlots] reserva el hueco de los días sin previsión para que las columnas no cambien de ancho.
  * Con [onClick], se pueden tocar los días que tienen previsión por horas.
  */
@@ -504,8 +504,8 @@ fun DaysRow(
                 // la lluvia, más pequeña, queda a media altura de las temperaturas
                 val tight = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(forecast.daily.temperature_2m_max[index].degrees(), style = text.copy(fontWeight = FontWeight.SemiBold, lineHeight = text.fontSize, lineHeightStyle = tight))
-                    Text(forecast.daily.temperature_2m_min[index].degrees(), style = text.copy(color = Palette.InkMuted, lineHeight = text.fontSize, lineHeightStyle = tight), modifier = Modifier.padding(start = if (compact) 6.dp else 8.dp))
+                    Text(forecast.daily.temperature_2m_min[index].degrees(), style = text.copy(color = Palette.InkMuted, lineHeight = text.fontSize, lineHeightStyle = tight))
+                    Text(forecast.daily.temperature_2m_max[index].degrees(), style = text.copy(fontWeight = FontWeight.SemiBold, lineHeight = text.fontSize, lineHeightStyle = tight), modifier = Modifier.padding(start = if (compact) 6.dp else 8.dp))
                     // En compacto la lluvia va en la misma línea
                     // (solo el %, sin icono: la fila de Hoy ya va justa)
                     if (compact && rain != null) Text(rain, style = Type.Tiny.copy(color = Palette.Rain, fontSize = 16.sp, lineHeight = 16.sp, lineHeightStyle = tight), maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 10.dp))
