@@ -1,0 +1,29 @@
+<?php declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Models\Calendar;
+use App\Models\CalendarUser;
+
+class CalendarUpdate extends ControllerAbstract
+{
+    public function handle(): void
+    {
+        $id = $this->getInputInt('id');
+        $name = $this->getInputString('name');
+        $color = $this->getInputString('color');
+        $widget = $this->getInputBool('widget', true);
+        $dashboard = $this->getInputBool('dashboard', true);
+
+        if (empty($id) || empty($name) || empty($color)) {
+            $this->response(['error' => 'Calendar ID, name and color are required'], 400);
+        }
+
+        CalendarUser::check($id, $this->user->id);
+
+        CalendarUser::setWidget($id, $this->user->id, $widget);
+        CalendarUser::setDashboard($id, $this->user->id, $dashboard);
+
+        $this->response(Calendar::findById($id)->update($name, $color), 200);
+    }
+}
