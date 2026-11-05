@@ -19,7 +19,7 @@ ADB_FROM="${ENV_ADB_FROM:-${ADB_FROM:-}}"
 FRAME_TIMEZONE="${ENV_FRAME_TIMEZONE:-${FRAME_TIMEZONE:-$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)}}"
 FRAME_NTP="${ENV_FRAME_NTP:-${FRAME_NTP:-pool.ntp.org}}"
 PKG=com.lito.planify.dashboard
-APK="$HERE/android/app/build/outputs/apk/release/app-release.apk"
+APK="$HERE/apps/dashboard/app/build/outputs/apk/release/app-release.apk"
 BUILD=0
 BACKUP=1
 for arg in "$@"; do
@@ -50,7 +50,7 @@ fi
 
 if [ "$BUILD" = "1" ] || [ ! -f "$APK" ]; then
     step "Compilando la release"
-    (cd "$HERE/android" && ./gradlew -q :app:assembleRelease)
+    (cd "$HERE/apps/dashboard" && ./gradlew -q :app:assembleRelease)
 fi
 
 step "Instalando $PKG"

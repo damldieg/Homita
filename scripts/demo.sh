@@ -90,10 +90,10 @@ app() {
     done
     up
     emulator
-    local apk="$HERE/android/app/build/outputs/apk/debug/app-debug.apk"
+    local apk="$HERE/apps/dashboard/app/build/outputs/apk/debug/app-debug.apk"
     if [ $build = 1 ]; then
         step "Compilando la debug"
-        (cd "$HERE/android" && ./gradlew -q assembleDebug -Pplanify.debugBaseUrl="http://10.0.2.2:$PORT")
+        (cd "$HERE/apps/dashboard" && ./gradlew -q assembleDebug -Pplanify.debugBaseUrl="http://10.0.2.2:$PORT")
     fi
     step "Instalando"
     adb install -r "$apk" >/dev/null
