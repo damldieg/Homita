@@ -14,6 +14,7 @@ apps/control/.gradle/
 apps/control/build/
 apps/control/app/build/
 apps/control/local.properties
+apps/control/.kotlin/
 apps/control/.idea/
 apps/control/*.iml
 apps/control/**/*.iml
