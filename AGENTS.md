@@ -68,3 +68,4 @@ licenses/                 Geist-OFL.txt
 - Data layer: every remote datum cached on disk, stale-if-error (`DiskCache` + `CachedResource`); HTTP errors as `HttpError`; 401 clears session.
 - Tests are plain JUnit4 unit tests under `app/src/test`; no instrumentation tests.
 - No CI: tests and lint run manually (`:app:testDebugUnitTest`, `:app:lintDebug`).
+- `apps/control` es un git subtree de https://github.com/eusonlito/Planify-APP (su `android/` aplanado a la raíz con `git mv`); sincronía upstream: `git subtree pull --prefix=apps/control …` y re-aplano manual si upstream añade rutas nuevas bajo `android/`.
