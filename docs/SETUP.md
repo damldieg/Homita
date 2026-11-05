@@ -12,7 +12,7 @@ Principios:
 Antes de nada, la configuración de tu instalación (los dos ficheros están en `.gitignore`):
 
 ```sh
-cp android/planify.properties.example android/planify.properties   # planify.baseUrl: URL de tu Planify-Backend
+cp apps/dashboard/planify.properties.example apps/dashboard/planify.properties   # planify.baseUrl: URL de tu Planify-Backend
 cp scripts/config.example scripts/config.local                      # ADB_FROM (IP de tu PC), zona horaria y NTP
 ```
 
@@ -33,7 +33,7 @@ ANDROID_SERIAL=<ip-del-marco>:5555 scripts/install.sh --build --no-backup
    - copia también la GPT de respaldo y las particiones de hardware `boot0`/`boot1`;
    - compara el SHA-256 de cada pieza con el dispositivo y guarda todo en `backups/<serie>/`, que está en `.gitignore`.
    - Guarda además una copia fuera del repositorio.
-3. **Compila e instala** la release (`com.lito.planify.dashboard`), que apunta a la `planify.baseUrl` de `android/planify.properties`. Sin ella, la release no compila.
+3. **Compila e instala** la release (`com.lito.planify.dashboard`), que apunta a la `planify.baseUrl` de `apps/dashboard/planify.properties`. Sin ella, la release no compila.
 4. **Device Owner:** `dpm set-device-owner com.lito.planify.dashboard/.admin.AdminReceiver`. Android solo lo permite si no hay cuentas en el dispositivo, y el script lo comprueba. A partir de ahí la propia app, en cada arranque:
    - activa el **lock task** sin botones de inicio ni recientes (solo se permite Ajustes de Android, para el Wi-Fi), pero con el **menú de apagado**: una pulsación larga del botón de encendido muestra Apagar / Reiniciar. Es la forma limpia de apagar; mantenerlo pulsado ~10 s corta la corriente de golpe. (`input keyevent --longpress KEYCODE_POWER` por ADB no sirve para probarlo: en este Android lanza una excepción en `GlobalActions`.)
    - desactiva el keyguard y la barra de estado;
