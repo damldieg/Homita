@@ -1,13 +1,32 @@
 backups/
-android/.gradle/
-android/build/
-android/app/build/
-android/local.properties
-android/.kotlin/
+apps/dashboard/.gradle/
+apps/dashboard/build/
+apps/dashboard/app/build/
+apps/dashboard/local.properties
+apps/dashboard/.kotlin/
 # Copia del repositorio de wesbos como referencia (tiene su propio git)
 docs/photo-frame-dashboard/
-android/planify.properties
+apps/dashboard/planify.properties
 scripts/config.local
+
+# apps/control (Planify-APP), proyecto Gradle en la raíz; el resto lo ignora su .gitignore
+apps/control/.gradle/
+apps/control/build/
+apps/control/app/build/
+apps/control/local.properties
+apps/control/.idea/
+apps/control/*.iml
+apps/control/**/*.iml
+apps/control/*.jks
+apps/control/*.keystore
+apps/control/app/release/
+apps/control/app/debug/
+
+# api/ (Planify-Backend): datos y secretos locales; su .gitignore ya los cubre por separado
+api/db/
+api/logs/
+api/config/private.local.json
 
 # Entorno de demo (scripts/demo.sh)
 .demo/
+.dorch/changes/
