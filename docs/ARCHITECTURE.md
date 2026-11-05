@@ -45,7 +45,7 @@ Las tarjetas llevan una cabecera común (`CardHeader`): icono en un cuadro tinta
 ## Estructura
 
 ```
-android/                     proyecto Gradle (mismas versiones que Planify-APP)
+apps/dashboard/            proyecto Gradle (mismas versiones que Planify-APP)
   app/src/main/java/com/lito/planify/dashboard/
     MainActivity.kt          launcher, inmersivo, Density(1f), quiosco y brillo
     DashboardViewModel.kt    estado, refrescos, login, ubicación, horario
@@ -77,13 +77,13 @@ emulator -avd Frame_API_29
 ```
 
 - La build **debug** usa el backend local (`planify.debugBaseUrl`, por defecto `http://10.0.2.2:3000/`: `php -S 0.0.0.0:3000 -t public public/index.php` en Planify-Backend).
-- La **release** usa `planify.baseUrl` de `android/planify.properties` (ver `planify.properties.example`); sin ella no compila.
-- Pruebas: `./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleRelease` (en `android/`).
+- La **release** usa `planify.baseUrl` de `apps/dashboard/planify.properties` (ver `planify.properties.example`); sin ella no compila.
+- Pruebas: `./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleRelease` (en `apps/dashboard/`).
 
 **Entorno de demo** (`scripts/demo.sh`), para probar sin datos reales y hacer las capturas del README:
 
 - `scripts/demo.sh app [--no-build]` deja el emulador listo en un paso: levanta el backend de demo, arranca el AVD si no lo está, le pone la hora del PC, compila e instala la debug y entra con la cuenta de demo (escribe la sesión en las preferencias de la app, sin teclear).
-- El backend de demo es una copia de Planify-Backend (`PLANIFY_BACKEND`, por defecto `../backend`) en `.demo/` (git lo ignora), en el puerto 3001, con una familia ficticia de `scripts/demo/seed.py`: personas, 2 calendarios, eventos alrededor de hoy, rutinas y listas de tareas. Las fechas son relativas al día, así que se vuelve a crear si es de otro día.
+- El backend de demo es una copia de Planify-Backend (`PLANIFY_BACKEND`, por defecto `api/`) en `.demo/` (git lo ignora), en el puerto 3001, con una familia ficticia de `scripts/demo/seed.py`: personas, 2 calendarios, eventos alrededor de hoy, rutinas y listas de tareas. Las fechas son relativas al día, así que se vuelve a crear si es de otro día.
 - `up` solo levanta el backend, `down` lo para y `reset` lo crea desde cero.
 
 Para probar el quiosco en el emulador basta con `adb shell dpm set-device-owner com.lito.planify.dashboard/.admin.AdminReceiver` en un AVD sin cuentas.

@@ -5,8 +5,8 @@ Un marco de fotos digital de unos 80 € convertido en la pantalla de la familia
 **Este repositorio es, sobre todo, una guía para agentes** (Claude Code, Codex…) que quieran crear su propia versión: qué hay que hacer, en qué orden, con qué requisitos y qué se aprendió por el camino. Nosotros partimos de [wesbos/photo-frame-dashboard](https://github.com/wesbos/photo-frame-dashboard) de la misma forma.
 
 Este proyecto está conectado con la aplicación y el backend de Planify:
-- **[Planify-APP](https://github.com/eusonlito/Planify-APP):** la app Android donde se crean y editan calendarios, eventos, rutinas, personas y tareas.
-- **[Planify-Backend](https://github.com/eusonlito/Planify-Backend):** la API (PHP + SQLite) que guarda todo.
+- **[Planify-APP](apps/control/):** la app Android donde se crean y editan calendarios, eventos, rutinas, personas y tareas.
+- **[Planify-Backend](api/):** la API (PHP + SQLite) que guarda todo.
 
 **Pero puedes crear tu propia versión de todo sin problema:** usar otro backend (Google Calendar, CalDAV, Home Assistant, un JSON propio…), otro diseño, otras pantallas u otro marco. La [fase 3](#fase-3-decide-qué-app-vas-a-instalar) explica qué hay que cambiar en cada caso.
 
@@ -151,7 +151,7 @@ La ficha completa, con todas las particiones y el software de fábrica, está en
 | Herramienta | Para qué |
 |---|---|
 | `adb` (Android platform-tools) | Todo |
-| JDK 17 o superior y el SDK de Android (compileSdk 37) | Compilar la app (`android/gradlew`) |
+| JDK 17 o superior y el SDK de Android (compileSdk 37) | Compilar la app (`apps/dashboard/gradlew`) |
 | `sha256sum`, `gzip` | Copia de seguridad |
 | `mtools`, `dosfstools` (`fsck.vfat`) | Logo del bootloader (`scripts/boot/install.sh`) |
 | Chrome/Chromium, ImageMagick, `zip` | Solo si regeneras el logo o la animación (`scripts/boot/make.sh`) |
@@ -160,7 +160,7 @@ La ficha completa, con todas las particiones y el software de fábrica, está en
 **Además:**
 - Un cable **USB-C de datos** (no solo carga).
 - Una red Wi-Fi de **2,4 GHz con WPA2** (el chip no soporta WPA3 ni 5 GHz). Mejor una red de invitados.
-- Si usas esta app tal cual: un [Planify-Backend](https://github.com/eusonlito/Planify-Backend) accesible por HTTPS y una cuenta creada con la [Planify-APP](https://github.com/eusonlito/Planify-APP).
+- Si usas esta app tal cual: un [Planify-Backend](api/) accesible por HTTPS y una cuenta creada con la [Planify-APP](apps/control/).
 
 ---
 
@@ -183,9 +183,9 @@ La ficha completa, con todas las particiones y el software de fábrica, está en
 
 ### Fase 3: decide qué app vas a instalar
 
-La app de este repositorio (`android/`) es un dashboard nativo en Kotlin y Jetpack Compose, de solo lectura, que habla con Planify-Backend y con Open-Meteo. Tienes tres caminos:
+La app de este repositorio (`apps/dashboard/`) es un dashboard nativo en Kotlin y Jetpack Compose, de solo lectura, que habla con Planify-Backend y con Open-Meteo. Tienes tres caminos:
 
-1. **Usarla con Planify** (lo más rápido): monta [Planify-Backend](https://github.com/eusonlito/Planify-Backend), crea tu cuenta con [Planify-APP](https://github.com/eusonlito/Planify-APP) y marca en la APP qué calendarios y listas se ven (interruptor «Mostrar en el dashboard»).
+1. **Usarla con Planify** (lo más rápido): monta [Planify-Backend](api/), crea tu cuenta con [Planify-APP](apps/control/) y marca en la APP qué calendarios y listas se ven (interruptor «Mostrar en el dashboard»).
 2. **Usarla con otra fuente de datos:** la app solo necesita esto del backend, así que basta con reimplementarlo (o cambiar `data/Api.kt` y los repositorios de `data/repository/`):
 
    | Petición | Respuesta |
@@ -200,7 +200,7 @@ La app de este repositorio (`android/`) es un dashboard nativo en Kotlin y Jetpa
 ### Fase 4: configura y compila
 
 ```sh
-cp android/planify.properties.example android/planify.properties
+cp apps/dashboard/planify.properties.example apps/dashboard/planify.properties
 #   planify.baseUrl=https://tu-backend/        URL de la API (obligatoria para la release)
 
 cp scripts/config.example scripts/config.local
@@ -323,7 +323,9 @@ Muchos marcos parecidos usan el mismo SoC A133 o placas Rockchip, pero cambian e
 ## Estructura
 
 ```
-android/              app Android (Kotlin, Jetpack Compose, minSdk 29); planify.properties.example
+apps/dashboard/       app Android del marco (Kotlin, Jetpack Compose, minSdk 29); planify.properties.example
+apps/control/         app Android gestora (Planify-APP): calendarios, eventos, rutinas, personas y tareas
+api/                  API (PHP + SQLite) de Planify-Backend
 scripts/install.sh    fases 2 y 4 a 8; se configura con scripts/config.local (config.example)
 scripts/frame/        backup.sh (eMMC), planify-frame.sh y .rc (cortafuegos y wakelock al arrancar)
 scripts/boot/         logo del bootloader y animación de arranque (boot.html → make.sh → install.sh)
