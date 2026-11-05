@@ -1,12 +1,14 @@
-# Planify - Dashboard 🖼️
+# Homita 🖼️
 
 Un marco de fotos digital de unos 80 € convertido en la pantalla de la familia: hora, tiempo, eventos, rutinas y tareas de un vistazo, colgado en la pared, sin la app del fabricante y sin suscripciones.
 
-**Este repositorio es, sobre todo, una guía para agentes** (Claude Code, Codex…) que quieran crear su propia versión: qué hay que hacer, en qué orden, con qué requisitos y qué se aprendió por el camino. Nosotros partimos de [wesbos/photo-frame-dashboard](https://github.com/wesbos/photo-frame-dashboard) de la misma forma.
+Homita es el monorepo de las tres piezas que lo hacen funcionar:
 
-Este proyecto está conectado con la aplicación y el backend de Planify:
-- **[Planify-APP](apps/control/):** la app Android donde se crean y editan calendarios, eventos, rutinas, personas y tareas.
-- **[Planify-Backend](api/):** la API (PHP + SQLite) que guarda todo.
+- **[El marco (dashboard)](#el-marco-dashboard)** (`apps/dashboard/`): la app Android de solo lectura que se instala en el marco.
+- **[La gestora (control)](#la-gestora-control)** (`apps/control/`): la app Android donde se crean y editan calendarios, eventos, rutinas, personas y tareas.
+- **[La API](#la-api)** (`api/`): la API única que guarda todo; hoy Planify-Backend (PHP + SQLite), con su relevo por Supabase planeado.
+
+**Este repositorio es, sobre todo, una guía para agentes** (Claude Code, Codex…) que quieran crear su propia versión: qué hay que hacer, en qué orden, con qué requisitos y qué se aprendió por el camino. Nosotros partimos de [wesbos/photo-frame-dashboard](https://github.com/wesbos/photo-frame-dashboard) de la misma forma.
 
 **Pero puedes crear tu propia versión de todo sin problema:** usar otro backend (Google Calendar, CalDAV, Home Assistant, un JSON propio…), otro diseño, otras pantallas u otro marco. La [fase 3](#fase-3-decide-qué-app-vas-a-instalar) explica qué hay que cambiar en cada caso.
 
@@ -19,14 +21,17 @@ Este proyecto está conectado con la aplicación y el backend de Planify:
 ## Índice
 
 1. [Capturas](#capturas)
-2. [Para agentes: empieza aquí](#para-agentes-empieza-aquí)
-3. [El hardware](#el-hardware)
-4. [Requisitos](#requisitos)
-5. [Las fases, paso a paso](#las-fases-paso-a-paso)
-6. [Qué hace la app](#qué-hace-la-app)
-7. [Lo que aprendimos (léelo antes de improvisar)](#lo-que-aprendimos)
-8. [Adaptarlo a otro marco](#adaptarlo-a-otro-marco)
-9. [Estructura, licencias y créditos](#estructura)
+2. [El marco (dashboard)](#el-marco-dashboard)
+3. [La gestora (control)](#la-gestora-control)
+4. [La API](#la-api)
+5. [Para agentes: empieza aquí](#para-agentes-empieza-aquí)
+6. [El hardware](#el-hardware)
+7. [Requisitos](#requisitos)
+8. [Las fases, paso a paso](#las-fases-paso-a-paso)
+9. [Qué hace la app](#qué-hace-la-app)
+10. [Lo que aprendimos (léelo antes de improvisar)](#lo-que-aprendimos)
+11. [Adaptarlo a otro marco](#adaptarlo-a-otro-marco)
+12. [Estructura, licencias y créditos](#estructura)
 
 ---
 
@@ -74,6 +79,38 @@ Fuera de horario, o al pulsar la luna de la barra lateral, la pantalla no se apa
 Con la cuenta de Planify. Sin Internet, en su lugar aparece "Esperando conexión a Internet…" con un botón a los ajustes de Wi-Fi.
 
 <img src="docs/images/login.png" alt="Inicio de sesión" />
+
+---
+
+## El marco (dashboard)
+
+`apps/dashboard/` es la app que va instalada en el marco: Android, Kotlin y Jetpack Compose (minSdk 29), de solo lectura, diseñada en los píxeles nativos del panel (1920×1200). Muestra lo que hay en la API y en Open-Meteo. Compilar y probar, desde su carpeta:
+
+```sh
+cd apps/dashboard
+./gradlew :app:assembleDebug          # build (debug)
+./gradlew :app:testDebugUnitTest      # tests (JUnit4)
+./gradlew :app:lintDebug              # lint
+```
+
+Instalarla en el marco y convertirlo en quiosco: [docs/SETUP.md](docs/SETUP.md). El guion completo, con el hardware y las fases, empieza más abajo.
+
+## La gestora (control)
+
+`apps/control/` es la app Android donde se crean y editan calendarios, eventos, rutinas, personas y tareas con la misma cuenta que usa el marco. Es [Planify-APP](apps/control/README.md) importado al monorepo: funciones, capturas y build están en [su README](apps/control/README.md), y allí se marca qué calendarios y listas se ven en el dashboard (interruptor «Mostrar en el dashboard»).
+
+## La API
+
+`api/` es la API única que guarda todos los datos: hoy Planify-Backend (PHP + SQLite) y está previsto que la releve Supabase. Instalación y configuración: [api/README.md](api/README.md). A mano, desde `api/`, migraciones y servidor:
+
+```sh
+php src/Commands/Migrate.php
+php -S 0.0.0.0:3001 -t public public/index.php
+```
+
+Para probar sin datos reales, `scripts/demo.sh up` monta una copia de `api/` en `.demo/` (git la ignora) en <http://127.0.0.1:3001> con una familia ficticia de hoy: personas, calendarios, eventos, rutinas y listas de tareas. La debug del marco apunta por defecto a `http://10.0.2.2:3000/` (`planify.debugBaseUrl`).
+
+**Demo en un paso:** `scripts/demo.sh app` — backend de demo, emulador con las medidas del marco, la hora del PC, la debug compilada apuntando al 3001 e instalada, y la sesión de demo entrada sin teclear (más detalle en [docs/ARCHITECTURE.md, Desarrollo](docs/ARCHITECTURE.md#desarrollo)).
 
 ---
 
@@ -323,14 +360,17 @@ Muchos marcos parecidos usan el mismo SoC A133 o placas Rockchip, pero cambian e
 ## Estructura
 
 ```
-apps/dashboard/       app Android del marco (Kotlin, Jetpack Compose, minSdk 29); planify.properties.example
-apps/control/         app Android gestora (Planify-APP): calendarios, eventos, rutinas, personas y tareas
-api/                  API (PHP + SQLite) de Planify-Backend
-scripts/install.sh    fases 2 y 4 a 8; se configura con scripts/config.local (config.example)
-scripts/frame/        backup.sh (eMMC), planify-frame.sh y .rc (cortafuegos y wakelock al arrancar)
-scripts/boot/         logo del bootloader y animación de arranque (boot.html → make.sh → install.sh)
-scripts/meteocons.py  iconos del tiempo para la app
-docs/                 FRAME, SETUP, ARCHITECTURE, ANDROID, inventory/ e images/
+apps/dashboard/         app Android del marco (Kotlin, Jetpack Compose, minSdk 29); planify.properties.example
+apps/control/           app Android gestora (Planify-APP): calendarios, eventos, rutinas, personas y tareas; README, design/ y docs/
+api/                    API única (Planify-Backend, PHP + SQLite): public/, src/, config/, migrations/, tests/
+scripts/install.sh      fases 2 y 4 a 8; se configura con scripts/config.local (config.example)
+scripts/demo.sh         entorno de demo: backend en .demo/ con datos ficticios (demo/seed.py), emulador y app debug
+scripts/frame/          backup.sh (eMMC), planify-frame.sh y .rc (cortafuegos y wakelock al arrancar)
+scripts/boot/           logo del bootloader y animación de arranque (boot.html → make.sh → install.sh)
+scripts/meteocons.py    iconos del tiempo para la app
+docs/                   FRAME, SETUP, ARCHITECTURE, ANDROID, README, inventory/ e images/
+third_party/meteocons/  licencia de los iconos del tiempo
+licenses/               licencia de las fuentes Geist
 ```
 
 ## Licencias
