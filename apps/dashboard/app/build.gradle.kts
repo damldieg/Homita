@@ -6,7 +6,7 @@ plugins {
 }
 
 // URL del backend de Planify para cada instalación, sin dejarla en el código. Se busca, por este orden, en
-// android/planify.properties (ver planify.properties.example), en -Pplanify.baseUrl=… y en la variable de entorno
+// apps/dashboard/planify.properties (ver planify.properties.example), en -Pplanify.baseUrl=… y en la variable de entorno
 // PLANIFY_BASE_URL. La release no se compila sin ella; la debug apunta por defecto al backend local del emulador.
 val planify = Properties().apply {
     rootProject.file("planify.properties").takeIf { it.isFile }?.reader()?.use { load(it) }
@@ -67,7 +67,7 @@ val checkPlanifyBaseUrl = tasks.register("checkPlanifyBaseUrl") {
     val url = releaseBaseUrl
     doLast {
         if (url == null) throw GradleException(
-            "Falta la URL del backend: copia android/planify.properties.example a android/planify.properties " +
+            "Falta la URL del backend: copia apps/dashboard/planify.properties.example a apps/dashboard/planify.properties " +
                 "y rellena planify.baseUrl (o usa -Pplanify.baseUrl=… o PLANIFY_BASE_URL)."
         )
     }

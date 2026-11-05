@@ -20,8 +20,8 @@ import tempfile
 VERSION = "3.0.0-next.10"
 STYLE = "line"
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-OUT = ROOT / "android/app/src/main/res/raw"
-DRAWABLES = ROOT / "android/app/src/main/res/drawable"
+OUT = ROOT / "apps/dashboard/app/src/main/res/raw"
+DRAWABLES = ROOT / "apps/dashboard/app/src/main/res/drawable"
 LICENSE = ROOT / "third_party/meteocons/LICENSE"
 
 ICONS = [
