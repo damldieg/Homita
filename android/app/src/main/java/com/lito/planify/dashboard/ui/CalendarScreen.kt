@@ -124,19 +124,19 @@ private fun DayCard(date: LocalDate, state: UiState, events: List<Event>, sessio
             )
             Text("${date.dayOfMonth}", style = Type.Large.copy(color = if (isToday) Palette.Accent else Palette.Ink, fontWeight = FontWeight.SemiBold), maxLines = 1)
         }
-        // El tiempo en una línea, de alto fijo haya previsión o no: icono, máxima y mínima, y la lluvia a la derecha
+        // El tiempo en una línea, de alto fijo haya previsión o no: icono, mínima y máxima, y la lluvia a la derecha
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(44.dp)) {
             if (forecast != null && day >= 0) {
                 DayWeatherIcon(forecast, date, today = date.takeIf { isToday }, size = 40)
                 Text(
-                    forecast.daily.temperature_2m_max[day].degrees(),
-                    style = Type.Small.copy(color = Palette.Ink),
+                    forecast.daily.temperature_2m_min[day].degrees(),
+                    style = Type.Small.copy(color = Palette.InkMuted),
                     maxLines = 1,
                     modifier = Modifier.padding(start = 6.dp)
                 )
                 Text(
-                    " " + forecast.daily.temperature_2m_min[day].degrees(),
-                    style = Type.Small.copy(color = Palette.InkMuted),
+                    " " + forecast.daily.temperature_2m_max[day].degrees(),
+                    style = Type.Small.copy(color = Palette.Ink),
                     maxLines = 1,
                     modifier = Modifier.weight(1f)
                 )
