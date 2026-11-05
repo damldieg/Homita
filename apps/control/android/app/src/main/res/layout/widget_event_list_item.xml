@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_item_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@android:color/white">
+
+    <!-- Left color bar -->
+    <ImageView
+        android:id="@+id/event_color_line"
+        android:layout_width="4dp"
+        android:layout_height="match_parent"
+        android:layout_marginVertical="0dp"
+        android:contentDescription="@null" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp">
+
+        <!-- Top Row: Date & Time + Relative Label -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="2dp">
+            
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
+                android:layout_toStartOf="@+id/badge_container"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/event_datetime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="JUE 19 ABR · 16:00"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:textColor="#757575" />
+
+                <ImageView
+                    android:id="@+id/event_alarm_icon"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:layout_marginStart="4dp"
+                    android:src="@drawable/ic_bell"
+                    android:tint="#757575"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- Relative Label Badge -->
+            <RelativeLayout
+                android:id="@+id/badge_container"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:background="@drawable/badge_shape">
+                
+                <TextView
+                    android:id="@+id/event_relative_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="EN 2 H"
+                    android:textSize="8sp"
+                    android:textStyle="bold"
+                    android:textColor="#5A5853"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp" />
+            </RelativeLayout>
+        </RelativeLayout>
+
+        <!-- Bottom Row: Title -->
+        <TextView
+            android:id="@+id/event_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Dentista"
+            android:textSize="14sp"
+            android:textColor="#1D1B20"
+            android:fontFamily="sans-serif-medium" />
+
+    </LinearLayout>
+
+</LinearLayout>

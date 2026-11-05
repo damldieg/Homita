@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/day_container"
+    android:layout_width="0dp"
+    android:layout_weight="1"
+    android:layout_height="64dp"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="@null">
+
+    <TextView
+        android:id="@+id/day_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Lun"
+        android:textSize="10sp"
+        android:fontFamily="sans-serif-medium"
+        android:textColor="#5A5853"
+        android:gravity="center"
+        android:layout_marginTop="2dp" />
+
+    <TextView
+        android:id="@+id/day_number"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="16"
+        android:textSize="18sp"
+        android:fontFamily="serif"
+        android:textColor="#1D1B20"
+        android:gravity="center"
+        android:layout_marginTop="-2dp"
+        android:layout_marginBottom="0dp" />
+
+    <FrameLayout
+        android:id="@+id/day_badge_container"
+        android:layout_width="14dp"
+        android:layout_height="14dp"
+        android:visibility="gone"
+        android:layout_marginBottom="2dp">
+        
+        <ImageView
+            android:id="@+id/day_badge_bg"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/badge_circle_solid" />
+            
+        <TextView
+            android:id="@+id/day_badge_text"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:textColor="#FFFFFF"
+            android:textSize="8sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:text="1" />
+    </FrameLayout>
+</LinearLayout>

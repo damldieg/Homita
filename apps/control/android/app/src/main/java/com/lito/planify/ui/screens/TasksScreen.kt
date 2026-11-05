@@ -1,0 +1,461 @@
+package com.lito.planify.ui.screens
+
+import androidx.compose.animation.*
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.lito.planify.R
+import com.lito.planify.ui.components.*
+import com.lito.planify.viewmodel.TaskListViewModel
+import com.lito.planify.viewmodel.TaskViewModel
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TasksScreen(
+    taskListId: Int,
+    taskListName: String,
+    viewModel: TaskViewModel,
+    taskListViewModel: TaskListViewModel,
+    isStandalone: Boolean = false,
+    onBack: (() -> Unit)? = null,
+    onNavigateToTasks: (() -> Unit)? = null,
+    onNavigateToCalendars: (() -> Unit)? = null,
+    onNavigateToProfile: (() -> Unit)? = null
+) {
+    val tasks by viewModel.tasks.collectAsState()
+    val togglingTasks by viewModel.togglingTasks.collectAsState()
+    val taskListsState by taskListViewModel.taskLists.collectAsState()
+    val isGlobal = taskListId == 0
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { context.getSharedPreferences("planify_prefs", android.content.Context.MODE_PRIVATE) }
+
+    var selectedListFilterId by remember { 
+        val savedId = prefs.getInt("selected_list_filter", -1)
+        mutableStateOf<Int?>(if (savedId != -1) savedId else null)
+    }
+    var newTaskTitle by remember { mutableStateOf("") }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var selectedTaskToEdit by remember { mutableStateOf<com.lito.planify.data.api.TaskResponse?>(null) }
+    var showCreateTaskDialog by remember { mutableStateOf(false) }
+
+    if (isStandalone && onBack != null) {
+        androidx.activity.compose.BackHandler(onBack = onBack)
+    }
+
+    val currentList = remember(taskListsState, taskListId) { taskListsState.find { it.id == taskListId } }
+    val displayName = currentList?.name ?: taskListName
+
+    LaunchedEffect(Unit) {
+        taskListViewModel.fetchTaskLists()
+    }
+
+    LaunchedEffect(taskListId, selectedListFilterId) {
+        val effectiveListId = if (isGlobal) selectedListFilterId else taskListId
+        viewModel.fetchTasks(taskListId = effectiveListId, force = false)
+    }
+
+    if (isStandalone) {
+        GlassNavScaffold(
+            currentRoute = "tasks",
+            onNavigate = { route ->
+                when (route) {
+                    "tasks" -> onNavigateToTasks?.invoke()
+                    "calendars" -> onNavigateToCalendars?.invoke()
+                    "profile" -> onNavigateToProfile?.invoke()
+                }
+            }
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                TasksViewContent(
+                    displayName = displayName,
+                    isStandalone = true,
+                    isGlobal = false,
+                    selectedListFilterId = null,
+                    onSetFilter = {},
+                    taskLists = taskListsState,
+                    tasks = tasks,
+                    isRefreshing = viewModel.isLoading.collectAsState().value,
+                    onRefresh = { viewModel.fetchTasks(taskListId = taskListId, force = true) },
+                    togglingTasks = togglingTasks,
+                    newTaskTitle = newTaskTitle,
+                    onTitleChange = { newTaskTitle = it },
+                    onAddTask = { viewModel.createTask(taskListId, newTaskTitle); newTaskTitle = "" },
+                    onShowCreateTask = {},
+                    onTaskToggle = { id, listId, comp -> viewModel.completeTask(id, listId, comp) },
+                    onTaskDelete = { id, listId -> viewModel.deleteTask(id, listId) },
+                    onReorderTask = { id, pos, lId -> viewModel.reorderTask(id, pos, lId) },
+                    onShowEdit = { showEditDialog = true },
+                    activeListId = taskListId,
+                    sortOrder = currentList?.sort ?: "updated_at",
+                    onTaskLongClick = { selectedTaskToEdit = it }
+                )
+            }
+        }
+    } else {
+        TasksViewContent(
+            displayName = displayName,
+            isStandalone = false,
+            isGlobal = true,
+            selectedListFilterId = selectedListFilterId,
+            onSetFilter = { 
+                selectedListFilterId = it 
+                prefs.edit().putInt("selected_list_filter", it ?: -1).apply()
+            },
+            taskLists = taskListsState,
+            tasks = tasks,
+            isRefreshing = viewModel.isLoading.collectAsState().value,
+            onRefresh = { viewModel.fetchTasks(taskListId = selectedListFilterId, force = true) },
+            togglingTasks = togglingTasks,
+            newTaskTitle = newTaskTitle,
+            onTitleChange = { newTaskTitle = it },
+            onAddTask = { viewModel.createTask(selectedListFilterId, newTaskTitle); newTaskTitle = "" },
+            onShowCreateTask = { showCreateTaskDialog = true },
+            onTaskToggle = { id, listId, comp -> viewModel.completeTask(id, listId, comp) },
+            onTaskDelete = { id, listId -> viewModel.deleteTask(id, listId) },
+            onReorderTask = { id, pos, lId -> viewModel.reorderTask(id, pos, lId) },
+            onShowEdit = {},
+            activeListId = selectedListFilterId,
+            sortOrder = taskListsState.find { it.id == selectedListFilterId }?.sort ?: "updated_at",
+            onTaskLongClick = { selectedTaskToEdit = it }
+        )
+    }
+
+    val taskListUsers by taskListViewModel.taskListUsers.collectAsState()
+
+    LaunchedEffect(showEditDialog) {
+        if (showEditDialog && isStandalone) {
+            taskListViewModel.fetchTaskListUsers(taskListId)
+        }
+    }
+
+    if (showEditDialog && isStandalone && currentList != null) {
+        CreateTaskListDialog(
+            initialName = currentList.name,
+            initialColor = currentList.color,
+            initialSortOrder = currentList.sort,
+            initialWidget = currentList.widget ?: true,
+            initialDashboard = currentList.dashboard ?: true,
+            users = taskListUsers,
+            onInviteUser = { email -> taskListViewModel.addTaskListUser(taskListId, email) },
+            onRemoveUser = { userId -> taskListViewModel.removeTaskListUser(taskListId, userId) },
+            onDismiss = { showEditDialog = false },
+            onConfirm = { name, color, sortOrder, widget, dashboard ->
+                taskListViewModel.updateTaskList(taskListId, name, color, sortOrder, widget, dashboard) {
+                    viewModel.fetchTasks(taskListId = taskListId, force = true)
+                }
+                showEditDialog = false
+            },
+            onDelete = {
+                taskListViewModel.deleteTaskList(taskListId) {
+                    onBack?.invoke()
+                }
+                showEditDialog = false
+            },
+            isEdit = true
+        )
+    }
+
+    selectedTaskToEdit?.let { task ->
+        TaskFormDialog(
+            initialTitle = task.title,
+            onDismiss = { selectedTaskToEdit = null },
+            onConfirm = { newTitle, _ ->
+                val effectiveListId = if (isGlobal) selectedListFilterId else taskListId
+                viewModel.updateTask(task.id, effectiveListId, newTitle)
+                selectedTaskToEdit = null
+            },
+            onDelete = {
+                val effectiveListId = if (isGlobal) selectedListFilterId else taskListId
+                viewModel.deleteTask(task.id, effectiveListId)
+                selectedTaskToEdit = null
+            },
+            isEdit = true
+        )
+    }
+
+    if (showCreateTaskDialog) {
+        TaskFormDialog(
+            initialTitle = "",
+            taskLists = taskListsState,
+            onDismiss = { showCreateTaskDialog = false },
+            onConfirm = { title, listId ->
+                viewModel.createTask(listId, title, refreshListId = selectedListFilterId)
+                showCreateTaskDialog = false
+            },
+            isEdit = false
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun TasksViewContent(
+    displayName: String,
+    isStandalone: Boolean,
+    isGlobal: Boolean,
+    selectedListFilterId: Int?,
+    onSetFilter: (Int?) -> Unit,
+    taskLists: List<com.lito.planify.data.api.TaskListResponse>,
+    tasks: List<com.lito.planify.data.api.TaskResponse>,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
+    togglingTasks: Set<Int>,
+    newTaskTitle: String,
+    onTitleChange: (String) -> Unit,
+    onAddTask: () -> Unit,
+    onShowCreateTask: () -> Unit,
+    onTaskToggle: (Int, Int?, Boolean) -> Unit,
+    onTaskDelete: (Int, Int?) -> Unit,
+    onReorderTask: (Int, Int, Int?) -> Unit,
+    onShowEdit: () -> Unit,
+    activeListId: Int?,
+    sortOrder: String = "updated_at",
+    onTaskLongClick: ((com.lito.planify.data.api.TaskResponse) -> Unit)? = null
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        val colorHex = activeListId?.let { id -> taskLists.find { it.id == id }?.color }
+        val listColor = parseHexColor(colorHex)
+
+        if (isStandalone) {
+            PlanifyHeader {
+                Row(
+                    modifier = Modifier.padding(top = 8.dp, start = 24.dp, end = 16.dp, bottom = 8.dp).fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.size(14.dp).background(listColor, CircleShape))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = displayName,
+                        style = MaterialTheme.typography.headlineLarge,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onShowEdit, modifier = Modifier.glass(CircleShape)) {
+                        Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+        }
+
+        if (isGlobal) {
+            LazyRow(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item {
+                    PlanifyFilterChip(
+                        label = stringResource(R.string.tasks_filter_all),
+                        isSelected = selectedListFilterId == null,
+                        onClick = { onSetFilter(null) }
+                    )
+                }
+                itemsIndexed(taskLists) { _, list ->
+                    PlanifyFilterChip(
+                        label = list.name,
+                        isSelected = selectedListFilterId == list.id,
+                        colorHex = list.color,
+                        onClick = { onSetFilter(list.id) }
+                    )
+                }
+            }
+        }
+
+        PlanifyContentContainer(
+            modifier = Modifier.animateContentSize(animationSpec = tween(300)),
+            topPadding = 0.dp
+        ) {
+            Column {
+                val showAdd = activeListId != null && activeListId > 0
+                AnimatedVisibility(
+                    visible = showAdd,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .fillMaxWidth()
+                            .glass(CircleShape)
+                            .padding(start = 6.dp, end = 6.dp, top = 2.dp, bottom = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TextField(
+                            value = newTaskTitle,
+                            onValueChange = onTitleChange,
+                            placeholder = { Text(stringResource(R.string.tasks_add_hint), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { if (newTaskTitle.isNotBlank()) onAddTask() })
+                        )
+                        val canAdd = newTaskTitle.isNotBlank()
+                        FloatingActionButton(
+                            onClick = { if (canAdd) onAddTask() },
+                            containerColor = if (canAdd) listColor else listColor.copy(alpha = 0.35f),
+                            contentColor = Color.White,
+                            shape = CircleShape,
+                            modifier = Modifier.size(44.dp),
+                            elevation = FloatingActionButtonDefaults.elevation(0.dp)
+                        ) { Icon(Icons.Default.Add, null) }
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = isGlobal && !showAdd && taskLists.isNotEmpty(),
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .fillMaxWidth()
+                            .glass(CircleShape)
+                            .clickable { onShowCreateTask() }
+                            .padding(start = 22.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.tasks_new_task),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Box(
+                            modifier = Modifier.size(44.dp).background(listColor, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Add, null, tint = Color.White)
+                        }
+                    }
+                }
+
+                val pending = tasks.filter { it.completed_at == null }
+                val completed = tasks.filter { it.completed_at != null }
+                val lazyListState = rememberLazyListState()
+                val isReorderEnabled = activeListId != null && sortOrder == "custom"
+
+                val reorderableLazyColumnState = rememberReorderableLazyListState(lazyListState) { from, to ->
+                    // Reordering only allowed within the pending tasks section.
+                    // Header is at index 0.
+                    if (from.index in 1..pending.size && to.index in 1..pending.size) {
+                        val task = pending[from.index - 1]
+                        onReorderTask(task.id, to.index - 1, activeListId)
+                    }
+                }
+
+                PlanifyPullToRefreshBox(
+                    isRefreshing = isRefreshing,
+                    onRefresh = onRefresh,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    LazyColumn(
+                        state = lazyListState,
+                        modifier = Modifier.fillMaxSize(), 
+                        contentPadding = PaddingValues(bottom = 16.dp)
+                    ) {
+                    if (pending.isNotEmpty()) {
+                        item {
+                            GlassSectionLabel(stringResource(R.string.tasks_section_pending, pending.size))
+                        }
+                        itemsIndexed(pending, key = { _, task -> task.id }) { index, task ->
+                            if (isReorderEnabled) {
+                                ReorderableItem(reorderableLazyColumnState, key = task.id) { isDragging ->
+                                    val elevation by animateDpAsState(if (isDragging) 8.dp else 0.dp)
+                                    Surface(shadowElevation = elevation, color = Color.Transparent, shape = groupShape(index, pending.size)) {
+                                        PlanifyTaskRow(
+                                            title = task.title, 
+                                            colorHex = task.task_list_color, 
+                                            isChecked = false, 
+                                            isToggling = togglingTasks.contains(task.id),
+                                            onToggle = { onTaskToggle(task.id, activeListId, true) }, 
+                                            onDelete = { onTaskDelete(task.id, activeListId) },
+                                            info = if (isGlobal) task.task_list_name else null,
+                                            index = index,
+                                            groupCount = pending.size,
+                                            modifier = Modifier.draggableHandle().animateItem(),
+                                            onLongClick = { onTaskLongClick?.invoke(task) },
+                                            onClick = {}
+                                        )
+                                    }
+                                }
+                            } else {
+                                PlanifyTaskRow(
+                                    title = task.title, 
+                                    colorHex = task.task_list_color, 
+                                    isChecked = false, 
+                                    isToggling = togglingTasks.contains(task.id),
+                                    onToggle = { onTaskToggle(task.id, activeListId, true) }, 
+                                    onDelete = { onTaskDelete(task.id, activeListId) },
+                                    info = if (isGlobal) task.task_list_name else null,
+                                    index = index,
+                                    groupCount = pending.size,
+                                    modifier = Modifier.animateItem(),
+                                    onLongClick = { onTaskLongClick?.invoke(task) },
+                                    onClick = {}
+                                )
+                            }
+                        }
+                    }
+                    if (completed.isNotEmpty()) {
+                        item {
+                            GlassSectionLabel(stringResource(R.string.tasks_section_completed, completed.size))
+                        }
+                        itemsIndexed(completed, key = { _, task -> task.id }) { index, task ->
+                            PlanifyTaskRow(
+                                title = task.title, 
+                                colorHex = task.task_list_color, 
+                                isChecked = true, 
+                                isToggling = togglingTasks.contains(task.id),
+                                onToggle = { onTaskToggle(task.id, activeListId, false) }, 
+                                onDelete = { onTaskDelete(task.id, activeListId) },
+                                info = if (isGlobal) task.task_list_name else null,
+                                index = index,
+                                groupCount = completed.size,
+                                modifier = Modifier.animateItem(),
+                                onLongClick = { onTaskLongClick?.invoke(task) },
+                                onClick = {}
+                            )
+                        }
+                    }
+                }
+                }
+            }
+        }
+    }
+}
