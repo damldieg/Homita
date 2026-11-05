@@ -11,13 +11,13 @@
 #   down     para el backend.
 #   reset    borra .demo/ y repite up.
 #
-# Variables: PLANIFY_BACKEND (por defecto ../backend), DEMO_AVD (Frame_API_29), DEMO_EMULATOR_PORT (5556),
+# Variables: PLANIFY_BACKEND (por defecto $HERE/api), DEMO_AVD (Frame_API_29), DEMO_EMULATOR_PORT (5556),
 # ANDROID_SDK (~/Android/Sdk).
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 DEMO="$HERE/.demo"
-BACKEND="${PLANIFY_BACKEND:-$HERE/../backend}"
+BACKEND="${PLANIFY_BACKEND:-$HERE/api}"
 AVD="${DEMO_AVD:-Frame_API_29}"
 EMULATOR_PORT="${DEMO_EMULATOR_PORT:-5556}"
 SDK="${ANDROID_SDK:-$HOME/Android/Sdk}"
@@ -45,7 +45,10 @@ up() {
         step "Copiando el backend de $BACKEND"
         [ -d "$BACKEND" ] || { echo "No está el backend en $BACKEND (PLANIFY_BACKEND)"; exit 1; }
         mkdir -p "$DEMO/backend"
-        git -C "$BACKEND" archive HEAD | tar -x -C "$DEMO/backend"
+        # Copia el árbol de trabajo (no git archive: api/ está dentro del monorepo y archivaría el repo entero),
+        # sin datos ni secretos locales
+        tar -C "$BACKEND" --exclude=.git --exclude=db --exclude=logs --exclude=config/private.local.json -cf - . \
+            | tar -x -C "$DEMO/backend"
         printf '{\n  "gemini_api_key": "",\n  "token_secret": "%s",\n  "db_log_enabled": false\n}\n' \
             "$(head -c 24 /dev/urandom | base64)" > "$DEMO/backend/config/private.local.json"
     fi
