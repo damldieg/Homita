@@ -1,0 +1,17 @@
+config/*.local.json
+logs/*
+db/*
+
+!logs/.gitkeep
+!db/.gitkeep
+
+# OS / Develop
+.DS_Store
+.vscode/
+Thumbs.db
+
+# Local Scripts
+scripts/
+
+# Debug
+debug/
