@@ -12,7 +12,8 @@
 #   reset    borra .demo/ y repite up.
 #
 # Variables: PLANIFY_BACKEND (por defecto $HERE/api), DEMO_AVD (Frame_API_29), DEMO_EMULATOR_PORT (5556),
-# ANDROID_SDK (~/Android/Sdk).
+# ANDROID_SDK (~/Android/Sdk), DEMO_BASE_URL (base del dashboard para la build y el token; por defecto
+# http://10.0.2.2:3001), DEMO_SKIP_BACKEND=1 (no arranca el PHP: el token se pide a su /user/auth).
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -23,7 +24,7 @@ EMULATOR_PORT="${DEMO_EMULATOR_PORT:-5556}"
 SDK="${ANDROID_SDK:-$HOME/Android/Sdk}"
 PORT=3001
 URL="http://127.0.0.1:$PORT"
-EMAIL=demo@planify.example
+EMAIL=demo@homita.example
 PASSWORD=demo1234
 PKG=com.lito.planify.dashboard
 export ANDROID_SERIAL="emulator-$EMULATOR_PORT"
@@ -91,19 +92,20 @@ app() {
             *) echo "Opción desconocida: $arg"; exit 1 ;;
         esac
     done
-    up
+    [ "${DEMO_SKIP_BACKEND:-}" = 1 ] || up
     emulator
     local apk="$HERE/apps/dashboard/app/build/outputs/apk/debug/app-debug.apk"
     if [ $build = 1 ]; then
         step "Compilando la debug"
-        (cd "$HERE/apps/dashboard" && ./gradlew -q assembleDebug -Pplanify.debugBaseUrl="http://10.0.2.2:$PORT")
+        (cd "$HERE/apps/dashboard" && ./gradlew -q assembleDebug -Pplanify.debugBaseUrl="${DEMO_BASE_URL:-http://10.0.2.2:$PORT}")
     fi
     step "Instalando"
     adb install -r "$apk" >/dev/null
 
     step "Sesión de demo"
-    local token prefs dir
-    token="$(curl -sf "$URL/user/auth" -H 'Content-Type: application/json' \
+    local token prefs dir api="${DEMO_BASE_URL:-$URL}"
+    api="${api/10.0.2.2/127.0.0.1}"  # 10.0.2.2 es el PC visto desde el emulador: desde el PC es 127.0.0.1
+    token="$(curl -sf "$api/user/auth" -H 'Content-Type: application/json' \
         -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')"
     dir="/data/data/$PKG"
     prefs="$(adb shell cat "$dir/shared_prefs/dashboard.xml" 2>/dev/null | tr -d '\r' || true)"
@@ -145,5 +147,5 @@ case "${1:-}" in
     app) shift; app "$@" ;;
     down) stop; step "Backend de demo parado" ;;
     reset) stop; rm -rf "$DEMO"; mkdir -p "$DEMO"; up ;;
-    *) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+    *) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac
