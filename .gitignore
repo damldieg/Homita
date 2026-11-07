@@ -30,4 +30,5 @@ api/config/private.local.json
 
 # Entorno de demo (scripts/demo.sh)
 .demo/
-.dorch/changes/
+.dorch/
+__pycache__/
