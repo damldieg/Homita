@@ -13,7 +13,7 @@ def call(method, path, data=None):
     req = urllib.request.Request(B + path, data=json.dumps(data or {}).encode(), method=method,
                                  headers={"Content-Type": "application/json", **({"Authorization": "Bearer " + tok} if tok else {})})
     with urllib.request.urlopen(req) as r: return json.load(r)
-u = call("POST", "/user/create", {"name": "Familia Demo", "email": "demo@planify.example", "password": "demo1234"})
+u = call("POST", "/user/create", {"name": "Familia Demo", "email": "demo@homita.example", "password": "demo1234"})
 tok = u["token"]
 P = {n: call("POST", "/person/create", {"name": n, "color": c})["id"] for n, c in
      [("Ana", "#2563EB"), ("Marcos", "#16A34A"), ("Lucía", "#9333EA"), ("Pablo", "#EA580C")]}
