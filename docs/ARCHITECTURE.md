@@ -90,7 +90,7 @@ Para probar el quiosco en el emulador basta con `adb shell dpm set-device-owner 
 
 ## Contrato del backend (control-api)
 
-El contrato es el **(a) PHP-compat** (D-008): la Edge Function `supabase/functions/api` replica el contrato de `api/` (PHP) ruta a ruta — mismos parámetros, validaciones y mensajes exactos, misma forma de respuesta y mismos efectos. `supabase/functions/api` es la **única fuente del contrato**; `api/` queda como oracle de paridad y vuelta atrás hasta su retirada. El detalle por ruta (43) está en `.dorch/changes/control-api/contract-inventory.md`.
+El contrato es el **(a) PHP-compat** (D-008): la Edge Function `supabase/functions/api` replica el contrato de `api/` (PHP) ruta a ruta — mismos parámetros, validaciones y mensajes exactos, misma forma de respuesta y mismos efectos. `supabase/functions/api` es la **única fuente del contrato**; `api/` queda como oracle de paridad y vuelta atrás hasta su retirada. El detalle por ruta (43) está en el propio código: la tabla de rutas (`ROUTES`) de `supabase/functions/api/index.ts` y `scripts/supabase/contract_check.py`, que compara la respuesta ruta a ruta con el PHP (existe además un inventario detallado del cambio, local y no versionado).
 
 **Matriz de autorización** (owner/viewer; §3 del plan de `control-api`). Notación: **M** = miembro del calendario o la lista (no miembro → `500 {"error":"Not Found"}`); **O** = owner; **S** = self (`user_id` de la sesión). El orden de comprobación es el PHP: validación 400 → M → S → O.
 
