@@ -1,12 +1,31 @@
-// Errores del contrato PHP: strings exactos de ControllerAbstract/UserAuth/middlewareAuth/router.
+// Errores del contrato PHP: strings exactos de ControllerAbstract/UserAuth/middlewareAuth/router
+// (inventario: .dorch/changes/control-api/contract-inventory.md).
 import { json } from "./contract.ts";
 
 export const error = (message: string, status: number): Response => json({ error: message }, status);
 
+// Mensajes que PHP emite como InvalidArgumentException → 400 (Router.php:62-67). Los que salen de
+// una RPC (validación de person tras lookup) se mapean aquí; 'Not Allowed' es el owner-only de la
+// matriz §3 (desviación Q5, 403) y el resto → 500 (como Database.php:56).
+const RPC_STATUS: Record<string, number> = {
+    "Not Allowed": 403,
+    "User cannot remove themselves": 400,
+    "Invalid timezone": 400,
+    "Name is required (max 50 characters)": 400,
+    "Color must be #RRGGBB": 400,
+    "Alarm must be nonnegative minutes or null": 400,
+};
+
 // Router::error de PHP: InvalidArgumentException → 400; el resto → 500 con el mensaje
 export const rpcError = (body: unknown): Response => {
     const message = (body as { message?: string } | null)?.message ?? "Internal error";
-    return error(message, message === "Invalid timezone" ? 400 : 500);
+    return error(message, RPC_STATUS[message] ?? 500);
+};
+
+// Pasa el JSON de la RPC tal cual (forma PHP) o mapea su error a los status del contrato
+export const rpcPass = async (res: Response, status = 200): Promise<Response> => {
+    if (!res.ok) return rpcError(await res.json().catch(() => null));
+    return new Response(await res.text(), { status, headers: { "Content-Type": "application/json" } });
 };
 
 export const errAuthFieldsRequired = (): Response => error("Email and password are required", 400);
@@ -15,3 +34,67 @@ export const errUnauthorized = (): Response => error("Unauthorized", 401);
 export const errRouteNotFound = (): Response => error("Not Found", 404);
 export const errPhpNotFound = (): Response => error("Not Found", 500);
 export const errInvalidTimezone = (): Response => error("Invalid timezone", 400);
+export const errNotAllowed = (): Response => error("Not Allowed", 403);
+export const errUserCannotRemoveThemselves = (): Response => error("User cannot remove themselves", 400);
+
+// user/create (UserCreate.php)
+export const errUserFieldsRequired = (): Response => error("Name, email and password are required", 400);
+export const errNameLength = (): Response => error("Name must be between 3 and 50 characters", 400);
+export const errPasswordLength = (): Response => error("Password must be at least 8 characters", 400);
+export const errEmailExists = (): Response => error("Email already exists", 400);
+
+// user/update (UserUpdate.php)
+export const errProfileFieldsRequired = (): Response => error("Name and email cannot be empty", 400);
+
+// calendar (Calendar*.php)
+export const errNameRequired = (): Response => error("Name is required", 400);
+export const errCalendarIdRequired = (): Response => error("Calendar ID is required", 400);
+export const errCalendarUpdateRequired = (): Response => error("Calendar ID, name and color are required", 400);
+export const errCalendarUserIdRequired = (): Response => error("calendar_id is required", 400);
+export const errCalendarUserCreateRequired = (): Response => error("Calendar ID and email are required", 400);
+export const errCalendarUserDeleteRequired = (): Response => error("calendar_id and user_id are required", 400);
+
+// person (Person.php / PersonControllerAbstract.php)
+export const errPersonIdRequired = (): Response => error("Person ID is required", 400);
+export const errPersonNameRequired = (): Response => error("Name is required (max 50 characters)", 400);
+export const errPersonColorInvalid = (): Response => error("Color must be #RRGGBB", 400);
+export const errPersonIdsList = (): Response => error("person_ids must be a list", 400);
+export const errPersonIdsIds = (): Response => error("person_ids must be a list of IDs", 400);
+export const errPersonInvalid = (): Response => error("Invalid person", 400);
+
+// routine (Routine.php / RoutineControllerAbstract.php)
+export const errRoutineIdRequired = (): Response => error("Routine ID is required", 400);
+export const errRoutineCalendarRequired = (): Response => error("Calendar ID is required", 400);
+export const errRoutineTitleRequired = (): Response => error("Title is required", 400);
+export const errRoutineFrequency = (): Response => error("Frequency must be daily, weekly or monthly", 400);
+export const errRoutineInterval = (): Response => error("Interval must be 1 to 99", 400);
+export const errRoutineDaysRequired = (): Response => error("Title and selected days are required", 400);
+export const errRoutineDaysRange = (): Response => error("Days must be ISO weekdays 1 to 7", 400);
+export const errRoutineTime = (): Response => error("Invalid time", 400);
+export const errRoutineDate = (): Response => error("Invalid date", 400);
+export const errRoutineDateRange = (): Response => error("Invalid date range", 400);
+export const errRoutineActive = (): Response => error("Active must be boolean", 400);
+export const errAlarmInvalid = (): Response => error("Alarm must be nonnegative minutes or null", 400);
+
+// event (Event*.php)
+export const errEventIdRequired = (): Response => error("Event ID is required", 400);
+export const errEventUpdateRequired = (): Response => error("Event ID, title, and date_at are required", 400);
+export const errEventAlarmIdRequired = (): Response => error("event_id is required", 400);
+export const errEventTextOnly = (): Response => error("Title and date_at are required if text is not provided", 400);
+
+// task-list (TaskList*.php)
+export const errTaskListIdRequired = (): Response => error("Task list ID is required", 400);
+export const errTaskListCreateRequired = (): Response => error("Name is required", 400);
+export const errTaskListSort = (): Response => error("Sort must be updated_at, title or custom", 400);
+export const errTaskListUpdateRequired = (): Response => error("Task list ID, name, color and sort are required", 400);
+export const errTaskListUserIdRequired = (): Response => error("task_list_id is required", 400);
+export const errTaskListUserCreateRequired = (): Response => error("Task list ID and email are required", 400);
+export const errTaskListUserDeleteRequired = (): Response => error("task_list_id and user_id are required", 400);
+
+// task (Task*.php)
+export const errTaskIdRequired = (): Response => error("Task ID is required", 400);
+export const errTaskCreateRequired = (): Response => error("task_list_id and title are required", 400);
+export const errTaskUpdateRequired = (): Response => error("Task ID and title are required", 400);
+export const errTaskCompleteRequired = (): Response => error("Task ID and completed are required", 400);
+export const errTaskOrderRequired = (): Response => error("id and position are required", 400);
+export const errTaskOrderNegative = (): Response => error("position must be zero or positive", 400);

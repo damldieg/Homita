@@ -10,6 +10,23 @@ export const passwordGrant = (email: string, password: string): Promise<Response
         body: JSON.stringify({ email, password }),
     });
 
+// User::create (alta): GoTrue signup con anon key; el trigger on_auth_user_created crea app_user
+export const signup = (name: string, email: string, password: string): Promise<Response> =>
+    fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+        method: "POST",
+        headers: { apikey: ANON_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, data: { name } }),
+    });
+
+// User::update (perfil): PUT /auth/v1/user con el JWT del usuario (Q8/Q9); app_user lo sincroniza
+// el trigger on_auth_user_updated (0010)
+export const updateAuthUser = (token: string, body: Record<string, unknown>): Promise<Response> =>
+    fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        method: "PUT",
+        headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+
 export const verifyUser = async (token: string): Promise<Record<string, unknown> | null> => {
     const who = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
         headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}` },
@@ -26,6 +43,19 @@ export const appUserRow = async (uid: string, token: string): Promise<Record<str
     if (!res.ok) return null;
     const rows = await res.json();
     return rows.length ? rows[0] : null;
+};
+
+// SELECT puntual sobre una tabla (RLS activa): [] si no visible (PHP → 500 Not Found)
+export const selectRows = async (
+    table: string,
+    query: string,
+    token: string,
+): Promise<Record<string, unknown>[]> => {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+        headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return [];
+    return await res.json();
 };
 
 export const rpc = async (name: string, args: Record<string, unknown>, token: string): Promise<Response> => {
