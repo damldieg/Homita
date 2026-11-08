@@ -1,0 +1,11 @@
+// Config.xcconfig.example — plantilla de la config de la app iOS.
+//
+// Uso: ejecuta `scripts/gen-config.sh` (lee ~/.homita/supabase.env y escribe Config.xcconfig
+// con permisos 600) o copia este fichero a `Config.xcconfig` y sustituye los placeholders.
+// `Config.xcconfig` está git-ignorado: la URL y la clave anon nunca se commitean.
+//
+// Nota xcconfig: `//` inicia comentario, por eso la URL lleva `$()` tras `https:/`:
+// la expansión en Info.plist (`$(PLANIFY_BASE_URL)`) produce `https://…`.
+PLANIFY_BASE_URL = https:/$()/<ref>.supabase.co/functions/v1/api
+SUPABASE_URL = https:/$()/<ref>.supabase.co
+SUPABASE_ANON_KEY = <anon key>
