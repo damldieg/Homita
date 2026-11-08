@@ -1,10 +1,16 @@
 # Supabase (fase 1 de D-002)
 
 Backend paralelo a `api/` (PHP, que sigue vivo): esquema Postgres, Supabase Auth, RLS y una Edge
-Function `api` que replica el contrato de lectura del dashboard (`POST /user/auth`, `GET /event`,
-`GET /task`). El dashboard de producción apunta aquí desde el corte (2026-11-08); `api/` (PHP) queda
-como legacy de transición y vuelta atrás.
+Function `api` que replica el contrato de `api/` (PHP) ruta a ruta — las 3 rutas de lectura del
+dashboard (`POST /user/auth`, `GET /event`, `GET /task`) y las 43 del contrato de la app gestora
+(control-api, D-008). El dashboard de producción apunta aquí desde el corte (2026-11-08); `api/`
+(PHP) queda como legacy de transición, oracle de paridad y vuelta atrás.
 Los comandos usan `supabase …`; sin CLI instalada, `npx supabase@latest …`.
+
+> **Despliegue a producción:** prohibido `supabase db push` / `supabase functions deploy` contra el
+> proyecto alojado fuera de la tarea T19 de `control-api`, que exige confirmación explícita del
+> usuario. Las verificaciones se hacen en el stack local (`supabase start`); nunca escribir contra
+> producción (cuenta familiar real).
 
 ## Variables de entorno (secretos: nunca en git)
 
@@ -16,6 +22,7 @@ Los comandos usan `supabase …`; sin CLI instalada, `npx supabase@latest …`.
 | `SUPABASE_DB_URL` | (opcional) psql para verificación de esquema |
 | `SUPABASE_ACCESS_TOKEN` | Token personal del CLI (`login`, `link`, `migration list`, `db push`, `functions deploy`) |
 | `SUPABASE_PROJECT_REF` | Ref del proyecto para `supabase link --project-ref` |
+| `ALLOW_REGISTRATION` | Secreto de la función (`functions serve --env-file` o Supabase Secrets): alta abierta de usuarios (`POST user/create`). Default `false` (registro cerrado, Q3); ver `docs/SETUP.md` |
 
 ## Stack local (Docker)
 
@@ -102,25 +109,35 @@ idempotente.
 | `migrations/0002_rls.sql` | Helpers `SECURITY DEFINER` (`fn_my_user_id`, `fn_my_calendar_ids`, `fn_my_task_list_ids`, `fn_family_user_ids`, `fn_event_in_my_calendars`, `fn_routine_in_my_calendars`) + RLS: solo SELECT con helpers, sin subconsultas a tablas RLS (R1-01); `anon` sin acceso |
 | `migrations/0003_functions.sql` | `get_events`/`get_tasks` (SECURITY INVOKER, JWT del usuario) + `materialize_routines_for`/`admin_bump_sequences` (SECURITY INVOKER, solo `service_role`; `REVOKE` a `anon`/`authenticated`) |
 | `migrations/0004_auth_trigger.sql` | Trigger `on auth.users insert` → `app_user` con `ON CONFLICT (auth_uid) DO NOTHING` |
+| `migrations/0005_read_rpcs.sql` | RPC de lectura de la app gestora (`get_calendars`, `get_task_lists`, `get_persons`, `get_routines`, `get_*_detail`, `get_user_me`…): `SECURITY DEFINER`, guardia `fn_my_user_id()` y filtro de tenant explícito |
+| `migrations/0006_write_rpcs.sql` | RPC de escritura (`create_*`, `update_*`, `delete_*`, `complete_task`, `set_event_alarm`…): `SECURITY DEFINER`, matriz owner/viewer dentro de cada RPC, mensajes PHP exactos |
+| `migrations/0007_materialize_routine.sql` | `fn_materialize_one` + `materialize_routine` (materialización por rutina en escrituras). `materialize_routines_for` de 0003 queda **intacta** |
+| `migrations/0008_invites.sql` | Invitación/retirada por email (`add_*_user`, `remove_*_user`), owner-only |
+| `migrations/0009_task_order.sql` | `task_order` (Task::moveToPosition: splice + renumerar 1..n) |
+| `migrations/0010_profile_sync.sql` | Trigger `on auth.users update` → sincronía de `app_user` (name/email) |
 
 ## Edge Function `functions/api/`
 
 Función Deno por casos de uso, sin build step (el deploy empaqueta los imports relativos del dir
-de la función). Rutas `user/auth`, `event` y `task`, espejo de `api/src/Controllers/router.php`.
-El pathname incluye el prefijo de montaje (`/functions/v1/api/user/auth` llega como
-`/api/user/auth`) y `matchRoute` lo normaliza (R1-09). Despliegue con `--no-verify-jwt`: la
-autenticación es manual (cabecera `Bearer`, como `middlewareAuth`), `p_user_id` se deriva del JWT
+de la función). Rutas del contrato (a) PHP-compat: las 3 de lectura del dashboard y las 43 de la
+app gestora (41 de `ApiService.kt` + `task-list/detail` y `task/detail`), espejo de
+`api/src/Controllers/router.php`. El pathname incluye el prefijo de montaje
+(`/functions/v1/api/user/auth` llega como `/api/user/auth`) y la tabla exacta `{method, route} →
+handler` de `index.ts` hace el dispatch (sin `endsWith`). Despliegue con `--no-verify-jwt`: la
+autenticación es manual (cabecera `Bearer`, como `middlewareAuth`), el usuario se deriva del JWT
 verificado y nunca del request (R1-03).
 
 | Fichero | Contenido |
 |---|---|
-| `index.ts` | Entrada fina: rutas (`ROUTES`/`matchRoute`), guard Bearer + verificación `/auth/v1/user`, dispatch y mapeo de errores |
-| `usecases/auth.ts` | `POST /user/auth`: password grant → fila `app_user` → usuario PHP |
-| `usecases/events.ts` | `GET /event`: query → materialización de rutinas (service role) → `get_events` |
-| `usecases/tasks.ts` | `GET /task`: check `task_list_user` → `get_tasks` |
+| `index.ts` | Entrada fina: tabla exacta de rutas, guard Bearer + verificación `/auth/v1/user`, dispatch y mapeo de errores |
+| `usecases/auth.ts` | `user/auth` (password grant + `refresh_token`), `user/create`, `user/update`, `user/me`, `config` |
+| `usecases/calendars.ts`, `persons.ts`, `routines.ts`, `task-lists.ts` | CRUD del dominio vía RPC |
+| `usecases/events.ts` | `GET /event` (dashboard/gestora), `event/*` CRUD; el camino `text` (Gemini) responde 400 (diferido, Q2) |
+| `usecases/tasks.ts` | `GET /task`, `task/*` CRUD + `task/order` |
 | `_shared/supabase.ts` | Clientes/env (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`): `passwordGrant`, `verifyUser`, `appUserRow`, `rpc`, `materializeRoutines`, `hasTaskListAccess` |
 | `_shared/contract.ts` | Adaptadores puros del contrato: `json`, `fmt`, `phpBool`/`phpInt`/`phpStr`/`phpTimestamp` |
 | `_shared/errors.ts` | Errores PHP: `error`, `rpcError` + constructores con los strings exactos |
+| `_shared/validate.ts` | Parsers de body PHP (`0/1` booleans, `timezone`, epoch 10 dígitos) |
 
 Comandos sin cambios: `supabase functions serve api --no-verify-jwt` y
 `supabase functions deploy api --no-verify-jwt` (en hosted:
@@ -130,16 +147,28 @@ variantes arriba).
 ## Verificación de contrato (`scripts/supabase/contract_check.py`)
 
 Compara el oráculo PHP local con la Edge Function: JSON **parseado** (orden de claves irrelevante),
-`token` ignorado, `created_at`/`updated_at` validados por formato `YYYY-MM-DD HH:MM:SS`, desviación de
-email inexistente codificada (PHP 500 `Not Found` vs Edge 401 `Invalid credentials`, R1-08) y los
-escenarios de `ContentRepository` (eventos abiertos y sesiones hoy..+7), `CalendarRepository`
-(semanas lunes–domingo) y `/task?dashboard=true`. Exit 0 = contrato idéntico.
+normalización acordada (plan §4): `token` validado como string no vacío y sustituido por `"<token>"`,
+`refresh_token` (solo Edge, aditivo) validado y eliminado antes de comparar, `created_at`/`updated_at`
+validados por formato `YYYY-MM-DD HH:MM:SS`, ids normalizados por clave de negocio y las desviaciones
+documentadas (`401` vs `500` de email inexistente, owner-only `403`, `refresh_token`) con
+`deviation()`. Cubre las lecturas del dashboard (escenarios de `ContentRepository` y
+`CalendarRepository`, `/task?dashboard=true`) y de la app gestora (43 rutas), escenarios de escritura
+create→read→update→delete y el bloque viewer de la matriz §3. Borra los restos `CC-%` de ejecuciones
+anteriores (`reset_leftovers`), así que es repetible sin re-sembrar. Exit 0 = contrato idéntico.
 
 ```sh
 scripts/demo.sh up                          # oráculo PHP con seed.py (puerto 3001)
 python3 scripts/demo/seed_supabase.py       # seed equivalente en Supabase (SUPABASE_URL + SERVICE_ROLE_KEY)
 python3 scripts/supabase/contract_check.py  # o --php/--fn o CONTRACT_PHP_URL/SUPABASE_FUNCTIONS_URL
 ```
+
+Sin oráculo PHP (rutas nuevas o desviadas): `scripts/supabase/tests/expected_shape_check.py`
+(forma esperada: `refresh_token`, `config` con flag `ALLOW_REGISTRATION`, Gemini 400, alta de
+usuarios; se ejecuta una vez por configuración de flag) y `scripts/supabase/tests/cross_tenant_check.py`
+(aislamiento entre tenants: ~55 casos, ids ajenos → `500 Not Found`, RPC directas
+`/rest/v1/rpc/*` con JWT ajeno sin fugas, owner vs viewer). Fixtures de paridad:
+`scripts/supabase/fixture_two_families.py` (RLS) y `scripts/supabase/fixture_exception_order.py`
+(orden de materialización con excepciones).
 
 Nota (macOS): `scripts/demo.sh up` falla al arrancar el PHP porque `setsid` no existe en el PATH
 (`exec: setsid: not found`). Limitación preexistente del script; no se toca el PATH global: arrancar el

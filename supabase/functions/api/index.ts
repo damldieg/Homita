@@ -1,59 +1,135 @@
-// Edge Function `api` — espejo de las rutas de lectura del dashboard (api/src/Controllers/router.php):
-// POST /user/auth, GET /event, GET /task. Auth manual (deploy --no-verify-jwt), como middlewareAuth.
+// Edge Function `api` — espejo PHP-compat de las 43 rutas de api/src/Controllers/router.php
+// (contrato (a), D-008; inventario: .dorch/changes/control-api/contract-inventory.md).
+// Auth manual (deploy --no-verify-jwt), como middlewareAuth. user/auth, user/create y config son
+// públicas; el resto exige Bearer (token inválido → 401, desviación documentada).
 //
-// El pathname llega con el prefijo de montaje (…/functions/v1/api/user/auth → /api/user/auth y con
-// `supabase functions serve` local puede diferir), así que se normaliza a la ruta lógica (R1-09).
+// Routing EXACTO por tabla {metodo, ruta} (sin endsWith: `user` vs `calendar/user` etc. eran
+// frágiles con 43 rutas). El pathname llega con el prefijo de montaje (…/functions/v1/api/user/auth
+// → /api/user/auth y con `supabase functions serve` local puede diferir), así que se normaliza a la
+// ruta lógica antes de mirar en la tabla.
 //
 // p_user_id se deriva server-side del JWT verificado (sub/auth_uid → app_user.id), nunca de los
 // parámetros del request (R1-03). Lecturas con el JWT del usuario (RLS activa) y service_role solo
-// para materialize_routines_for (como PHP escribe durante la lectura).
+// para materialize_routines_for (lecturas); las escrituras materializan dentro de sus RPC
+// (0006/0007) sin service_role.
 //
-// Desviaciones documentadas (ambas deliberadas; el dashboard trata error = error, R1-08):
-// * token inválido en rutas protegidas: PHP 500 {"error":"Not Found"}, aquí 401 {"error":"Unauthorized"}.
-// * email inexistente en /user/auth: PHP 500 {"error":"Not Found"}, aquí 401 {"error":"Invalid credentials"}.
+// Desviaciones documentadas (contract-inventory.md §Desviaciones): token inválido 401 vs 500 PHP;
+// email inexistente en /user/auth 401 vs 500 PHP; owner-only 403 {"error":"Not Allowed"} (Q5);
+// event/create solo text → 400 (Gemini diferido, T14); refresh_token aditivo en /user/auth;
+// config flag desde ALLOW_REGISTRATION (default false).
 //
-// Layout: entrypoint fino (routing + guard Bearer + dispatch) + usecases/{auth,events,tasks}.ts +
-// _shared/{supabase,contract,errors}.ts; imports relativos empaquetados por el deploy (sin build step).
+// Layout: entrypoint fino (routing + guard Bearer + dispatch) + usecases/{auth,calendars,persons,
+// routines,events,task-lists,tasks}.ts + _shared/{supabase,contract,errors,validate}.ts.
 
 import { error, errRouteNotFound, errUnauthorized } from "./_shared/errors.ts";
 import { verifyUser } from "./_shared/supabase.ts";
-import { handleAuth } from "./usecases/auth.ts";
-import { handleEvent } from "./usecases/events.ts";
-import { handleTask } from "./usecases/tasks.ts";
+import {
+    handleConfig, handleUserAuth, handleUserCreate, handleUserUpdate,
+} from "./usecases/auth.ts";
+import {
+    handleCalendarCreate, handleCalendarDelete, handleCalendarDetail, handleCalendarIndex,
+    handleCalendarUpdate, handleCalendarUserCreate, handleCalendarUserDelete, handleCalendarUserIndex,
+} from "./usecases/calendars.ts";
+import { handlePersonCreate, handlePersonDelete, handlePersonIndex, handlePersonUpdate } from "./usecases/persons.ts";
+import {
+    handleRoutineAlarm, handleRoutineCreate, handleRoutineDelete, handleRoutineDetail,
+    handleRoutineIndex, handleRoutineUpdate,
+} from "./usecases/routines.ts";
+import {
+    handleEvent, handleEventAlarm, handleEventCreate, handleEventDelete, handleEventDetail,
+    handleEventUpdate,
+} from "./usecases/events.ts";
+import {
+    handleTaskListCreate, handleTaskListDelete, handleTaskListDetail, handleTaskListIndex,
+    handleTaskListUpdate, handleTaskListUserCreate, handleTaskListUserDelete, handleTaskListUserIndex,
+} from "./usecases/task-lists.ts";
+import {
+    handleTask, handleTaskComplete, handleTaskCreate, handleTaskDelete, handleTaskDetail,
+    handleTaskOrder, handleTaskUpdate,
+} from "./usecases/tasks.ts";
 
-const ROUTES = ["user/auth", "event", "task"];
+type Handler = (req: Request, token: string, uid: string) => Promise<Response> | Response;
 
-function matchRoute(pathname: string): string | null {
-    const path = pathname.replace(/\/+$/, "");
-    for (const route of ROUTES) {
-        if (path === `/${route}` || path.endsWith(`/${route}`)) return route;
-    }
-    return null;
+const ROUTES: Record<string, { auth: boolean; handler: Handler }> = {
+    "GET /config": { auth: false, handler: () => handleConfig() },
+    "POST /user/create": { auth: false, handler: (req) => handleUserCreate(req) },
+    "POST /user/auth": { auth: false, handler: (req) => handleUserAuth(req) },
+    "PATCH /user/update": { auth: true, handler: (req, t, u) => handleUserUpdate(req, t, u) },
+
+    "GET /calendar": { auth: true, handler: (req, t) => handleCalendarIndex(req, t) },
+    "GET /calendar/detail": { auth: true, handler: (req, t) => handleCalendarDetail(req, t) },
+    "POST /calendar/create": { auth: true, handler: (req, t) => handleCalendarCreate(req, t) },
+    "PATCH /calendar/update": { auth: true, handler: (req, t) => handleCalendarUpdate(req, t) },
+    "DELETE /calendar/delete": { auth: true, handler: (req, t) => handleCalendarDelete(req, t) },
+    "GET /calendar/user": { auth: true, handler: (req, t) => handleCalendarUserIndex(req, t) },
+    "POST /calendar/user": { auth: true, handler: (req, t) => handleCalendarUserCreate(req, t) },
+    "DELETE /calendar/user": { auth: true, handler: (req, t) => handleCalendarUserDelete(req, t) },
+
+    "GET /person": { auth: true, handler: (req, t) => handlePersonIndex(req, t) },
+    "POST /person/create": { auth: true, handler: (req, t) => handlePersonCreate(req, t) },
+    "PATCH /person/update": { auth: true, handler: (req, t) => handlePersonUpdate(req, t) },
+    "DELETE /person/delete": { auth: true, handler: (req, t) => handlePersonDelete(req, t) },
+
+    "GET /routine": { auth: true, handler: (req, t, u) => handleRoutineIndex(req, t, u) },
+    "GET /routine/detail": { auth: true, handler: (req, t, u) => handleRoutineDetail(req, t, u) },
+    "POST /routine/create": { auth: true, handler: (req, t) => handleRoutineCreate(req, t) },
+    "PATCH /routine/update": { auth: true, handler: (req, t) => handleRoutineUpdate(req, t) },
+    "PATCH /routine/alarm": { auth: true, handler: (req, t) => handleRoutineAlarm(req, t) },
+    "DELETE /routine/delete": { auth: true, handler: (req, t) => handleRoutineDelete(req, t) },
+
+    "GET /event": { auth: true, handler: (req, t, u) => handleEvent(req, t, u) },
+    "GET /event/detail": { auth: true, handler: (req, t, u) => handleEventDetail(req, t, u) },
+    "POST /event/create": { auth: true, handler: (req, t) => handleEventCreate(req, t) },
+    "PATCH /event/update": { auth: true, handler: (req, t) => handleEventUpdate(req, t) },
+    "DELETE /event/delete": { auth: true, handler: (req, t) => handleEventDelete(req, t) },
+    "PATCH /event/alarm": { auth: true, handler: (req, t) => handleEventAlarm(req, t) },
+
+    "GET /task-list": { auth: true, handler: (req, t) => handleTaskListIndex(req, t) },
+    "GET /task-list/detail": { auth: true, handler: (req, t) => handleTaskListDetail(req, t) },
+    "POST /task-list/create": { auth: true, handler: (req, t) => handleTaskListCreate(req, t) },
+    "PATCH /task-list/update": { auth: true, handler: (req, t) => handleTaskListUpdate(req, t) },
+    "DELETE /task-list/delete": { auth: true, handler: (req, t) => handleTaskListDelete(req, t) },
+    "GET /task-list/user": { auth: true, handler: (req, t) => handleTaskListUserIndex(req, t) },
+    "POST /task-list/user": { auth: true, handler: (req, t) => handleTaskListUserCreate(req, t) },
+    "DELETE /task-list/user": { auth: true, handler: (req, t) => handleTaskListUserDelete(req, t) },
+
+    "GET /task": { auth: true, handler: (req, t) => handleTask(req, t) },
+    "GET /task/detail": { auth: true, handler: (req, t) => handleTaskDetail(req, t) },
+    "POST /task/create": { auth: true, handler: (req, t) => handleTaskCreate(req, t) },
+    "PATCH /task/update": { auth: true, handler: (req, t) => handleTaskUpdate(req, t) },
+    "PATCH /task/complete": { auth: true, handler: (req, t) => handleTaskComplete(req, t) },
+    "PATCH /task/order": { auth: true, handler: (req, t) => handleTaskOrder(req, t) },
+    "DELETE /task/delete": { auth: true, handler: (req, t) => handleTaskDelete(req, t) },
+};
+
+// Ruta lógica sin el prefijo de montaje (…/functions/v1/api/… o …/api/…) — sin endsWith
+function logicalPath(pathname: string): string {
+    let p = pathname.replace(/\/+$/, "");
+    const i = p.indexOf("/functions/v1");
+    if (i >= 0) p = p.slice(i + "/functions/v1".length);
+    const segs = p.split("/").filter(Boolean);
+    if (segs[0] === "api") segs.shift();
+    return "/" + segs.join("/");
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
     try {
-        const route = matchRoute(new URL(req.url).pathname);
-        if (route === null) return errRouteNotFound();
-
-        if (route === "user/auth") {
-            if (req.method !== "POST") return errRouteNotFound();
-            return await handleAuth(req);
-        }
-
-        if (req.method !== "GET") return errRouteNotFound();
+        const route = ROUTES[`${req.method} ${logicalPath(new URL(req.url).pathname)}`];
+        if (route === undefined) return errRouteNotFound();
 
         // middlewareAuth: sin Bearer → 401; token inválido → 401 (desviación documentada)
-        const m = (req.headers.get("Authorization") ?? "").match(/Bearer\s+(.*)$/i);
-        if (m === null) return errUnauthorized();
-        const token = m[1];
-        const who = await verifyUser(token);
-        if (who === null) return errUnauthorized();
-        const uid = who.id as string;
+        let token = "";
+        let uid = "";
+        if (route.auth) {
+            const m = (req.headers.get("Authorization") ?? "").match(/Bearer\s+(.*)$/i);
+            if (m === null) return errUnauthorized();
+            token = m[1];
+            const who = await verifyUser(token);
+            if (who === null) return errUnauthorized();
+            uid = who.id as string;
+        }
 
-        return route === "event"
-            ? await handleEvent(req, token, uid)
-            : await handleTask(req, token, uid);
+        return await route.handler(req, token, uid);
     } catch (e) {
         return error(e instanceof Error ? e.message : String(e), 500);
     }

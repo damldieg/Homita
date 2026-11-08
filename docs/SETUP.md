@@ -27,6 +27,15 @@ printf 'planify.baseUrl=<tu-url-de-planify-backend>\n' > apps/dashboard/planify.
 scripts/install.sh --build --no-backup
 ```
 
+### Secretos de la Edge Function (Supabase)
+
+La Edge Function `api` de Supabase lee sus secretos de Supabase Secrets (o del `--env-file` en local; nunca en git). Los de entorno (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) los inyecta el runtime; las variables propias son:
+
+- `ALLOW_REGISTRATION`: alta abierta de usuarios (`POST user/create`). Por defecto **`false`** (registro cerrado, Q3): el usuario real se da de alta con la admin API (ver [supabase/README.md](../supabase/README.md)); para pruebas locales del flujo de registro, `ALLOW_REGISTRATION=true` en el env de `functions serve`.
+- `GEMINI_API_KEY`: **no** hace falta en V1 — el texto → evento (IA) está diferido (Q2): `event/create` con `text` y sin `title`+`date_at` responde 400 explícito.
+
+El resto del contrato de la app gestora (43 rutas PHP-compat, matriz owner/viewer y desviaciones) está en [ARCHITECTURE.md](ARCHITECTURE.md) y [supabase/README.md](../supabase/README.md).
+
 ```sh
 # La primera vez, con el marco conectado por USB-C (ADB root viene activado de fábrica)
 scripts/install.sh --build
