@@ -32,3 +32,17 @@ api/config/private.local.json
 .demo/
 .dorch/
 __pycache__/
+
+# apps/control-ios (paquete Swift + app Xcode): config con secretos y artefactos de Xcode
+apps/control-ios/Config.xcconfig
+apps/control-ios/.swiftpm/
+apps/control-ios/**/xcuserdata/
+apps/control-ios/**/*.xcuserstate
+apps/control-ios/build/
+apps/control-ios/.build/
+DerivedData/
+*.ipa
+*.p8
+*.p12
+*.mobileprovision
+ExportOptions.plist
