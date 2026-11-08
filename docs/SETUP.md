@@ -165,6 +165,17 @@ El dashboard no tiene opciones de mantenimiento: todo se hace por ADB, que en es
   ```
 - **Restaurar la eMMC entera** (último recurso): `mmcblk0-head.img` de la copia contiene todas las particiones salvo `/data`; los desplazamientos están en `partitions.txt`. Se escribe desde ADB root (`dd`), o desde fastboot/FEL si Android no arranca. Ver la escalera de recuperación en [FRAME.md](FRAME.md#escalera-de-recuperación).
 
+## App gestora en el iPhone (apps/control-ios)
+
+La gestora iOS ([apps/control-ios](../apps/control-ios/README.md)) consume la misma Edge Function que el marco. Requisitos: **Xcode 16 o superior** con el SDK de iOS y un **runtime de iOS ≥ 17** (para los tests en simulador) y `~/.homita/supabase.env`. Configuración, compilación e instalación:
+
+```sh
+apps/control-ios/scripts/gen-config.sh                 # Config.xcconfig desde ~/.homita/supabase.env (git-ignorado)
+cd apps/control-ios && swift build && swift test       # compilar y testar el paquete ControlKit
+```
+
+La app se instala en el iPhone con firma gratuita (Apple ID personal) vía **AltStore** o **Sideloadly** (caduca a los 7 días; requiere el Modo Desarrollador del iPhone). El detalle —proyecto Xcode que referencia `ControlKit`, bundle `com.lito.planify.control.ios`, iOS 17.0— está en [apps/control-ios/README.md](../apps/control-ios/README.md).
+
 ## Qué se tomó del proyecto de wesbos ([`photo-frame-dashboard`](https://github.com/wesbos/photo-frame-dashboard))
 
 | De `photo-frame-dashboard` | Uso aquí |
