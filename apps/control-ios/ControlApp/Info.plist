@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  Info.plist del target ControlApp (GENERATE_INFOPLIST_FILE=YES completa CFBundle* etc.).
+  Configuración inyectada desde Config.xcconfig (baseConfiguration del proyecto) vía
+  variables de build; AppConfig.load() lee estas claves en Bundle.main.
+  Nota: INFOPLIST_KEY_* solo acepta claves conocidas por Xcode, por eso van aquí.
+-->
+<dict>
+	<key>PlanifyBaseURL</key>
+	<string>$(PLANIFY_BASE_URL)</string>
+	<key>SupabaseURL</key>
+	<string>$(SUPABASE_URL)</string>
+	<key>SupabaseAnonKey</key>
+	<string>$(SUPABASE_ANON_KEY)</string>
+</dict>
+</plist>

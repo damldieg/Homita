@@ -37,8 +37,8 @@ safe_api="${safe_supabase}/functions/v1/api"
 
 umask 077
 {
-    printf '# Generado por scripts/gen-config.sh — NO commitear (git-ignorado).\n'
-    printf '# Regenerar tras cambiar ~/.homita/supabase.env.\n'
+    printf '// Generado por scripts/gen-config.sh — NO commitear (git-ignorado).\n'
+    printf '// Regenerar tras cambiar ~/.homita/supabase.env.\n'
     printf 'PLANIFY_BASE_URL = %s\n' "$safe_api"
     printf 'SUPABASE_URL = %s\n' "$safe_supabase"
     printf 'SUPABASE_ANON_KEY = %s\n' "$SUPABASE_ANON_KEY"
