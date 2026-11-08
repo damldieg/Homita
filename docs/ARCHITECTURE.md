@@ -88,6 +88,31 @@ emulator -avd Frame_API_29
 
 Para probar el quiosco en el emulador basta con `adb shell dpm set-device-owner com.lito.planify.dashboard/.admin.AdminReceiver` en un AVD sin cuentas.
 
+## Contrato del backend (control-api)
+
+El contrato es el **(a) PHP-compat** (D-008): la Edge Function `supabase/functions/api` replica el contrato de `api/` (PHP) ruta a ruta — mismos parámetros, validaciones y mensajes exactos, misma forma de respuesta y mismos efectos. `supabase/functions/api` es la **única fuente del contrato**; `api/` queda como oracle de paridad y vuelta atrás hasta su retirada. El detalle por ruta (43) está en `.dorch/changes/control-api/contract-inventory.md`.
+
+**Matriz de autorización** (owner/viewer; §3 del plan de `control-api`). Notación: **M** = miembro del calendario o la lista (no miembro → `500 {"error":"Not Found"}`); **O** = owner; **S** = self (`user_id` de la sesión). El orden de comprobación es el PHP: validación 400 → M → S → O.
+
+| Rutas | Regla |
+|---|---|
+| `calendar/detail`, `calendar/user` (GET), `task-list/detail`, `task-list/user` (GET), `routine/*`, `event/*`, `task/*` | M (cualquier rol: el viewer escribe contenido, como en PHP) |
+| `calendar/create`, `task-list/create`, `person/create` | cualquiera; el creador queda owner |
+| `calendar/update`, `task-list/update` | M; `name`/`color`/`sort` compartidos → O (403); `widget`/`dashboard` → fila propia (S, cualquier rol) |
+| `calendar/delete`, `task-list/delete`, `calendar/user` y `task-list/user` (POST/DELETE) | M + O (viewer → 403) |
+| `calendar/user` y `task-list/user` (DELETE) | M → S (`400 {"error":"User cannot remove themselves"}`) → O (403) |
+| `person` PATCH/DELETE | solo el creador; el resto → `500 {"error":"Not Found"}` (paridad PHP, no 403) |
+
+**Desviaciones documentadas** frente al PHP (todas verificadas en `scripts/supabase/`):
+
+- **401 vs 500 (legacy):** login con email inexistente — PHP `500 {"error":"Not Found"}`, Edge `401 {"error":"Invalid credentials"}`.
+- **Owner-only 403:** en `calendar/update|delete`, `task-list/update|delete` y `*/user`, PHP no comprueba owner (acepta al viewer); la Edge responde `403 {"error":"Not Allowed"}` (Q5: enforce).
+- **Gemini 400:** `POST event/create` con `text` y sin `title`+`date_at` → `400 {"error":"Title and date_at are required if text is not provided"}` (mensaje PHP exacto, pero PHP solo lo emitiría si Gemini falla: la conversión de texto está diferida).
+- **`refresh_token` aditivo:** `POST /user/auth` añade `refresh_token` a las claves PHP (el dashboard sigue con su JWT de 7 días; el refresco directo a GoTrue es para la app iOS). Aditivo: Gson ignora claves desconocidas.
+- **Flag de `GET /config`:** PHP `config/public.json` → `allow_registration: true`; la Edge usa el env `ALLOW_REGISTRATION` con default **false** (Q3: registro cerrado salvo que se configure).
+- **`calendar/create` sin `color`:** ambos responden `500` con el TypeError del motor (`App\Models\Calendar::create(): Argument #2 ($color) must be of type string, null given, called in … on line 21`; el default `#6923E2` de la firma no aplica: el controlador pasa null explícito). Desviación solo en el sufijo `called in …`: PHP imprime la ruta absoluta de su despliegue, la Edge fija la canónica `api/src/Controllers/CalendarCreate.php on line 21`.
+- **Body en GET (plataforma):** PHP lee body+query con precedencia del body en todas las rutas (p.ej. `task_list_id` de `GET /task` → M-check + filtro); el runtime de Edge Functions descarta el body de GET/HEAD (fetch spec: `Request` sin body para GET, medido `req.body === null`), así que en GET solo llega el query (los consumidores reales envían los filtros por query). El código honra body+query con precedencia del body si el body llega; `contract_check` pinnea la desviación y falla si la plataforma cambia.
+
 ## Capa de datos
 
 La pantalla nunca habla con la red directamente: `DashboardViewModel` usa un repositorio por tipo de dato y pinta lo que publican.
