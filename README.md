@@ -6,7 +6,7 @@ Homita es el monorepo de las tres piezas que lo hacen funcionar:
 
 - **[El marco (dashboard)](#el-marco-dashboard)** (`apps/dashboard/`): la app Android de solo lectura que se instala en el marco.
 - **[La gestora (control)](#la-gestora-control)** (`apps/control/`): la app Android donde se crean y editan calendarios, eventos, rutinas, personas y tareas.
-- **[La API](#la-api)** (`api/`): la API única que guarda todo; hoy Planify-Backend (PHP + SQLite), con su relevo por Supabase planeado.
+- **[La API](#la-api)** (`api/`): la API que guarda todo. Desde el corte de producción (2026-11-08) la Edge Function de Supabase; `api/` es el Planify-Backend (PHP + SQLite) legacy de transición.
 
 **Este repositorio es, sobre todo, una guía para agentes** (Claude Code, Codex…) que quieran crear su propia versión: qué hay que hacer, en qué orden, con qué requisitos y qué se aprendió por el camino. Nosotros partimos de [wesbos/photo-frame-dashboard](https://github.com/wesbos/photo-frame-dashboard) de la misma forma.
 
@@ -101,7 +101,7 @@ Instalarla en el marco y convertirlo en quiosco: [docs/SETUP.md](docs/SETUP.md).
 
 ## La API
 
-`api/` es la API única que guarda todos los datos: hoy Planify-Backend (PHP + SQLite) y está previsto que la releve Supabase. Instalación y configuración: [api/README.md](api/README.md). A mano, desde `api/`, migraciones y servidor:
+`api/` es el Planify-Backend (PHP + SQLite), la API legacy de transición: la producción usa la Edge Function de Supabase ([supabase/](supabase/README.md)) desde el corte del 2026-11-08 y `api/` sigue corriendo como vuelta atrás hasta su retirada. Instalación y configuración: [api/README.md](api/README.md). A mano, desde `api/`, migraciones y servidor:
 
 ```sh
 php src/Commands/Migrate.php
@@ -197,7 +197,7 @@ La ficha completa, con todas las particiones y el software de fábrica, está en
 **Además:**
 - Un cable **USB-C de datos** (no solo carga).
 - Una red Wi-Fi de **2,4 GHz con WPA2** (el chip no soporta WPA3 ni 5 GHz). Mejor una red de invitados.
-- Si usas esta app tal cual: un [Planify-Backend](api/) accesible por HTTPS y una cuenta creada con la [Planify-APP](apps/control/).
+- Si usas esta app tal cual: la Edge Function de Supabase desplegada (lo que usa la producción) o un [Planify-Backend](api/) accesible por HTTPS (legacy), y una cuenta creada con la [Planify-APP](apps/control/).
 
 ---
 
@@ -220,7 +220,7 @@ La ficha completa, con todas las particiones y el software de fábrica, está en
 
 ### Fase 3: decide qué app vas a instalar
 
-La app de este repositorio (`apps/dashboard/`) es un dashboard nativo en Kotlin y Jetpack Compose, de solo lectura, que habla con Planify-Backend y con Open-Meteo. Tienes tres caminos:
+La app de este repositorio (`apps/dashboard/`) es un dashboard nativo en Kotlin y Jetpack Compose, de solo lectura, que habla con la API de Planify (la Edge Function `https://<ref>.supabase.co/functions/v1/api` en producción desde el corte del 2026-11-08; el Planify-Backend PHP de `api/`, legacy de transición, para autoalojo) y con Open-Meteo. Tienes tres caminos:
 
 1. **Usarla con Planify** (lo más rápido): monta [Planify-Backend](api/), crea tu cuenta con [Planify-APP](apps/control/) y marca en la APP qué calendarios y listas se ven (interruptor «Mostrar en el dashboard»).
 2. **Usarla con otra fuente de datos:** la app solo necesita esto del backend, así que basta con reimplementarlo (o cambiar `data/Api.kt` y los repositorios de `data/repository/`):
@@ -237,8 +237,13 @@ La app de este repositorio (`apps/dashboard/`) es un dashboard nativo en Kotlin 
 ### Fase 4: configura y compila
 
 ```sh
-cp apps/dashboard/planify.properties.example apps/dashboard/planify.properties
-#   planify.baseUrl=https://tu-backend/        URL de la API (obligatoria para la release)
+. ~/.homita/supabase.env
+printf 'planify.baseUrl=https://%s.supabase.co/functions/v1/api\n' "$SUPABASE_PROJECT_REF" \
+  > apps/dashboard/planify.properties
+#   planify.baseUrl=https://<ref>.supabase.co/functions/v1/api   URL de la API (obligatoria para la
+#   release). Producción usa la Edge Function de Supabase desde el corte (2026-11-08); el valor se deriva
+#   de ~/.homita/supabase.env y no se commitea nunca (git ignora el fichero). Para tu propia versión basta
+#   la URL de tu backend (ver planify.properties.example)
 
 cp scripts/config.example scripts/config.local
 #   ADB_FROM=<ip-de-tu-pc>                     única IP que podrá usar ADB por Wi-Fi (vacía: solo USB)

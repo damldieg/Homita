@@ -68,5 +68,5 @@ licenses/                 Geist-OFL.txt
 - Data layer: every remote datum cached on disk, stale-if-error (`DiskCache` + `CachedResource`); HTTP errors as `HttpError`; 401 clears session.
 - Tests are plain JUnit4 unit tests under `app/src/test`; no instrumentation tests.
 - No CI: tests and lint run manually (`:app:testDebugUnitTest`, `:app:lintDebug`).
-- `supabase/functions/api` es el backend canónico desde el corte (función Deno por casos de uso); `api/` es el PHP de transición (producción hasta el corte; retirado después).
+- `supabase/functions/api` es el backend canónico desde el corte (función Deno por casos de uso); producción apunta a Supabase desde el corte 2026-11-08; `api/` es el PHP legacy de transición hasta su retirada.
 - `apps/control` es un git subtree de https://github.com/eusonlito/Planify-APP (su `android/` aplanado a la raíz con `git mv`); sincronía upstream: `git subtree pull --prefix=apps/control …` y re-aplano manual si upstream añade rutas nuevas bajo `android/`.
