@@ -26,7 +26,7 @@ supabase functions serve api --no-verify-jwt   # sirve la Edge Function en local
 supabase stop                         # para el stack
 ```
 
-## Proyecto alojado (claves pendientes del usuario)
+## Proyecto alojado (claves en env vars, nunca en git)
 
 ```sh
 export SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=…
@@ -36,6 +36,16 @@ supabase migration list               # debe listar 0 aplicadas en proyecto limp
 supabase db push
 supabase functions deploy api --no-verify-jwt  # auth manual dentro de la función
 ```
+
+Variantes probadas contra el proyecto alojado (2026-11-08) con un PAT de scopes limitados:
+
+- Si `link` falla con `Missing required permission(s): project_admin_read`, no hace falta link: usar
+  `supabase db push --remote="$SUPABASE_PROJECT_REF" --yes` y
+  `supabase functions deploy api --no-verify-jwt --remote="$SUPABASE_PROJECT_REF" --yes`.
+- La CLI 3.x en modo agente exige `--yes` explícito para mutaciones hosted (`db push`, `functions deploy`).
+- `config/auth` vía Management API (`api.supabase.com/v1/projects/<ref>/config/auth`) permite GET con el PAT
+  pero el PATCH de `jwt_exp` necesita el scope `project_admin_write`; sin él, el *JWT expiry* se cambia a mano
+  en el dashboard (Authentication → Settings).
 
 ## Caducidad del JWT (Q3, R1-02)
 
@@ -79,11 +89,27 @@ idempotente.
 
 ## Edge Function `functions/api/`
 
-Función única con router interno (`user/auth`, `event`, `task`), espejo de
-`api/src/Controllers/router.php`. El pathname incluye el prefijo de montaje
-(`/functions/v1/api/user/auth` llega como `/api/user/auth`) y el router lo normaliza (R1-09).
-Despliegue con `--no-verify-jwt`: la autenticación es manual (cabecera `Bearer`, como
-`middlewareAuth`), `p_user_id` se deriva del JWT verificado y nunca del request (R1-03).
+Función Deno por casos de uso, sin build step (el deploy empaqueta los imports relativos del dir
+de la función). Rutas `user/auth`, `event` y `task`, espejo de `api/src/Controllers/router.php`.
+El pathname incluye el prefijo de montaje (`/functions/v1/api/user/auth` llega como
+`/api/user/auth`) y `matchRoute` lo normaliza (R1-09). Despliegue con `--no-verify-jwt`: la
+autenticación es manual (cabecera `Bearer`, como `middlewareAuth`), `p_user_id` se deriva del JWT
+verificado y nunca del request (R1-03).
+
+| Fichero | Contenido |
+|---|---|
+| `index.ts` | Entrada fina: rutas (`ROUTES`/`matchRoute`), guard Bearer + verificación `/auth/v1/user`, dispatch y mapeo de errores |
+| `usecases/auth.ts` | `POST /user/auth`: password grant → fila `app_user` → usuario PHP |
+| `usecases/events.ts` | `GET /event`: query → materialización de rutinas (service role) → `get_events` |
+| `usecases/tasks.ts` | `GET /task`: check `task_list_user` → `get_tasks` |
+| `_shared/supabase.ts` | Clientes/env (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`): `passwordGrant`, `verifyUser`, `appUserRow`, `rpc`, `materializeRoutines`, `hasTaskListAccess` |
+| `_shared/contract.ts` | Adaptadores puros del contrato: `json`, `fmt`, `phpBool`/`phpInt`/`phpStr`/`phpTimestamp` |
+| `_shared/errors.ts` | Errores PHP: `error`, `rpcError` + constructores con los strings exactos |
+
+Comandos sin cambios: `supabase functions serve api --no-verify-jwt` y
+`supabase functions deploy api --no-verify-jwt` (en hosted:
+`supabase functions deploy api --no-verify-jwt --remote="$SUPABASE_PROJECT_REF" --yes`, ver
+variantes arriba).
 
 ## Verificación de contrato (`scripts/supabase/contract_check.py`)
 
