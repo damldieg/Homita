@@ -1,7 +1,18 @@
 # Configuración de compilación del dashboard. Cópialo como planify.properties (git lo ignora) y rellénalo.
 
-# URL del backend de Planify (Planify-Backend) que usa la release. Obligatoria para compilar la release.
-planify.baseUrl=https://planify.example.com/
+# URL del backend de Planify que usa la release. Obligatoria para compilar la release.
+# Desde el corte de producción (2026-11-08) es la Edge Function de Supabase. El valor vive solo en
+# ~/.homita/supabase.env (nunca en git); el fichero se genera con:
+#   . ~/.homita/supabase.env
+#   printf 'planify.baseUrl=https://%s.supabase.co/functions/v1/api\n' "$SUPABASE_PROJECT_REF" \
+#     > apps/dashboard/planify.properties
+planify.baseUrl=https://<ref>.supabase.co/functions/v1/api
+
+# Vuelta atrás al PHP (Planify-Backend, sigue corriendo): regenera el fichero con tu URL PHP y
+# recompila — no hay copia guardada, la URL no va en git:
+#   printf 'planify.baseUrl=<tu-url-php>\n' > apps/dashboard/planify.properties
+
+# Precedencia: planify.properties > -Pplanify.baseUrl > PLANIFY_BASE_URL; un fichero viejo pisa el env.
 
 # URL del backend para la versión debug. Por defecto, el backend local visto desde el emulador.
 #planify.debugBaseUrl=http://10.0.2.2:3000/

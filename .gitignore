@@ -6,7 +6,7 @@ apps/dashboard/local.properties
 apps/dashboard/.kotlin/
 # Copia del repositorio de wesbos como referencia (tiene su propio git)
 docs/photo-frame-dashboard/
-apps/dashboard/planify.properties
+apps/dashboard/planify.properties*
 scripts/config.local
 
 # apps/control (Planify-APP), proyecto Gradle en la raíz; el resto lo ignora su .gitignore

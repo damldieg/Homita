@@ -2,7 +2,8 @@
 
 Backend paralelo a `api/` (PHP, que sigue vivo): esquema Postgres, Supabase Auth, RLS y una Edge
 Function `api` que replica el contrato de lectura del dashboard (`POST /user/auth`, `GET /event`,
-`GET /task`). El dashboard de producción NO apunta aquí: solo demo/verificación (decisión Q5).
+`GET /task`). El dashboard de producción apunta aquí desde el corte (2026-11-08); `api/` (PHP) queda
+como legacy de transición y vuelta atrás.
 Los comandos usan `supabase …`; sin CLI instalada, `npx supabase@latest …`.
 
 ## Variables de entorno (secretos: nunca en git)
@@ -46,6 +47,19 @@ Variantes probadas contra el proyecto alojado (2026-11-08) con un PAT de scopes 
 - `config/auth` vía Management API (`api.supabase.com/v1/projects/<ref>/config/auth`) permite GET con el PAT
   pero el PATCH de `jwt_exp` necesita el scope `project_admin_write`; sin él, el *JWT expiry* se cambia a mano
   en el dashboard (Authentication → Settings).
+- **Alta de la cuenta real** (la ejecuta el usuario con su propio email y contraseña, que no pasan por chat ni
+  git): `POST $SUPABASE_URL/auth/v1/admin/users` con `SUPABASE_SERVICE_ROLE_KEY` y `email_confirm: true`;
+  la respuesta JSON devuelve el `id` del usuario y el trigger `on_auth_user_created` (0004) crea su fila
+  `app_user`. Comando completo (sustituye `<tu-email>`, `<tu-contraseña>` y `<tu-nombre>` al ejecutarlo):
+
+  ```sh
+  . ~/.homita/supabase.env
+  curl -sS -X POST "$SUPABASE_URL/auth/v1/admin/users" \
+    -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+    -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{"email":"<tu-email>","password":"<tu-contraseña>","email_confirm":true,"user_metadata":{"name":"<tu-nombre>"}}'
+  ```
 
 ## Caducidad del JWT (Q3, R1-02)
 
@@ -54,8 +68,10 @@ fija ese valor (el dashboard acepta re-login semanal: un 401 limpia la sesión, 
 app; el refresco queda para una fase posterior):
 
 - Stack local: `auth.jwt_expiry = 604800` en `config.toml` (reiniciar con `supabase start`).
-- Proyecto alojado: Authentication → Settings → *JWT expiry* = `604800` (captura/consulta como
-  evidencia de la aceptación; pendiente de acceso al proyecto).
+- Proyecto alojado: Authentication → Settings → *JWT expiry* = `604800` — fijado a mano por el usuario
+  el 2026-11-08 y verificado el mismo día (GET `config/auth` con PAT → `jwt_exp = 604800`, y token real:
+  `exp − iat` = 604800). Para re-comprobarlo: repetir ese GET (comando de arriba) o mirar
+  Authentication → Settings en el dashboard.
 
 ## Orden de aplicación en proyecto limpio (R1-04)
 

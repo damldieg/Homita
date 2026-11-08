@@ -77,7 +77,7 @@ emulator -avd Frame_API_29
 ```
 
 - La build **debug** usa el backend local (`planify.debugBaseUrl`, por defecto `http://10.0.2.2:3000/`: `php -S 0.0.0.0:3000 -t public public/index.php` en Planify-Backend).
-- La **release** usa `planify.baseUrl` de `apps/dashboard/planify.properties` (ver `planify.properties.example`); sin ella no compila.
+- La **release** usa `planify.baseUrl` de `apps/dashboard/planify.properties` (ver `planify.properties.example`); sin ella no compila. Desde el corte de producción (2026-11-08) la release apunta a la Edge Function alojada de Supabase (`https://<ref>.supabase.co/functions/v1/api`); `api/` (PHP) queda como legacy de transición y vuelta atrás. El JWT de Supabase caduca a los 7 días y el dashboard no refresca la sesión: cada semana hay que volver a entrar (re-login semanal).
 - Pruebas: `./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleRelease` (en `apps/dashboard/`).
 
 **Entorno de demo** (`scripts/demo.sh`), para probar sin datos reales y hacer las capturas del README:
