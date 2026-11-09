@@ -1,4 +1,4 @@
-"""Datos ficticios para la demo de Supabase (scripts/demo.sh con DEMO_BASE_URL): el MISMO dataset que
+"""Datos ficticios (fixture/import) para la BD Supabase: el MISMO dataset que
 scripts/demo/seed.py — una familia con 4 personas, 2 calendarios, eventos alrededor de hoy, rutinas de
 lunes a viernes y 2 listas de tareas — insertado con service_role + admin API y con ids deterministas
 (1..N en el mismo orden de creación que seed.py) para poder comparar contratos. Las fechas son
