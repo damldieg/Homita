@@ -14,6 +14,11 @@ const RPC_STATUS: Record<string, number> = {
     "Name is required (max 50 characters)": 400,
     "Color must be #RRGGBB": 400,
     "Alarm must be nonnegative minutes or null": 400,
+    "Invalid person": 400,
+    "Title and date_at are required if text is not provided": 400,
+    "Event ID, title, and date_at are required": 400,
+    "task_list_id and title are required": 400,
+    "Task ID and title are required": 400,
 };
 
 // Router::error de PHP: InvalidArgumentException → 400; el resto → 500 con el mensaje
