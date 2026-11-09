@@ -3,11 +3,25 @@
 // antes de la RPC y sigue el orden id → name → timezone (§4.3); la RPC repite la barrera de
 // autorización (cabecera ≠ id → Not Found; permisos → Not Allowed). Errores mapeados por
 // rpcPassHome: Not Found → 404 (D16), Not Allowed → 403, validación → 400.
-import { getInput, inputInt, inputString, inputTimezone, phpEmpty, phpInput } from "../_shared/contract.ts";
+import { getInput, inputInt, inputString, inputTimezone, phpEmpty, phpInput, type PhpInput } from "../_shared/contract.ts";
 import {
-    errHomeIdRequired, errInvalidTimezone, errNameRequired, rpcPassHome,
+    error, errHomeIdRequired, errHomeMemberIdRequired, errInvalidTimezone, errNameRequired,
+    errPersonColorInvalid, errPersonNameRequired, rpcPassHome,
 } from "../_shared/errors.ts";
 import { rpc } from "../_shared/supabase.ts";
+
+// 'Invalid member' ya está en RPC_STATUS (errors.ts); aquí se emite en el rechazo de tipos de la
+// Edge sin llamar a la RPC (§6.1), con el mismo texto que la validación de kind/status en SQL
+const errInvalidMember = (): Response => error("Invalid member", 400);
+
+// Regla de tipos de 1.5 §6.1 (R1-04): clave ausente o JSON null → null (sin cambio en PATCH);
+// valor presente no-string → 400 del campo sin llamar a la RPC; string (incluida '') → tal cual
+// (la RPC valida: fuente única fn_validate_person_fields).
+const optStr = (input: PhpInput, key: string, bad: () => Response): string | null | Response => {
+    const raw = getInput(input, key);
+    if (raw === null || raw === undefined) return null;
+    return typeof raw === "string" ? raw : bad();
+};
 
 // R1: GET /home — mis hogares (get_homes filtra archived; la cabecera solo se valida en dispatch)
 export const handleHomeIndex = async (_req: Request, token: string): Promise<Response> =>
@@ -70,4 +84,49 @@ export const handleHomeMembership = async (req: Request, token: string): Promise
     const id = inputInt(input, "id");
     if (phpEmpty(id)) return errHomeIdRequired();
     return rpcPassHome(await rpc("get_home_memberships", { p_home_id: id }, token));
+};
+
+// M1 (1.5 §6.1): GET /home/member?home_id= — miembros del hogar (kind, status, linked);
+// home_id explícito (Q3a: en PATCH /home/member/update `id` es el id de miembro)
+export const handleHomeMemberIndex = async (req: Request, token: string): Promise<Response> => {
+    const input = await phpInput(req);
+    const homeId = inputInt(input, "home_id");
+    if (phpEmpty(homeId)) return errHomeIdRequired();
+    return rpcPassHome(await rpc("get_home_members", { p_home_id: homeId }, token));
+};
+
+// M2: POST /home/member/create {home_id, kind, name (req), color (opt, default en la RPC)} → 201
+export const handleHomeMemberCreate = async (req: Request, token: string): Promise<Response> => {
+    const input = await phpInput(req);
+    const homeId = inputInt(input, "home_id");
+    if (phpEmpty(homeId)) return errHomeIdRequired();
+    const kind = optStr(input, "kind", errInvalidMember);
+    if (kind instanceof Response) return kind;
+    if (kind === null) return errInvalidMember();  // POST: kind ausente → Invalid member
+    const name = optStr(input, "name", errPersonNameRequired);
+    if (name instanceof Response) return name;
+    if (name === null) return errPersonNameRequired();  // POST: name ausente → Name is required…
+    const color = optStr(input, "color", errPersonColorInvalid);
+    if (color instanceof Response) return color;
+    return rpcPassHome(await rpc("create_home_member", {
+        p_home_id: homeId, p_kind: kind, p_name: name, p_color: color,
+    }, token), 201);
+};
+
+// M3: PATCH /home/member/update {id (req, id de miembro), kind/name/color/status (opt)} → 200
+export const handleHomeMemberUpdate = async (req: Request, token: string): Promise<Response> => {
+    const input = await phpInput(req);
+    const id = inputInt(input, "id");
+    if (phpEmpty(id)) return errHomeMemberIdRequired();
+    const kind = optStr(input, "kind", errInvalidMember);
+    if (kind instanceof Response) return kind;
+    const status = optStr(input, "status", errInvalidMember);
+    if (status instanceof Response) return status;
+    const name = optStr(input, "name", errPersonNameRequired);
+    if (name instanceof Response) return name;
+    const color = optStr(input, "color", errPersonColorInvalid);
+    if (color instanceof Response) return color;
+    return rpcPassHome(await rpc("update_home_member", {
+        p_id: id, p_kind: kind, p_name: name, p_color: color, p_status: status,
+    }, token));
 };
