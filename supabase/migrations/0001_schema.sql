@@ -1,5 +1,5 @@
--- 0001_schema.sql — Esquema Postgres de Homita (compat. Planify-Backend) (fase 1, D-002).
--- Ingeniería inversa del modelo PHP real: api/migrations/0001–0009, estado final.
+-- 0001_schema.sql — Esquema Postgres de Homita (compat. Planify-Backend, modelo histórico) (fase 1, D-002).
+-- Ingeniería inversa del modelo PHP real (histórico: backend retirado, D-008 y tag legacy-php-final).
 --
 -- Notas:
 -- * `user` se renombra app_user (`user` es palabra reservada en PG). No viajan `password`/`token`:

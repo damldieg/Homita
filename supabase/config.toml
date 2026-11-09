@@ -1,6 +1,7 @@
 # Configuración del stack local de Supabase para Homita (fase 1, D-002).
 # Generada con `supabase init` (CLI 3.x) y ajustada: project_id "homita-api", seed desactivado
-# (los datos de demo/migración entran por scripts/demo/seed_supabase.py y scripts/supabase/).
+# (los datos de demo entran por scripts/demo/seed.py vía `scripts/demo.sh up`; los de importación
+# histórica, por scripts/demo/seed_supabase.py).
 # For detailed configuration reference documentation, visit:
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
@@ -69,7 +70,7 @@ schema_paths = []
 
 [db.seed]
 # If enabled, seeds the database after migrations during a db reset.
-# Desactivado: los datos entran por scripts/demo/seed_supabase.py y scripts/supabase/.
+# Desactivado: los datos entran por scripts/demo/seed.py (demo) y scripts/demo/seed_supabase.py.
 enabled = false
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"

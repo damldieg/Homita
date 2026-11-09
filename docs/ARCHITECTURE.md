@@ -76,21 +76,20 @@ avdmanager create avd -n Frame_API_29 -k "system-images;android-29;default;x86" 
 emulator -avd Frame_API_29
 ```
 
-- La build **debug** usa el backend local (`planify.debugBaseUrl`, por defecto `http://10.0.2.2:3000/`: `php -S 0.0.0.0:3000 -t public public/index.php` en Planify-Backend).
-- La **release** usa `planify.baseUrl` de `apps/dashboard/planify.properties` (ver `planify.properties.example`); sin ella no compila. Desde el corte de producción (2026-11-08) la release apunta a la Edge Function alojada de Supabase (`https://<ref>.supabase.co/functions/v1/api`); `api/` (PHP) queda como legacy de transición y vuelta atrás. El JWT de Supabase caduca a los 7 días y el dashboard no refresca la sesión: cada semana hay que volver a entrar (re-login semanal).
+- La build **debug** usa la Edge local (`planify.debugBaseUrl`, por defecto `http://10.0.2.2:54321/functions/v1/api/`: `scripts/demo.sh up` la sirve con `supabase functions serve`).
+- La **release** usa `planify.baseUrl` de `apps/dashboard/planify.properties` (ver `planify.properties.example`); sin ella no compila. Desde el corte de producción (2026-11-08) la release apunta a la Edge Function alojada de Supabase (`https://<ref>.supabase.co/functions/v1/api`), el único backend del proyecto. El JWT de Supabase caduca a los 7 días y el dashboard no refresca la sesión: cada semana hay que volver a entrar (re-login semanal).
 - Pruebas: `./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleRelease` (en `apps/dashboard/`).
 
 **Entorno de demo** (`scripts/demo.sh`), para probar sin datos reales y hacer las capturas del README:
 
-- `scripts/demo.sh app [--no-build]` deja el emulador listo en un paso: levanta el backend de demo, arranca el AVD si no lo está, le pone la hora del PC, compila e instala la debug y entra con la cuenta de demo (escribe la sesión en las preferencias de la app, sin teclear).
-- El backend de demo es una copia de Planify-Backend (`PLANIFY_BACKEND`, por defecto `api/`) en `.demo/` (git lo ignora), en el puerto 3001, con una familia ficticia de `scripts/demo/seed.py`: personas, 2 calendarios, eventos alrededor de hoy, rutinas y listas de tareas. Las fechas son relativas al día, así que se vuelve a crear si es de otro día.
-- `up` solo levanta el backend, `down` lo para y `reset` lo crea desde cero.
+- `scripts/demo.sh app [--no-build]` deja el emulador listo en un paso: reset de la BD local y Edge servida con datos ficticios (`scripts/demo/seed.py`: personas, 2 calendarios, eventos alrededor de hoy, rutinas y listas de tareas; las fechas son relativas al día, así que se vuelve a crear cada día), arranca el AVD si no lo está, le pone la hora del PC, compila e instala la debug y entra con la cuenta de demo (escribe la sesión en las preferencias de la app, sin teclear).
+- La demo es solo local (stack de Supabase + Docker, ver [supabase/README.md, Flujo demo local](../supabase/README.md#flujo-demo-local)): `up` resetea la BD local y sirve la Edge, `down` para el serve (la BD queda intacta) y `supabase stop` es decisión del usuario. Jamás usa `~/.homita/supabase.env` (producción).
 
 Para probar el quiosco en el emulador basta con `adb shell dpm set-device-owner com.lito.planify.dashboard/.admin.AdminReceiver` en un AVD sin cuentas.
 
 ## Contrato del backend (control-api)
 
-El contrato es el **(a) PHP-compat** (D-008): la Edge Function `supabase/functions/api` replica el contrato de `api/` (PHP) ruta a ruta — mismos parámetros, validaciones y mensajes exactos, misma forma de respuesta y mismos efectos. `supabase/functions/api` es la **única fuente del contrato**; `api/` queda como oracle de paridad y vuelta atrás hasta su retirada. El detalle por ruta (43) está en el propio código: la tabla de rutas (`ROUTES`) de `supabase/functions/api/index.ts` y `scripts/supabase/contract_check.py`, que compara la respuesta ruta a ruta con el PHP (existe además un inventario detallado del cambio, local y no versionado). El cliente iOS (`apps/control-ios`, Swift/SwiftUI, lógica en el paquete `ControlKit`) consume esta misma Edge con este mismo contrato.
+El contrato es el **(a) PHP-compat** (D-008): la Edge Function `supabase/functions/api` implementa ruta a ruta el contrato del backend retirado — mismos parámetros, validaciones y mensajes exactos, misma forma de respuesta y mismos efectos — y es su **única fuente** desde la retirada del PHP (change `remove-php-legacy`, tag `legacy-php-final`). El detalle por ruta (43) está en el propio código: la tabla de rutas (`ROUTES`) de `supabase/functions/api/index.ts` y `scripts/supabase/contract_check.py`, que verifica la Edge contra el contrato documentado (inventario histórico en `.dorch/archive/control-api/contract-inventory.md`, local y no versionado). El cliente iOS (`apps/control-ios`, Swift/SwiftUI, lógica en el paquete `ControlKit`) consume esta misma Edge con este mismo contrato.
 
 **Matriz de autorización** (owner/viewer; §3 del plan de `control-api`). Notación: **M** = miembro del calendario o la lista (no miembro → `500 {"error":"Not Found"}`); **O** = owner; **S** = self (`user_id` de la sesión). El orden de comprobación es el PHP: validación 400 → M → S → O.
 
@@ -103,14 +102,14 @@ El contrato es el **(a) PHP-compat** (D-008): la Edge Function `supabase/functio
 | `calendar/user` y `task-list/user` (DELETE) | M → S (`400 {"error":"User cannot remove themselves"}`) → O (403) |
 | `person` PATCH/DELETE | solo el creador; el resto → `500 {"error":"Not Found"}` (paridad PHP, no 403) |
 
-**Desviaciones documentadas** frente al PHP (todas verificadas en `scripts/supabase/`):
+**Desviaciones documentadas** del contrato PHP-compat (todas verificadas en `scripts/supabase/`):
 
 - **401 vs 500 (legacy):** login con email inexistente — PHP `500 {"error":"Not Found"}`, Edge `401 {"error":"Invalid credentials"}`.
 - **Owner-only 403:** en `calendar/update|delete`, `task-list/update|delete` y `*/user`, PHP no comprueba owner (acepta al viewer); la Edge responde `403 {"error":"Not Allowed"}` (Q5: enforce).
 - **Gemini 400:** `POST event/create` con `text` y sin `title`+`date_at` → `400 {"error":"Title and date_at are required if text is not provided"}` (mensaje PHP exacto, pero PHP solo lo emitiría si Gemini falla: la conversión de texto está diferida).
 - **`refresh_token` aditivo:** `POST /user/auth` añade `refresh_token` a las claves PHP (el dashboard sigue con su JWT de 7 días; el refresco directo a GoTrue es para la app iOS). Aditivo: Gson ignora claves desconocidas.
 - **Flag de `GET /config`:** PHP `config/public.json` → `allow_registration: true`; la Edge usa el env `ALLOW_REGISTRATION` con default **false** (Q3: registro cerrado salvo que se configure).
-- **`calendar/create` sin `color`:** ambos responden `500` con el TypeError del motor (`App\Models\Calendar::create(): Argument #2 ($color) must be of type string, null given, called in … on line 21`; el default `#6923E2` de la firma no aplica: el controlador pasa null explícito). Desviación solo en el sufijo `called in …`: PHP imprime la ruta absoluta de su despliegue, la Edge fija la canónica `api/src/Controllers/CalendarCreate.php on line 21`.
+- **`calendar/create` sin `color`:** ambos responden `500` con el TypeError del motor (`App\Models\Calendar::create(): Argument #2 ($color) must be of type string, null given, called in … on line 21`; el default `#6923E2` de la firma no aplica: el controlador pasa null explícito). Desviación solo en el sufijo `called in …`: PHP imprime la ruta absoluta de su despliegue, la Edge fija la del contrato, `CalendarCreate.php on line 21` (sin ruta de despliegue).
 - **Body en GET (plataforma):** PHP lee body+query con precedencia del body en todas las rutas (p.ej. `task_list_id` de `GET /task` → M-check + filtro); el runtime de Edge Functions descarta el body de GET/HEAD (fetch spec: `Request` sin body para GET, medido `req.body === null`), así que en GET solo llega el query (los consumidores reales envían los filtros por query). El código honra body+query con precedencia del body si el body llega; `contract_check` pinnea la desviación y falla si la plataforma cambia.
 
 ## Capa de datos

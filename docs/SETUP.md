@@ -13,18 +13,12 @@ Antes de nada, la configuración de tu instalación (los dos ficheros están en 
 
 ```sh
 # planify.baseUrl: URL de la release. Desde el corte de producción (2026-11-08) es la Edge Function de
-# Supabase, derivada de ~/.homita/supabase.env (solo el project ref; los secretos no van en git):
+# Supabase, derivada de ~/.homita/supabase.env (solo el project ref; los secretos no van en git).
+# Es el entorno de PRODUCCIÓN: la demo local no lo usa (genera su propio .demo/functions.env):
 . ~/.homita/supabase.env
 printf 'planify.baseUrl=https://%s.supabase.co/functions/v1/api\n' "$SUPABASE_PROJECT_REF" \
   > apps/dashboard/planify.properties
 cp scripts/config.example scripts/config.local                      # ADB_FROM (IP de tu PC), zona horaria y NTP
-```
-
-**Vuelta atrás al PHP** (tu Planify-Backend, que sigue corriendo): regenera el fichero con tu URL PHP (no hay copia guardada, la URL no va en git) y repite compilación e instalación:
-
-```sh
-printf 'planify.baseUrl=<tu-url-de-planify-backend>\n' > apps/dashboard/planify.properties
-scripts/install.sh --build --no-backup
 ```
 
 ### Secretos de la Edge Function (Supabase)
@@ -167,7 +161,7 @@ El dashboard no tiene opciones de mantenimiento: todo se hace por ADB, que en es
 
 ## App gestora en el iPhone (apps/control-ios)
 
-La gestora iOS ([apps/control-ios](../apps/control-ios/README.md)) consume la misma Edge Function que el marco. Requisitos: **Xcode 16 o superior** con el SDK de iOS y un **runtime de iOS ≥ 17** (para los tests en simulador) y `~/.homita/supabase.env`. Configuración, compilación e instalación:
+La gestora iOS ([apps/control-ios](../apps/control-ios/README.md)) consume la misma Edge Function que el marco. Requisitos: **Xcode 16 o superior** con el SDK de iOS y un **runtime de iOS ≥ 17** (para los tests en simulador) y `~/.homita/supabase.env` (entorno de producción; la demo local no lo usa). Configuración, compilación e instalación:
 
 ```sh
 apps/control-ios/scripts/gen-config.sh                 # Config.xcconfig desde ~/.homita/supabase.env (git-ignorado)

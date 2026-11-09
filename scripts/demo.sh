@@ -2,64 +2,87 @@
 # Entorno de demo para probar el dashboard en el emulador y hacer las capturas del README sin datos reales.
 #
 # Uso: scripts/demo.sh <orden>
-#   up       backend de demo en el puerto 3001: copia de Planify-Backend en .demo/ (git lo ignora) con datos
-#            ficticios (scripts/demo/seed.py). Las fechas son relativas a hoy: si los datos son de otro día, los
-#            vuelve a crear. Si ya está arrancado y al día, no hace nada.
-#   app      además de up: arranca el emulador (si no lo está), le pone la hora del PC, compila e instala la
-#            debug y entra con la cuenta de demo (sin teclear: escribe la sesión en las preferencias de la app).
-#            Con --no-build, instala la última debug compilada.
-#   down     para el backend.
+#   up       Edge Function `api` en local para la demo: reset de la BD del stack local
+#            (supabase db reset --local), env local propio (.demo/functions.env, git lo ignora) y
+#            `supabase functions serve` con datos ficticios de hoy (scripts/demo/seed.py). Cada up
+#            parte de cero (reset + seed), así que siempre está al día y es repetible.
+#   app      además de up: arranca el emulador (si no lo está), le pone la hora del PC, compila e
+#            instala la debug y entra con la cuenta de demo (sin teclear: escribe la sesión en las
+#            preferencias de la app). Con --no-build, instala la última debug compilada.
+#   down     para `functions serve`; la BD del stack local queda intacta (supabase stop es aparte).
 #   reset    borra .demo/ y repite up.
 #
-# Variables: PLANIFY_BACKEND (por defecto $HERE/api), DEMO_AVD (Frame_API_29), DEMO_EMULATOR_PORT (5556),
-# ANDROID_SDK (~/Android/Sdk), DEMO_BASE_URL (base del dashboard para la build y el token; por defecto
-# http://10.0.2.2:3001), DEMO_SKIP_BACKEND=1 (no arranca el PHP: el token se pide a su /user/auth).
+# Prerrequisitos: Supabase CLI (o npx supabase@latest), Docker y el stack local levantado
+# (supabase start). La demo es solo local: jamás usa ~/.homita/supabase.env (producción).
+# Variables: DEMO_AVD (Frame_API_29), DEMO_EMULATOR_PORT (5556), ANDROID_SDK (~/Android/Sdk),
+# DEMO_BASE_URL (base del dashboard para la build y el token; por defecto
+# http://10.0.2.2:54321/functions/v1/api/), DEMO_SKIP_EDGE=1 (no toca la Edge: el token se pide a
+# la que haya servida).
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 DEMO="$HERE/.demo"
-BACKEND="${PLANIFY_BACKEND:-$HERE/api}"
 AVD="${DEMO_AVD:-Frame_API_29}"
 EMULATOR_PORT="${DEMO_EMULATOR_PORT:-5556}"
 SDK="${ANDROID_SDK:-$HOME/Android/Sdk}"
-PORT=3001
-URL="http://127.0.0.1:$PORT"
+URL="http://127.0.0.1:54321/functions/v1/api"    # sin barra final: $URL/user/auth no debe dar //
+BASE_URL="${DEMO_BASE_URL:-http://10.0.2.2:54321/functions/v1/api/}"  # con barra final (Retrofit)
 EMAIL=demo@homita.example
 PASSWORD=demo1234
 PKG=com.lito.planify.dashboard
 export ANDROID_SERIAL="emulator-$EMULATOR_PORT"
 
 step() { echo "==> $*"; }
-running() { curl -s -o /dev/null "$URL/" 2>/dev/null; }
+
+# Supabase CLI: `supabase` en PATH o npx
+if command -v supabase >/dev/null 2>&1; then SUPA=(supabase); else SUPA=(npx supabase@latest); fi
+supa() { "${SUPA[@]}" "$@"; }
+
+# Guard (R1): solo URLs locales; nunca el proyecto alojado
+local_url() { case "$1" in http://127.0.0.1:*|http://localhost:*) return 0 ;; *) return 1 ;; esac; }
+
+check() {
+    command -v docker >/dev/null 2>&1 || { echo "Falta Docker (prerrequisito de la Edge local)"; exit 1; }
+    docker info >/dev/null 2>&1 || { echo "Docker no responde (prerrequisito de la Edge local)"; exit 1; }
+    supa --version >/dev/null 2>&1 || { echo "Falta la Supabase CLI (supabase o npx supabase@latest)"; exit 1; }
+    local api_url
+    api_url="$(supa status -o env 2>/dev/null | sed -n 's/^API_URL=//p' | tr -d '"' | head -1)" || true
+    [ -n "$api_url" ] || { echo "El stack local de Supabase no está levantado: supabase start"; exit 1; }
+    local_url "$api_url" || { echo "API_URL no es local ($api_url): la demo nunca toca producción"; exit 1; }
+}
+
+# La CLI es una cadena npm → node → binario: se lista el árbol entero (hijos primero)
+tree_pids() { local c; for c in $(pgrep -P "$1" 2>/dev/null); do tree_pids "$c"; done; echo "$1"; }
 
 stop() {
-    pkill -f "[p]hp -S 0.0.0.0:$PORT" || true
+    [ -f "$DEMO/functions.pid" ] || return 0
+    local pid
+    pid="$(cat "$DEMO/functions.pid")"
+    if kill -0 "$pid" 2>/dev/null; then
+        # shellcheck disable=SC2046 # lista de pids del árbol, sin comillas a propósito
+        kill $(tree_pids "$pid") 2>/dev/null || true
+        for _ in $(seq 20); do kill -0 "$pid" 2>/dev/null || break; sleep 0.1; done
+    fi
+    rm -f "$DEMO/functions.pid"
 }
 
 up() {
-    if running && [ "$(cat "$DEMO/seeded" 2>/dev/null)" = "$(date +%F)" ]; then
-        step "Backend de demo en $URL (datos de hoy)"
-        return
-    fi
+    check
     stop
-    if [ ! -f "$DEMO/backend/public/index.php" ]; then
-        step "Copiando el backend de $BACKEND"
-        [ -d "$BACKEND" ] || { echo "No está el backend en $BACKEND (PLANIFY_BACKEND)"; exit 1; }
-        mkdir -p "$DEMO/backend"
-        # Copia el árbol de trabajo (no git archive: api/ está dentro del monorepo y archivaría el repo entero),
-        # sin datos ni secretos locales
-        tar -C "$BACKEND" --exclude=.git --exclude=db --exclude=logs --exclude=config/private.local.json -cf - . \
-            | tar -x -C "$DEMO/backend"
-        printf '{\n  "gemini_api_key": "",\n  "token_secret": "%s",\n  "db_log_enabled": false\n}\n' \
-            "$(head -c 24 /dev/urandom | base64)" > "$DEMO/backend/config/private.local.json"
-    fi
-    step "Base de datos nueva"
-    rm -f "$DEMO/backend/db/database.sqlite"
-    mkdir -p "$DEMO/backend/db" "$DEMO/backend/logs"
-    (cd "$DEMO/backend" && php src/Commands/Migrate.php >/dev/null)
-    # En su propia sesión y sin heredar la salida, para que no quede colgado de este script
-    (cd "$DEMO/backend" && exec setsid php -S 0.0.0.0:$PORT -t public public/index.php) > "$DEMO/php.log" 2>&1 < /dev/null &
-    for _ in $(seq 50); do running && break; sleep 0.1; done
+    step "Base de datos local nueva (supabase db reset --local)"
+    supa db reset --local
+    step "Env local de la demo ($DEMO/functions.env)"
+    # Solo ALLOW_REGISTRATION=true: SUPABASE_URL/ANON_KEY/SERVICE_ROLE_KEY los inyecta el runtime
+    # local (R1-01). Nunca --env-file ~/.homita/supabase.env: contiene producción.
+    printf 'ALLOW_REGISTRATION=true\n' > "$DEMO/functions.env"
+    chmod 600 "$DEMO/functions.env"
+    step "Edge Function api en $URL"
+    nohup "${SUPA[@]}" functions serve api --no-verify-jwt --env-file "$DEMO/functions.env" \
+        > "$DEMO/serve.log" 2>&1 < /dev/null &
+    echo $! > "$DEMO/functions.pid"
+    for _ in $(seq 50); do curl -fsS -o /dev/null "$URL/config" 2>/dev/null && break; sleep 0.2; done
+    curl -fsS -o /dev/null "$URL/config" \
+        || { echo "La Edge no responde en $URL/config (ver $DEMO/serve.log)"; exit 1; }
     step "Datos de demo"
     python3 -I "$HERE/scripts/demo/seed.py" "$URL"
     date +%F > "$DEMO/seeded"
@@ -92,19 +115,20 @@ app() {
             *) echo "Opción desconocida: $arg"; exit 1 ;;
         esac
     done
-    [ "${DEMO_SKIP_BACKEND:-}" = 1 ] || up
+    [ "${DEMO_SKIP_EDGE:-}" = 1 ] || up
     emulator
     local apk="$HERE/apps/dashboard/app/build/outputs/apk/debug/app-debug.apk"
     if [ $build = 1 ]; then
         step "Compilando la debug"
-        (cd "$HERE/apps/dashboard" && ./gradlew -q assembleDebug -Pplanify.debugBaseUrl="${DEMO_BASE_URL:-http://10.0.2.2:$PORT}")
+        (cd "$HERE/apps/dashboard" && ./gradlew -q assembleDebug -Pplanify.debugBaseUrl="$BASE_URL")
     fi
     step "Instalando"
     adb install -r "$apk" >/dev/null
 
     step "Sesión de demo"
-    local token prefs dir api="${DEMO_BASE_URL:-$URL}"
+    local token prefs dir api="$BASE_URL"
     api="${api/10.0.2.2/127.0.0.1}"  # 10.0.2.2 es el PC visto desde el emulador: desde el PC es 127.0.0.1
+    api="${api%/}"                   # sin barra final: la ruta se añade abajo
     token="$(curl -sf "$api/user/auth" -H 'Content-Type: application/json' \
         -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')"
     dir="/data/data/$PKG"
@@ -145,7 +169,7 @@ mkdir -p "$DEMO"
 case "${1:-}" in
     up) up ;;
     app) shift; app "$@" ;;
-    down) stop; step "Backend de demo parado" ;;
+    down) stop; step "Edge de demo parada (la BD local queda intacta)" ;;
     reset) stop; rm -rf "$DEMO"; mkdir -p "$DEMO"; up ;;
-    *) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+    *) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

@@ -166,7 +166,7 @@ upsert("routine_user", [{"routine_id": i, "user_id": 1, "alarm": None} for i in 
 upsert("routine_person", [{"routine_id": i, "person_id": P[w]} for i, (_, _, _, who) in enumerate(ROUTINES, 1)
                           for w in who], "routine_id,person_id")
 
-# Cierre de la importación (igual que migrate_sqlite.py): avanzar las secuencias tras los ids
+# Cierre de la importación: avanzar las secuencias tras los ids
 # explícitos y materializar las sesiones, igual que Routine::create en el PHP
 call("POST", "/rest/v1/rpc/admin_bump_sequences", {})
 call("POST", "/rest/v1/rpc/materialize_routines_for", {"p_user_id": 1, "p_timezone": TZ})

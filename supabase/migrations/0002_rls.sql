@@ -25,7 +25,7 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 -- Mi id ∪ los usuarios que comparten ≥1 calendario conmigo: exactamente Person::VISIBLE (la
--- "familia" de Homita (modelo compatible Planify-Backend); no existe tabla family).
+-- "familia" de Homita (modelo compatible Planify-Backend, histórico); no existe tabla family).
 create or replace function fn_family_user_ids() returns bigint[]
 language sql stable security definer set search_path = public as $$
     select coalesce(array_agg(distinct member), array[]::bigint[])

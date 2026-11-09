@@ -6,7 +6,7 @@ Homita es el monorepo de las tres piezas que lo hacen funcionar:
 
 - **[El marco (dashboard)](#el-marco-dashboard)** (`apps/dashboard/`): la app Android de solo lectura que se instala en el marco.
 - **[La gestora (control)](#la-gestora-control)** (`apps/control/`): la app Android donde se crean y editan calendarios, eventos, rutinas, personas y tareas.
-- **[La API](#la-api)** (`api/`): la API que guarda todo. Desde el corte de producción (2026-11-08) la Edge Function de Supabase; `api/` es el Planify-Backend (PHP + SQLite) legacy de transición.
+- **[La API](#la-api)**: la Edge Function de Supabase ([supabase/](supabase/README.md)) que guarda todo. El único backend desde el corte de producción (2026-11-08).
 
 **Este repositorio es, sobre todo, una guía para agentes** (Claude Code, Codex…) que quieran crear su propia versión: qué hay que hacer, en qué orden, con qué requisitos y qué se aprendió por el camino. Nosotros partimos de [wesbos/photo-frame-dashboard](https://github.com/wesbos/photo-frame-dashboard) de la misma forma.
 
@@ -101,16 +101,23 @@ Instalarla en el marco y convertirlo en quiosco: [docs/SETUP.md](docs/SETUP.md).
 
 ## La API
 
-`api/` es el Planify-Backend (PHP + SQLite), la API legacy de transición: la producción usa la Edge Function de Supabase ([supabase/](supabase/README.md)) desde el corte del 2026-11-08 y `api/` sigue corriendo como vuelta atrás hasta su retirada. Instalación y configuración: [api/README.md](api/README.md). A mano, desde `api/`, migraciones y servidor:
+El único backend es la Edge Function `api` de Supabase ([supabase/](supabase/README.md)): esquema
+Postgres, Auth y la función con el contrato que usan el marco y la gestora. En producción apunta a
+`https://<ref>.supabase.co/functions/v1/api` desde el corte del 2026-11-08; en local se sirve con el
+stack de Supabase. Prerrequisitos de la parte local: Supabase CLI (`supabase` o `npx supabase@latest`)
+y Docker.
 
-```sh
-php src/Commands/Migrate.php
-php -S 0.0.0.0:3001 -t public public/index.php
-```
+Para probar sin datos reales, `scripts/demo.sh up` sirve la Edge local (`.demo/` guarda su estado y
+git lo ignora) con una familia ficticia de hoy: personas, calendarios, eventos, rutinas y listas de
+tareas (`scripts/demo/seed.py`). La debug del marco apunta por defecto a la Edge local vista desde el
+emulador, `http://10.0.2.2:54321/functions/v1/api/` (`planify.debugBaseUrl`).
 
-Para probar sin datos reales, `scripts/demo.sh up` monta una copia de `api/` en `.demo/` (git la ignora) en <http://127.0.0.1:3001> con una familia ficticia de hoy: personas, calendarios, eventos, rutinas y listas de tareas. La debug del marco apunta por defecto a `http://10.0.2.2:3000/` (`planify.debugBaseUrl`).
+**Demo en un paso:** `scripts/demo.sh app` — reset de la BD local, Edge local servida con los datos
+ficticios, emulador con las medidas del marco, la hora del PC, la debug compilada e instalada, y la
+sesión de demo entrada sin teclear (más detalle en [docs/ARCHITECTURE.md, Desarrollo](docs/ARCHITECTURE.md#desarrollo)).
 
-**Demo en un paso:** `scripts/demo.sh app` — backend de demo, emulador con las medidas del marco, la hora del PC, la debug compilada apuntando al 3001 e instalada, y la sesión de demo entrada sin teclear (más detalle en [docs/ARCHITECTURE.md, Desarrollo](docs/ARCHITECTURE.md#desarrollo)).
+El flujo local completo (con `supabase start`/`supabase stop`) está en
+[supabase/README.md, Flujo demo local](supabase/README.md#flujo-demo-local).
 
 ---
 
@@ -197,7 +204,7 @@ La ficha completa, con todas las particiones y el software de fábrica, está en
 **Además:**
 - Un cable **USB-C de datos** (no solo carga).
 - Una red Wi-Fi de **2,4 GHz con WPA2** (el chip no soporta WPA3 ni 5 GHz). Mejor una red de invitados.
-- Si usas esta app tal cual: la Edge Function de Supabase desplegada (lo que usa la producción) o un [Planify-Backend](api/) accesible por HTTPS (legacy), y una cuenta creada con la [Planify-APP](apps/control/).
+- Si usas esta app tal cual: la Edge Function de Supabase desplegada (lo que usa la producción) y una cuenta creada con la [Planify-APP](apps/control/).
 
 ---
 
@@ -220,9 +227,9 @@ La ficha completa, con todas las particiones y el software de fábrica, está en
 
 ### Fase 3: decide qué app vas a instalar
 
-La app de este repositorio (`apps/dashboard/`) es un dashboard nativo en Kotlin y Jetpack Compose, de solo lectura, que habla con la API de Planify (la Edge Function `https://<ref>.supabase.co/functions/v1/api` en producción desde el corte del 2026-11-08; el Planify-Backend PHP de `api/`, legacy de transición, para autoalojo) y con Open-Meteo. Tienes tres caminos:
+La app de este repositorio (`apps/dashboard/`) es un dashboard nativo en Kotlin y Jetpack Compose, de solo lectura, que habla con la API de Planify (la Edge Function `https://<ref>.supabase.co/functions/v1/api` de Supabase, el único backend desde el corte del 2026-11-08) y con Open-Meteo. Tienes tres caminos:
 
-1. **Usarla con Planify** (lo más rápido): monta [Planify-Backend](api/), crea tu cuenta con [Planify-APP](apps/control/) y marca en la APP qué calendarios y listas se ven (interruptor «Mostrar en el dashboard»).
+1. **Usarla con Planify** (lo más rápido): despliega la [Edge Function de Supabase](supabase/), crea tu cuenta con [Planify-APP](apps/control/) y marca en la APP qué calendarios y listas se ven (interruptor «Mostrar en el dashboard»).
 2. **Usarla con otra fuente de datos:** la app solo necesita esto del backend, así que basta con reimplementarlo (o cambiar `data/Api.kt` y los repositorios de `data/repository/`):
 
    | Petición | Respuesta |
@@ -242,7 +249,8 @@ printf 'planify.baseUrl=https://%s.supabase.co/functions/v1/api\n' "$SUPABASE_PR
   > apps/dashboard/planify.properties
 #   planify.baseUrl=https://<ref>.supabase.co/functions/v1/api   URL de la API (obligatoria para la
 #   release). Producción usa la Edge Function de Supabase desde el corte (2026-11-08); el valor se deriva
-#   de ~/.homita/supabase.env y no se commitea nunca (git ignora el fichero). Para tu propia versión basta
+#   de ~/.homita/supabase.env (entorno de producción; la demo local NO lo usa — genera su propio
+#   .demo/functions.env) y no se commitea nunca (git ignora el fichero). Para tu propia versión basta
 #   la URL de tu backend (ver planify.properties.example)
 
 cp scripts/config.example scripts/config.local
@@ -251,7 +259,7 @@ cp scripts/config.example scripts/config.local
 #   FRAME_NTP=pool.ntp.org                     opcional
 ```
 
-Los dos ficheros están en `.gitignore`. La URL también se puede pasar con `-Pplanify.baseUrl=…` o la variable `PLANIFY_BASE_URL`, y la release no compila sin ella. La versión debug apunta al backend local visto desde el emulador (`planify.debugBaseUrl`, por defecto `http://10.0.2.2:3000/`).
+Los dos ficheros están en `.gitignore`. La URL también se puede pasar con `-Pplanify.baseUrl=…` o la variable `PLANIFY_BASE_URL`, y la release no compila sin ella. La versión debug apunta a la Edge local vista desde el emulador (`planify.debugBaseUrl`, por defecto `http://10.0.2.2:54321/functions/v1/api/`).
 
 Antes de tocar el marco, pruébala en un emulador con sus medidas (API 29, 1920×1200, 320 dpi, 1 GB): ver [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#desarrollo).
 
@@ -367,9 +375,9 @@ Muchos marcos parecidos usan el mismo SoC A133 o placas Rockchip, pero cambian e
 ```
 apps/dashboard/         app Android del marco (Kotlin, Jetpack Compose, minSdk 29); planify.properties.example
 apps/control/           app Android gestora (Planify-APP): calendarios, eventos, rutinas, personas y tareas; README, design/ y docs/
-api/                    API única (Planify-Backend, PHP + SQLite): public/, src/, config/, migrations/, tests/
+supabase/                 backend único: Edge Function api, migraciones, config del stack local y README
 scripts/install.sh      fases 2 y 4 a 8; se configura con scripts/config.local (config.example)
-scripts/demo.sh         entorno de demo: backend en .demo/ con datos ficticios (demo/seed.py), emulador y app debug
+scripts/demo.sh         entorno de demo: Edge local con datos ficticios (demo/seed.py), emulador y app debug
 scripts/frame/          backup.sh (eMMC), planify-frame.sh y .rc (cortafuegos y wakelock al arrancar)
 scripts/boot/           logo del bootloader y animación de arranque (boot.html → make.sh → install.sh)
 scripts/meteocons.py    iconos del tiempo para la app

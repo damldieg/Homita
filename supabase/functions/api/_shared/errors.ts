@@ -1,5 +1,5 @@
 // Errores del contrato PHP: strings exactos de ControllerAbstract/UserAuth/middlewareAuth/router
-// (inventario: .dorch/changes/control-api/contract-inventory.md).
+// (inventario: .dorch/archive/control-api/contract-inventory.md).
 import { json } from "./contract.ts";
 
 export const error = (message: string, status: number): Response => json({ error: message }, status);
