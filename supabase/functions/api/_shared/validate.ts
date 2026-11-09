@@ -116,13 +116,16 @@ export const validatePersonIdsWith = (
 
 // Igual que validatePersonIdsWith consultando primero la visibilidad (get_persons) como hace PHP
 // con Person::VISIBLE. Sin `person_ids` en el input no hay consulta (como validateIds → null).
+// 1.5 (§5): p_include_inactive := true — la lista completa que envía el cliente puede traer un
+// miembro ya desactivado pero asignado (histórico, K11); la barrera de inactivos nuevos es el
+// trigger/RPC (mismo mensaje 'Invalid person').
 export const personIdsOf = async (
     input: PhpInput,
     token: string,
 ): Promise<number[] | null | Response> => {
     const ids = getInput(input, "person_ids");
     if (ids === null || ids === undefined) return null;
-    const res = await rpc("get_persons", {}, token);
+    const res = await rpc("get_persons", { p_include_inactive: true }, token);
     if (!res.ok) return errPersonInvalid();
     const rows: { id: number }[] = await res.json().catch(() => []);
     return validatePersonIdsWith(input, rows.map((r) => r.id));

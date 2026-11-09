@@ -1,6 +1,6 @@
 // Edge Function `api` — contrato (a) PHP-compat de las 43 rutas legacy del backend (D-008;
-// inventario: .dorch/archive/control-api/contract-inventory.md) + las 6 rutas /home/* de 1.4
-// (diseño §5.2, flag `home: true` en ROUTES).
+// inventario: .dorch/archive/control-api/contract-inventory.md) + las 9 rutas /home/* de 1.4/1.5
+// (diseño §5.2, flag `home: true` en ROUTES; 1.5 añade /home/member/*).
 // Auth manual (deploy --no-verify-jwt), como middlewareAuth. user/auth, user/create y config son
 // públicas; el resto exige Bearer (token inválido → 401, desviación documentada).
 //
@@ -55,8 +55,8 @@ import {
     handleTaskOrder, handleTaskUpdate,
 } from "./usecases/tasks.ts";
 import {
-    handleHomeCreate, handleHomeDefault, handleHomeDetail, handleHomeIndex, handleHomeMembership,
-    handleHomeUpdate,
+    handleHomeCreate, handleHomeDefault, handleHomeDetail, handleHomeIndex, handleHomeMemberCreate,
+    handleHomeMemberIndex, handleHomeMemberUpdate, handleHomeMembership, handleHomeUpdate,
 } from "./usecases/homes.ts";
 
 type Handler = (req: Request, token: string, uid: string) => Promise<Response> | Response;
@@ -120,6 +120,9 @@ const ROUTES: Record<string, { auth: boolean; home?: boolean; handler: Handler }
     "PATCH /home/update": { auth: true, home: true, handler: (req, t) => handleHomeUpdate(req, t) },
     "PATCH /home/default": { auth: true, home: true, handler: (req, t) => handleHomeDefault(req, t) },
     "GET /home/membership": { auth: true, home: true, handler: (req, t) => handleHomeMembership(req, t) },
+    "GET /home/member": { auth: true, home: true, handler: (req, t) => handleHomeMemberIndex(req, t) },
+    "POST /home/member/create": { auth: true, home: true, handler: (req, t) => handleHomeMemberCreate(req, t) },
+    "PATCH /home/member/update": { auth: true, home: true, handler: (req, t) => handleHomeMemberUpdate(req, t) },
 };
 
 // Ruta lógica sin el prefijo de montaje (…/functions/v1/api/… o …/api/…) — sin endsWith

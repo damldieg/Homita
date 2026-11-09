@@ -9,8 +9,8 @@ segundo lado con el que comparar. Este script fija el comportamiento documentado
 
 * Cobertura: las 43 rutas del contrato (tabla ROUTES de `supabase/functions/api/index.ts`),
   incluidas `GET /config` y `PATCH /user/update` (no cubiertas por el antiguo oráculo), más las
-  6 rutas `/home/*` de 1.4 (`HOME_ROUTES`, contrato nuevo sin oráculo PHP). El resumen final
-  exige 43/43 legacy, 6/6 home y exit 0 solo si todos los casos pasan.
+  9 rutas `/home/*` de 1.4/1.5 (`HOME_ROUTES`, contrato nuevo sin oráculo PHP). El resumen final
+  exige 43/43 legacy, 9/9 home y exit 0 solo si todos los casos pasan.
 * Forma: plantillas con claves EXACTAS — `"<ts>"` (`Y-m-d H:i:s`), `"<token>"` (string no vacío),
   `"<id>"`/`"<int>"`, `"<str>"`, `"<bool>"`, `"<01>"` (entero 0/1 del contrato), sufijo `?` =
   nullable (`"<int?>"`), `[t]` = todo elemento cumple `t`, literal = igualdad exacta. El sufijo de
@@ -165,7 +165,7 @@ def shape(value, tmpl, where, issues):
 results = []
 covered = set()
 regressed = []
-EXPECTED_CASES = 151  # A-7: 106 históricos + 2 del bloque viewer (invitaciones 200 tras membresía)
+EXPECTED_CASES = 207  # A-7: 106 históricos + 2 del bloque viewer (invitaciones 200 tras membresía)
                       # + 43 del bloque home (plan §7.1 H1–H18 = 30 llamadas check/value más
                       # R1-01: filtro positivo de GET /calendar y /task-list con X-Home-Id y
                       # detalle con cabecera (H19–H25) y R1-02: trim de name y timezone opcional
@@ -173,6 +173,9 @@ EXPECTED_CASES = 151  # A-7: 106 históricos + 2 del bloque viewer (invitaciones
                       # Conteo real de la ejecución (1.4 e2e): 151 = 108 + 43 (la estimación
                       # previa de 41 se quedaba corta en H24/H25, casos del detalle de /task-list
                       # con cabecera añadidos por R1-01)
+                      # + 56 del bloque miembros 1.5 (§8.2: K1–K7, K9, K10, K13–K19, K22 —
+                      # K0 setup + K6/K7 sus dos llamadas cada uno; K8/K11/K12/K20/K21 viven en
+                      # cross_tenant_check)
 
 
 def record(route, name, ok, detail=""):
@@ -209,7 +212,8 @@ def value(route, name, ok, detail=""):
 
 
 PERSON = {"id": "<id>", "user_id": "<int>", "name": "<str>", "color": "<str>",
-          "created_at": "<ts>", "updated_at": "<ts>", "editable": "<bool>"}
+          "created_at": "<ts>", "updated_at": "<ts>", "editable": "<bool>",
+          "home_member_id": "<id>", "kind": "<str>"}
 PERSON_REF = {"id": "<id>", "user_id": "<int>", "name": "<str>", "color": "<str>"}
 CAL_ITEM = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>",
             "created_at": "<ts>", "updated_at": "<ts>", "widget": "<01>", "dashboard": "<01>",
@@ -251,6 +255,9 @@ HOME_DETAIL = {"id": "<id>", "name": "<str>", "timezone": "<str>", "is_personal"
                "created_at": "<ts>", "updated_at": "<ts>"}
 MEMBERSHIP_ITEM = {"membership_id": "<id>", "app_user_id": "<id>", "name": "<str>",
                    "email": "<str>", "role": "<str>", "permissions": ["<str>"]}
+# Contrato nuevo de 1.5 (§6.1): miembros del hogar (sin app_user_id ni email, §3.3)
+HOME_MEMBER = {"id": "<id>", "home_id": "<id>", "kind": "<str>", "name": "<str>", "color": "<str>",
+               "status": "<str>", "linked": "<bool>", "created_at": "<ts>", "updated_at": "<ts>"}
 SUCCESS = {"success": True}
 CONFIG = {"allow_registration": "<bool>"}
 ERR_INVALID_CREDS = '{"error":"Invalid credentials"}'
@@ -263,6 +270,11 @@ ERR_NAME_REQUIRED = '{"error":"Name is required"}'
 ERR_INVALID_TZ = '{"error":"Invalid timezone"}'
 ERR_HOME_ID_REQUIRED = '{"error":"Home ID is required"}'
 ERR_INVALID_HOME = '{"error":"Invalid home"}'
+# 1.5 (/home/member/* y personas, §6.1)
+ERR_INVALID_MEMBER = '{"error":"Invalid member"}'
+ERR_MEMBER_ID_REQUIRED = '{"error":"Member ID is required"}'
+ERR_PERSON_NAME_REQUIRED = '{"error":"Name is required (max 50 characters)"}'
+ERR_COLOR_INVALID = '{"error":"Color must be #RRGGBB"}'
 # TypeError del motor, mensaje exacto del contrato (sufijo de traza normalizado a fichero+línea)
 ERR_CAL_NO_COLOR = (r'App\Models\Calendar::create(): Argument #2 ($color) must be of '
                     r'type string, null given, called in CalendarCreate.php on line 21')
@@ -282,11 +294,13 @@ ROUTES = [
     "PATCH /task/complete", "PATCH /task/order", "DELETE /task/delete",
 ]
 
-# Rutas nuevas /home/* (1.4, §2 R1–R6). ROUTES se mantiene en 43: "43/43" sigue siendo la
-# métrica legacy (invariante D-008); la cobertura home se reporta aparte (6/6).
+# Rutas nuevas /home/* (1.4 §2 R1–R6; 1.5 §6.1 añade /home/member/*). ROUTES se mantiene en 43:
+# "43/43" sigue siendo la métrica legacy (invariante D-008); la cobertura home se reporta aparte
+# (9/9).
 HOME_ROUTES = [
     "GET /home", "POST /home/create", "GET /home/detail", "PATCH /home/update",
     "PATCH /home/default", "GET /home/membership",
+    "GET /home/member", "POST /home/member/create", "PATCH /home/member/update",
 ]
 
 
@@ -381,7 +395,10 @@ def reset_leftovers():
     restauración de default_home_id al hogar original de demo si quedó NULL (R1-04: la FK compuesta
     (default_home_id, id) → home_membership hace SET NULL al borrarse la membresía de un hogar CC-%
     tras un fallo entre H9 y H10, y la siguiente ejecución rompería al insertar la membresía del
-    viewer)."""
+    viewer). 1.5 (§8.4/R1-02): `delete from person` (CC-% por nombre y por hogar de prueba) va
+    ANTES de `delete from home_member` — person_home_member_fk es ON DELETE RESTRICT (0015:35) y
+    delete_person/PATCH status ya no borran person (baja soft); el trigger 0014c borra su
+    home_member al borrar la person."""
     key = load_service_key()
     if not key:
         print("aviso: sin SUPABASE_SERVICE_ROLE_KEY local: reset_leftovers omitido "
@@ -412,6 +429,10 @@ delete from home_membership
        or (app_user_id = (select id from app_user where email = '{viewer}')
            and home_id in (select id from home
                            where created_by is distinct from (select id from app_user where email = '{viewer}')));
+delete from person
+    where name like 'CC-%'
+       or home_id in (select id from home where name like 'CC-%'
+                      and created_by = (select id from app_user where email = '{demo}'));
 delete from home_member
     where home_id in (select id from home where name like 'CC-%'
                       and created_by = (select id from app_user where email = '{demo}'));
@@ -915,6 +936,232 @@ check("DELETE /task-list/user", "self-remove DELETE /task-list/user (400)",
       400, ERR_SELF_REMOVE)
 check("DELETE /task-list/delete", "owner borra la lista de prueba (DELETE /task-list/delete)",
       request("DELETE", "/task-list/delete", {"id": vlist}, tok), 200, SUCCESS)
+
+# ── Miembros (1.5, plan §8.2 K1–K7, K9, K10, K13–K19, K22): /home/member/* y puente 0014 ──
+
+def scenario_member():
+    """Gestión de miembros sobre el hogar de prueba CC-Miembros (§8.2). El co-miembro es el
+    viewer con el snapshot de `child` sembrado por psql (member_kind_default, sin
+    home.members.manage): K6/K18. K7 y K19 corren ANTES de darle membresía (usuario de otro
+    hogar). K15 vincula por psql (replica, §3.3) y prueba el 400 de `pet` vinculado. K13 fija
+    `updated_at` en el pasado para verificar la guarda `is distinct from` (R1-01, determinista).
+    Nombres con prefijo CC- (§8.4); los limpia reset_leftovers() (person antes que home_member).
+    K22: las plantillas PERSON/HOME_MEMBER con claves exactas se aplican en cada check de este
+    bloque (GET /person, POST /person/create, PATCH /person/update, /home/member/*)."""
+    # K0 (setup): hogar de prueba
+    b = check("POST /home/create", "K0 POST /home/create {CC-Miembros} → 201 HOME_DETAIL",
+              request("POST", "/home/create", {"name": "CC-Miembros"}, tok), 201, HOME_DETAIL)
+    hmem = b.get("id") if isinstance(b, dict) else None
+    # K1: alta de miembro child sin cuenta; su person 1:1 aparece en GET /person (D12/I5)
+    b = check("POST /home/member/create", "K1 create {child, CC-Miembro-Child} → 201 HOME_MEMBER",
+              request("POST", "/home/member/create",
+                      {"home_id": hmem, "kind": "child", "name": "CC-Miembro-Child", "color": "#A1B2C3"},
+                      tok), 201, HOME_MEMBER)
+    value("POST /home/member/create", "K1 linked=false, status=active, kind=child, home_id",
+          isinstance(b, dict) and b.get("linked") is False and b.get("status") == "active"
+          and b.get("kind") == "child" and b.get("home_id") == hmem, repr(b)[:300])
+    m1 = b.get("id") if isinstance(b, dict) else None
+    b = check("GET /person", "K1 GET /person lista la persona del miembro (home_member_id)",
+              request("GET", "/person", None, tok), 200, [PERSON])
+    p1 = next((x.get("id") for x in b if isinstance(x, dict) and x.get("home_member_id") == m1), None)
+    value("GET /person", "K1 la persona nueva con home_member_id y kind=child",
+          p1 is not None and any(x.get("id") == p1 and x.get("kind") == "child" for x in b),
+          repr(b)[:300])
+    # K2: pet sin cuenta — sin filas nuevas en home_membership ni membership_permission
+    pre = psql("select (select count(*) from home_membership where home_id = %d) || ' ' || "
+               "(select count(*) from membership_permission mp "
+               " join home_membership hm on hm.id = mp.home_membership_id where hm.home_id = %d)"
+               % (hmem, hmem))
+    b = check("POST /home/member/create", "K2 create {pet, CC-Miembro-Pet} → 201",
+              request("POST", "/home/member/create",
+                      {"home_id": hmem, "kind": "pet", "name": "CC-Miembro-Pet", "color": "#B2C3D4"},
+                      tok), 201, HOME_MEMBER)
+    value("POST /home/member/create", "K2 pet con linked=false",
+          isinstance(b, dict) and b.get("kind") == "pet" and b.get("linked") is False, repr(b)[:300])
+    m2 = b.get("id") if isinstance(b, dict) else None
+    post = psql("select (select count(*) from home_membership where home_id = %d) || ' ' || "
+                "(select count(*) from membership_permission mp "
+                " join home_membership hm on hm.id = mp.home_membership_id where hm.home_id = %d)"
+                % (hmem, hmem))
+    value("POST /home/member/create", "K2 sin filas nuevas en home_membership ni membership_permission",
+          pre == post, f"antes={pre!r} después={post!r}")
+    p2 = psql(f"select id from person where home_member_id = {m2}")
+    # K3–K5: validación de entrada (la RPC es la fuente única: fn_validate_person_fields)
+    check("POST /home/member/create", "K3 create kind robot → 400 Invalid member",
+          request("POST", "/home/member/create",
+                  {"home_id": hmem, "kind": "robot", "name": "CC-Miembro-Robot"}, tok),
+          400, ERR_INVALID_MEMBER)
+    check("POST /home/member/create", "K4 create name de 51 caracteres → 400 Name is required (max 50)",
+          request("POST", "/home/member/create",
+                  {"home_id": hmem, "kind": "adult", "name": "X" * 51}, tok),
+          400, ERR_PERSON_NAME_REQUIRED)
+    check("POST /home/member/create", "K4b create name '   ' → 400 Name is required (max 50)",
+          request("POST", "/home/member/create",
+                  {"home_id": hmem, "kind": "adult", "name": "   "}, tok),
+          400, ERR_PERSON_NAME_REQUIRED)
+    check("POST /home/member/create", "K5 create color 'red' → 400 Color must be #RRGGBB",
+          request("POST", "/home/member/create",
+                  {"home_id": hmem, "kind": "adult", "name": "CC-Miembro-Color", "color": "red"}, tok),
+          400, ERR_COLOR_INVALID)
+    # K7/K19: el viewer todavía NO es miembro de CC-Miembros (otro hogar) → 404 / 500 legacy
+    check("GET /home/member", "K7 GET /home/member?home_id=<CC-Miembros> por no miembro → 404",
+          request("GET", f"/home/member?home_id={hmem}", None, vtok), 404, ERR_NOT_FOUND)
+    check("POST /home/member/create", "K7b create por no miembro → 404 (sin oráculo)",
+          request("POST", "/home/member/create",
+                  {"home_id": hmem, "kind": "adult", "name": "CC-Miembro-Ajeno"}, vtok),
+          404, ERR_NOT_FOUND)
+    check("PATCH /home/member/update", "K7c update de miembro ajeno por no miembro → 404",
+          request("PATCH", "/home/member/update", {"id": m1, "name": "CC-Miembro-Ajeno"}, vtok),
+          404, ERR_NOT_FOUND)
+    check("PATCH /person/update", "K19 PATCH /person/update por usuario de otro hogar → 500 Not Found",
+          request("PATCH", "/person/update", {"id": p1, "name": "CC-Ajeno", "color": "#111111"}, vtok),
+          500, ERR_NOT_FOUND)
+    # El viewer pasa a ser co-miembro de CC-Miembros con el snapshot de `child` (sin manage)
+    psql("insert into home_membership (home_id, app_user_id, role) values (%d, %d, 'member') "
+         "on conflict (home_id, app_user_id) do nothing; "
+         "insert into membership_permission (home_membership_id, permission_code) "
+         "select hm.id, mkd.permission_code from home_membership hm "
+         "join member_kind_default mkd on mkd.kind = 'child' "
+         "where hm.home_id = %d and hm.app_user_id = %d" % (hmem, vid, hmem, vid))
+    # K6: miembro sin home.members.manage (snapshot child) → 403 en create/update
+    check("POST /home/member/create", "K6 create por miembro sin home.members.manage → 403",
+          request("POST", "/home/member/create",
+                  {"home_id": hmem, "kind": "adult", "name": "CC-Miembro-Negado"}, vtok),
+          403, ERR_NOT_ALLOWED)
+    check("PATCH /home/member/update", "K6b update por miembro sin home.members.manage → 403",
+          request("PATCH", "/home/member/update", {"id": m1, "name": "CC-Miembro-Negado"}, vtok),
+          403, ERR_NOT_ALLOWED)
+    # K9: edición de name/color (D12: person refleja el cambio)
+    b = check("PATCH /home/member/update", "K9 PATCH name/color del miembro → 200 HOME_MEMBER",
+              request("PATCH", "/home/member/update",
+                      {"id": m1, "name": "CC-Miembro-Child 2", "color": "#112233"}, tok),
+              200, HOME_MEMBER)
+    value("PATCH /home/member/update", "K9 nombre/color nuevos y linked/status sin cambios",
+          isinstance(b, dict) and b.get("name") == "CC-Miembro-Child 2" and b.get("color") == "#112233"
+          and b.get("linked") is False and b.get("status") == "active", repr(b)[:300])
+    b = check("GET /person", "K9 GET /person refleja el nombre nuevo (D12)",
+              request("GET", "/person", None, tok), 200, [PERSON])
+    value("GET /person", "K9 persona con nombre nuevo",
+          isinstance(b, list) and any(x.get("id") == p1 and x.get("name") == "CC-Miembro-Child 2"
+                                      for x in b), repr(b)[:300])
+    # K10: baja soft conservando el histórico (evento con la persona asignada en CC-Miembros)
+    b = check("POST /calendar/create", "K10 setup: calendario en CC-Miembros (X-Home-Id)",
+              request("POST", "/calendar/create", {"name": "CC-Cal-Miembros", "color": "#222222"},
+                      tok, home=hmem), 201, CAL_DETAIL)
+    ccal = b.get("id") if isinstance(b, dict) else None
+    b = check("POST /event/create", "K10 setup: evento con la persona asignada",
+              request("POST", f"/event/create?timezone={tz}",
+                      {"calendar_id": ccal, "title": "CC-Evento-Miembro",
+                       "date_at": "2026-12-15 10:00:00", "person_ids": [p1]}, tok), 200, EVENT_DETAIL)
+    e10 = b.get("id") if isinstance(b, dict) else None
+    b = check("PATCH /home/member/update", "K10 PATCH status inactive → 200",
+              request("PATCH", "/home/member/update", {"id": m1, "status": "inactive"}, tok),
+              200, HOME_MEMBER)
+    value("PATCH /home/member/update", "K10 status=inactive en la respuesta",
+          isinstance(b, dict) and b.get("status") == "inactive", repr(b)[:300])
+    b = check("GET /person", "K10 GET /person ya no lista la inactiva",
+              request("GET", "/person", None, tok), 200, [PERSON])
+    value("GET /person", "K10 persona oculta tras la baja (sin borrar filas)",
+          isinstance(b, list) and all(x.get("id") != p1 for x in b), repr(b)[:300])
+    b = check("GET /home/member", "K10 GET /home/member la lista con status inactive",
+              request("GET", f"/home/member?home_id={hmem}", None, tok), 200, [HOME_MEMBER])
+    value("GET /home/member", "K10 miembro con status=inactive",
+          isinstance(b, list) and any(x.get("id") == m1 and x.get("status") == "inactive" for x in b),
+          repr(b)[:300])
+    b = check("GET /event/detail", "K10 GET /event/detail sigue mostrando la persona (histórico)",
+              request("GET", f"/event/detail?id={e10}&timezone={tz}", None, tok), 200, EVENT_DETAIL)
+    value("GET /event/detail", "K10 persona inactiva visible en el histórico",
+          isinstance(b, dict) and any(p.get("id") == p1 for p in b.get("persons") or []), repr(b)[:300])
+    # K13: idempotencia determinista (R1-01: updated_at solo si cambia; valor fijado en el pasado)
+    psql("update home_member set updated_at = '2000-01-01 00:00:00' where id = %d; "
+         "update person set updated_at = '2000-01-01 00:00:00' where id = %d" % (m1, p1))
+    check("PATCH /home/member/update", "K13 PATCH status inactive sobre inactivo → 200 (sin cambios)",
+          request("PATCH", "/home/member/update", {"id": m1, "status": "inactive"}, tok),
+          200, HOME_MEMBER)
+    b = check("GET /home/member", "K13 GET /home/member tras PATCH idempotente",
+              request("GET", f"/home/member?home_id={hmem}", None, tok), 200, [HOME_MEMBER])
+    value("GET /home/member", "K13 home_member.updated_at intacto (2000-01-01 00:00:00)",
+          isinstance(b, list) and any(x.get("id") == m1 and x.get("status") == "inactive"
+                                      and x.get("updated_at") == "2000-01-01 00:00:00" for x in b),
+          repr(b)[:300])
+    # K13b: PATCH con mismo name/color sobre miembro activo → person.updated_at intacto (K13)
+    psql("update person set updated_at = '2000-01-01 00:00:00' where id = %s; "
+         "update home_member set updated_at = '2000-01-01 00:00:00' where id = %s" % (p2, m2))
+    check("PATCH /home/member/update", "K13b PATCH con mismo name/color → 200 (sin cambios)",
+          request("PATCH", "/home/member/update",
+                  {"id": m2, "name": "CC-Miembro-Pet", "color": "#B2C3D4"}, tok), 200, HOME_MEMBER)
+    b = check("GET /person", "K13b GET /person tras PATCH sin cambios",
+              request("GET", "/person", None, tok), 200, [PERSON])
+    value("GET /person", "K13b person.updated_at intacto (2000-01-01 00:00:00)",
+          isinstance(b, list) and any(x.get("id") == int(p2)
+                                      and x.get("updated_at") == "2000-01-01 00:00:00" for x in b),
+          repr(b)[:300])
+    # K14: re-alta (§3.5) — mismo id, mismo person; vuelve a ser asignable
+    b = check("PATCH /home/member/update", "K14 PATCH status active (re-alta) → 200",
+              request("PATCH", "/home/member/update", {"id": m1, "status": "active"}, tok),
+              200, HOME_MEMBER)
+    value("PATCH /home/member/update", "K14 status=active",
+          isinstance(b, dict) and b.get("status") == "active", repr(b)[:300])
+    b = check("GET /person", "K14 GET /person vuelve a listarla",
+              request("GET", "/person", None, tok), 200, [PERSON])
+    value("GET /person", "K14 persona visible otra vez",
+          isinstance(b, list) and any(x.get("id") == p1 for x in b), repr(b)[:300])
+    check("POST /event/create", "K14 POST /event/create con la re-alta → 200",
+          request("POST", f"/event/create?timezone={tz}",
+                  {"calendar_id": ccal, "title": "CC-Evento-Realta",
+                   "date_at": "2026-12-16 10:00:00", "person_ids": [p1]}, tok), 200, EVENT_DETAIL)
+    # K15: vinculación por psql (replica, §3.3) + pet vinculado → Invalid member
+    psql("set session_replication_role = replica; "
+         "update home_member set app_user_id = %d where id = %d; "
+         "set session_replication_role = default;" % (vid, m1))
+    b = check("GET /home/member", "K15 GET /home/member → linked: true tras vincular por psql",
+              request("GET", f"/home/member?home_id={hmem}", None, tok), 200, [HOME_MEMBER])
+    value("GET /home/member", "K15 miembro vinculado con linked=true",
+          isinstance(b, list) and any(x.get("id") == m1 and x.get("linked") is True for x in b),
+          repr(b)[:300])
+    check("PATCH /home/member/update", "K15 PATCH kind pet sobre vinculado → 400 Invalid member",
+          request("PATCH", "/home/member/update", {"id": m1, "kind": "pet"}, tok), 400, ERR_INVALID_MEMBER)
+    # K16: baja legacy DELETE /person/delete (soft + desasignación, Q1a) por el creador
+    b = check("POST /home/member/create", "K16 setup: create {adult, CC-Miembro-K16} → 201",
+              request("POST", "/home/member/create",
+                      {"home_id": hmem, "kind": "adult", "name": "CC-Miembro-K16", "color": "#334455"},
+                      tok), 201, HOME_MEMBER)
+    m3 = b.get("id") if isinstance(b, dict) else None
+    p3 = psql(f"select id from person where home_member_id = {m3}")
+    check("POST /event/create", "K16 setup: evento con CC-Miembro-K16 asignada",
+          request("POST", f"/event/create?timezone={tz}",
+                  {"calendar_id": ccal, "title": "CC-Evento-K16",
+                   "date_at": "2026-12-17 10:00:00", "person_ids": [int(p3)]}, tok), 200, EVENT_DETAIL)
+    check("DELETE /person/delete", "K16 DELETE /person/delete por el creador → 200 success",
+          request("DELETE", "/person/delete", {"id": int(p3)}, tok), 200, SUCCESS)
+    row = psql("select (select status from home_member where id = %d) || ' ' || "
+               "(select count(*) from person where id = %s) || ' ' || "
+               "((select count(*) from event_person where person_id = %s) + "
+               "(select count(*) from routine_person where person_id = %s))" % (m3, p3, p3, p3))
+    value("DELETE /person/delete", "K16 home_member inactive, person existe, asignaciones borradas",
+          row == "inactive 1 0", f"psql: {row!r}")
+    b = check("GET /person", "K16 GET /person ya no la lista",
+              request("GET", "/person", None, tok), 200, [PERSON])
+    value("GET /person", "K16 persona oculta tras la baja legacy",
+          isinstance(b, list) and all(x.get("id") != int(p3) for x in b), repr(b)[:300])
+    # K17: PATCH /person/update por admin no creador → 200 (D15); la crea el viewer con cabecera
+    b = check("POST /person/create", "K17 setup: viewer crea persona en CC-Miembros (X-Home-Id)",
+              request("POST", "/person/create", {"name": "CC-Persona-Viewer", "color": "#445566"},
+                      vtok, home=hmem), 200, PERSON)
+    p17 = b.get("id") if isinstance(b, dict) else None
+    b = check("PATCH /person/update", "K17 PATCH /person/update por admin no creador → 200 (D15)",
+              request("PATCH", "/person/update",
+                      {"id": p17, "name": "CC-Persona-Viewer 2", "color": "#556677"}, tok), 200, PERSON)
+    value("PATCH /person/update", "K17 nombre nuevo editado por el admin no creador",
+          isinstance(b, dict) and b.get("name") == "CC-Persona-Viewer 2", repr(b)[:300])
+    # K18: PATCH /person/update por miembro child no creador → 403 (Q2a)
+    check("PATCH /person/update", "K18 PATCH /person/update por miembro child no creador → 403",
+          request("PATCH", "/person/update", {"id": p1, "name": "CC-Negado", "color": "#111111"}, vtok),
+          403, ERR_NOT_ALLOWED)
+
+
+scenario_member()
+
 
 # ── Resumen: cobertura de las 43 rutas legacy + 6 rutas home y rutas con regresión ──
 
