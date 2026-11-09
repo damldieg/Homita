@@ -31,8 +31,6 @@
 			exceptions = (
 				B10000000000000000000013 /* Exceptions for "ControlApp" folder in "ControlApp" target */,
 			);
-			explicitFileTypes = {};
-			explicitFolders = ();
 			path = ControlApp;
 			sourceTree = "<group>";
 		};
@@ -286,6 +284,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = V2LULDCBSP;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ControlApp/Info.plist;
@@ -312,6 +311,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = V2LULDCBSP;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ControlApp/Info.plist;
@@ -336,20 +336,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		B1000000000000000000000E /* Build configuration list for PBXProject "ControlApp" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				B1000000000000000000000F /* Debug */,
-				B10000000000000000000010 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		B10000000000000000000009 /* Build configuration list for PBXNativeTarget "ControlApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B10000000000000000000011 /* Debug */,
 				B10000000000000000000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B1000000000000000000000E /* Build configuration list for PBXProject "ControlApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B1000000000000000000000F /* Debug */,
+				B10000000000000000000010 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
