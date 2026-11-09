@@ -4,6 +4,8 @@ apps/dashboard/build/
 apps/dashboard/app/build/
 apps/dashboard/local.properties
 apps/dashboard/.kotlin/
+HOMITA_FUNDATIONS.md
+docs/PRODUCTS
 # Copia del repositorio de wesbos como referencia (tiene su propio git)
 docs/photo-frame-dashboard/
 apps/dashboard/planify.properties*
