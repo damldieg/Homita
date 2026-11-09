@@ -19,6 +19,12 @@ const RPC_STATUS: Record<string, number> = {
     "Event ID, title, and date_at are required": 400,
     "task_list_id and title are required": 400,
     "Task ID and title are required": 400,
+    // D-1 (1.4): diferidas de 1.3. 'Invalid home' = fn_active_home_id (0012) si la cabecera llega
+    // mal formada a SQL (la Edge la valida antes: defensa); 'Home header required' =
+    // fn_home_for_root_create (0012) con 2+ hogares sin default y sin cabecera.
+    "Invalid home": 400,
+    "Home header required": 400,
+    "Name is required": 400,
 };
 
 // Router::error de PHP: InvalidArgumentException → 400; el resto → 500 con el mensaje
@@ -33,6 +39,17 @@ export const rpcPass = async (res: Response, status = 200): Promise<Response> =>
     return new Response(await res.text(), { status, headers: { "Content-Type": "application/json" } });
 };
 
+// Como rpcPass para las rutas /home/* (D16, §6.2): 'Not Found' → 404 (no visible/no miembro);
+// el resto por RPC_STATUS ('Not Allowed' 403, 'Invalid home'/'Home header required'/validación 400)
+export const rpcPassHome = async (res: Response, status = 200): Promise<Response> => {
+    if (!res.ok) {
+        const message = ((await res.json().catch(() => null)) as { message?: string } | null)?.message
+            ?? "Internal error";
+        return error(message, message === "Not Found" ? 404 : (RPC_STATUS[message] ?? 500));
+    }
+    return new Response(await res.text(), { status, headers: { "Content-Type": "application/json" } });
+};
+
 export const errAuthFieldsRequired = (): Response => error("Email and password are required", 400);
 export const errInvalidCredentials = (): Response => error("Invalid credentials", 401);
 export const errUnauthorized = (): Response => error("Unauthorized", 401);
@@ -41,6 +58,11 @@ export const errPhpNotFound = (): Response => error("Not Found", 500);
 export const errInvalidTimezone = (): Response => error("Invalid timezone", 400);
 export const errNotAllowed = (): Response => error("Not Allowed", 403);
 export const errUserCannotRemoveThemselves = (): Response => error("User cannot remove themselves", 400);
+
+// home (rutas /home/*, §6.2): validación de entrada y errores de contexto X-Home-Id
+export const errHomeIdRequired = (): Response => error("Home ID is required", 400);
+export const errRouteHomeNotFound = (): Response => error("Not Found", 404);
+export const errInvalidHome = (): Response => error("Invalid home", 400);
 
 // user/create (UserCreate.php)
 export const errUserFieldsRequired = (): Response => error("Name, email and password are required", 400);

@@ -6,8 +6,9 @@ import {
     error, rpcPass,
 } from "../_shared/errors.ts";
 import { rpc, selectRows } from "../_shared/supabase.ts";
+import { currentHome } from "../_shared/home.ts";
 
-const CAL_COLS = "id,name,color,token,created_at,updated_at";
+const CAL_COLS = "id,name,color,token,created_at,updated_at,home_id";
 
 // PHP quirk: Calendar::create($name, $color) con color null → TypeError 500 (CalendarCreate.php:21
 // no hace fallback como TaskListCreate: pasa null explícito, el default '#6923E2' de la firma NO
@@ -28,12 +29,15 @@ const calRow = (r: Record<string, unknown>): Record<string, unknown> => ({
 export const handleCalendarIndex = async (_req: Request, token: string): Promise<Response> =>
     rpcPass(await rpc("get_calendars", {}, token));
 
-// GET /calendar/detail (CalendarDetail.php): id → M (RLS) → Calendar::findById (sin flags/count)
+// GET /calendar/detail (CalendarDetail.php): id → M (RLS) → Calendar::findById (sin flags/count).
+// Con X-Home-Id el recurso debe ser del hogar activo (§2.2/D-2): filtro home_id=eq (sin
+// cabecera, sin filtro).
 export const handleCalendarDetail = async (req: Request, token: string): Promise<Response> => {
     const input = await phpInput(req);
     const id = inputInt(input, "id");
     if (phpEmpty(id)) return errCalendarIdRequired();
-    const rows = await selectRows("calendar", `id=eq.${id}&select=${CAL_COLS}&limit=1`, token);
+    const homeFilter = currentHome() === null ? "" : `&home_id=eq.${currentHome()}`;
+    const rows = await selectRows("calendar", `id=eq.${id}&select=${CAL_COLS}&limit=1${homeFilter}`, token);
     if (rows.length === 0) return errPhpNotFound();
     return json(calRow(rows[0]));
 };
