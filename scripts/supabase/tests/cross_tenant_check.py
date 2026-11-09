@@ -9,6 +9,11 @@ Casos (~55): 8 lecturas Edge, 23 escrituras Edge, 11 RPC directas PostgREST con 
 (incl. `get_task_list_users`, `get_calendar_users`, `get_user_me`, `materialize_routine`) y 15
 owner-vs-viewer. Criterio de fuga: cualquier dato de A donde la matriz/paridad PHP no lo permite.
 
+Regresión H0 (h0-hotfix-fuga-rpc): F1–F4 fuga cross-tenant de personas por escritura RPC directa
+con `p_person_ids` de B, V1–V4/V1b/V2b validación de título/fecha en la RPC, R1 filtro de lectura
+(`fn_event_persons`/`fn_routine_persons`) ante contaminación heredada, P1/N1 positivos (persona de
+co-miembro de familia y caso `p_person_ids = null` sin cambios).
+
 Setup/limpieza solo con service_role (stack local): usuarios xt-a/xt-b vía user/create (requiere
 ALLOW_REGISTRATION=true en la Edge o usuarios preexistentes) y filas XT-% borradas al inicio y al
 final para que el script sea repetible. Nunca contra producción.
@@ -219,6 +224,96 @@ check("B rpc get_user_me → solo lo propio (sin datos de A)",
       me[0] == 200 and parse(me[1]).get("email") == B_EMAIL and parse(me[1]).get("id") != a_id,
       repr(me)[:200])
 
+# ── H0 (h0-hotfix-fuga-rpc): personas cross-tenant por RPC directa y validación título/fecha ──
+# Casos F1–F4/V1–V4/R1 con las familias de A y B aún disjuntas (A invita a B en la fase 2); los
+# positivos P1/N1 van al final. Regresión de la fuga reproducida en
+# `.dorch/archive/fase-0-auditorias/validacion-fuga-cross-tenant.md` (4/4).
+
+
+def person_leak(res):
+    """A1: la respuesta no contiene id/user_id/name/color/persons de la persona ajena."""
+    body = parse(res[1])
+    return isinstance(body, dict) and not any(k in body for k in ("id", "user_id", "name", "color", "persons"))
+
+
+def svc_title(table, row_id):
+    rows = parse(request(URL, "GET", f"/rest/v1/{table}?id=eq.{row_id}&select=title", None, None, apikey=SVC)[1])
+    return rows[0]["title"] if isinstance(rows, list) and rows else None
+
+
+b_per = parse(edge("POST", "/person/create", {"name": "XT-Persona-B", "color": "#ABCDEF"}, b_tok)[1])["id"]
+
+# F1–F4 (fuga): escritura RPC directa con el JWT de A y p_person_ids = [persona de B]
+f1 = rpc_direct("create_event", {"p_calendar_id": cal, "p_title": "XT-Fuga-F1", "p_date_at": "2026-12-30 10:00:00",
+                                 "p_alarm": None, "p_person_ids": [b_per]}, a_tok)
+check("F1 rpc create_event con persona de B → 400 Invalid person, sin datos de B",
+      f1[0] == 400 and parse(f1[1]).get("message") == "Invalid person" and person_leak(f1), repr(f1)[:200])
+f2 = rpc_direct("update_event", {"p_id": evt, "p_title": "XT-Fuga-F2", "p_date_at": "2026-12-20 12:00:00",
+                                 "p_alarm": 15, "p_person_ids": [b_per], "p_timezone": TZ}, a_tok)
+check("F2 rpc update_event con persona de B → 400 Invalid person, sin datos de B y título intacto",
+      f2[0] == 400 and parse(f2[1]).get("message") == "Invalid person" and person_leak(f2)
+      and svc_title("event", evt) == "XT-Evento", repr(f2)[:200])
+f3 = rpc_direct("create_routine", {"p_calendar_id": cal, "p_title": "XT-Fuga-F3", "p_frequency": "weekly",
+                                   "p_interval": 1, "p_days": [2], "p_time": "10:00", "p_start_date": start,
+                                   "p_end_date": None, "p_active": True, "p_alarm": None,
+                                   "p_person_ids": [b_per], "p_timezone": TZ}, a_tok)
+check("F3 rpc create_routine con persona de B → 400 Invalid person, sin datos de B",
+      f3[0] == 400 and parse(f3[1]).get("message") == "Invalid person" and person_leak(f3), repr(f3)[:200])
+f4 = rpc_direct("update_routine", {"p_id": rou, "p_title": "XT-Fuga-F4", "p_frequency": "weekly",
+                                   "p_interval": 1, "p_days": [1, 3], "p_time": "09:30", "p_start_date": start,
+                                   "p_end_date": None, "p_active": True, "p_person_ids": [b_per],
+                                   "p_timezone": TZ}, a_tok)
+check("F4 rpc update_routine con persona de B → 400 Invalid person, sin datos de B y título intacto",
+      f4[0] == 400 and parse(f4[1]).get("message") == "Invalid person" and person_leak(f4)
+      and svc_title("routine", rou) == "XT-Rutina", repr(f4)[:200])
+for name, table, param in (("F1-F4 sin filas nuevas en event_person para la persona de B", "event_person", "event_id"),
+                           ("F1-F4 sin filas nuevas en routine_person para la persona de B", "routine_person", "routine_id")):
+    rows = parse(request(URL, "GET", f"/rest/v1/{table}?person_id=eq.{b_per}&select={param}", None, None, apikey=SVC)[1])
+    check(name, rows == [], repr(rows)[:200])
+
+# V1–V4 (validación): mensajes exactos de la Edge (usecases/tasks.ts:56,65 y usecases/events.ts:91,116)
+v1 = rpc_direct("create_task", {"p_task_list_id": lst, "p_title": ""}, a_tok)
+check("V1 rpc create_task con título '' → 400 task_list_id and title are required",
+      v1[0] == 400 and parse(v1[1]).get("message") == "task_list_id and title are required", repr(v1)[:200])
+v1b = rpc_direct("create_task", {"p_task_list_id": lst, "p_title": "0"}, a_tok)
+check("V1b rpc create_task con título '0' → 400 task_list_id and title are required",
+      v1b[0] == 400 and parse(v1b[1]).get("message") == "task_list_id and title are required", repr(v1b)[:200])
+v2 = rpc_direct("update_task", {"p_id": tsk, "p_title": ""}, a_tok)
+check("V2 rpc update_task con título '' → 400 Task ID and title are required",
+      v2[0] == 400 and parse(v2[1]).get("message") == "Task ID and title are required", repr(v2)[:200])
+v2b = rpc_direct("update_task", {"p_id": tsk, "p_title": "0"}, a_tok)
+check("V2b rpc update_task con título '0' → 400 Task ID and title are required",
+      v2b[0] == 400 and parse(v2b[1]).get("message") == "Task ID and title are required", repr(v2b)[:200])
+v3 = rpc_direct("create_event", {"p_calendar_id": cal, "p_title": "", "p_date_at": "2026-12-30 11:00:00",
+                                 "p_alarm": None, "p_person_ids": None}, a_tok)
+check("V3 rpc create_event con título '' → 400 Title and date_at are required if text is not provided",
+      v3[0] == 400 and parse(v3[1]).get("message") == "Title and date_at are required if text is not provided",
+      repr(v3)[:200])
+v4 = rpc_direct("update_event", {"p_id": evt, "p_title": "XT-Evento", "p_date_at": "2026-13-45",
+                                 "p_alarm": 15, "p_person_ids": None, "p_timezone": TZ}, a_tok)
+check("V4 rpc update_event con date_at inválida → 400 Event ID, title, and date_at are required",
+      v4[0] == 400 and parse(v4[1]).get("message") == "Event ID, title, and date_at are required", repr(v4)[:200])
+tasks = parse(request(URL, "GET", f"/rest/v1/task?task_list_id=eq.{lst}&select=title", None, None, apikey=SVC)[1])
+check("V1-V4 nada se escribe: la lista de A solo tiene su tarea", tasks == [{"title": "XT-Tarea"}], repr(tasks)[:200])
+
+# R1 (filtro de lectura): contaminación heredada (fixture service_role) invisible para A
+request(URL, "POST", "/rest/v1/event",
+        {"calendar_id": cal, "title": "XT-R1-Evento", "date_at": "2026-12-26 10:00:00"}, None, apikey=SVC)
+r1_evt = parse(request(URL, "GET", "/rest/v1/event?title=eq.XT-R1-Evento&select=id", None, None, apikey=SVC)[1])[0]["id"]
+request(URL, "POST", "/rest/v1/routine",
+        {"calendar_id": cal, "title": "XT-R1-Rutina", "days": [1], "time": "09:30", "start_date": "2026-11-03",
+         "end_date": None, "active": True, "available_from": "2026-11-09 00:00:00", "frequency": "weekly",
+         "interval": 1}, None, apikey=SVC)
+r1_rou = parse(request(URL, "GET", "/rest/v1/routine?title=eq.XT-R1-Rutina&select=id", None, None, apikey=SVC)[1])[0]["id"]
+for table, column, row_id in (("event_person", "event_id", r1_evt), ("routine_person", "routine_id", r1_rou)):
+    request(URL, "POST", f"/rest/v1/{table}", {column: row_id, "person_id": b_per}, None, apikey=SVC)
+r1e = rpc_direct("get_event_detail", {"p_id": r1_evt}, a_tok)
+check("R1 get_event_detail de A no incluye la persona de B (contaminación heredada)",
+      r1e[0] == 200 and all(p.get("id") != b_per for p in parse(r1e[1]).get("persons") or []), repr(r1e)[:200])
+r1r = rpc_direct("get_routine_detail", {"p_id": r1_rou}, a_tok)
+check("R1 get_routine_detail de A no incluye la persona de B (contaminación heredada)",
+      r1r[0] == 200 and all(p.get("id") != b_per for p in parse(r1r[1]).get("persons") or []), repr(r1r)[:200])
+
 # ── Fase 2: B viewer en el calendario de A (matriz §3: owner vs viewer) ──
 check("owner POST /calendar/user invita a B → 200 (control positivo)",
       edge("POST", "/calendar/user", {"calendar_id": cal, "email": B_EMAIL}, a_tok)[0] == 200)
@@ -257,6 +352,21 @@ check("viewer POST /task/create en la lista compartida → 200 (A8: escribe cont
       edge("POST", "/task/create", {"task_list_id": lst, "title": "XT-Tarea B"}, b_tok)[0] in (200, 201))
 check("viewer GET /task-list/detail del compartido → 200",
       edge("GET", f"/task-list/detail?id={lst}", None, b_tok)[0] == 200)
+
+# ── H0: positivos — el filtro no rompe el uso legítimo ──
+# P1 (co-miembro): B ya es co-miembro de familia de A (invitado en la fase 2) → su persona SÍ es asignable
+p1 = rpc_direct("create_event", {"p_calendar_id": cal, "p_title": "XT-Positivo-P1", "p_date_at": "2026-12-28 12:00:00",
+                                 "p_alarm": None, "p_person_ids": [b_per]}, a_tok)
+check("P1 create_event de A con persona del co-miembro B → 200 y la persona aparece en persons",
+      p1[0] == 200 and any(p.get("id") == b_per for p in parse(p1[1]).get("persons") or []), repr(p1)[:200])
+# N1 (caso null): p_person_ids = null no cambia las asignaciones (comportamiento idéntico a pre-H0)
+n1 = rpc_direct("create_event", {"p_calendar_id": cal, "p_title": "XT-Positivo-N1", "p_date_at": "2026-12-29 12:00:00",
+                                 "p_alarm": None, "p_person_ids": [per]}, a_tok)
+n1_id = parse(n1[1]).get("id") if n1[0] == 200 else None
+n1u = rpc_direct("update_event", {"p_id": n1_id, "p_title": "XT-Positivo-N1", "p_date_at": "2026-12-29 12:00:00",
+                                  "p_alarm": None, "p_person_ids": None, "p_timezone": TZ}, a_tok)
+check("N1 update_event con p_person_ids=null conserva las asignaciones propias",
+      n1u[0] == 200 and any(p.get("id") == per for p in parse(n1u[1]).get("persons") or []), repr(n1u)[:200])
 
 clean_xt()
 fugas = results.count(False)
