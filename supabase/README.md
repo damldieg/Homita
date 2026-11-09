@@ -1,10 +1,10 @@
 # Supabase (fase 1 de D-002)
 
-Backend paralelo a `api/` (PHP, que sigue vivo): esquema Postgres, Supabase Auth, RLS y una Edge
-Function `api` que replica el contrato de `api/` (PHP) ruta a ruta — las 3 rutas de lectura del
-dashboard (`POST /user/auth`, `GET /event`, `GET /task`) y las 43 del contrato de la app gestora
-(control-api, D-008). El dashboard de producción apunta aquí desde el corte (2026-11-08); `api/`
-(PHP) queda como legacy de transición, oracle de paridad y vuelta atrás.
+Backend único del proyecto: esquema Postgres, Supabase Auth, RLS y la Edge Function `api` con el
+contrato (a) PHP-compat (D-008) ruta a ruta — las 3 rutas de lectura del dashboard
+(`POST /user/auth`, `GET /event`, `GET /task`) y las 43 del contrato de la app gestora (control-api).
+El dashboard de producción apunta aquí desde el corte (2026-11-08); el backend PHP legacy se retiró
+del repo (change `remove-php-legacy`, tag `legacy-php-final`).
 Los comandos usan `supabase …`; sin CLI instalada, `npx supabase@latest …`.
 
 > **Despliegue a producción:** prohibido `supabase db push` / `supabase functions deploy` contra el
@@ -57,7 +57,8 @@ Variantes probadas contra el proyecto alojado (2026-11-08) con un PAT de scopes 
 - **Alta de la cuenta real** (la ejecuta el usuario con su propio email y contraseña, que no pasan por chat ni
   git): `POST $SUPABASE_URL/auth/v1/admin/users` con `SUPABASE_SERVICE_ROLE_KEY` y `email_confirm: true`;
   la respuesta JSON devuelve el `id` del usuario y el trigger `on_auth_user_created` (0004) crea su fila
-  `app_user`. Comando completo (sustituye `<tu-email>`, `<tu-contraseña>` y `<tu-nombre>` al ejecutarlo):
+  `app_user`. Comando completo (sustituye `<tu-email>`, `<tu-contraseña>` y `<tu-nombre>` al ejecutarlo;
+  `~/.homita/supabase.env` es el entorno de **producción** — nunca se usa para la demo local):
 
   ```sh
   . ~/.homita/supabase.env
@@ -83,23 +84,11 @@ app; el refresco queda para una fase posterior):
 ## Orden de aplicación en proyecto limpio (R1-04)
 
 1. `db push` de `0001`–`0003` (esquema, RLS, funciones).
-2. Datos: `scripts/demo/seed_supabase.py` (demo) o `scripts/supabase/migrate_sqlite.py` (reales).
+2. Datos: `scripts/demo/seed_supabase.py` (demo).
 3. `db push` de `0004` (trigger `auth.users` → `app_user`).
 4. Deploy de la Edge Function `api`.
 
-`0004` va después de los datos: el trigger cubre solo altas futuras. La importación inserta
-`app_user` con los ids legados tras eliminar la fila que el trigger hubiera creado para ese
-`auth_uid` (doble defensa contra `UNIQUE(auth_uid)`, R1-04; ver `scripts/supabase/migrate_sqlite.py`).
-
-### seed y migrate son alternativos (nota de colisión)
-
-`scripts/demo/seed_supabase.py` y `scripts/supabase/migrate_sqlite.py` **no son acumulables sobre la
-misma BD**: `migrate_sqlite.py` asume un objetivo limpio y, con las filas de un seed previo, aborta con
-409 `UNIQUE(event_id,user_id)` (los ids del seed no coinciden con los de origen para el mismo par).
-**Orden soportado**: `db push` 0001–0003 → **uno de los dos** scripts de datos (seed para la demo,
-migrate para los datos reales) → `db push` 0004 → deploy. Si hace falta pasar por los dos,
-`supabase db reset` entre ellos (o un objetivo vacío). Re-ejecutar cada script por separado sí es
-idempotente.
+`0004` va después de los datos: el trigger cubre solo altas futuras.
 
 ## Migraciones
 
@@ -119,9 +108,8 @@ idempotente.
 ## Edge Function `functions/api/`
 
 Función Deno por casos de uso, sin build step (el deploy empaqueta los imports relativos del dir
-de la función). Rutas del contrato (a) PHP-compat: las 3 de lectura del dashboard y las 43 de la
-app gestora (41 de `ApiService.kt` + `task-list/detail` y `task/detail`), espejo de
-`api/src/Controllers/router.php`. El pathname incluye el prefijo de montaje
+de la función). Rutas del contrato (a) PHP-compat (D-008): las 3 de lectura del dashboard y las 43
+de la app gestora (41 de `ApiService.kt` + `task-list/detail` y `task/detail`). El pathname incluye el prefijo de montaje
 (`/functions/v1/api/user/auth` llega como `/api/user/auth`) y la tabla exacta `{method, route} →
 handler` de `index.ts` hace el dispatch (sin `endsWith`). Despliegue con `--no-verify-jwt`: la
 autenticación es manual (cabecera `Bearer`, como `middlewareAuth`), el usuario se deriva del JWT
@@ -146,35 +134,39 @@ variantes arriba).
 
 ## Verificación de contrato (`scripts/supabase/contract_check.py`)
 
-Compara el oráculo PHP local con la Edge Function: JSON **parseado** (orden de claves irrelevante),
-normalización acordada (plan §4): `token` validado como string no vacío y sustituido por `"<token>"`,
-`refresh_token` (solo Edge, aditivo) validado y eliminado antes de comparar, `created_at`/`updated_at`
-validados por formato `YYYY-MM-DD HH:MM:SS`, ids normalizados por clave de negocio y las desviaciones
-documentadas (`401` vs `500` de email inexistente, owner-only `403`, `refresh_token`) con
-`deviation()`. Cubre las lecturas del dashboard (escenarios de `ContentRepository` y
-`CalendarRepository`, `/task?dashboard=true`) y de la app gestora (43 rutas), escenarios de escritura
-create→read→update→delete y el bloque viewer de la matriz §3. Borra los restos `CC-%` de ejecuciones
-anteriores (`reset_leftovers`), así que es repetible sin re-sembrar. Exit 0 = contrato idéntico.
+Smoke Edge-solo: aserciones de estado/valor/forma esperada por ruta contra el contrato documentado
+(sin oráculo — el backend legacy se retiró con el change `remove-php-legacy`). Cubre las 43 rutas
+(incluidas `GET /config` y `PATCH /user/update`): lecturas del dashboard (escenarios de
+`ContentRepository` y `CalendarRepository`, `/task?dashboard=true`), lecturas de la app gestora,
+escenarios de escritura create→read→update→delete y el bloque viewer de la matriz de autorización,
+con las desviaciones documentadas fijadas como valor esperado (`401` vs `500` de email inexistente,
+owner-only `403`, `refresh_token`, TypeError de `calendar/create` sin color). Borra los restos `CC-%`
+de ejecuciones anteriores (`reset_leftovers`, service_role local), así que es repetible sin
+re-sembrar. El guard de `--fn` rechaza hosts no locales: jamás debe tocar el proyecto alojado.
+Exit 0 = 43/43 rutas cubiertas sin regresión; si no, lista las rutas con regresión.
 
 ```sh
-scripts/demo.sh up                          # oráculo PHP con seed.py (puerto 3001)
-python3 scripts/demo/seed_supabase.py       # seed equivalente en Supabase (SUPABASE_URL + SERVICE_ROLE_KEY)
-python3 scripts/supabase/contract_check.py  # o --php/--fn o CONTRACT_PHP_URL/SUPABASE_FUNCTIONS_URL
+scripts/demo.sh up                          # Edge local servida + seed.py (ver «Flujo demo local»)
+python3 scripts/supabase/contract_check.py  # o --fn URL o SUPABASE_FUNCTIONS_URL
 ```
 
-Sin oráculo PHP (rutas nuevas o desviadas): `scripts/supabase/tests/expected_shape_check.py`
+Complementos sin oráculo: `scripts/supabase/tests/expected_shape_check.py`
 (forma esperada: `refresh_token`, `config` con flag `ALLOW_REGISTRATION`, Gemini 400, alta de
 usuarios; se ejecuta una vez por configuración de flag) y `scripts/supabase/tests/cross_tenant_check.py`
 (aislamiento entre tenants: ~55 casos, ids ajenos → `500 Not Found`, RPC directas
-`/rest/v1/rpc/*` con JWT ajeno sin fugas, owner vs viewer). Fixtures de paridad:
-`scripts/supabase/fixture_two_families.py` (RLS) y `scripts/supabase/fixture_exception_order.py`
-(orden de materialización con excepciones).
+`/rest/v1/rpc/*` con JWT ajeno sin fugas, owner vs viewer). Fixture:
+`scripts/supabase/fixture_two_families.py` (RLS).
 
-Nota (macOS): `scripts/demo.sh up` falla al arrancar el PHP porque `setsid` no existe en el PATH
-(`exec: setsid: not found`). Limitación preexistente del script; no se toca el PATH global: arrancar el
-oráculo a mano con el comando equivalente y seguir con el seed:
+## Flujo demo local
 
-```sh
-(cd .demo/backend && php -S 0.0.0.0:3001 -t public public/index.php > ../php.log 2>&1 &)
-python3 -I scripts/demo/seed.py http://127.0.0.1:3001
-```
+1. `supabase start` (una vez; Docker arriba).
+2. `scripts/demo.sh app` → reset de la BD local (`supabase db reset --local`), env local,
+   `functions serve`, health, seed, build debug e install. Con `scripts/demo.sh up` solo la Edge
+   servida y sembrada (sin emulador), útil para `contract_check.py`.
+3. `scripts/demo.sh down` → para `functions serve`; la BD local queda intacta.
+4. `supabase stop` cuando se termine (decisión del usuario).
+
+La demo es solo local: genera su propio `.demo/functions.env` (solo `ALLOW_REGISTRATION=true`; el
+runtime local inyecta `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY`) y jamás usa
+`~/.homita/supabase.env`, que contiene las credenciales de producción y solo se lee para operar el
+proyecto alojado (sección siguiente y README raíz).

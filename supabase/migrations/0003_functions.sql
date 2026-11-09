@@ -5,7 +5,7 @@
 --   Event/Task: claves en el orden de las propiedades de las clases) y fechas
 --   to_char(..., 'YYYY-MM-DD HH24:MI:SS') como las cadenas SQLite.
 -- * materialize_routines_for: port 1:1 de Routine::materializeForUser/occurrences/matches/
---   materialize/syncAlarms (api/src/Models/Routine.php:37-228) — SECURITY INVOKER ejecutada con
+--   materialize/syncAlarms (histórico: Routine.php:37-228 del backend retirado, D-008) — SECURITY INVOKER ejecutada con
 --   service_role (BYPASSRLS, como PHP escribe durante la lectura) y REVOKE a anon/authenticated:
 --   p_user_id lo deriva la Edge del JWT verificado, nunca del request (R1-03).
 -- * admin_bump_sequences: solo service_role (uso de migración).

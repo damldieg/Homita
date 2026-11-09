@@ -1,5 +1,5 @@
-// Edge Function `api` — espejo PHP-compat de las 43 rutas de api/src/Controllers/router.php
-// (contrato (a), D-008; inventario: .dorch/changes/control-api/contract-inventory.md).
+// Edge Function `api` — contrato (a) PHP-compat de las 43 rutas del backend (D-008; inventario:
+// .dorch/archive/control-api/contract-inventory.md).
 // Auth manual (deploy --no-verify-jwt), como middlewareAuth. user/auth, user/create y config son
 // públicas; el resto exige Bearer (token inválido → 401, desviación documentada).
 //

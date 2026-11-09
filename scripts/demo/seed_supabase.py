@@ -1,4 +1,4 @@
-"""Datos ficticios para la demo de Supabase (scripts/demo.sh con DEMO_BASE_URL): el MISMO dataset que
+"""Datos ficticios (fixture/import) para la BD Supabase: el MISMO dataset que
 scripts/demo/seed.py — una familia con 4 personas, 2 calendarios, eventos alrededor de hoy, rutinas de
 lunes a viernes y 2 listas de tareas — insertado con service_role + admin API y con ids deterministas
 (1..N en el mismo orden de creación que seed.py) para poder comparar contratos. Las fechas son
@@ -166,7 +166,7 @@ upsert("routine_user", [{"routine_id": i, "user_id": 1, "alarm": None} for i in 
 upsert("routine_person", [{"routine_id": i, "person_id": P[w]} for i, (_, _, _, who) in enumerate(ROUTINES, 1)
                           for w in who], "routine_id,person_id")
 
-# Cierre de la importación (igual que migrate_sqlite.py): avanzar las secuencias tras los ids
+# Cierre de la importación: avanzar las secuencias tras los ids
 # explícitos y materializar las sesiones, igual que Routine::create en el PHP
 call("POST", "/rest/v1/rpc/admin_bump_sequences", {})
 call("POST", "/rest/v1/rpc/materialize_routines_for", {"p_user_id": 1, "p_timezone": TZ})

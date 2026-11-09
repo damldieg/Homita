@@ -23,11 +23,6 @@ apps/control/*.keystore
 apps/control/app/release/
 apps/control/app/debug/
 
-# api/ (Planify-Backend): datos y secretos locales; su .gitignore ya los cubre por separado
-api/db/
-api/logs/
-api/config/private.local.json
-
 # Entorno de demo (scripts/demo.sh)
 .demo/
 .dorch/

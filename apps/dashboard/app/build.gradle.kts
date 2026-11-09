@@ -16,7 +16,7 @@ fun planifySetting(name: String, env: String): String? =
         ?.trim()?.takeIf { it.isNotEmpty() }?.let { if (it.endsWith("/")) it else "$it/" }
 
 val releaseBaseUrl = planifySetting("planify.baseUrl", "PLANIFY_BASE_URL")
-val debugBaseUrl = planifySetting("planify.debugBaseUrl", "PLANIFY_DEBUG_BASE_URL") ?: "http://10.0.2.2:3000/"
+val debugBaseUrl = planifySetting("planify.debugBaseUrl", "PLANIFY_DEBUG_BASE_URL") ?: "http://10.0.2.2:54321/functions/v1/api/"
 fun cleartext(url: String?) = (url?.startsWith("http://") == true).toString()
 
 android {

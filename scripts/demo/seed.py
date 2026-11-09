@@ -2,12 +2,12 @@
 Datos ficticios para el backend de demo (scripts/demo.sh): una familia con 4 personas, 2 calendarios, eventos alrededor
 de hoy, rutinas de lunes a viernes y 2 listas de tareas. Las fechas son relativas al día en que se ejecuta.
 
-Uso: python3 scripts/demo/seed.py [url-del-backend]   (por defecto http://127.0.0.1:3001)
+Uso: python3 scripts/demo/seed.py [url-del-backend]   (por defecto http://127.0.0.1:54321/functions/v1/api, la Edge local)
 """
 import json, sys, urllib.request, datetime
 T = datetime.date.today()
 def d(n, hm): return f"{T + datetime.timedelta(days=n)} {hm}:00"
-B = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else "http://127.0.0.1:3001"
+B = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else "http://127.0.0.1:54321/functions/v1/api"
 tok = None
 def call(method, path, data=None):
     req = urllib.request.Request(B + path, data=json.dumps(data or {}).encode(), method=method,

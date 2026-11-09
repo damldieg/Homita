@@ -8,11 +8,8 @@
 #     > apps/dashboard/planify.properties
 planify.baseUrl=https://<ref>.supabase.co/functions/v1/api
 
-# Vuelta atrás al PHP (Planify-Backend, sigue corriendo): regenera el fichero con tu URL PHP y
-# recompila — no hay copia guardada, la URL no va en git:
-#   printf 'planify.baseUrl=<tu-url-php>\n' > apps/dashboard/planify.properties
-
 # Precedencia: planify.properties > -Pplanify.baseUrl > PLANIFY_BASE_URL; un fichero viejo pisa el env.
 
-# URL del backend para la versión debug. Por defecto, el backend local visto desde el emulador.
-#planify.debugBaseUrl=http://10.0.2.2:3000/
+# URL del backend para la versión debug. Por defecto, la Edge local (supabase start / functions
+# serve, ver supabase/README.md) vista desde el emulador.
+#planify.debugBaseUrl=http://10.0.2.2:54321/functions/v1/api/

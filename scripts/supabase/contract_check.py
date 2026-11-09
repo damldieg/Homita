@@ -1,103 +1,85 @@
 #!/usr/bin/env python3
-"""Comprueba el contrato HTTP de la app gestora: oráculo PHP local vs Edge Function de Supabase.
+"""Smoke del contrato (a) de la Edge Function `api` (D-008), sin oráculo: aserciones de
+estado/valor/forma esperada por ruta contra la Edge local.
 
-Contrato (a) PHP-compat (D-008): mismas rutas/shapes/errores. Compara JSON PARSEADO (el orden de
-claves es irrelevante) con normalización acordada (plan §4, R1-05):
+El backend legacy se retiró del repo (tag `legacy-php-final`, change remove-php-legacy): ya no hay
+segundo lado con el que comparar. Este script fija el comportamiento documentado del contrato
+(inventario archivado en `.dorch/archive/control-api/contract-inventory.md`, desviaciones en
+`docs/ARCHITECTURE.md`) y falla listando las rutas con regresión.
 
-* `token` (user/auth, calendar, task_list): NO se descarta. Se valida string no vacío en ambos
-  lados y se sustituye por "<token>" antes de comparar.
-* `refresh_token` (solo Edge, POST /user/auth, aditivo): se valida string no vacío y se elimina de
-  la copia Edge (PHP no lo tiene: no se compara).
-* `created_at`/`updated_at`: validados por formato `YYYY-MM-DD HH:MM:SS` (TS_RE), valor irrelevante.
-* ids (claves de ID_KEYS): normalizados por clave de negocio (título/nombre/email) SOLO si la entidad
-  fue coleccionada en el transcript del lado (los ids de identidad pueden diferir entre PHP y Edge
-  tras escrituras, A4). Si el id NO está en el mapa (entidad no coleccionada, p.ej. `calendar_id` de
-  un evento sembrado) se compara CRUDO: los seeds mantienen los ids 1..N alineados, así que un FK
-  real divergente falla la comparación en vez de enmascararse con "<id>" (R1-06).
-* mensajes de TypeError (`called in <ruta>/fichero.php on line <n>`): se compara fichero+línea; la
-  ruta del sufijo se descarta (PHP imprime la absoluta de su despliegue, la Edge la canónica del
-  repo — desviación documentada, R1-01).
-* eventos materializados: `--no-reset-events` desactiva el reset previo (reset_events) y el filtro
-  de ventana frágil (scrub, ±90s) deja fuera ocurrencias que caen entre ambas lecturas.
-* restos de ejecuciones anteriores (filas CC-% de escenarios y del bloque viewer): se borran al
-  inicio (reset_leftovers) para poder re-ejecutar el script sin re-sembrar las bases.
+* Cobertura: las 43 rutas del contrato (tabla ROUTES de `supabase/functions/api/index.ts`),
+  incluidas `GET /config` y `PATCH /user/update` (no cubiertas por el antiguo oráculo). El resumen
+  final exige 43/43 y exit 0 solo si todos los casos pasan.
+* Forma: plantillas con claves EXACTAS — `"<ts>"` (`Y-m-d H:i:s`), `"<token>"` (string no vacío),
+  `"<id>"`/`"<int>"`, `"<str>"`, `"<bool>"`, `"<01>"` (entero 0/1 del contrato), sufijo `?` =
+  nullable (`"<int?>"`), `[t]` = todo elemento cumple `t`, literal = igualdad exacta. El sufijo de
+  traza `called in <ruta>/fichero…` se normaliza a fichero+línea antes de comparar.
+* Desviaciones documentadas fijadas como valor esperado de la Edge: `401 {"error":"Invalid
+  credentials"}` (email inexistente y token inválido), owner-only `403 {"error":"Not Allowed"}`,
+  self-remove `400 {"error":"User cannot remove themselves"}`, `refresh_token` aditivo en
+  user/auth, text-only `400` en event/create, TypeError de `calendar/create` sin color.
+* Guard (R1): `--fn` solo acepta hosts locales (127.0.0.1/localhost), sin flag de override — el
+  script escribe y borra filas CC-% vía service_role y jamás debe tocar el proyecto alojado.
+* `SUPABASE_SERVICE_ROLE_KEY` (reset de restos CC-%, R1-01): del entorno, de `.demo/functions.env`
+  o de `supabase status -o env`; toda fuente con indicios de producción (`supabase.co`) se rechaza.
 
-Casos: auth (200/400/401 + desviación de email inexistente); lecturas del dashboard (9 casos
-existentes) + calendar/detail, calendar/user, person, routine, routine/detail, task-list,
-task-list/detail, task/detail, event/detail, caso `q` ignorado (T3) y errores exactos (TypeError de
-calendar/create sin color R1-01, alarm negativo 400 R1-02, task_list_id en body de GET R1-03 como
-desviación de plataforma);
-escenarios de escritura create→read→update→delete (person, calendar, task-list+task, routine+alarm+events,
-event — este con alarm negativo en update/alarm) con ids normalizados; caso viewer con deviation()
-(PHP 200 vs Edge 403 {"error":"Not Allowed"}, matriz §3) y self-remove 400.
+Datos: `scripts/demo.sh up` deja la Edge local servida y sembrada con `scripts/demo/seed.py`
+(ids 1..N). El bloque viewer necesita `ALLOW_REGISTRATION=true` en la Edge local.
 
-Desviaciones documentadas (contract-inventory.md): 401 vs 500 (token/credenciales, R1-08),
-owner-only 403 (Q5), refresh_token aditivo (§4), text-only 400 en event/create (T14, sin oracle:
-expected-shape en scripts/supabase/tests/).
-
-Oráculo PHP: `scripts/demo.sh up` (en macOS falta `setsid` en PATH: export PATH con
-/opt/homebrew/opt/util-linux/bin, o arrancar `php -S` a mano, ver supabase/README.md).
-Datos: scripts/demo/seed.py en PHP y scripts/demo/seed_supabase.py en Supabase (ids 1..N iguales).
-Para el caso viewer hace falta ALLOW_REGISTRATION=true en la Edge (user/create) y registrar
-user/create en el oracle PHP (allow_registration=true en su config de demo).
-
-Uso: python3 scripts/supabase/contract_check.py [--php URL] [--fn URL] [--timezone TZ]
-Variables de entorno (equivalentes a las opciones): CONTRACT_PHP_URL y SUPABASE_FUNCTIONS_URL.
+Uso: python3 scripts/supabase/contract_check.py [--fn URL] [--timezone TZ]
+Variables de entorno (equivalentes a las opciones): SUPABASE_FUNCTIONS_URL y
+SUPABASE_SERVICE_ROLE_KEY.
 """
 import argparse
 import datetime
 import json
 import os
 import re
-import sqlite3
+import shutil
+import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
-# Sufijo de traza de TypeError PHP ("called in <ruta>/fichero.php on line <n>"): la ruta es la del
-# despliegue (R1-01) — se compara fichero+línea, no la ruta.
+# Sufijo de traza de TypeError ("called in <ruta>/fichero… on line <n>"): la ruta es la del
+# despliegue; se compara fichero+línea, no la ruta (desviación documentada).
 TRACE_RE = re.compile(r"called in \S*/([^/\s]+ on line \d+)")
-# Valores asignados con "ahora al escribir" por cada sistema (PHP CURRENT_TIMESTAMP / PG now()):
-# se validan por formato, no por valor (los seeds/escenarios se ejecutan en momentos distintos).
-# created_at/updated_at según plan §4; available_from y completed_at son de la misma clase
-# (documentado en builder-1.md).
-TS_KEYS = {"created_at", "updated_at", "available_from", "completed_at"}
-ID_KEYS = {
-    "id": "self", "cu_id": "cu", "tlu_id": "tlu", "calendar_id": "calendar",
-    "task_list_id": "task_list", "event_id": "event", "routine_id": "routine",
-    "person_id": "person", "user_id": "user",
-}
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-parser = argparse.ArgumentParser(description="Contrato PHP vs Edge (ver docstring del script)")
-parser.add_argument("--php", default=os.environ.get("CONTRACT_PHP_URL", "http://127.0.0.1:3001"),
-                    help="oráculo PHP (scripts/demo.sh up)")
-parser.add_argument("--fn", default=os.environ.get("SUPABASE_FUNCTIONS_URL", "http://127.0.0.1:54321/functions/v1/api"),
+parser = argparse.ArgumentParser(description="Smoke del contrato de la Edge (ver docstring)")
+parser.add_argument("--fn", default=os.environ.get("SUPABASE_FUNCTIONS_URL",
+                                                   "http://127.0.0.1:54321/functions/v1/api"),
                     help="Edge Function api (stack local o $SUPABASE_FUNCTIONS_URL)")
 parser.add_argument("--email", default="demo@homita.example")
 parser.add_argument("--password", default="demo1234")
 parser.add_argument("--timezone", default="Europe/Madrid")
-parser.add_argument("--no-reset-events", action="store_true",
-                    help="no normalizar eventos materializados (ver reset_events; posible divergencia de reloj)")
 args = parser.parse_args()
-PHP = args.php.rstrip("/")
 FN = args.fn.rstrip("/")
 
 
-def request(base, method, path, body=None, token=None):
+def assert_local(url, what):
+    if urllib.parse.urlparse(url).hostname not in ("127.0.0.1", "localhost"):
+        sys.exit(f"{what} solo acepta hosts locales (127.0.0.1/localhost), llega {url!r}: "
+                 "este script escribe y borra datos y jamás debe tocar el proyecto alojado")
+
+
+assert_local(FN, "--fn")
+
+
+def request(method, path, body=None, token=None):
     """(status, texto) — también para 4xx/5xx (HTTPError), que son casos del contrato."""
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = "Bearer " + token
-    req = urllib.request.Request(base + path, data=json.dumps(body).encode() if body is not None else None,
+    req = urllib.request.Request(FN + path, data=json.dumps(body).encode() if body is not None else None,
                                  method=method, headers=headers)
     try:
         with urllib.request.urlopen(req) as r:
             return r.status, r.read().decode()
     except urllib.error.HTTPError as e:
         return e.code, e.read().decode()
-    except urllib.error.URLError:
-        raise
 
 
 def parse(text):
@@ -107,164 +89,167 @@ def parse(text):
         return text
 
 
-def normalize(value, issues, where):
-    """token → "<token>" (validando no vacío); refresh_token se elimina (assert no vacío si está);
-    created_at/updated_at → "<ts>" validando formato. El resto de valores idénticos."""
+def trace_norm(value):
+    """Rutas de traza TypeError → fichero+línea (comparable entre despliegues)."""
     if isinstance(value, dict):
-        out = {}
-        for k, v in value.items():
-            if k == "refresh_token":
-                if not (isinstance(v, str) and v):
-                    issues.append(f"{where}: refresh_token vacío o no string: {v!r}")
-                continue
-            if k == "token":
-                if not (isinstance(v, str) and v):
-                    issues.append(f"{where}: token vacío o no string: {v!r}")
-                out[k] = "<token>"
-            elif k in TS_KEYS:
-                # null es válido (p.ej. tarea pendiente: completed_at=null) y es paridad
-                if v is not None and not (isinstance(v, str) and TS_RE.match(v)):
-                    issues.append(f"{where}: {k} con formato inesperado: {v!r}")
-                out[k] = "<ts>"
-            else:
-                out[k] = normalize(v, issues, where)
-        return out
+        return {k: trace_norm(v) for k, v in value.items()}
     if isinstance(value, list):
-        return [normalize(v, issues, where) for v in value]
+        return [trace_norm(v) for v in value]
     if isinstance(value, str):
-        return TRACE_RE.sub(r"called in \1", value)  # ruta del despliegue en TypeError (R1-01)
+        return TRACE_RE.sub(r"called in \1", value)
     return value
 
 
-# ── ids por clave de negocio (A4): los ids de identidad pueden diferir entre PHP y Edge ──
+# ── plantillas de forma ──
 
-def biz_kind(obj):
-    if not isinstance(obj, dict):
-        return None
-    if "cu_id" in obj:
-        return "cu", obj.get("email")
-    if "tlu_id" in obj:
-        return "tlu", obj.get("email")
-    if "date_at" in obj and "title" in obj:
-        return "event", f'{obj.get("title")}@{obj.get("date_at")}'
-    if "completed_at" in obj and "title" in obj:
-        return "task", obj.get("title")
-    if "days" in obj and "time" in obj:
-        return "routine", obj.get("title")
-    if "token" in obj and "sort" in obj:
-        return "task_list", obj.get("name")
-    if "email" in obj and "name" in obj and "created_at" in obj:
-        return "user", obj.get("email")
-    if "token" in obj:
-        return "calendar", obj.get("name")
-    if "user_id" in obj and "color" in obj and "name" in obj:
-        return "person", obj.get("name")
-    return None
-
-
-class IdMap:
-    """Registro id → etiqueta por tipo, construido por lado; las etiquetas son de negocio."""
-
-    def __init__(self):
-        self.maps = {k: {} for k in ID_KEYS.values() if k != "self"}
-        self.self_labels = {}
-
-    def collect(self, value, path=""):
-        if isinstance(value, dict):
-            bk = biz_kind(value)
-            if bk and isinstance(value.get("id"), int):
-                kind, label = bk
-                self.maps.setdefault(kind, {})[value["id"]] = f"<{kind}:{label}>"
-            if isinstance(value.get("cu_id"), int):
-                self.maps["cu"][value["cu_id"]] = f'<cu:{value.get("email")}>'
-            if isinstance(value.get("tlu_id"), int):
-                self.maps["tlu"][value["tlu_id"]] = f'<tlu:{value.get("email")}>'
-            for k, v in value.items():
-                self.collect(v, path + "/" + k)
-        elif isinstance(value, list):
-            for v in value:
-                self.collect(v, path)
-
-    def apply(self, value):
-        """Ids NO coleccionados (entidades sembradas/ajenas al transcript) → id CRUDO, no "<id>":
-        los seeds alinean ids 1..N, así un FK divergente real falla en vez de enmascararse (R1-06)."""
-        if isinstance(value, dict):
-            out = {}
-            for k, v in value.items():
-                kind = ID_KEYS.get(k)
-                if kind and isinstance(v, int):
-                    if k == "id":
-                        bk = biz_kind(value)
-                        out[k] = f"<{bk[0]}:{bk[1]}>" if bk else v
-                    else:
-                        out[k] = self.maps.get(kind, {}).get(v, v)
-                else:
-                    out[k] = self.apply(v)
-            return out
-        if isinstance(value, list):
-            return [self.apply(v) for v in value]
-        return value
+def shape(value, tmpl, where, issues):
+    if isinstance(tmpl, dict):
+        if not isinstance(value, dict):
+            issues.append(f"{where}: objeto esperado, llega {value!r}"[:300])
+            return
+        for k in tmpl:
+            if k not in value:
+                issues.append(f"{where}: falta la clave {k!r}")
+        for k in value:
+            if k not in tmpl:
+                issues.append(f"{where}: clave inesperada {k!r}")
+        for k, t in tmpl.items():
+            if k in value:
+                shape(value[k], t, f"{where}.{k}", issues)
+        return
+    if isinstance(tmpl, list):
+        if not isinstance(value, list):
+            issues.append(f"{where}: lista esperada, llega {value!r}"[:300])
+            return
+        for i, item in enumerate(value):
+            if tmpl:
+                shape(item, tmpl[0], f"{where}[{i}]", issues)
+        return
+    if isinstance(tmpl, str) and tmpl.startswith("<") and tmpl.endswith(">"):
+        base, nullable = tmpl[1:-1], tmpl[1:-1].endswith("?")
+        if nullable:
+            base = base[:-1]
+        if value is None:
+            if not nullable:
+                issues.append(f"{where}: null no esperado ({tmpl})")
+            return
+        ok = {
+            "ts": lambda v: isinstance(v, str) and bool(TS_RE.match(v)),
+            "token": lambda v: isinstance(v, str) and v != "",
+            "id": lambda v: isinstance(v, int) and not isinstance(v, bool) and v >= 1,
+            "int": lambda v: isinstance(v, int) and not isinstance(v, bool),
+            "str": lambda v: isinstance(v, str) and v != "",
+            "bool": lambda v: isinstance(v, bool),
+            "01": lambda v: v in (0, 1) and not isinstance(v, bool),
+        }[base](value)
+        if not ok:
+            issues.append(f"{where}: {value!r} no cumple {tmpl}")
+        return
+    if value != tmpl:
+        issues.append(f"{where}: {value!r} (esperado {tmpl!r})"[:300])
 
 
-FRAGILE_SECONDS = 90
+# ── resultados y cobertura ──
+
+results = []
+covered = set()
+regressed = []
 
 
-def scrub(value):
-    """Ventana frágil (harness, no contrato): PHP y Edge materializan con 'ahora' en cada GET
-    /event; una ocurrencia que cae entre la lectura PHP y la Edge existiría solo en un lado.
-    Se descartan ocurrencias materializadas a ±90s de la comparación (simétrico)."""
-    now = datetime.datetime.now()
-
-    def fragile(obj):
-        if not isinstance(obj, dict) or obj.get("routine_id") is None:
-            return False
-        try:
-            at = datetime.datetime.strptime(str(obj.get("date_at", "")), "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            return False
-        return abs((at - now).total_seconds()) <= FRAGILE_SECONDS
-
-    if isinstance(value, list):
-        return [scrub(v) for v in value if not fragile(v)]
-    if isinstance(value, dict):
-        return {k: scrub(v) for k, v in value.items()}
-    return value
-
-
-def compare(name, php, fn, php_ids=None, fn_ids=None):
-    """php/fn = (status, texto). True si ambos lados coinciden tras normalizar."""
-    issues = []
-    ps, pt = php
-    fs, ft = fn
-    if ps != fs:
-        issues.append(f"status: PHP {ps} vs Edge {fs}")
-    pn = normalize(scrub(parse(pt)), issues, f"{name} [PHP]")
-    fnorm = normalize(scrub(parse(ft)), issues, f"{name} [Edge]")
-    if php_ids and fn_ids:
-        pn = php_ids.apply(pn)
-        fnorm = fn_ids.apply(fnorm)
-    if pn != fnorm:
-        issues.append(f"PHP : {json.dumps(pn, sort_keys=True, ensure_ascii=False)[:400]}")
-        issues.append(f"Edge: {json.dumps(fnorm, sort_keys=True, ensure_ascii=False)[:400]}")
-    ok = not issues
+def record(route, name, ok, detail=""):
+    covered.add(route)
+    results.append(bool(ok))
     print(("ok   " if ok else "FAIL ") + name)
-    for line in issues:
-        print("     " + line)
-    return ok
-
-
-def deviation(name, php, fn, php_expect, fn_expect):
-    """Desviación documentada: cada lado debe dar exactamente su comportamiento esperado (R1-08).
-    Los expect pueden ser (status, texto) o un predicado(status, texto) → bool."""
-    def hit(res, expect):
-        return expect(res[0], res[1]) if callable(expect) else res == expect
-
-    ok = hit(php, php_expect) and hit(fn, fn_expect)
-    print(("ok   " if ok else "FAIL ") + name + " (desviación documentada)")
     if not ok:
-        print(f"     PHP : {php!r} (esperado {php_expect!r})")
-        print(f"     Edge: {fn!r} (esperado {fn_expect!r})")
-    return ok
+        if route not in regressed:
+            regressed.append(route)
+        if detail:
+            print("     " + detail)
+
+
+def check(route, name, res, status, expect=None):
+    """Aserción de estado/valor/forma esperada de la Edge. `expect`: texto exacto, plantilla de
+    forma (dict/list) o None (solo status). Devuelve el body parseado (para encadenar escenarios)."""
+    got_status, text = res
+    issues = []
+    if got_status != status:
+        issues.append(f"status: {got_status} (esperado {status}) — {text[:200]}")
+    body = trace_norm(parse(text))
+    if isinstance(expect, str):
+        if trace_norm(text) != expect:
+            issues.append(f"body: {trace_norm(text)[:300]}")
+            issues.append(f"esperado: {expect[:300]}")
+    elif expect is not None:
+        shape(body, expect, "body", issues)
+    record(route, name, not issues, "\n     ".join(issues))
+    return body
+
+
+def value(route, name, ok, detail=""):
+    record(route, name, bool(ok), detail)
+
+
+PERSON = {"id": "<id>", "user_id": "<int>", "name": "<str>", "color": "<str>",
+          "created_at": "<ts>", "updated_at": "<ts>", "editable": "<bool>"}
+PERSON_REF = {"id": "<id>", "user_id": "<int>", "name": "<str>", "color": "<str>"}
+CAL_ITEM = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>",
+            "created_at": "<ts>", "updated_at": "<ts>", "widget": "<01>", "dashboard": "<01>",
+            "upcoming_event_count": "<int>"}
+CAL_DETAIL = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>",
+              "created_at": "<ts>", "updated_at": "<ts>"}
+CAL_USER = {"cu_id": "<id>", "user_id": "<id>", "name": "<str>", "email": "<str>", "role": "<str>"}
+USER = {"id": "<id>", "name": "<str>", "email": "<str>", "created_at": "<ts>", "updated_at": "<ts>"}
+USER_CREATE = {"id": "<id>", "name": "<str>", "email": "<str>", "token": "<token>",
+               "created_at": "<ts>", "updated_at": "<ts>"}
+USER_AUTH = {"id": "<id>", "name": "<str>", "email": "<str>", "token": "<token>",
+             "refresh_token": "<token>", "created_at": "<ts>", "updated_at": "<ts>"}
+ROUTINE = {"id": "<id>", "calendar_id": "<id>", "title": "<str>", "days": ["<int>"], "time": "<str>",
+           "start_date": "<str>", "end_date": "<str?>", "active": "<bool>", "available_from": "<ts>",
+           "frequency": "<str>", "interval": "<int>", "created_at": "<ts>", "updated_at": "<ts>",
+           "calendar_name": "<str>", "calendar_color": "<str>", "alarm": "<int?>",
+           "persons": [PERSON_REF]}
+EVENT_ITEM = {"id": "<id>", "calendar_id": "<id>", "title": "<str>", "date_at": "<ts>",
+              "created_at": "<ts>", "updated_at": "<ts>", "routine_id": "<int?>",
+              "routine_date": "<str?>", "calendar_color": "<str>", "calendar_name": "<str>",
+              "alarm": "<int?>", "persons": [PERSON_REF]}
+EVENT_DETAIL = {"id": "<id>", "calendar_id": "<id>", "title": "<str>", "date_at": "<ts>",
+                "created_at": "<ts>", "updated_at": "<ts>", "routine_id": "<int?>",
+                "routine_date": "<str?>", "alarm": "<int?>", "persons": [PERSON_REF]}
+TASK_ITEM = {"id": "<id>", "task_list_id": "<id>", "title": "<str>", "completed_at": "<ts?>",
+             "created_at": "<ts>", "updated_at": "<ts>", "order": "<int>",
+             "task_list_color": "<str>", "task_list_name": "<str>"}
+TL_ITEM = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>", "sort": "<str>",
+           "created_at": "<ts>", "updated_at": "<ts>", "widget": "<01>", "dashboard": "<01>",
+           "pending_task_count": "<int>"}
+TL_DETAIL = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>", "sort": "<str>",
+             "created_at": "<ts>", "updated_at": "<ts>"}
+TL_USER = {"tlu_id": "<id>", "user_id": "<id>", "name": "<str>", "email": "<str>", "role": "<str>"}
+SUCCESS = {"success": True}
+CONFIG = {"allow_registration": "<bool>"}
+ERR_INVALID_CREDS = '{"error":"Invalid credentials"}'
+ERR_EMAIL_EXISTS = '{"error":"Email already exists"}'
+ERR_SELF_REMOVE = '{"error":"User cannot remove themselves"}'
+ERR_NOT_ALLOWED = '{"error":"Not Allowed"}'
+ERR_NOT_FOUND = '{"error":"Not Found"}'
+ERR_ALARM = '{"error":"Alarm must be nonnegative minutes or null"}'
+# TypeError del motor, mensaje exacto del contrato (sufijo de traza normalizado a fichero+línea)
+ERR_CAL_NO_COLOR = (r'App\Models\Calendar::create(): Argument #2 ($color) must be of '
+                    r'type string, null given, called in CalendarCreate.php on line 21')
+
+ROUTES = [
+    "GET /config", "POST /user/create", "POST /user/auth", "PATCH /user/update",
+    "GET /calendar", "GET /calendar/detail", "POST /calendar/create", "PATCH /calendar/update",
+    "DELETE /calendar/delete", "GET /calendar/user", "POST /calendar/user", "DELETE /calendar/user",
+    "GET /person", "POST /person/create", "PATCH /person/update", "DELETE /person/delete",
+    "GET /routine", "GET /routine/detail", "POST /routine/create", "PATCH /routine/update",
+    "PATCH /routine/alarm", "DELETE /routine/delete",
+    "GET /event", "GET /event/detail", "POST /event/create", "PATCH /event/update",
+    "DELETE /event/delete", "PATCH /event/alarm",
+    "GET /task-list", "GET /task-list/detail", "POST /task-list/create", "PATCH /task-list/update",
+    "DELETE /task-list/delete", "GET /task-list/user", "POST /task-list/user", "DELETE /task-list/user",
+    "GET /task", "GET /task/detail", "POST /task/create", "PATCH /task/update",
+    "PATCH /task/complete", "PATCH /task/order", "DELETE /task/delete",
+]
 
 
 def epoch(local_date):
@@ -284,376 +269,423 @@ next_week_end = epoch(next_monday + datetime.timedelta(days=7)) - 1
 content_end = epoch(today + datetime.timedelta(days=7)) - 1      # today.plusDays(ROUTINE_DAYS) − 1
 tz = args.timezone
 
-AUTH = "POST", "/user/auth", {"email": args.email, "password": args.password}
-CASES = [
-    ("ContentRepository /event routine=false (día 1 del mes −12, sin end_date)", "GET",
-     f"/event?start_date={epoch(month_start)}&routine=false&timezone={tz}&dashboard=true", None),
-    ("ContentRepository /event routine=true (hoy..+7)", "GET",
-     f"/event?start_date={epoch(today)}&end_date={content_end}&routine=true&timezone={tz}&dashboard=true", None),
-    ("CalendarRepository /event semana actual routine=false (lunes–domingo)", "GET",
-     f"/event?start_date={epoch(monday)}&end_date={week_end}&routine=false&timezone={tz}&dashboard=true", None),
-    ("CalendarRepository /event semana actual routine=true", "GET",
-     f"/event?start_date={epoch(monday)}&end_date={week_end}&routine=true&timezone={tz}&dashboard=true", None),
-    ("CalendarRepository /event semana siguiente routine=false", "GET",
-     f"/event?start_date={epoch(next_monday)}&end_date={next_week_end}&routine=false&timezone={tz}&dashboard=true", None),
-    ("CalendarRepository /event semana siguiente routine=true", "GET",
-     f"/event?start_date={epoch(next_monday)}&end_date={next_week_end}&routine=true&timezone={tz}&dashboard=true", None),
-    ("ContentRepository /task dashboard=true", "GET", "/task?dashboard=true", None),
-    ("GET /event con q= ignorado (T3: PHP ignora q; Edge ignora q)", "GET",
-     f"/event?q=leche&start_date={epoch(today)}&timezone={tz}", None),
-]
 
-results = []
-for base in (PHP, FN):
-    try:
-        request(base, "GET", "/task")
-    except OSError as e:
-        sys.exit(f"No responde {base}: {e}\nOráculo PHP: scripts/demo.sh up (macOS sin setsid en "
-                 "PATH: export PATH=/opt/homebrew/opt/util-linux/bin:$PATH, ver supabase/README.md)")
+# ── entorno local y reset de restos (R1-01) ──
 
-# ── Auth: 200 (los tokens de aquí autentican el resto), 400, 401 y desviación de email inexistente ──
-php_auth = request(PHP, *AUTH)
-fn_auth = request(FN, *AUTH)
-results.append(compare("POST /user/auth", php_auth, fn_auth))
-if php_auth[0] != 200 or fn_auth[0] != 200:
-    sys.exit("login falló en PHP o Edge: no se puede seguir")
-php_tok = parse(php_auth[1])["token"]
-fn_tok = parse(fn_auth[1])["token"]
+def parse_env(text):
+    env = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, val = line.split("=", 1)
+            env[key.strip()] = val.strip().strip('"').strip("'")
+    return env
 
-results.append(compare("POST /user/auth sin campos (400)", request(PHP, "POST", "/user/auth", {}),
-                       request(FN, "POST", "/user/auth", {})))
-results.append(compare("POST /user/auth contraseña errónea (401)",
-                       request(PHP, "POST", "/user/auth", {"email": args.email, "password": "mala"}),
-                       request(FN, "POST", "/user/auth", {"email": args.email, "password": "mala"})))
-results.append(deviation("POST /user/auth email inexistente",
-                         request(PHP, "POST", "/user/auth",
-                                 {"email": "noexiste@homita.example", "password": args.password}),
-                         request(FN, "POST", "/user/auth",
-                                 {"email": "noexiste@homita.example", "password": args.password}),
-                         (500, '{"error":"Not Found"}'), (401, '{"error":"Invalid credentials"}')))
 
-def reset_events():
-    """Normaliza el materializado antes de comparar: borra los eventos de rutina de cada base
-    (son derivables: GET /event routine=true los regenera) y re-materializa en ambos lados en el
-    mismo instante. Sin él, una ocurrencia materializada por PHP antes de su hora y por Edge
-    después diverge para siempre (PHP no tiene cleanup)."""
-    repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    db = os.environ.get("CONTRACT_PHP_DB", os.path.join(repo, ".demo", "backend", "db", "database.sqlite"))
-    if os.path.exists(db):
-        con = sqlite3.connect(db)
-        con.execute("delete from event where routine_id is not null")
-        con.commit()
-        con.close()
-    else:
-        print(f"aviso: sin base PHP en {db}: reset omitido (ventana frágil posible)")
+def read_env_file(path):
+    with open(path) as f:
+        return parse_env(f.read())
+
+
+def load_service_key():
+    """SUPABASE_SERVICE_ROLE_KEY para reset_leftovers: entorno → .demo/functions.env →
+    `supabase status -o env`. Toda fuente con indicios de producción se rechaza (R1)."""
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if key:
-        rest = FN.split("/functions/")[0] + "/rest/v1/event?routine_id=not.is.null"
-        req = urllib.request.Request(rest, method="DELETE",
-                                     headers={"apikey": key, "Authorization": "Bearer " + key})
+        return key
+    path = os.path.join(REPO, ".demo", "functions.env")
+    if os.path.exists(path):
+        env = read_env_file(path)
+        if any("supabase.co" in v for v in env.values()):
+            sys.exit(f"{path}: contiene credenciales de producción; la demo local no lo usa")
+        key = env.get("SUPABASE_SERVICE_ROLE_KEY") or env.get("SERVICE_ROLE_KEY")
+        if key:
+            return key
+    cmds = [["supabase"]] if shutil.which("supabase") else \
+        ([["npx", "--no-install", "supabase"], ["npx", "supabase@latest"]] if shutil.which("npx") else [])
+    for cmd in cmds:
         try:
-            urllib.request.urlopen(req).read()
-        except urllib.error.HTTPError as e:
-            print(f"aviso: reset Edge falló ({e.code}): {e.read().decode()[:120]}")
-    else:
-        print("aviso: sin SUPABASE_SERVICE_ROLE_KEY: reset Edge omitido (ventana frágil posible)")
-    path = f"/event?start_date={epoch(today)}&routine=true&timezone={args.timezone}"
-    request(PHP, "GET", path, None, php_tok)
-    request(FN, "GET", path, None, fn_tok)
-
-
-if not args.no_reset_events:
-    reset_events()
+            out = subprocess.run(cmd + ["status", "-o", "env"], capture_output=True,
+                                 text=True, timeout=30).stdout
+        except (OSError, subprocess.SubprocessError):
+            continue
+        env = parse_env(out)
+        api, key = env.get("API_URL", ""), env.get("SERVICE_ROLE_KEY", "")
+        if key:
+            if "supabase.co" in api:
+                sys.exit(f"{' '.join(cmd)} status: API_URL de producción ({api}); no se usa aquí")
+            assert_local(api, "supabase status")
+            return key
+    return None
 
 
 def reset_leftovers():
     """Higiene entre ejecuciones: borra los restos con prefijo CC-% (escenarios y bloque viewer —
-    Edge no llega a borrar el calendario del viewer: 403) para poder re-ejecutar sin re-sembrar.
-    Hijos primero en SQLite (sin PRAGMA no hay cascade); en PG basta con los padres (cascade,
-    aunque `event.routine_id` es `on delete set null`: los eventos van antes que las rutinas)."""
-    repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    db = os.environ.get("CONTRACT_PHP_DB", os.path.join(repo, ".demo", "backend", "db", "database.sqlite"))
-    if os.path.exists(db):
-        con = sqlite3.connect(db)
-        for sql in [
-            "delete from event_person where event_id in (select id from event where title like 'CC-%')",
-            "delete from event_user where event_id in (select id from event where title like 'CC-%')",
-            "delete from event_person where person_id in (select id from person where name like 'CC-%')",
-            "delete from routine_person where person_id in (select id from person where name like 'CC-%')",
-            "delete from routine_person where routine_id in (select id from routine where title like 'CC-%')",
-            "delete from routine_event_alarm where routine_id in (select id from routine where title like 'CC-%')",
-            "delete from routine_exception where routine_id in (select id from routine where title like 'CC-%')",
-            "delete from routine_user where routine_id in (select id from routine where title like 'CC-%')",
-            "delete from event where title like 'CC-%'",
-            "delete from routine where title like 'CC-%'",
-            "delete from task where title like 'CC-%'",
-            "delete from task_list_user where task_list_id in (select id from task_list where name like 'CC-%')",
-            "delete from task_list where name like 'CC-%'",
-            "delete from calendar_user where calendar_id in (select id from calendar where name like 'CC-%')",
-            "delete from calendar where name like 'CC-%'",
-            "delete from person where name like 'CC-%'",
-        ]:
-            con.execute(sql)
-        con.commit()
-        con.close()
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    if key:
-        rest = FN.split("/functions/")[0] + "/rest/v1"
-        for table, column in (("event", "title"), ("routine", "title"), ("task", "title"),
-                              ("task_list", "name"), ("calendar", "name"), ("person", "name")):
-            req = urllib.request.Request(f"{rest}/{table}?{column}=like.CC-*", method="DELETE",
-                                         headers={"apikey": key, "Authorization": "Bearer " + key})
-            try:
-                urllib.request.urlopen(req).read()
-            except urllib.error.HTTPError as e:
-                print(f"aviso: reset_leftovers {table} falló ({e.code}): {e.read().decode()[:120]}")
-    else:
-        print("aviso: sin SUPABASE_SERVICE_ROLE_KEY: reset_leftovers Edge omitido")
+    la Edge no llega a borrar el calendario del viewer: 403) para poder re-ejecutar sin re-sembrar.
+    DELETE REST vía service_role contra el REST local derivado de --fn (local por el guard). Padre
+    basta (cascade); los eventos van antes que las rutinas (`event.routine_id` es set null)."""
+    key = load_service_key()
+    if not key:
+        print("aviso: sin SUPABASE_SERVICE_ROLE_KEY local: reset_leftovers omitido "
+              "(la 2ª ejecución puede fallar por restos)")
+        return
+    rest = FN.split("/functions/")[0] + "/rest/v1"
+    for table, column in (("event", "title"), ("routine", "title"), ("task", "title"),
+                          ("task_list", "name"), ("calendar", "name"), ("person", "name")):
+        req = urllib.request.Request(f"{rest}/{table}?{column}=like.CC-*", method="DELETE",
+                                     headers={"apikey": key, "Authorization": "Bearer " + key})
+        try:
+            urllib.request.urlopen(req).read()
+        except urllib.error.HTTPError as e:
+            print(f"aviso: reset_leftovers {table} falló ({e.code}): {e.read().decode()[:120]}")
 
+
+# ── config, auth y reset ──
+
+try:
+    cfg = request("GET", "/config")
+except OSError as e:
+    sys.exit(f"No responde {FN}: {e}\nLevanta la Edge local: supabase start && scripts/demo.sh up")
+check("GET /config", "GET /config → {allow_registration: bool}", cfg, 200, CONFIG)
+value("GET /config", "GET /config → registro abierto para la demo",
+      isinstance(cfg_body := trace_norm(parse(cfg[1])), dict) and cfg_body.get("allow_registration") is True,
+      "el smoke necesita ALLOW_REGISTRATION=true en la Edge local (scripts/demo.sh up)")
+
+auth = request("POST", "/user/auth", {"email": args.email, "password": args.password})
+check("POST /user/auth", "POST /user/auth (login de la demo)", auth, 200, USER_AUTH)
+if auth[0] != 200:
+    sys.exit("login falló: no se puede seguir (¿scripts/demo.sh up con seed?)")
+tok = parse(auth[1])["token"]
+aid = parse(auth[1])["id"]
 
 reset_leftovers()
 
-for name, method, path, body in CASES:
-    php_case, fn_case = request(PHP, method, path, body, php_tok), request(FN, method, path, body, fn_tok)
-    php_cids, fn_cids = IdMap(), IdMap()  # ids materializados difieren (A4): mapas por lado
-    php_cids.collect(parse(php_case[1]))
-    fn_cids.collect(parse(fn_case[1]))
-    results.append(compare(name, php_case, fn_case, php_cids, fn_cids))
+# ── Lecturas del dashboard (escenarios de ContentRepository y CalendarRepository) ──
 
+cases = [
+    ("ContentRepository /event routine=false (día 1 del mes −12, sin end_date)",
+     f"/event?start_date={epoch(month_start)}&routine=false&timezone={tz}&dashboard=true"),
+    ("ContentRepository /event routine=true (hoy..+7)",
+     f"/event?start_date={epoch(today)}&end_date={content_end}&routine=true&timezone={tz}&dashboard=true"),
+    ("CalendarRepository /event semana actual routine=false (lunes–domingo)",
+     f"/event?start_date={epoch(monday)}&end_date={week_end}&routine=false&timezone={tz}&dashboard=true"),
+    ("CalendarRepository /event semana actual routine=true",
+     f"/event?start_date={epoch(monday)}&end_date={week_end}&routine=true&timezone={tz}&dashboard=true"),
+    ("CalendarRepository /event semana siguiente routine=false",
+     f"/event?start_date={epoch(next_monday)}&end_date={next_week_end}&routine=false&timezone={tz}&dashboard=true"),
+    ("CalendarRepository /event semana siguiente routine=true",
+     f"/event?start_date={epoch(next_monday)}&end_date={next_week_end}&routine=true&timezone={tz}&dashboard=true"),
+    ("ContentRepository /task dashboard=true", "/task?dashboard=true"),
+    ("GET /event con q= ignorado (T3)", f"/event?q=leche&start_date={epoch(today)}&timezone={tz}"),
+]
+for name, path in cases:
+    check("GET /event" if "/event" in path else "GET /task", name,
+          request("GET", path, None, tok), 200, [EVENT_ITEM] if "/event" in path else [TASK_ITEM])
 
-# ── Lecturas de la app gestora (plan §4) + errores exactos ──
-def both(method, path, body=None):
-    return request(PHP, method, path, body, php_tok), request(FN, method, path, body, fn_tok)
-
+# ── Lecturas de la app gestora ──
 
 read_lists = [
-    ("GET /calendar", "/calendar"),
-    ("GET /calendar/user", "/calendar/user?calendar_id=1"),
-    ("GET /person", "/person"),
-    ("GET /routine", f"/routine?timezone={tz}"),
-    ("GET /task-list", "/task-list"),
-    ("GET /task-list/user", "/task-list/user?task_list_id=1"),
-    ("GET /task", "/task"),
+    ("GET /calendar", "/calendar", [CAL_ITEM]),
+    ("GET /calendar/user", "/calendar/user?calendar_id=1", [CAL_USER]),
+    ("GET /person", "/person", [PERSON]),
+    ("GET /routine", f"/routine?timezone={tz}", [ROUTINE]),
+    ("GET /task-list", "/task-list", [TL_ITEM]),
+    ("GET /task-list/user", "/task-list/user?task_list_id=1", [TL_USER]),
+    ("GET /task", "/task", [TASK_ITEM]),
 ]
-for name, path in read_lists:
-    results.append(compare(name, *both("GET", path)))
+for name, path, tmpl in read_lists:
+    check(name, name, request("GET", path, None, tok), 200, tmpl)
 
 read_details = [
-    ("GET /calendar/detail", "/calendar/detail?id=1"),
-    ("GET /routine/detail", f"/routine/detail?id=1&timezone={tz}"),
-    ("GET /task-list/detail", "/task-list/detail?id=1"),
-    ("GET /task/detail", "/task/detail?id=1"),
-    ("GET /event/detail", f"/event/detail?id=1&timezone={tz}"),
+    ("GET /calendar/detail", "/calendar/detail?id=1", CAL_DETAIL),
+    ("GET /routine/detail", f"/routine/detail?id=1&timezone={tz}", ROUTINE),
+    ("GET /task-list/detail", "/task-list/detail?id=1", TL_DETAIL),
+    ("GET /task/detail", "/task/detail?id=1", TASK_ITEM),
+    ("GET /event/detail", f"/event/detail?id=1&timezone={tz}", EVENT_DETAIL),
 ]
-for name, path in read_details:
-    results.append(compare(name, *both("GET", path)))
+for name, path, tmpl in read_details:
+    check(name, name, request("GET", path, None, tok), 200, tmpl)
 
-# R1-03: task_list_id en el body de GET — PHP lo honra (body gana, ControllerAbstract.php:31 →
-# M-check → 500 Not Found con id ajeno); el runtime de la Edge descarta el body de GET/HEAD (fetch
-# spec, req.body === null, medido contra edge_runtime directo) → solo ve el query → 200 sin filtro.
-# Desviación de plataforma documentada (contract-inventory desviación 9). El código Edge ya honra
-# body+query con precedencia del body: si la plataforma entrega el body, este caso FALLA y obliga a
-# retirar la desviación.
-any_200 = lambda status, text: status == 200  # noqa: E731
-results.append(deviation("GET /task con task_list_id en el body (R1-03, desviación plataforma)",
-                         request(PHP, "GET", "/task", {"task_list_id": 999999}, php_tok),
-                         request(FN, "GET", "/task", {"task_list_id": 999999}, fn_tok),
-                         (500, '{"error":"Not Found"}'), any_200))
+# ── Errores exactos del contrato ──
 
-error_cases = [
-    ("GET /calendar/detail sin id (400)", "GET", "/calendar/detail", None),
-    ("GET /event/detail id inexistente (500 Not Found)", "GET", f"/event/detail?id=999999&timezone={tz}", None),
-    ("GET /task/detail id inexistente (500 Not Found)", "GET", "/task/detail?id=999999", None),
-    ("GET /event timezone inválido (400)", "GET", "/event?timezone=No/Zona", None),
-    ("GET /task-list/user sin task_list_id (400)", "GET", "/task-list/user", None),
-    # R1-01: color ausente → TypeError 500 (default de la firma no aplica); se compara fichero+línea
-    ("POST /calendar/create sin color (500 TypeError, R1-01)", "POST", "/calendar/create",
-     {"name": "CC-Sin-Color"}),
-    # R1-02: alarm negativo → 400 ANTES que person_ids (precedencia EventCreate.php:20-22)
-    ("POST /event/create alarm negativo (400, R1-02; precedencia ante person_ids)", "POST",
-     f"/event/create?timezone={tz}",
-     {"calendar_id": 1, "title": "CC-Neg", "date_at": "2026-12-01 10:00:00", "alarm": -5,
-      "person_ids": "no-lista"}),
-]
-for name, method, path, body in error_cases:
-    results.append(compare(name, *both(method, path, body)))
-
-
-# ── Escenarios de escritura create→read→update→delete (ids normalizados por clave de negocio) ──
-def scenario(fn_run):
-    """Ejecuta fn_run(base, token, ids) contra PHP y Edge y compara cada paso normalizado."""
-    php_out, fn_out = fn_run(PHP, php_tok, {}), fn_run(FN, fn_tok, {})
-    php_ids, fn_ids = IdMap(), IdMap()
-    for transcript in (php_out, fn_out):
-        for _, res in transcript:
-            (php_ids if transcript is php_out else fn_ids).collect(parse(res[1]))
-    ok = True
-    for (pname, pres), (fname, fres) in zip(php_out, fn_out):
-        ok = compare(f"escenario {pname}", pres, fres, php_ids, fn_ids) and ok
-    return ok
+check("POST /user/auth", "POST /user/auth sin campos (400)",
+      request("POST", "/user/auth", {}), 400, '{"error":"Email and password are required"}')
+check("POST /user/auth", "POST /user/auth contraseña errónea (401)",
+      request("POST", "/user/auth", {"email": args.email, "password": "mala"}), 401, ERR_INVALID_CREDS)
+check("POST /user/auth", "POST /user/auth email inexistente (401, desviación documentada)",
+      request("POST", "/user/auth", {"email": "noexiste@homita.example", "password": args.password}),
+      401, ERR_INVALID_CREDS)
+check("GET /calendar/detail", "GET /calendar/detail sin id (400)",
+      request("GET", "/calendar/detail", None, tok), 400, '{"error":"Calendar ID is required"}')
+check("GET /event/detail", "GET /event/detail id inexistente (500 Not Found)",
+      request("GET", f"/event/detail?id=999999&timezone={tz}", None, tok), 500, ERR_NOT_FOUND)
+check("GET /task/detail", "GET /task/detail id inexistente (500 Not Found)",
+      request("GET", "/task/detail?id=999999", None, tok), 500, ERR_NOT_FOUND)
+check("GET /event", "GET /event timezone inválido (400)",
+      request("GET", "/event?timezone=No/Zona", None, tok), 400, '{"error":"Invalid timezone"}')
+check("GET /task-list/user", "GET /task-list/user sin task_list_id (400)",
+      request("GET", "/task-list/user", None, tok), 400, '{"error":"task_list_id is required"}')
+check("POST /calendar/create", "POST /calendar/create sin color (500 TypeError)",
+      request("POST", "/calendar/create", {"name": "CC-Sin-Color"}, tok), 500,
+      {"error": ERR_CAL_NO_COLOR})
+check("POST /event/create", "POST /event/create alarm negativo (400; precedencia ante person_ids)",
+      request("POST", f"/event/create?timezone={tz}",
+              {"calendar_id": 1, "title": "CC-Neg", "date_at": "2026-12-01 10:00:00", "alarm": -5,
+               "person_ids": "no-lista"}, tok), 400, ERR_ALARM)
+# Desviación de plataforma documentada: el runtime de Edge descarta el body de GET (fetch spec),
+# así que task_list_id en body no filtra (el backend legacy, con body+query, daba 500 Not Found con
+# id ajeno). Si la plataforma empieza a entregar el body, ESTE CASO FALLA y obliga a retirar la
+# desviación.
+check("GET /task", "GET /task con task_list_id en body (desviación de plataforma: 200 sin filtro)",
+      request("GET", "/task", {"task_list_id": 999999}, tok), 200, [TASK_ITEM])
 
 
-def scenario_person(base, token, ids):
-    out = []
-    out.append(("person/create", request(base, "POST", "/person/create",
-                                         {"name": "CC-Persona", "color": "#AABBCC"}, token)))
-    ids["person"] = parse(out[-1][1][1])["id"]
-    out.append(("person/update", request(base, "PATCH", "/person/update",
-                                         {"id": ids["person"], "name": "CC-Persona 2", "color": "#112233"}, token)))
-    out.append(("person tras update", request(base, "GET", "/person", None, token)))
-    out.append(("person/delete", request(base, "DELETE", "/person/delete", {"id": ids["person"]}, token)))
-    out.append(("person tras delete", request(base, "GET", "/person", None, token)))
-    return out
+# ── Escenarios de escritura create→read→update→delete ──
+
+def scenario_person():
+    b = check("POST /person/create", "escenario person/create",
+              request("POST", "/person/create", {"name": "CC-Persona", "color": "#AABBCC"}, tok),
+              200, PERSON)
+    value("POST /person/create", "escenario person/create → editable=true",
+          isinstance(b, dict) and b.get("editable") is True)
+    pid = b.get("id") if isinstance(b, dict) else None
+    b = check("PATCH /person/update", "escenario person/update",
+              request("PATCH", "/person/update", {"id": pid, "name": "CC-Persona 2", "color": "#112233"}, tok),
+              200, PERSON)
+    value("PATCH /person/update", "escenario person/update → nombre nuevo",
+          isinstance(b, dict) and b.get("name") == "CC-Persona 2")
+    b = check("GET /person", "escenario GET /person tras update",
+              request("GET", "/person", None, tok), 200, [PERSON])
+    value("GET /person", "escenario GET /person contiene la renombrada",
+          isinstance(b, list) and any(x.get("id") == pid and x.get("name") == "CC-Persona 2" for x in b))
+    check("DELETE /person/delete", "escenario person/delete",
+          request("DELETE", "/person/delete", {"id": pid}, tok), 200, SUCCESS)
+    b = check("GET /person", "escenario GET /person tras delete",
+              request("GET", "/person", None, tok), 200, [PERSON])
+    value("GET /person", "escenario GET /person ya sin la borrada",
+          isinstance(b, list) and all(x.get("id") != pid for x in b))
 
 
-def scenario_calendar(base, token, ids):
-    out = []
-    out.append(("calendar/create", request(base, "POST", "/calendar/create",
-                                           {"name": "CC-Cal", "color": "#123456"}, token)))
-    ids["calendar"] = parse(out[-1][1][1])["id"]
-    out.append(("calendar/detail", request(base, "GET", f'/calendar/detail?id={ids["calendar"]}', None, token)))
-    out.append(("calendar/update", request(base, "PATCH", "/calendar/update",
-                                           {"id": ids["calendar"], "name": "CC-Cal 2", "color": "#654321",
-                                            "widget": False, "dashboard": True}, token)))
-    out.append(("calendar tras update", request(base, "GET", "/calendar", None, token)))
-    out.append(("calendar/delete", request(base, "DELETE", "/calendar/delete", {"id": ids["calendar"]}, token)))
-    out.append(("calendar tras delete", request(base, "GET", "/calendar", None, token)))
-    return out
+def scenario_calendar():
+    b = check("POST /calendar/create", "escenario calendar/create",
+              request("POST", "/calendar/create", {"name": "CC-Cal", "color": "#123456"}, tok),
+              201, CAL_DETAIL)
+    cid = b.get("id") if isinstance(b, dict) else None
+    check("GET /calendar/detail", "escenario calendar/detail",
+          request("GET", f"/calendar/detail?id={cid}", None, tok), 200, CAL_DETAIL)
+    b = check("PATCH /calendar/update", "escenario calendar/update",
+              request("PATCH", "/calendar/update", {"id": cid, "name": "CC-Cal 2", "color": "#654321",
+                                                    "widget": False, "dashboard": True}, tok),
+              200, CAL_DETAIL)
+    value("PATCH /calendar/update", "escenario calendar/update → nombre nuevo",
+          isinstance(b, dict) and b.get("name") == "CC-Cal 2")
+    b = check("GET /calendar", "escenario GET /calendar tras update",
+              request("GET", "/calendar", None, tok), 200, [CAL_ITEM])
+    value("GET /calendar", "escenario GET /calendar contiene la renombrada",
+          isinstance(b, list) and any(x.get("id") == cid and x.get("name") == "CC-Cal 2" for x in b))
+    check("DELETE /calendar/delete", "escenario calendar/delete",
+          request("DELETE", "/calendar/delete", {"id": cid}, tok), 200, SUCCESS)
+    b = check("GET /calendar", "escenario GET /calendar tras delete",
+              request("GET", "/calendar", None, tok), 200, [CAL_ITEM])
+    value("GET /calendar", "escenario GET /calendar ya sin la borrada",
+          isinstance(b, list) and all(x.get("id") != cid for x in b))
 
 
-def scenario_task_list(base, token, ids):
-    out = []
-    out.append(("task-list/create", request(base, "POST", "/task-list/create",
-                                            {"name": "CC-Lista", "color": "#222222", "sort": "title"}, token)))
-    ids["task_list"] = parse(out[-1][1][1])["id"]
-    out.append(("task/create", request(base, "POST", "/task/create",
-                                       {"task_list_id": ids["task_list"], "title": "CC-Tarea"}, token)))
-    ids["task"] = parse(out[-1][1][1])["id"]
-    out.append(("task/create 2", request(base, "POST", "/task/create",
-                                         {"task_list_id": ids["task_list"], "title": "CC-Tarea 2"}, token)))
-    out.append(("task/update", request(base, "PATCH", "/task/update",
-                                       {"id": ids["task"], "title": "CC-Tarea B"}, token)))
-    out.append(("task/complete", request(base, "PATCH", "/task/complete",
-                                         {"id": ids["task"], "completed": True}, token)))
-    out.append(("task/order", request(base, "PATCH", "/task/order",
-                                      {"id": ids["task"], "position": 1}, token)))
-    out.append(("tasks de la lista", request(base, "GET", f'/task?task_list_id={ids["task_list"]}', None, token)))
-    out.append(("task-list/update", request(base, "PATCH", "/task-list/update",
-                                            {"id": ids["task_list"], "name": "CC-Lista 2", "color": "#333333",
-                                             "sort": "updated_at"}, token)))
-    out.append(("task-list/delete", request(base, "DELETE", "/task-list/delete", {"id": ids["task_list"]}, token)))
-    out.append(("task-list tras delete", request(base, "GET", "/task-list", None, token)))
-    return out
+def scenario_task_list():
+    b = check("POST /task-list/create", "escenario task-list/create",
+              request("POST", "/task-list/create", {"name": "CC-Lista", "color": "#222222", "sort": "title"}, tok),
+              201, TL_DETAIL)
+    lid = b.get("id") if isinstance(b, dict) else None
+    b = check("POST /task/create", "escenario task/create",
+              request("POST", "/task/create", {"task_list_id": lid, "title": "CC-Tarea"}, tok),
+              201, TASK_ITEM)
+    tid = b.get("id") if isinstance(b, dict) else None
+    b = check("POST /task/create", "escenario task/create 2",
+              request("POST", "/task/create", {"task_list_id": lid, "title": "CC-Tarea 2"}, tok),
+              201, TASK_ITEM)
+    tid2 = b.get("id") if isinstance(b, dict) else None
+    b = check("PATCH /task/update", "escenario task/update",
+              request("PATCH", "/task/update", {"id": tid, "title": "CC-Tarea B"}, tok), 200, TASK_ITEM)
+    value("PATCH /task/update", "escenario task/update → título nuevo",
+          isinstance(b, dict) and b.get("title") == "CC-Tarea B")
+    b = check("PATCH /task/complete", "escenario task/complete",
+              request("PATCH", "/task/complete", {"id": tid, "completed": True}, tok), 200, TASK_ITEM)
+    value("PATCH /task/complete", "escenario task/complete → completed_at con forma TS",
+          isinstance(b, dict) and isinstance(b.get("completed_at"), str) and bool(TS_RE.match(b["completed_at"])))
+    check("PATCH /task/order", "escenario task/order",
+          request("PATCH", "/task/order", {"id": tid, "position": 1}, tok), 200, TASK_ITEM)
+    check("GET /task", "escenario GET /task de la lista",
+          request("GET", f"/task?task_list_id={lid}", None, tok), 200, [TASK_ITEM])
+    b = check("PATCH /task-list/update", "escenario task-list/update",
+              request("PATCH", "/task-list/update", {"id": lid, "name": "CC-Lista 2", "color": "#333333",
+                                                     "sort": "updated_at"}, tok), 200, TL_DETAIL)
+    value("PATCH /task-list/update", "escenario task-list/update → nombre nuevo",
+          isinstance(b, dict) and b.get("name") == "CC-Lista 2")
+    check("DELETE /task/delete", "escenario task/delete",
+          request("DELETE", "/task/delete", {"id": tid2}, tok), 200, SUCCESS)
+    check("DELETE /task-list/delete", "escenario task-list/delete",
+          request("DELETE", "/task-list/delete", {"id": lid}, tok), 200, SUCCESS)
+    b = check("GET /task-list", "escenario GET /task-list tras delete",
+              request("GET", "/task-list", None, tok), 200, [TL_ITEM])
+    value("GET /task-list", "escenario GET /task-list ya sin la borrada",
+          isinstance(b, list) and all(x.get("id") != lid for x in b))
 
 
-def scenario_routine(base, token, ids):
-    out = []
+def scenario_routine():
     start = (monday - datetime.timedelta(days=7)).isoformat()
-    out.append(("routine/create", request(base, "POST", f"/routine/create?timezone={tz}", {
-        "calendar_id": 1, "title": "CC-Rutina", "frequency": "weekly", "interval": 1,
-        "days": [1, 3], "time": "09:30", "start_date": start, "end_date": None,
-        "active": True, "alarm": 10}, token)))
-    ids["routine"] = parse(out[-1][1][1])["id"]
-    out.append(("eventos de CC-Rutina", request(base, "GET",
-                                                f"/event?routine=true&start_date={epoch(monday)}&end_date={week_end}&timezone={tz}", None, token)))
-    out.append(("routine/alarm", request(base, "PATCH", f"/routine/alarm?timezone={tz}",
-                                         {"id": ids["routine"], "alarm": 20}, token)))
-    out.append(("routine/update (hora)", request(base, "PATCH", f"/routine/update?timezone={tz}", {
-        "id": ids["routine"], "title": "CC-Rutina", "frequency": "weekly", "interval": 1,
-        "days": [1, 3], "time": "10:15", "start_date": start, "end_date": None, "active": True}, token)))
-    out.append(("eventos tras reconcile", request(base, "GET",
-                                                  f"/event?routine=true&start_date={epoch(monday)}&end_date={week_end}&timezone={tz}", None, token)))
-    out.append(("routine/delete", request(base, "DELETE", f"/routine/delete?timezone={tz}",
-                                          {"id": ids["routine"]}, token)))
-    out.append(("eventos tras delete", request(base, "GET",
-                                               f"/event?routine=true&start_date={epoch(monday)}&end_date={week_end}&timezone={tz}", None, token)))
-    return out
+    b = check("POST /routine/create", "escenario routine/create",
+              request("POST", f"/routine/create?timezone={tz}", {
+                  "calendar_id": 1, "title": "CC-Rutina", "frequency": "weekly", "interval": 1,
+                  "days": [1, 3], "time": "09:30", "start_date": start, "end_date": None,
+                  "active": True, "alarm": 10}, tok), 200, ROUTINE)
+    rid = b.get("id") if isinstance(b, dict) else None
+    check("GET /event", "escenario eventos de CC-Rutina",
+          request("GET", f"/event?routine=true&start_date={epoch(monday)}&end_date={week_end}&timezone={tz}",
+                  None, tok), 200, [EVENT_ITEM])
+    b = check("PATCH /routine/alarm", "escenario routine/alarm",
+              request("PATCH", f"/routine/alarm?timezone={tz}", {"id": rid, "alarm": 20}, tok),
+              200, ROUTINE)
+    value("PATCH /routine/alarm", "escenario routine/alarm → alarm=20",
+          isinstance(b, dict) and b.get("alarm") == 20)
+    b = check("PATCH /routine/update", "escenario routine/update (hora)",
+              request("PATCH", f"/routine/update?timezone={tz}", {
+                  "id": rid, "title": "CC-Rutina", "frequency": "weekly", "interval": 1,
+                  "days": [1, 3], "time": "10:15", "start_date": start, "end_date": None,
+                  "active": True}, tok), 200, ROUTINE)
+    value("PATCH /routine/update", "escenario routine/update → hora nueva",
+          isinstance(b, dict) and b.get("time") == "10:15")
+    check("GET /event", "escenario eventos tras reconcile",
+          request("GET", f"/event?routine=true&start_date={epoch(monday)}&end_date={week_end}&timezone={tz}",
+                  None, tok), 200, [EVENT_ITEM])
+    check("DELETE /routine/delete", "escenario routine/delete",
+          request("DELETE", f"/routine/delete?timezone={tz}", {"id": rid}, tok), 200, SUCCESS)
+    b = check("GET /event", "escenario eventos tras delete",
+              request("GET", f"/event?routine=true&start_date={epoch(monday)}&end_date={week_end}&timezone={tz}",
+                      None, tok), 200, [EVENT_ITEM])
+    value("GET /event", "escenario eventos ya sin sesiones de la rutina borrada",
+          isinstance(b, list) and all(x.get("routine_id") != rid for x in b))
 
 
-def scenario_event(base, token, ids):
-    out = []
-    out.append(("event/create", request(base, "POST", f"/event/create?timezone={tz}", {
-        "calendar_id": 1, "title": "CC-Evento", "date_at": "2026-12-01 12:00:00", "alarm": 15}, token)))
-    ids["event"] = parse(out[-1][1][1])["id"]
-    out.append(("event/update", request(base, "PATCH", f"/event/update?timezone={tz}", {
-        "id": ids["event"], "title": "CC-Evento 2", "date_at": "2026-12-02 13:30:00", "alarm": 15}, token)))
-    out.append(("event/alarm", request(base, "PATCH", f"/event/alarm?timezone={tz}",
-                                       {"event_id": ids["event"], "alarm": 30}, token)))
-    # R1-02: alarm negativo → 400 en update (validateAlarm EventUpdate.php:19-20) y en alarm
-    # (EventUser::apply:18 dentro de la RPC, tras el M-check)
-    out.append(("event/update alarm negativo (400, R1-02)", request(base, "PATCH", f"/event/update?timezone={tz}", {
-        "id": ids["event"], "title": "CC-Evento 2", "date_at": "2026-12-02 13:30:00", "alarm": -5}, token)))
-    out.append(("event/alarm negativo (400, R1-02)", request(base, "PATCH", f"/event/alarm?timezone={tz}",
-                                                            {"event_id": ids["event"], "alarm": -5}, token)))
-    out.append(("event/detail", request(base, "GET", f"/event/detail?id={ids['event']}&timezone={tz}", None, token)))
-    out.append(("event/delete", request(base, "DELETE", f"/event/delete?timezone={tz}",
-                                        {"id": ids["event"]}, token)))
-    out.append(("event/detail tras delete", request(base, "GET",
-                                                    f"/event/detail?id={ids['event']}&timezone={tz}", None, token)))
-    return out
+def scenario_event():
+    b = check("POST /event/create", "escenario event/create",
+              request("POST", f"/event/create?timezone={tz}", {
+                  "calendar_id": 1, "title": "CC-Evento", "date_at": "2026-12-01 12:00:00",
+                  "alarm": 15}, tok), 200, EVENT_DETAIL)
+    eid = b.get("id") if isinstance(b, dict) else None
+    b = check("PATCH /event/update", "escenario event/update",
+              request("PATCH", f"/event/update?timezone={tz}", {
+                  "id": eid, "title": "CC-Evento 2", "date_at": "2026-12-02 13:30:00",
+                  "alarm": 15}, tok), 200, EVENT_DETAIL)
+    value("PATCH /event/update", "escenario event/update → título nuevo",
+          isinstance(b, dict) and b.get("title") == "CC-Evento 2")
+    b = check("PATCH /event/alarm", "escenario event/alarm",
+              request("PATCH", f"/event/alarm?timezone={tz}", {"event_id": eid, "alarm": 30}, tok),
+              200, EVENT_DETAIL)
+    value("PATCH /event/alarm", "escenario event/alarm → alarm=30",
+          isinstance(b, dict) and b.get("alarm") == 30)
+    check("PATCH /event/update", "escenario event/update alarm negativo (400)",
+          request("PATCH", f"/event/update?timezone={tz}", {
+              "id": eid, "title": "CC-Evento 2", "date_at": "2026-12-02 13:30:00",
+              "alarm": -5}, tok), 400, ERR_ALARM)
+    check("PATCH /event/alarm", "escenario event/alarm negativo (400)",
+          request("PATCH", f"/event/alarm?timezone={tz}", {"event_id": eid, "alarm": -5}, tok),
+          400, ERR_ALARM)
+    check("GET /event/detail", "escenario event/detail",
+          request("GET", f"/event/detail?id={eid}&timezone={tz}", None, tok), 200, EVENT_DETAIL)
+    check("DELETE /event/delete", "escenario event/delete",
+          request("DELETE", f"/event/delete?timezone={tz}", {"id": eid}, tok), 200, SUCCESS)
+    check("GET /event/detail", "escenario event/detail tras delete (500 Not Found)",
+          request("GET", f"/event/detail?id={eid}&timezone={tz}", None, tok), 500, ERR_NOT_FOUND)
 
 
-results.append(scenario(scenario_person))
-results.append(scenario(scenario_calendar))
-results.append(scenario(scenario_task_list))
-results.append(scenario(scenario_routine))
-results.append(scenario(scenario_event))
+def scenario_profile():
+    """PATCH /user/update (S): perfil propio; el nombre se recupera al terminar."""
+    orig = parse(auth[1]).get("name")
+    b = check("PATCH /user/update", "escenario user/update",
+              request("PATCH", "/user/update", {"name": "CC Perfil"}, tok), 200, USER)
+    value("PATCH /user/update", "escenario user/update → nombre nuevo",
+          isinstance(b, dict) and b.get("name") == "CC Perfil")
+    check("PATCH /user/update", "escenario user/update restaura el nombre",
+          request("PATCH", "/user/update", {"name": orig}, tok), 200, USER)
 
 
-# ── Viewer (matriz §3): PHP 200 sin check de rol vs Edge 403 {"error":"Not Allowed"} (desviación) ──
+scenario_profile()
+scenario_person()
+scenario_calendar()
+scenario_task_list()
+scenario_routine()
+scenario_event()
+
+
+# ── Viewer (matriz de autorización): owner-only 403 y self-remove 400 (desviaciones) ──
+
 B_EMAIL, B_PASSWORD, B_NAME = "viewer@homita.example", "viewer1234", "CC Viewer"
 
-for base in (PHP, FN):
-    request(base, "POST", "/user/create", {"name": B_NAME, "email": B_EMAIL, "password": B_PASSWORD})
-php_b = request(PHP, "POST", "/user/auth", {"email": B_EMAIL, "password": B_PASSWORD})
-fn_b = request(FN, "POST", "/user/auth", {"email": B_EMAIL, "password": B_PASSWORD})
-if php_b[0] != 200 or fn_b[0] != 200:
+reg = request("POST", "/user/create", {"name": B_NAME, "email": B_EMAIL, "password": B_PASSWORD})
+if reg == (400, ERR_EMAIL_EXISTS):  # usuario viewer de una ejecución previa
+    check("POST /user/create", "viewer POST /user/create (ya registrado en una ejecución previa)",
+          reg, 400, ERR_EMAIL_EXISTS)
+else:
+    check("POST /user/create", "viewer POST /user/create (registro abierto en la demo)",
+          reg, 201, USER_CREATE)
+    value("POST /user/create", "viewer POST /user/create (¿ALLOW_REGISTRATION=true?)",
+          reg[0] == 201, repr(reg)[:300])
+vauth = request("POST", "/user/auth", {"email": B_EMAIL, "password": B_PASSWORD})
+check("POST /user/auth", "viewer POST /user/auth", vauth, 200, USER_AUTH)
+if vauth[0] != 200:
     sys.exit("no se pudo crear/autenticar el usuario viewer (¿ALLOW_REGISTRATION=true en la Edge?)")
-php_bt, fn_bt = parse(php_b[1])["token"], parse(fn_b[1])["token"]
+vtok = parse(vauth[1])["token"]
+vid = parse(vauth[1])["id"]
 
 # Calendario de A con B de viewer (invita A, owner)
-php_vcal = parse(request(PHP, "POST", "/calendar/create", {"name": "CC-Viewer-Cal", "color": "#445566"}, php_tok)[1])["id"]
-fn_vcal = parse(request(FN, "POST", "/calendar/create", {"name": "CC-Viewer-Cal", "color": "#445566"}, fn_tok)[1])["id"]
-request(PHP, "POST", "/calendar/user", {"calendar_id": php_vcal, "email": B_EMAIL}, php_tok)
-request(FN, "POST", "/calendar/user", {"calendar_id": fn_vcal, "email": B_EMAIL}, fn_tok)
+b = check("POST /calendar/create", "viewer: owner crea CC-Viewer-Cal",
+          request("POST", "/calendar/create", {"name": "CC-Viewer-Cal", "color": "#445566"}, tok),
+          201, CAL_DETAIL)
+vcal = b.get("id") if isinstance(b, dict) else None
+check("POST /calendar/user", "owner invita al viewer (POST /calendar/user)",
+      request("POST", "/calendar/user", {"calendar_id": vcal, "email": B_EMAIL}, tok), 200, USER)
 
-php_shared = {"id": php_vcal, "name": "CC-Viewer-Cal RENOMBRADO", "color": "#445566"}
-fn_shared = {"id": fn_vcal, "name": "CC-Viewer-Cal RENOMBRADO", "color": "#445566"}
-any_ok = lambda status, text: status == 200  # noqa: E731
+check("PATCH /calendar/update", "viewer PATCH /calendar/update cambia name (403, desviación documentada)",
+      request("PATCH", "/calendar/update", {"id": vcal, "name": "CC-Viewer-Cal RENOMBRADO",
+                                            "color": "#445566"}, vtok), 403, ERR_NOT_ALLOWED)
+check("POST /calendar/user", "viewer POST /calendar/user invita (403, desviación documentada)",
+      request("POST", "/calendar/user", {"calendar_id": vcal, "email": args.email}, vtok),
+      403, ERR_NOT_ALLOWED)
+check("DELETE /calendar/user", "viewer DELETE /calendar/user saca al owner (403, desviación documentada)",
+      request("DELETE", "/calendar/user", {"calendar_id": vcal, "user_id": aid}, vtok), 403, ERR_NOT_ALLOWED)
+check("DELETE /calendar/user", "self-remove DELETE /calendar/user (400)",
+      request("DELETE", "/calendar/user", {"calendar_id": vcal, "user_id": vid}, vtok),
+      400, ERR_SELF_REMOVE)
+# Viewer actualizando SOLO sus flags propias (compartidos sin cambiar) → 200 (fila propia, S)
+check("PATCH /calendar/update", "viewer PATCH /calendar/update solo flags propias",
+      request("PATCH", "/calendar/update", {"id": vcal, "name": "CC-Viewer-Cal", "color": "#445566",
+                                            "widget": False}, vtok), 200, CAL_DETAIL)
+check("DELETE /calendar/delete", "viewer DELETE /calendar/delete (403, desviación documentada)",
+      request("DELETE", "/calendar/delete", {"id": vcal}, vtok), 403, ERR_NOT_ALLOWED)
 
-results.append(deviation("viewer PATCH /calendar/update cambia name (matriz §3)",
-                         request(PHP, "PATCH", "/calendar/update", php_shared, php_bt),
-                         request(FN, "PATCH", "/calendar/update", fn_shared, fn_bt),
-                         any_ok, (403, '{"error":"Not Allowed"}')))
-results.append(deviation("viewer POST /calendar/user invita (matriz §3)",
-                         request(PHP, "POST", "/calendar/user", {"calendar_id": php_vcal, "email": args.email}, php_bt),
-                         request(FN, "POST", "/calendar/user", {"calendar_id": fn_vcal, "email": args.email}, fn_bt),
-                         any_ok, (403, '{"error":"Not Allowed"}')))
-results.append(deviation("viewer DELETE /calendar/user saca al owner (matriz §3)",
-                         request(PHP, "DELETE", "/calendar/user", {"calendar_id": php_vcal, "user_id": 1}, php_bt),
-                         request(FN, "DELETE", "/calendar/user", {"calendar_id": fn_vcal, "user_id": 1}, fn_bt),
-                         any_ok, (403, '{"error":"Not Allowed"}')))
-# self-remove: M → S (400) → O — mismo comportamiento en ambos
-results.append(compare("self-remove DELETE /calendar/user (400)",
-                       request(PHP, "DELETE", "/calendar/user", {"calendar_id": php_vcal, "user_id": parse(php_b[1])["id"]}, php_bt),
-                       request(FN, "DELETE", "/calendar/user", {"calendar_id": fn_vcal, "user_id": parse(fn_b[1])["id"]}, fn_bt)))
-# viewer actualizando SOLO sus flags propias (compartidos sin cambiar) → 200 en ambos.
-# El nombre se envía igual al actual en Edge (PHP puede tenerlo renombrado por el caso anterior:
-# su respuesta se normaliza con ids de negocio).
-php_flags = request(PHP, "PATCH", "/calendar/update",
-                    {"id": php_vcal, "name": "CC-Viewer-Cal", "color": "#445566", "widget": False}, php_bt)
-fn_flags = request(FN, "PATCH", "/calendar/update",
-                   {"id": fn_vcal, "name": "CC-Viewer-Cal", "color": "#445566", "widget": False}, fn_bt)
-php_fids, fn_fids = IdMap(), IdMap()
-php_fids.collect(parse(php_flags[1]))
-fn_fids.collect(parse(fn_flags[1]))
-results.append(compare("viewer PATCH /calendar/update solo flags propias", php_flags, fn_flags, php_fids, fn_fids))
-# delete-cal al final: PHP (sin check de rol) destruye su calendario; Edge 403 (desviación)
-results.append(deviation("viewer DELETE /calendar/delete (matriz §3)",
-                         request(PHP, "DELETE", "/calendar/delete", {"id": php_vcal}, php_bt),
-                         request(FN, "DELETE", "/calendar/delete", {"id": fn_vcal}, fn_bt),
-                         any_ok, (403, '{"error":"Not Allowed"}')))
+# Misma matriz con task-list: invitación y retirada de miembros
+b = check("POST /task-list/create", "viewer: owner crea CC-Viewer-Lista",
+          request("POST", "/task-list/create", {"name": "CC-Viewer-Lista", "color": "#445566"}, tok),
+          201, TL_DETAIL)
+vlist = b.get("id") if isinstance(b, dict) else None
+check("POST /task-list/user", "owner invita al viewer (POST /task-list/user)",
+      request("POST", "/task-list/user", {"task_list_id": vlist, "email": B_EMAIL}, tok), 200, USER)
+check("DELETE /task-list/user", "viewer DELETE /task-list/user saca al owner (403, desviación documentada)",
+      request("DELETE", "/task-list/user", {"task_list_id": vlist, "user_id": aid}, vtok),
+      403, ERR_NOT_ALLOWED)
+check("DELETE /task-list/user", "self-remove DELETE /task-list/user (400)",
+      request("DELETE", "/task-list/user", {"task_list_id": vlist, "user_id": vid}, vtok),
+      400, ERR_SELF_REMOVE)
+check("DELETE /task-list/delete", "owner borra la lista de prueba (DELETE /task-list/delete)",
+      request("DELETE", "/task-list/delete", {"id": vlist}, tok), 200, SUCCESS)
 
+# ── Resumen: cobertura de las 43 rutas y rutas con regresión ──
+
+missing = [r for r in ROUTES if r not in covered]
 fails = results.count(False)
-print(f"\n{len(results) - fails}/{len(results)} casos ok")
-sys.exit(1 if fails else 0)
+print(f"\n{len(results) - fails}/{len(results)} casos ok · {len(covered)}/{len(ROUTES)} rutas cubiertas")
+if missing:
+    print("Rutas sin cubrir: " + ", ".join(missing))
+if regressed:
+    print("Rutas con regresión: " + ", ".join(regressed))
+sys.exit(1 if fails or missing else 0)
