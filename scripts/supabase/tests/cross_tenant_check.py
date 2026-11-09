@@ -19,8 +19,8 @@ con `p_person_ids` de B, V1–V4/V1b/V2b validación de título/fecha en la RPC,
 de co-miembro y `p_person_ids = null` sin cambios).
 
 Setup/limpieza: usuarios xt-a/xt-b vía user/create (requiere ALLOW_REGISTRATION=true en la Edge o
-usuarios preexistentes) y `clean_xt()` completo (filas XT-%, membresías y hogares personales de xt y
-sus cuentas auth — se recrean en cada pasada: sin hogar, `create_calendar` fallaría con `Home header
+usuarios preexistentes) y `clean_xt()` completo (filas XT-%, membresías y hogares de xt — personales
+y no personales (R1-04) — y sus cuentas auth: se recrean en cada pasada: sin hogar, `create_calendar` fallaría con `Home header
 required`). Nunca contra producción.
 
 Variables de entorno: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY (limpieza),
@@ -46,6 +46,7 @@ A_EMAIL, A_PASSWORD, A_NAME = "xt-a@homita.example", "xt-a-12345", "XT Owner"
 B_EMAIL, B_PASSWORD, B_NAME = "xt-b@homita.example", "xt-b-12345", "XT Viewer"
 NOT_FOUND = (500, '{"error":"Not Found"}')
 NOT_ALLOWED = (403, '{"error":"Not Allowed"}')
+HOME_NOT_FOUND = (404, '{"error":"Not Found"}')  # rutas /home/* (D16): no miembro → 404, no 500
 # Snapshot member legacy (Q-B, plan 1.2 §5): 17 permisos del viewer de antes del modelo Home
 LEGACY17 = ("('home.view'), ('calendar.view'), ('task.view'), ('routine.view'), "
             "('task.create'), ('task.edit'), ('task.complete'), ('task.assign'), ('task.delete'), "
@@ -56,13 +57,15 @@ if not ANON or not SVC:
     sys.exit("Faltan SUPABASE_ANON_KEY y/o SUPABASE_SERVICE_ROLE_KEY")
 
 
-def request(base, method, path, body=None, token=None, apikey=None):
+def request(base, method, path, body=None, token=None, apikey=None, home=None):
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = "Bearer " + token
     if apikey:
         headers["apikey"] = apikey
         headers.setdefault("Authorization", "Bearer " + apikey)  # service_role también autoriza
+    if home is not None:  # contexto X-Home-Id (1.4 §2.2)
+        headers["X-Home-Id"] = str(home)
     req = urllib.request.Request(base + path, data=json.dumps(body).encode() if body is not None else None,
                                  method=method, headers=headers)
     try:
@@ -74,8 +77,8 @@ def request(base, method, path, body=None, token=None, apikey=None):
         sys.exit(f"No responde {base}: arranca el stack local (supabase start + functions serve)")
 
 
-def edge(method, path, body=None, token=None):
-    return request(FN, method, path, body, token)
+def edge(method, path, body=None, token=None, home=None):
+    return request(FN, method, path, body, token, home=home)
 
 
 def rpc_direct(name, args, token):
@@ -111,7 +114,8 @@ def psql(sql):
 def clean_xt():
     """Filas XT-% de ejecuciones anteriores (hijos primero: cascade PG cubre las uniones) y, en una
     transacción psql, las membresías de los usuarios xt o de sus hogares (CASCADE limpia ACL y
-    membership_permission), los home_member sobrantes, sus hogares personales y sus cuentas auth.
+    membership_permission), los home_member sobrantes, sus hogares — personales y no personales,
+    creados por xt (R1-04: XT-Otro de X4) — y sus cuentas auth.
     La transacción es única a propósito: el trigger anti-admin diferido de 0015 rechazaría un COMMIT
     que dejara hogares active sin admin. Las cuentas auth se borran para que cada pasada cree los
     usuarios con /user/create y 0014a les asigne hogar (sin hogar, create_calendar fallaría con
@@ -126,11 +130,16 @@ def clean_xt():
 begin;
 delete from home_membership
     where app_user_id in (select id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}'))
-       or home_id in (select default_home_id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}'));
+       or home_id in (select id from home
+                      where created_by in (select id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}')));
 delete from home_member
-    where home_id in (select default_home_id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}'));
+    where home_id in (select id from home
+                      where created_by in (select id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}')));
+delete from audit_log
+    where home_id in (select id from home
+                      where created_by in (select id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}')));
 delete from home
-    where is_personal and created_by in (select id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}'));
+    where created_by in (select id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}'));
 delete from auth.users
     where id in (select auth_uid from app_user where email in ('{A_EMAIL}', '{B_EMAIL}'));
 commit;
@@ -469,6 +478,60 @@ check("viewer POST /task/create en la lista compartida → 200 (A8: escribe cont
       edge("POST", "/task/create", {"task_list_id": lst, "title": "XT-Tarea B"}, b_tok)[0] in (200, 201))
 check("viewer GET /task-list/detail del compartido → 200",
       edge("GET", f"/task-list/detail?id={lst}", None, b_tok)[0] == 200)
+
+# ── Fase 2b (1.4, plan §7.2 X1–X15): rutas /home/* y contexto X-Home-Id ──
+# A crea un hogar propio extra (XT-Otro, POST /home/create) que B no debe ver: para B es
+# indistinguible de un id inexistente (sin oráculo). X8/X9/X10 prueban la cabecera X-Home-Id
+# (S10: la cabecera llega a SQL; el detalle filtra por el hogar activo). X12–X14 van por RPC
+# directa PostgREST. No se prueba escritura con cabecera ≠ hogar del recurso (diferido a 1.8,
+# D-2): gap documentado.
+otro = edge("POST", "/home/create", {"name": "XT-Otro"}, a_tok)
+otro_body = parse(otro[1])
+otro_id = otro_body.get("id") if otro[0] == 201 and isinstance(otro_body, dict) else None
+if otro_id is None:
+    sys.exit(f"setup X: A no pudo crear XT-Otro → {otro!r}")
+
+b = edge("GET", "/home", None, b_tok)
+homes = parse(b[1]) if b[0] == 200 else None
+check("X1 B GET /home → home(A) role=member, home(B) y sin XT-Otro",
+      isinstance(homes, list)
+      and any(h.get("home_id") == home_a and h.get("role") == "member" for h in homes)
+      and any(h.get("home_id") == home_b for h in homes)
+      and all(h.get("home_id") != otro_id for h in homes), repr(b)[:200])
+check("X2 B GET /home/detail?id=homeA → 200 (home.view)",
+      edge("GET", f"/home/detail?id={home_a}", None, b_tok)[0] == 200)
+expect("X3 B PATCH /home/update homeA → 403 (sin home.settings.manage)",
+       edge("PATCH", "/home/update", {"id": home_a, "name": "XT hack"}, b_tok), NOT_ALLOWED)
+expect("X4 B GET /home/detail?id=XT-Otro → 404 (no miembro, sin oráculo)",
+       edge("GET", f"/home/detail?id={otro_id}", None, b_tok), HOME_NOT_FOUND)
+expect("X5 B PATCH /home/default {home_id:XT-Otro} → 404",
+       edge("PATCH", "/home/default", {"home_id": otro_id}, b_tok), HOME_NOT_FOUND)
+expect("X6 B GET /home/membership?id=XT-Otro → 404",
+       edge("GET", f"/home/membership?id={otro_id}", None, b_tok), HOME_NOT_FOUND)
+check("X7 B GET /home/membership?id=homeA → 200",
+      edge("GET", f"/home/membership?id={home_a}", None, b_tok)[0] == 200)
+check("X8 B GET /calendar/detail?id=calA con X-Home-Id: homeA → 200 (ACL viewer, S10)",
+      edge("GET", f"/calendar/detail?id={cal}", None, b_tok, home=home_a)[0] == 200)
+expect("X9 B GET /calendar/detail?id=calA con X-Home-Id: homeB → 500 (filtro de detalle)",
+       edge("GET", f"/calendar/detail?id={cal}", None, b_tok, home=home_b), NOT_FOUND)
+expect("X10 B GET /calendar con X-Home-Id: XT-Otro → 500 (no miembro, legacy)",
+       edge("GET", "/calendar", None, b_tok, home=otro_id), NOT_FOUND)
+x11 = rpc_direct("get_homes", {}, b_tok)
+x11_homes = parse(x11[1]) if x11[0] == 200 else None
+check("X11 B rpc get_homes → 200; sin XT-Otro",
+      isinstance(x11_homes, list) and all(h.get("home_id") != otro_id for h in x11_homes)
+      and any(h.get("home_id") == home_a for h in x11_homes), repr(x11)[:200])
+expect_err("X12 B rpc set_default_home(XT-Otro) → Not Found",
+           rpc_direct("set_default_home", {"p_home_id": otro_id}, b_tok), "Not Found")
+expect_err("X13 B rpc get_home_memberships(XT-Otro) → Not Found",
+           rpc_direct("get_home_memberships", {"p_home_id": otro_id}, b_tok), "Not Found")
+expect_err("X14 B rpc update_home(homeA, …) → Not Allowed (sin home.settings.manage)",
+           rpc_direct("update_home", {"p_home_id": home_a, "p_name": "XT", "p_timezone": None}, b_tok),
+           "Not Allowed")
+x15a = edge("PATCH", "/home/default", {"home_id": home_a}, b_tok)
+x15b = edge("PATCH", "/home/default", {"home_id": home_b}, b_tok)
+check("X15 B PATCH /home/default homeA y restaurar homeB → 200 + 200",
+      x15a[0] == 200 and x15b[0] == 200, repr((x15a, x15b))[:200])
 
 # ── H0: positivos — el filtro no rompe el uso legítimo ──
 # P1 (co-miembro): b_per ya está en home(A) (movido en la fase 2) y B es co-miembro → asignable

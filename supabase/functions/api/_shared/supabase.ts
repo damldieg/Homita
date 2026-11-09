@@ -1,7 +1,13 @@
 // Clientes HTTP a Supabase (env con nombres intactos; lecturas con el JWT del usuario, RLS activa).
+import { currentHome } from "./home.ts";
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// Contexto X-Home-Id (§2.2/S10): la cabecera solo viaja si hay hogar activo en la petición
+const homeHeaders = (): Record<string, string> =>
+    currentHome() === null ? {} : { "X-Home-Id": currentHome() as string };
 
 export const passwordGrant = (email: string, password: string): Promise<Response> =>
     fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
@@ -52,7 +58,7 @@ export const selectRows = async (
     token: string,
 ): Promise<Record<string, unknown>[]> => {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
-        headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}` },
+        headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}`, ...homeHeaders() },
     });
     if (!res.ok) return [];
     return await res.json();
@@ -65,6 +71,7 @@ export const rpc = async (name: string, args: Record<string, unknown>, token: st
             apikey: ANON_KEY,
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
+            ...homeHeaders(),
         },
         body: JSON.stringify(args),
     });
@@ -78,6 +85,7 @@ export const materializeRoutines = async (userId: unknown, timezone: string): Pr
             apikey: SERVICE_ROLE_KEY,
             Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
             "Content-Type": "application/json",
+            ...homeHeaders(),
         },
         body: JSON.stringify({ p_user_id: userId, p_timezone: timezone }),
     });

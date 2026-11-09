@@ -1,5 +1,6 @@
-// Edge Function `api` — contrato (a) PHP-compat de las 43 rutas del backend (D-008; inventario:
-// .dorch/archive/control-api/contract-inventory.md).
+// Edge Function `api` — contrato (a) PHP-compat de las 43 rutas legacy del backend (D-008;
+// inventario: .dorch/archive/control-api/contract-inventory.md) + las 6 rutas /home/* de 1.4
+// (diseño §5.2, flag `home: true` en ROUTES).
 // Auth manual (deploy --no-verify-jwt), como middlewareAuth. user/auth, user/create y config son
 // públicas; el resto exige Bearer (token inválido → 401, desviación documentada).
 //
@@ -7,6 +8,11 @@
 // frágiles con 43 rutas). El pathname llega con el prefijo de montaje (…/functions/v1/api/user/auth
 // → /api/user/auth y con `supabase functions serve` local puede diferir), así que se normaliza a la
 // ruta lógica antes de mirar en la tabla.
+//
+// Contexto de hogar (X-Home-Id, §2.2): en rutas autenticadas la cabecera opcional se valida
+// (400 Invalid home), se comprueba la membresía (500 Not Found en legacy / 404 en /home/*) y se
+// fija en un AsyncLocalStorage para que el transporte la propague a PostgREST (S10). Sin cabecera,
+// cero coste y respuestas idénticas a las de antes de 1.4.
 //
 // p_user_id se deriva server-side del JWT verificado (sub/auth_uid → app_user.id), nunca de los
 // parámetros del request (R1-03). Lecturas con el JWT del usuario (RLS activa) y service_role solo
@@ -21,7 +27,8 @@
 // Layout: entrypoint fino (routing + guard Bearer + dispatch) + usecases/{auth,calendars,persons,
 // routines,events,task-lists,tasks}.ts + _shared/{supabase,contract,errors,validate}.ts.
 
-import { error, errRouteNotFound, errUnauthorized } from "./_shared/errors.ts";
+import { error, errInvalidHome, errPhpNotFound, errRouteHomeNotFound, errRouteNotFound, errUnauthorized } from "./_shared/errors.ts";
+import { checkHomeMember, parseHomeHeader, runWithHome } from "./_shared/home.ts";
 import { verifyUser } from "./_shared/supabase.ts";
 import {
     handleConfig, handleUserAuth, handleUserCreate, handleUserUpdate,
@@ -47,10 +54,16 @@ import {
     handleTask, handleTaskComplete, handleTaskCreate, handleTaskDelete, handleTaskDetail,
     handleTaskOrder, handleTaskUpdate,
 } from "./usecases/tasks.ts";
+import {
+    handleHomeCreate, handleHomeDefault, handleHomeDetail, handleHomeIndex, handleHomeMembership,
+    handleHomeUpdate,
+} from "./usecases/homes.ts";
 
 type Handler = (req: Request, token: string, uid: string) => Promise<Response> | Response;
 
-const ROUTES: Record<string, { auth: boolean; handler: Handler }> = {
+// `home: true` (rutas /home/*, 1.4): el "no miembro" del contexto X-Home-Id se mapea a 404
+// (D16) en vez del 500 legacy (errPhpNotFound).
+const ROUTES: Record<string, { auth: boolean; home?: boolean; handler: Handler }> = {
     "GET /config": { auth: false, handler: () => handleConfig() },
     "POST /user/create": { auth: false, handler: (req) => handleUserCreate(req) },
     "POST /user/auth": { auth: false, handler: (req) => handleUserAuth(req) },
@@ -100,6 +113,13 @@ const ROUTES: Record<string, { auth: boolean; handler: Handler }> = {
     "PATCH /task/complete": { auth: true, handler: (req, t) => handleTaskComplete(req, t) },
     "PATCH /task/order": { auth: true, handler: (req, t) => handleTaskOrder(req, t) },
     "DELETE /task/delete": { auth: true, handler: (req, t) => handleTaskDelete(req, t) },
+
+    "GET /home": { auth: true, home: true, handler: (req, t) => handleHomeIndex(req, t) },
+    "POST /home/create": { auth: true, home: true, handler: (req, t) => handleHomeCreate(req, t) },
+    "GET /home/detail": { auth: true, home: true, handler: (req, t) => handleHomeDetail(req, t) },
+    "PATCH /home/update": { auth: true, home: true, handler: (req, t) => handleHomeUpdate(req, t) },
+    "PATCH /home/default": { auth: true, home: true, handler: (req, t) => handleHomeDefault(req, t) },
+    "GET /home/membership": { auth: true, home: true, handler: (req, t) => handleHomeMembership(req, t) },
 };
 
 // Ruta lógica sin el prefijo de montaje (…/functions/v1/api/… o …/api/…) — sin endsWith
@@ -129,7 +149,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
             uid = who.id as string;
         }
 
-        return await route.handler(req, token, uid);
+        // Contexto X-Home-Id (§2.2, pasos 3–6): solo rutas autenticadas (auth:false lo ignora).
+        // Orden A10: sesión → cabecera/membresía → handler (validación de entrada → RPC).
+        let activeHome: string | null = null;
+        if (route.auth) {
+            const hp = parseHomeHeader(req);
+            if (hp === "INVALID") return errInvalidHome();
+            if (hp.present) {
+                if (!(await checkHomeMember(hp.id, token))) {
+                    return route.home ? errRouteHomeNotFound() : errPhpNotFound();
+                }
+                activeHome = hp.id;
+            }
+        }
+        return await runWithHome(activeHome, () => route.handler(req, token, uid));
     } catch (e) {
         return error(e instanceof Error ? e.message : String(e), 500);
     }

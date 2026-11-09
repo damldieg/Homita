@@ -8,8 +8,9 @@ segundo lado con el que comparar. Este script fija el comportamiento documentado
 `docs/ARCHITECTURE.md`) y falla listando las rutas con regresión.
 
 * Cobertura: las 43 rutas del contrato (tabla ROUTES de `supabase/functions/api/index.ts`),
-  incluidas `GET /config` y `PATCH /user/update` (no cubiertas por el antiguo oráculo). El resumen
-  final exige 43/43 y exit 0 solo si todos los casos pasan.
+  incluidas `GET /config` y `PATCH /user/update` (no cubiertas por el antiguo oráculo), más las
+  6 rutas `/home/*` de 1.4 (`HOME_ROUTES`, contrato nuevo sin oráculo PHP). El resumen final
+  exige 43/43 legacy, 6/6 home y exit 0 solo si todos los casos pasan.
 * Forma: plantillas con claves EXACTAS — `"<ts>"` (`Y-m-d H:i:s`), `"<token>"` (string no vacío),
   `"<id>"`/`"<int>"`, `"<str>"`, `"<bool>"`, `"<01>"` (entero 0/1 del contrato), sufijo `?` =
   nullable (`"<int?>"`), `[t]` = todo elemento cumple `t`, literal = igualdad exacta. El sufijo de
@@ -75,11 +76,14 @@ def assert_local(url, what):
 assert_local(FN, "--fn")
 
 
-def request(method, path, body=None, token=None):
-    """(status, texto) — también para 4xx/5xx (HTTPError), que son casos del contrato."""
+def request(method, path, body=None, token=None, home=None):
+    """(status, texto) — también para 4xx/5xx (HTTPError), que son casos del contrato. `home`:
+    X-Home-Id opcional (contexto §2.2; "" = sin cabecera, A9)."""
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = "Bearer " + token
+    if home is not None:
+        headers["X-Home-Id"] = str(home)
     req = urllib.request.Request(FN + path, data=json.dumps(body).encode() if body is not None else None,
                                  method=method, headers=headers)
     try:
@@ -161,7 +165,14 @@ def shape(value, tmpl, where, issues):
 results = []
 covered = set()
 regressed = []
-EXPECTED_CASES = 108  # A-7: 106 históricos + 2 del bloque viewer (invitaciones 200 tras membresía)
+EXPECTED_CASES = 151  # A-7: 106 históricos + 2 del bloque viewer (invitaciones 200 tras membresía)
+                      # + 43 del bloque home (plan §7.1 H1–H18 = 30 llamadas check/value más
+                      # R1-01: filtro positivo de GET /calendar y /task-list con X-Home-Id y
+                      # detalle con cabecera (H19–H25) y R1-02: trim de name y timezone opcional
+                      # en create/update (H3b/H3c/H6b/H8b), más H14b (cabecera ajena en /home/*).
+                      # Conteo real de la ejecución (1.4 e2e): 151 = 108 + 43 (la estimación
+                      # previa de 41 se quedaba corta en H24/H25, casos del detalle de /task-list
+                      # con cabecera añadidos por R1-01)
 
 
 def record(route, name, ok, detail=""):
@@ -202,9 +213,9 @@ PERSON = {"id": "<id>", "user_id": "<int>", "name": "<str>", "color": "<str>",
 PERSON_REF = {"id": "<id>", "user_id": "<int>", "name": "<str>", "color": "<str>"}
 CAL_ITEM = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>",
             "created_at": "<ts>", "updated_at": "<ts>", "widget": "<01>", "dashboard": "<01>",
-            "upcoming_event_count": "<int>"}
+            "upcoming_event_count": "<int>", "home_id": "<id>"}
 CAL_DETAIL = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>",
-              "created_at": "<ts>", "updated_at": "<ts>"}
+              "created_at": "<ts>", "updated_at": "<ts>", "home_id": "<id>"}
 CAL_USER = {"cu_id": "<id>", "user_id": "<id>", "name": "<str>", "email": "<str>", "role": "<str>"}
 USER = {"id": "<id>", "name": "<str>", "email": "<str>", "created_at": "<ts>", "updated_at": "<ts>"}
 USER_CREATE = {"id": "<id>", "name": "<str>", "email": "<str>", "token": "<token>",
@@ -228,10 +239,18 @@ TASK_ITEM = {"id": "<id>", "task_list_id": "<id>", "title": "<str>", "completed_
              "task_list_color": "<str>", "task_list_name": "<str>"}
 TL_ITEM = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>", "sort": "<str>",
            "created_at": "<ts>", "updated_at": "<ts>", "widget": "<01>", "dashboard": "<01>",
-           "pending_task_count": "<int>"}
+           "pending_task_count": "<int>", "home_id": "<id>"}
 TL_DETAIL = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>", "sort": "<str>",
-             "created_at": "<ts>", "updated_at": "<ts>"}
+             "created_at": "<ts>", "updated_at": "<ts>", "home_id": "<id>"}
 TL_USER = {"tlu_id": "<id>", "user_id": "<id>", "name": "<str>", "email": "<str>", "role": "<str>"}
+# Contrato nuevo de 1.4 (§2, sin oráculo PHP). R1-03: role es "<str>" (shape() no conoce
+# "<admin|member>"); el dominio admin|member se valida con value() en el escenario.
+HOME_ITEM = {"home_id": "<id>", "name": "<str>", "role": "<str>", "is_default": "<bool>",
+             "is_personal": "<bool>"}
+HOME_DETAIL = {"id": "<id>", "name": "<str>", "timezone": "<str>", "is_personal": "<bool>",
+               "created_at": "<ts>", "updated_at": "<ts>"}
+MEMBERSHIP_ITEM = {"membership_id": "<id>", "app_user_id": "<id>", "name": "<str>",
+                   "email": "<str>", "role": "<str>", "permissions": ["<str>"]}
 SUCCESS = {"success": True}
 CONFIG = {"allow_registration": "<bool>"}
 ERR_INVALID_CREDS = '{"error":"Invalid credentials"}'
@@ -240,6 +259,10 @@ ERR_SELF_REMOVE = '{"error":"User cannot remove themselves"}'
 ERR_NOT_ALLOWED = '{"error":"Not Allowed"}'
 ERR_NOT_FOUND = '{"error":"Not Found"}'
 ERR_ALARM = '{"error":"Alarm must be nonnegative minutes or null"}'
+ERR_NAME_REQUIRED = '{"error":"Name is required"}'
+ERR_INVALID_TZ = '{"error":"Invalid timezone"}'
+ERR_HOME_ID_REQUIRED = '{"error":"Home ID is required"}'
+ERR_INVALID_HOME = '{"error":"Invalid home"}'
 # TypeError del motor, mensaje exacto del contrato (sufijo de traza normalizado a fichero+línea)
 ERR_CAL_NO_COLOR = (r'App\Models\Calendar::create(): Argument #2 ($color) must be of '
                     r'type string, null given, called in CalendarCreate.php on line 21')
@@ -257,6 +280,13 @@ ROUTES = [
     "DELETE /task-list/delete", "GET /task-list/user", "POST /task-list/user", "DELETE /task-list/user",
     "GET /task", "GET /task/detail", "POST /task/create", "PATCH /task/update",
     "PATCH /task/complete", "PATCH /task/order", "DELETE /task/delete",
+]
+
+# Rutas nuevas /home/* (1.4, §2 R1–R6). ROUTES se mantiene en 43: "43/43" sigue siendo la
+# métrica legacy (invariante D-008); la cobertura home se reporta aparte (6/6).
+HOME_ROUTES = [
+    "GET /home", "POST /home/create", "GET /home/detail", "PATCH /home/update",
+    "PATCH /home/default", "GET /home/membership",
 ]
 
 
@@ -342,10 +372,16 @@ def psql(sql):
 def reset_leftovers():
     """Higiene entre ejecuciones: borra los restos con prefijo CC-% (escenarios y bloque viewer —
     la Edge no llega a borrar el calendario del viewer: 403) y XT-% (restos del suite de aislamiento)
-    para poder re-ejecutar sin re-sembrar, y la membresía de viewer en el hogar de demo (CASCADE a
+    para poder re-ejecutar sin re-sembrar, y la membresía de viewer en hogares ajenos (CASCADE a
     membership_permission y ACL) para que el caso 403 del alta externa sea determinista (A-7).
     DELETE REST vía service_role contra el REST local derivado de --fn (local por el guard); padre
-    basta (cascade); los eventos van antes que las rutinas (`event.routine_id` es set null)."""
+    basta (cascade); los eventos van antes que las rutinas (`event.routine_id` es set null).
+    En psql (una transacción, 1.4 §7.1/RK7): los hogares NO personales CC-% del usuario demo
+    (membresías primero; el trigger anti-admin diferido de 0015 no ve hogares borrados) y la
+    restauración de default_home_id al hogar original de demo si quedó NULL (R1-04: la FK compuesta
+    (default_home_id, id) → home_membership hace SET NULL al borrarse la membresía de un hogar CC-%
+    tras un fallo entre H9 y H10, y la siguiente ejecución rompería al insertar la membresía del
+    viewer)."""
     key = load_service_key()
     if not key:
         print("aviso: sin SUPABASE_SERVICE_ROLE_KEY local: reset_leftovers omitido "
@@ -362,10 +398,34 @@ def reset_leftovers():
                 urllib.request.urlopen(req).read()
             except urllib.error.HTTPError as e:
                 print(f"aviso: reset_leftovers {table} falló ({e.code}): {e.read().decode()[:120]}")
-    # Membresía de viewer en el hogar de demo (Q3): con ella el invite es 200 y el caso 403 falla
-    psql("delete from home_membership "
-         "where app_user_id = (select id from app_user where email = 'viewer@homita.example') "
-           f"and home_id = (select default_home_id from app_user where email = '{args.email}')")
+    demo = args.email.replace("'", "''")
+    viewer = "viewer@homita.example"
+    psql(f"""
+begin;
+delete from membership_permission where home_membership_id in (
+    select hm.id from home_membership hm
+    where hm.home_id in (select id from home where name like 'CC-%'
+                         and created_by = (select id from app_user where email = '{demo}')));
+delete from home_membership
+    where home_id in (select id from home where name like 'CC-%'
+                      and created_by = (select id from app_user where email = '{demo}'))
+       or (app_user_id = (select id from app_user where email = '{viewer}')
+           and home_id in (select id from home
+                           where created_by is distinct from (select id from app_user where email = '{viewer}')));
+delete from home_member
+    where home_id in (select id from home where name like 'CC-%'
+                      and created_by = (select id from app_user where email = '{demo}'));
+delete from audit_log
+    where home_id in (select id from home where name like 'CC-%'
+                      and created_by = (select id from app_user where email = '{demo}'));
+delete from home
+    where name like 'CC-%' and created_by = (select id from app_user where email = '{demo}');
+update app_user u set default_home_id = coalesce(
+    (select min(h.id) from home h where h.is_personal and h.created_by = u.id),
+    (select min(hm.home_id) from home_membership hm where hm.app_user_id = u.id))
+where u.email = '{demo}' and u.default_home_id is null;
+commit;
+""")
 
 
 # ── config, auth y reset ──
@@ -637,12 +697,145 @@ def scenario_profile():
           request("PATCH", "/user/update", {"name": orig}, tok), 200, USER)
 
 
+def scenario_home():
+    """Rutas /home/* (plan §7.1 H1–H18) + contexto X-Home-Id (R1-01: filtro positivo de listas y
+    detalle con cabecera; R1-02: trim de name y timezone opcional). Hogar de prueba CC-Hogar y
+    recursos CC-%: los limpia reset_leftovers() de la siguiente ejecución (que también restaura
+    default_home_id, R1-04). Orden de validación id → name → timezone (§4.3): H7 lleva name para
+    llegar a la validación de timezone."""
+    # H1: índice de hogares (HOME_ITEM; role admin|member se valida como dominio, R1-03)
+    b = check("GET /home", "H1 GET /home → [HOME_ITEM]",
+              request("GET", "/home", None, tok), 200, [HOME_ITEM])
+    value("GET /home", "H1 GET /home no vacío y roles admin|member",
+          isinstance(b, list) and len(b) > 0
+          and all(x.get("role") in ("admin", "member") for x in b), repr(b)[:300])
+    orig_default = next((x["home_id"] for x in b if x.get("is_default")), None)
+    # H2: alta con timezone por defecto (R1-02/A5: Europe/Madrid)
+    b = check("POST /home/create", "H2 POST /home/create {CC-Hogar} → 201 HOME_DETAIL",
+              request("POST", "/home/create", {"name": "CC-Hogar"}, tok), 201, HOME_DETAIL)
+    h2 = b.get("id") if isinstance(b, dict) else None
+    value("POST /home/create", "H2 is_personal=false y timezone por defecto Europe/Madrid",
+          isinstance(b, dict) and b.get("is_personal") is False
+          and b.get("timezone") == "Europe/Madrid", repr(b)[:300])
+    # H3: validación de nombre (ausente, solo blancos — R1-02 — y timezone inválida en create)
+    check("POST /home/create", "H3 POST /home/create sin name → 400 Name is required",
+          request("POST", "/home/create", {}, tok), 400, ERR_NAME_REQUIRED)
+    check("POST /home/create", "H3b POST /home/create name '   ' → 400 Name is required (R1-02)",
+          request("POST", "/home/create", {"name": "   "}, tok), 400, ERR_NAME_REQUIRED)
+    check("POST /home/create", "H3c POST /home/create timezone inválida → 400 Invalid timezone",
+          request("POST", "/home/create", {"name": "CC-TZ-Mal", "timezone": "No/Zona"}, tok),
+          400, ERR_INVALID_TZ)
+    # H4–H5: detalle
+    check("GET /home/detail", "H4 GET /home/detail?id=<H2> → 200 HOME_DETAIL",
+          request("GET", f"/home/detail?id={h2}", None, tok), 200, HOME_DETAIL)
+    check("GET /home/detail", "H5 GET /home/detail?id=999999 → 404 Not Found",
+          request("GET", "/home/detail?id=999999", None, tok), 404, ERR_NOT_FOUND)
+    # H6/H6b: update con timezone omitido/null conserva la zona (R1-02)
+    b = check("PATCH /home/update", "H6 PATCH /home/update {CC-Hogar 2} sin timezone → 200",
+              request("PATCH", "/home/update", {"id": h2, "name": "CC-Hogar 2"}, tok), 200, HOME_DETAIL)
+    value("PATCH /home/update", "H6 nombre actualizado y timezone conservado",
+          isinstance(b, dict) and b.get("name") == "CC-Hogar 2"
+          and b.get("timezone") == "Europe/Madrid", repr(b)[:300])
+    b = check("PATCH /home/update", "H6b PATCH /home/update timezone null → 200 (conserva zona)",
+              request("PATCH", "/home/update", {"id": h2, "name": "CC-Hogar 2", "timezone": None}, tok),
+              200, HOME_DETAIL)
+    value("PATCH /home/update", "H6b timezone conservado con p_timezone null",
+          isinstance(b, dict) and b.get("timezone") == "Europe/Madrid", repr(b)[:300])
+    # H7–H8: validación (orden id → name → timezone)
+    check("PATCH /home/update", "H7 PATCH /home/update timezone inválida → 400 Invalid timezone",
+          request("PATCH", "/home/update", {"id": h2, "name": "x", "timezone": "No/Zona"}, tok),
+          400, ERR_INVALID_TZ)
+    check("PATCH /home/update", "H8 PATCH /home/update sin id → 400 Home ID is required",
+          request("PATCH", "/home/update", {"name": "x"}, tok), 400, ERR_HOME_ID_REQUIRED)
+    check("PATCH /home/update", "H8b PATCH /home/update name '   ' → 400 Name is required (R1-02)",
+          request("PATCH", "/home/update", {"id": h2, "name": "   "}, tok), 400, ERR_NAME_REQUIRED)
+    # H9–H11: hogar por defecto (H10 lo restaura; reset_leftovers cubre el fallo intermedio, R1-04)
+    check("PATCH /home/default", "H9 PATCH /home/default {home_id:<H2>} → 200",
+          request("PATCH", "/home/default", {"home_id": h2}, tok), 200, {"default_home_id": h2})
+    check("PATCH /home/default", "H10 PATCH /home/default restaura el original → 200",
+          request("PATCH", "/home/default", {"home_id": orig_default}, tok), 200,
+          {"default_home_id": orig_default})
+    check("PATCH /home/default", "H11 PATCH /home/default {home_id:999999} → 404 Not Found",
+          request("PATCH", "/home/default", {"home_id": 999999}, tok), 404, ERR_NOT_FOUND)
+    # H12–H13: membresías
+    b = check("GET /home/membership", "H12 GET /home/membership?id=<H2> → [MEMBERSHIP_ITEM]",
+              request("GET", f"/home/membership?id={h2}", None, tok), 200, [MEMBERSHIP_ITEM])
+    value("GET /home/membership", "H12 1 fila role=admin con permissions no vacías",
+          isinstance(b, list) and len(b) == 1 and b[0].get("role") == "admin"
+          and isinstance(b[0].get("permissions"), list) and len(b[0]["permissions"]) > 0,
+          repr(b)[:300])
+    check("GET /home/membership", "H13 GET /home/membership?id=999999 → 404 Not Found",
+          request("GET", "/home/membership?id=999999", None, tok), 404, ERR_NOT_FOUND)
+    # H14–H15: cabecera de contexto en rutas legacy (§2.2: ajena → 500 legacy; mal formada → 400)
+    check("GET /calendar", "H14 GET /calendar con X-Home-Id: 999999 → 500 Not Found (legacy)",
+          request("GET", "/calendar", None, tok, home=999999), 500, ERR_NOT_FOUND)
+    check("GET /home", "H14b GET /home con X-Home-Id: 999999 → 404 Not Found (home, D16)",
+          request("GET", "/home", None, tok, home=999999), 404, ERR_NOT_FOUND)
+    check("GET /calendar", "H15 GET /calendar con X-Home-Id: abc → 400 Invalid home",
+          request("GET", "/calendar", None, tok, home="abc"), 400, ERR_INVALID_HOME)
+    # H16: detalle con cabecera de otro hogar → filtro Edge (§4.4)
+    check("GET /calendar/detail", "H16 GET /calendar/detail?id=1 con X-Home-Id: <H2> → 500 Not Found",
+          request("GET", "/calendar/detail?id=1", None, tok, home=h2), 500, ERR_NOT_FOUND)
+    # H17: S10 — la cabecera llega a SQL: el alta raíz usa el hogar activo
+    b = check("POST /calendar/create", "H17 POST /calendar/create con X-Home-Id: <H2> → 201",
+              request("POST", "/calendar/create", {"name": "CC-Cal-H2", "color": "#123456"}, tok, home=h2),
+              201, CAL_DETAIL)
+    h17cal = b.get("id") if isinstance(b, dict) else None
+    value("POST /calendar/create", "H17 home_id = H2 (S10: la cabecera llega a SQL)",
+          isinstance(b, dict) and b.get("home_id") == h2, repr(b)[:300])
+    # H18: índice tras H10 (H2 presente y ya no es el default)
+    b = check("GET /home", "H18 GET /home tras H10 → [HOME_ITEM]",
+              request("GET", "/home", None, tok), 200, [HOME_ITEM])
+    value("GET /home", "H18 H2 presente con is_default=false",
+          isinstance(b, list)
+          and any(x.get("home_id") == h2 and x.get("is_default") is False for x in b), repr(b)[:300])
+    # H19–H20: filtro positivo de GET /calendar con cabecera válida (R1-01); vacía = sin cabecera
+    b = check("GET /calendar", "H19 GET /calendar con X-Home-Id: <H2> → [CAL_ITEM]",
+              request("GET", "/calendar", None, tok, home=h2), 200, [CAL_ITEM])
+    value("GET /calendar", "H19 solo recursos de H2 (incluye el creado con cabecera)",
+          isinstance(b, list) and len(b) >= 1
+          and all(x.get("home_id") == h2 for x in b)
+          and any(x.get("id") == h17cal for x in b), repr(b)[:300])
+    b = check("GET /calendar", "H20 GET /calendar con X-Home-Id vacía = sin cabecera (A9)",
+              request("GET", "/calendar", None, tok, home=""), 200, [CAL_ITEM])
+    value("GET /calendar", "H20 sin cabecera → recursos de ambos hogares",
+          isinstance(b, list)
+          and any(x.get("home_id") == h2 for x in b)
+          and any(x.get("home_id") == orig_default for x in b), repr(b)[:300])
+    # H21–H23: ídem para /task-list (R1-01: filtro de lista y de detalle con cabecera)
+    b = check("POST /task-list/create", "H21 POST /task-list/create con X-Home-Id: <H2> → 201",
+              request("POST", "/task-list/create", {"name": "CC-Lista-H2", "color": "#222222"}, tok, home=h2),
+              201, TL_DETAIL)
+    h21list = b.get("id") if isinstance(b, dict) else None
+    value("POST /task-list/create", "H21 home_id = H2 (S10)",
+          isinstance(b, dict) and b.get("home_id") == h2, repr(b)[:300])
+    b = check("GET /task-list", "H22 GET /task-list con X-Home-Id: <H2> → [TL_ITEM]",
+              request("GET", "/task-list", None, tok, home=h2), 200, [TL_ITEM])
+    value("GET /task-list", "H22 solo recursos de H2 (incluye la lista creada con cabecera)",
+          isinstance(b, list) and len(b) >= 1
+          and all(x.get("home_id") == h2 for x in b)
+          and any(x.get("id") == h21list for x in b), repr(b)[:300])
+    b = check("GET /task-list/detail", "H23 GET /task-list/detail con X-Home-Id: <H2> → 200",
+              request("GET", f"/task-list/detail?id={h21list}", None, tok, home=h2), 200, TL_DETAIL)
+    value("GET /task-list/detail", "H23 home_id = H2 en el detalle filtrado",
+          isinstance(b, dict) and b.get("home_id") == h2, repr(b)[:300])
+    check("GET /task-list/detail", "H24 GET /task-list/detail?id=1 con X-Home-Id: <H2> → 500",
+          request("GET", "/task-list/detail?id=1", None, tok, home=h2), 500, ERR_NOT_FOUND)
+    b = check("GET /task-list", "H25 GET /task-list sin cabecera → [TL_ITEM]",
+              request("GET", "/task-list", None, tok), 200, [TL_ITEM])
+    value("GET /task-list", "H25 sin cabecera → recursos de ambos hogares",
+          isinstance(b, list)
+          and any(x.get("home_id") == h2 for x in b)
+          and any(x.get("home_id") == orig_default for x in b), repr(b)[:300])
+
+
 scenario_profile()
 scenario_person()
 scenario_calendar()
 scenario_task_list()
 scenario_routine()
 scenario_event()
+scenario_home()
 
 
 # ── Viewer (matriz de autorización): owner-only 403 y self-remove 400 (desviaciones) ──
@@ -723,15 +916,18 @@ check("DELETE /task-list/user", "self-remove DELETE /task-list/user (400)",
 check("DELETE /task-list/delete", "owner borra la lista de prueba (DELETE /task-list/delete)",
       request("DELETE", "/task-list/delete", {"id": vlist}, tok), 200, SUCCESS)
 
-# ── Resumen: cobertura de las 43 rutas y rutas con regresión ──
+# ── Resumen: cobertura de las 43 rutas legacy + 6 rutas home y rutas con regresión ──
 
-missing = [r for r in ROUTES if r not in covered]
+missing = [r for r in ROUTES + HOME_ROUTES if r not in covered]
 fails = results.count(False)
-print(f"\n{len(results) - fails}/{len(results)} casos ok · {len(covered)}/{len(ROUTES)} rutas cubiertas")
+legacy_cov = len([r for r in ROUTES if r in covered])
+home_cov = len([r for r in HOME_ROUTES if r in covered])
+print(f"\n{len(results) - fails}/{len(results)} casos ok · {legacy_cov}/{len(ROUTES)} rutas legacy"
+      f" · {home_cov}/{len(HOME_ROUTES)} rutas home")
 if missing:
     print("Rutas sin cubrir: " + ", ".join(missing))
 if regressed:
     print("Rutas con regresión: " + ", ".join(regressed))
 if len(results) != EXPECTED_CASES:
-    print(f"conteo de casos: {len(results)} (esperado {EXPECTED_CASES}, A-7: 106 + 2)")
+    print(f"conteo de casos: {len(results)} (esperado {EXPECTED_CASES}, A-7: 106 + 2 + 43 home)")
 sys.exit(1 if fails or missing or len(results) != EXPECTED_CASES else 0)
