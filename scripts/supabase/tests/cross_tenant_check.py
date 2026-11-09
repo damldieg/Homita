@@ -1,30 +1,38 @@
 #!/usr/bin/env python3
-"""Aislamiento entre tenants (T15, criterio global 3): el usuario B no lee ni escribe entidades de
-A — ids de A → `500 {"error":"Not Found"}` (paridad PHP `TaskListUser::check` → selectOneOrFail,
-`Database.php:56`), las RPC directas `/rest/v1/rpc/*` con el JWT de B devuelven 0 filas de A (o
-`Not Found`), `materialize_routine` con rutina ajena → `Not Found`, y el rol viewer solo cambia
-sus flags propias (403 `{"error":"Not Allowed"}` en lo compartido, matriz §3).
+"""Aislamiento entre tenants (T15/T10, criterio global 3 + modelo Home 1.3): el usuario B no lee ni
+escribe entidades de A — ids de A → `500 {"error":"Not Found"}` (paridad PHP `TaskListUser::check`
+→ selectOneOrFail, `Database.php:56`), las RPC directas `/rest/v1/rpc/*` con el JWT de B devuelven
+0 filas de A (o `Not Found`), `materialize_routine` con rutina ajena → `Not Found`, y el rol viewer
+solo cambia sus flags propias (403 `{"error":"Not Allowed"}` en lo compartido, matriz §3).
 
-Casos (~55): 8 lecturas Edge, 23 escrituras Edge, 11 RPC directas PostgREST con JWT de B
-(incl. `get_task_list_users`, `get_calendar_users`, `get_user_me`, `materialize_routine`) y 15
-owner-vs-viewer. Criterio de fuga: cualquier dato de A donde la matriz/paridad PHP no lo permite.
+Modelo Home (1.3, plan 1.3 §Suites): `xt-a` y `xt-b` por `/user/create` → hogares personales
+distintos (0014a). Fase 2 en el orden nuevo: owner invita a B (no miembro del hogar del recurso) →
+403 `Not Allowed` (Q3) y sin filas; psql (replica) crea la membresía de B en home(A) con el snapshot
+legacy de 17 permisos y mueve `home_member`+`person` de `b_per` a home(A); las invitaciones repiten
+→ 200 con ACL `viewer` y `home_id` de A; viewer sigue viendo su calendario; P1 asigna `b_per` al
+evento de A → 200 (trigger 0015 iv válido). R1 reescrito: el insert directo cross-home en modo
+normal → `Invalid person` `P0001` y `update_event` por RPC → 400 `Invalid person`; la contaminación
+heredada se prepara en replica (preparación, no caso de éxito) y el filtro de lectura la oculta.
 
 Regresión H0 (h0-hotfix-fuga-rpc): F1–F4 fuga cross-tenant de personas por escritura RPC directa
-con `p_person_ids` de B, V1–V4/V1b/V2b validación de título/fecha en la RPC, R1 filtro de lectura
-(`fn_event_persons`/`fn_routine_persons`) ante contaminación heredada, P1/N1 positivos (persona de
-co-miembro de familia y caso `p_person_ids = null` sin cambios).
+con `p_person_ids` de B, V1–V4/V1b/V2b validación de título/fecha en la RPC, P1/N1 positivos (persona
+de co-miembro y `p_person_ids = null` sin cambios).
 
-Setup/limpieza solo con service_role (stack local): usuarios xt-a/xt-b vía user/create (requiere
-ALLOW_REGISTRATION=true en la Edge o usuarios preexistentes) y filas XT-% borradas al inicio y al
-final para que el script sea repetible. Nunca contra producción.
+Setup/limpieza: usuarios xt-a/xt-b vía user/create (requiere ALLOW_REGISTRATION=true en la Edge o
+usuarios preexistentes) y `clean_xt()` completo (filas XT-%, membresías y hogares personales de xt y
+sus cuentas auth — se recrean en cada pasada: sin hogar, `create_calendar` fallaría con `Home header
+required`). Nunca contra producción.
 
 Variables de entorno: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY (limpieza),
-SUPABASE_FUNCTIONS_URL (defaults = stack local). Python stdlib.
-Uso: python3 scripts/supabase/tests/cross_tenant_check.py
+SUPABASE_FUNCTIONS_URL (defaults = stack local) y PSQL (comando psql contra la BD local; para el
+stack local `docker exec`: `PSQL="docker exec -i supabase_db_homita-api psql -U postgres -d postgres"`).
+Python stdlib. Uso: python3 scripts/supabase/tests/cross_tenant_check.py
 """
 import datetime
 import json
 import os
+import shlex
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -38,6 +46,11 @@ A_EMAIL, A_PASSWORD, A_NAME = "xt-a@homita.example", "xt-a-12345", "XT Owner"
 B_EMAIL, B_PASSWORD, B_NAME = "xt-b@homita.example", "xt-b-12345", "XT Viewer"
 NOT_FOUND = (500, '{"error":"Not Found"}')
 NOT_ALLOWED = (403, '{"error":"Not Allowed"}')
+# Snapshot member legacy (Q-B, plan 1.2 §5): 17 permisos del viewer de antes del modelo Home
+LEGACY17 = ("('home.view'), ('calendar.view'), ('task.view'), ('routine.view'), "
+            "('task.create'), ('task.edit'), ('task.complete'), ('task.assign'), ('task.delete'), "
+            "('event.create'), ('event.edit'), ('event.delete'), ('event.assign'), "
+            "('routine.create'), ('routine.edit'), ('routine.delete'), ('routine.assign')")
 
 if not ANON or not SVC:
     sys.exit("Faltan SUPABASE_ANON_KEY y/o SUPABASE_SERVICE_ROLE_KEY")
@@ -77,20 +90,64 @@ def parse(text):
         return text
 
 
+def psql_run(sql, verbose=False):
+    """SQL por psql local (variable PSQL: comando completo). Devuelve (rc, salida+errores)."""
+    cmd = shlex.split(os.environ.get("PSQL", "psql"))
+    args = cmd + ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-t", "-A"]
+    if verbose:
+        args += ["-v", "VERBOSITY=verbose"]
+    r = subprocess.run(args, input=sql, capture_output=True, text=True)
+    return r.returncode, (r.stdout + r.stderr).strip()
+
+
+def psql(sql):
+    """SQL por psql local; aborta el script si falla. Devuelve la salida (una fila, -t -A)."""
+    rc, out = psql_run(sql)
+    if rc != 0:
+        sys.exit(f"psql falló ({rc}): {out[:300]}")
+    return out
+
+
 def clean_xt():
-    """Filas XT-% de ejecuciones anteriores (hijos primero: cascade PG cubre las uniones, pero se
-    borran también explícitas por si acaso). Verifica al final: si queda alguna fila, aborta (un
-    resto silencioso contamina las aserciones de la fase 1)."""
+    """Filas XT-% de ejecuciones anteriores (hijos primero: cascade PG cubre las uniones) y, en una
+    transacción psql, las membresías de los usuarios xt o de sus hogares (CASCADE limpia ACL y
+    membership_permission), los home_member sobrantes, sus hogares personales y sus cuentas auth.
+    La transacción es única a propósito: el trigger anti-admin diferido de 0015 rechazaría un COMMIT
+    que dejara hogares active sin admin. Las cuentas auth se borran para que cada pasada cree los
+    usuarios con /user/create y 0014a les asigne hogar (sin hogar, create_calendar fallaría con
+    'Home header required'). Verifica al final: sin filas XT-% ni membresías ni hogares de xt — así
+    3 ejecuciones seguidas son verdes."""
     for table, column in (("event", "title"), ("routine", "title"), ("task", "title"),
                           ("task_list", "name"), ("calendar", "name"), ("person", "name")):
         status, text = request(URL, "DELETE", f"/rest/v1/{table}?{column}=like.XT-*", None, None, apikey=SVC)
         if status not in (200, 204):
             sys.exit(f"clean_xt: DELETE {table} → {status}: {text[:200]}")
+    psql(f"""
+begin;
+delete from home_membership
+    where app_user_id in (select id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}'))
+       or home_id in (select default_home_id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}'));
+delete from home_member
+    where home_id in (select default_home_id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}'));
+delete from home
+    where is_personal and created_by in (select id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}'));
+delete from auth.users
+    where id in (select auth_uid from app_user where email in ('{A_EMAIL}', '{B_EMAIL}'));
+commit;
+""")
     for table, column in (("event", "title"), ("routine", "title"), ("task", "title"),
                           ("task_list", "name"), ("calendar", "name"), ("person", "name")):
         status, text = request(URL, "GET", f"/rest/v1/{table}?{column}=like.XT-*&select=id", None, None, apikey=SVC)
         if status != 200 or parse(text):
             sys.exit(f"clean_xt: quedan filas XT-% en {table}: {text[:200]}")
+    left = psql(f"select count(*) from home_membership hm join app_user u on u.id = hm.app_user_id "
+                f"where u.email in ('{A_EMAIL}', '{B_EMAIL}')")
+    if left != "0":
+        sys.exit(f"clean_xt: quedan membresías de xt ({left})")
+    left = psql(f"select count(*) from home h join app_user u on u.id = h.created_by "
+                f"where u.email in ('{A_EMAIL}', '{B_EMAIL}')")
+    if left != "0":
+        sys.exit(f"clean_xt: quedan hogares de xt ({left})")
 
 
 results = []
@@ -117,7 +174,7 @@ def expect_err(name, res, message):
 
 clean_xt()
 
-# ── usuarios A (owner) y B (viewer): user/create + user/auth ──
+# ── usuarios A (owner) y B (viewer): user/create + user/auth (0014a crea sus hogares) ──
 for email, password, name in ((A_EMAIL, A_PASSWORD, A_NAME), (B_EMAIL, B_PASSWORD, B_NAME)):
     edge("POST", "/user/create", {"name": name, "email": email, "password": password})  # si ya existe, auth basta
 a_auth = edge("POST", "/user/auth", {"email": A_EMAIL, "password": A_PASSWORD})
@@ -126,6 +183,13 @@ if a_auth[0] != 200 or b_auth[0] != 200:
     sys.exit("no se pudo autenticar xt-a/xt-b (¿ALLOW_REGISTRATION=true en la Edge para el alta?)")
 a_tok, b_tok = parse(a_auth[1])["token"], parse(b_auth[1])["token"]
 a_id, b_id = parse(a_auth[1])["id"], parse(b_auth[1])["id"]
+
+home_a = psql(f"select default_home_id from app_user where email = '{A_EMAIL}'")
+home_b = psql(f"select default_home_id from app_user where email = '{B_EMAIL}'")
+check("xt-a y xt-b por /user/create → dos hogares personales distintos (home(A) ≠ home(B))",
+      home_a not in ("", None) and home_b not in ("", None) and home_a != home_b,
+      f"home(A)={home_a} home(B)={home_b}")
+home_a, home_b = int(home_a or 0), int(home_b or 0)
 
 # ── datos de A: calendario (+ privado), lista, persona, rutina, evento, tarea ──
 cal = parse(edge("POST", "/calendar/create", {"name": "XT-Cal", "color": "#123456"}, a_tok)[1])["id"]
@@ -296,7 +360,20 @@ check("V4 rpc update_event con date_at inválida → 400 Event ID, title, and da
 tasks = parse(request(URL, "GET", f"/rest/v1/task?task_list_id=eq.{lst}&select=title", None, None, apikey=SVC)[1])
 check("V1-V4 nada se escribe: la lista de A solo tiene su tarea", tasks == [{"title": "XT-Tarea"}], repr(tasks)[:200])
 
-# R1 (filtro de lectura): contaminación heredada (fixture service_role) invisible para A
+# ── R1 (reescrito, 0015 iv): el trigger persona↔recurso rechaza la asignación cross-home ──
+# (i) insert directo en modo normal → 'Invalid person' P0001 (la inserción en replica solo prepara
+# datos, nunca es caso de éxito); (ii) update_event por RPC con esa persona → 400 Invalid person.
+rc, out = psql_run(f"insert into event_person (event_id, person_id) values ({evt}, {b_per});", verbose=True)
+check("R1(i) insert event_person cross-home en modo normal → Invalid person P0001",
+      rc != 0 and "P0001" in out and "Invalid person" in out, out[:200])
+r1ii = rpc_direct("update_event", {"p_id": evt, "p_title": "XT-Evento", "p_date_at": "2026-12-20 12:00:00",
+                                   "p_alarm": 15, "p_person_ids": [b_per], "p_timezone": TZ}, a_tok)
+check("R1(ii) update_event por RPC con persona de home(B) → 400 Invalid person",
+      r1ii[0] == 400 and parse(r1ii[1]).get("message") == "Invalid person" and person_leak(r1ii),
+      repr(r1ii)[:200])
+
+# R1 (contaminación heredada): filas de una era anterior preparadas en replica (solo preparación);
+# el filtro de lectura (fn_event_persons/fn_routine_persons) las oculta para A.
 request(URL, "POST", "/rest/v1/event",
         {"calendar_id": cal, "title": "XT-R1-Evento", "date_at": "2026-12-26 10:00:00"}, None, apikey=SVC)
 r1_evt = parse(request(URL, "GET", "/rest/v1/event?title=eq.XT-R1-Evento&select=id", None, None, apikey=SVC)[1])[0]["id"]
@@ -305,8 +382,12 @@ request(URL, "POST", "/rest/v1/routine",
          "end_date": None, "active": True, "available_from": "2026-11-09 00:00:00", "frequency": "weekly",
          "interval": 1}, None, apikey=SVC)
 r1_rou = parse(request(URL, "GET", "/rest/v1/routine?title=eq.XT-R1-Rutina&select=id", None, None, apikey=SVC)[1])[0]["id"]
-for table, column, row_id in (("event_person", "event_id", r1_evt), ("routine_person", "routine_id", r1_rou)):
-    request(URL, "POST", f"/rest/v1/{table}", {column: row_id, "person_id": b_per}, None, apikey=SVC)
+psql(f"""
+set session_replication_role = replica;
+insert into event_person (event_id, person_id) values ({r1_evt}, {b_per});
+insert into routine_person (routine_id, person_id) values ({r1_rou}, {b_per});
+set session_replication_role = default;
+""")
 r1e = rpc_direct("get_event_detail", {"p_id": r1_evt}, a_tok)
 check("R1 get_event_detail de A no incluye la persona de B (contaminación heredada)",
       r1e[0] == 200 and all(p.get("id") != b_per for p in parse(r1e[1]).get("persons") or []), repr(r1e)[:200])
@@ -314,9 +395,47 @@ r1r = rpc_direct("get_routine_detail", {"p_id": r1_rou}, a_tok)
 check("R1 get_routine_detail de A no incluye la persona de B (contaminación heredada)",
       r1r[0] == 200 and all(p.get("id") != b_per for p in parse(r1r[1]).get("persons") or []), repr(r1r)[:200])
 
-# ── Fase 2: B viewer en el calendario de A (matriz §3: owner vs viewer) ──
-check("owner POST /calendar/user invita a B → 200 (control positivo)",
+# ── Fase 2 (orden nuevo, Q3): el invitado debe ser miembro del hogar del recurso ──
+# (1) owner invita a B (no miembro) → 403 Not Allowed y sin filas nuevas
+expect("owner POST /calendar/user invita a B → 403 Not Allowed (Q3)",
+       edge("POST", "/calendar/user", {"calendar_id": cal, "email": B_EMAIL}, a_tok), NOT_ALLOWED)
+rows = psql(f"select (select count(*) from calendar_user where calendar_id = {cal} and user_id = {b_id}) + "
+            f"(select count(*) from home_membership where home_id = {home_a} and app_user_id = {b_id})")
+check("tras el 403 no hay fila de B en calendar_user ni en home_membership de home(A)", rows == "0", f"filas={rows}")
+expect("owner POST /task-list/user invita a B → 403 Not Allowed (Q3)",
+       edge("POST", "/task-list/user", {"task_list_id": lst, "email": B_EMAIL}, a_tok), NOT_ALLOWED)
+rows = psql(f"select (select count(*) from task_list_user where task_list_id = {lst} and user_id = {b_id}) + "
+            f"(select count(*) from home_membership where home_id = {home_a} and app_user_id = {b_id})")
+check("tras el 403 no hay fila de B en task_list_user ni en home_membership de home(A)", rows == "0", f"filas={rows}")
+
+# (2) psql (replica): membresía de B en home(A) + snapshot legacy de 17 permisos y se mueven
+# home_member + person de b_per a home(A) (mismo home_id en ambos; replica: el FK compuesto
+# person↔home_member prohíbe moverlos en dos statements en modo normal)
+psql(f"""
+set session_replication_role = replica;
+begin;
+insert into home_membership (home_id, app_user_id, role) values ({home_a}, {b_id}, 'member');
+insert into membership_permission (home_membership_id, permission_code)
+select hm.id, c.code from home_membership hm
+cross join (values {LEGACY17}) as c(code)
+where hm.home_id = {home_a} and hm.app_user_id = {b_id};
+update home_member set home_id = {home_a} where id = (select home_member_id from person where id = {b_per});
+update person set home_id = {home_a} where id = {b_per};
+commit;
+set session_replication_role = default;
+""")
+
+# (3) repetir las invitaciones → 200 y ACL viewer con home_id de A (control positivo)
+check("owner POST /calendar/user invita a B → 200 (tras membresía)",
       edge("POST", "/calendar/user", {"calendar_id": cal, "email": B_EMAIL}, a_tok)[0] == 200)
+row = psql(f"select role || ' ' || home_id from calendar_user where calendar_id = {cal} and user_id = {b_id}")
+check("ACL viewer con home_id de A (calendar_user)", row == f"viewer {home_a}", f"fila={row!r}")
+check("owner POST /task-list/user invita a B → 200 (tras membresía)",
+      edge("POST", "/task-list/user", {"task_list_id": lst, "email": B_EMAIL}, a_tok)[0] == 200)
+row = psql(f"select role || ' ' || home_id from task_list_user where task_list_id = {lst} and user_id = {b_id}")
+check("ACL viewer con home_id de A (task_list_user)", row == f"viewer {home_a}", f"fila={row!r}")
+
+# (4) viewer B sigue viendo su calendario (matriz §3: owner vs viewer)
 check("viewer GET /calendar/detail del compartido → 200",
       edge("GET", f"/calendar/detail?id={cal}", None, b_tok)[0] == 200)
 expect("viewer PATCH /calendar/update cambia name → 403",
@@ -340,8 +459,6 @@ cu = rpc_direct("get_calendar_users", {"p_calendar_id": cal}, b_tok)
 emails = sorted(m.get("email") for m in parse(cu[1])) if cu[0] == 200 else None
 check("B rpc get_calendar_users del compartido → A y B (paridad PHP, no fuga)",
       emails == sorted([A_EMAIL, B_EMAIL]), repr(cu)[:200])
-check("owner POST /task-list/user invita a B → 200 (control positivo)",
-      edge("POST", "/task-list/user", {"task_list_id": lst, "email": B_EMAIL}, a_tok)[0] == 200)
 expect("viewer PATCH /task-list/update cambia name → 403",
        edge("PATCH", "/task-list/update", {"id": lst, "name": "XT-Lista B", "color": "#222222",
                                            "sort": "title"}, b_tok), NOT_ALLOWED)
@@ -354,7 +471,8 @@ check("viewer GET /task-list/detail del compartido → 200",
       edge("GET", f"/task-list/detail?id={lst}", None, b_tok)[0] == 200)
 
 # ── H0: positivos — el filtro no rompe el uso legítimo ──
-# P1 (co-miembro): B ya es co-miembro de familia de A (invitado en la fase 2) → su persona SÍ es asignable
+# P1 (co-miembro): b_per ya está en home(A) (movido en la fase 2) y B es co-miembro → asignable
+# vía RPC; el trigger 0015(iv) la valida (misma home, activa)
 p1 = rpc_direct("create_event", {"p_calendar_id": cal, "p_title": "XT-Positivo-P1", "p_date_at": "2026-12-28 12:00:00",
                                  "p_alarm": None, "p_person_ids": [b_per]}, a_tok)
 check("P1 create_event de A con persona del co-miembro B → 200 y la persona aparece en persons",
