@@ -20,8 +20,14 @@ segundo lado con el que comparar. Este script fija el comportamiento documentado
   user/auth, text-only `400` en event/create, TypeError de `calendar/create` sin color.
 * Guard (R1): `--fn` solo acepta hosts locales (127.0.0.1/localhost), sin flag de override — el
   script escribe y borra filas CC-% vía service_role y jamás debe tocar el proyecto alojado.
+* Bloque viewer (A-7, 108/108 = 106 + 2): el alta externa de owner (invitado no miembro del hogar
+  del recurso) → `403 {"error":"Not Allowed"}` (Q3); tras dar la membresía por psql repite las
+  invitaciones → 200 (+2 casos). `reset_leftovers` borra esa membresía (CASCADE a
+  membership_permission y ACL) para que el caso 403 sea determinista en cada ejecución.
 * `SUPABASE_SERVICE_ROLE_KEY` (reset de restos CC-%, R1-01): del entorno, de `.demo/functions.env`
   o de `supabase status -o env`; toda fuente con indicios de producción (`supabase.co`) se rechaza.
+* `PSQL` (membresía del bloque viewer): comando psql completo contra la BD local; para el stack
+  local `docker exec`: `PSQL="docker exec -i supabase_db_homita-api psql -U postgres -d postgres"`.
 
 Datos: `scripts/demo.sh up` deja la Edge local servida y sembrada con `scripts/demo/seed.py`
 (ids 1..N). El bloque viewer necesita `ALLOW_REGISTRATION=true` en la Edge local.
@@ -35,6 +41,7 @@ import datetime
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -154,6 +161,7 @@ def shape(value, tmpl, where, issues):
 results = []
 covered = set()
 regressed = []
+EXPECTED_CASES = 108  # A-7: 106 históricos + 2 del bloque viewer (invitaciones 200 tras membresía)
 
 
 def record(route, name, ok, detail=""):
@@ -319,10 +327,24 @@ def load_service_key():
     return None
 
 
+def psql(sql):
+    """SQL por psql local (variable PSQL: comando completo; default `psql`). Se usa para la
+    membresía del bloque viewer y su limpieza (el REST service_role no altera los triggers
+    diferidos de 0015)."""
+    cmd = shlex.split(os.environ.get("PSQL", "psql"))
+    r = subprocess.run(cmd + ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-t", "-A"], input=sql,
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit(f"psql falló ({r.returncode}): {r.stderr.strip()[:300]}")
+    return r.stdout.strip()
+
+
 def reset_leftovers():
     """Higiene entre ejecuciones: borra los restos con prefijo CC-% (escenarios y bloque viewer —
-    la Edge no llega a borrar el calendario del viewer: 403) para poder re-ejecutar sin re-sembrar.
-    DELETE REST vía service_role contra el REST local derivado de --fn (local por el guard). Padre
+    la Edge no llega a borrar el calendario del viewer: 403) y XT-% (restos del suite de aislamiento)
+    para poder re-ejecutar sin re-sembrar, y la membresía de viewer en el hogar de demo (CASCADE a
+    membership_permission y ACL) para que el caso 403 del alta externa sea determinista (A-7).
+    DELETE REST vía service_role contra el REST local derivado de --fn (local por el guard); padre
     basta (cascade); los eventos van antes que las rutinas (`event.routine_id` es set null)."""
     key = load_service_key()
     if not key:
@@ -330,14 +352,20 @@ def reset_leftovers():
               "(la 2ª ejecución puede fallar por restos)")
         return
     rest = FN.split("/functions/")[0] + "/rest/v1"
-    for table, column in (("event", "title"), ("routine", "title"), ("task", "title"),
-                          ("task_list", "name"), ("calendar", "name"), ("person", "name")):
-        req = urllib.request.Request(f"{rest}/{table}?{column}=like.CC-*", method="DELETE",
-                                     headers={"apikey": key, "Authorization": "Bearer " + key})
-        try:
-            urllib.request.urlopen(req).read()
-        except urllib.error.HTTPError as e:
-            print(f"aviso: reset_leftovers {table} falló ({e.code}): {e.read().decode()[:120]}")
+    for prefix in ("CC-", "XT-"):
+        for table, column in (("event", "title"), ("routine", "title"), ("task", "title"),
+                              ("task_list", "name"), ("calendar", "name"), ("person", "name")):
+            req = urllib.request.Request(f"{rest}/{table}?{column}=like.{prefix}*",
+                                         method="DELETE",
+                                         headers={"apikey": key, "Authorization": "Bearer " + key})
+            try:
+                urllib.request.urlopen(req).read()
+            except urllib.error.HTTPError as e:
+                print(f"aviso: reset_leftovers {table} falló ({e.code}): {e.read().decode()[:120]}")
+    # Membresía de viewer en el hogar de demo (Q3): con ella el invite es 200 y el caso 403 falla
+    psql("delete from home_membership "
+         "where app_user_id = (select id from app_user where email = 'viewer@homita.example') "
+           f"and home_id = (select default_home_id from app_user where email = '{args.email}')")
 
 
 # ── config, auth y reset ──
@@ -625,6 +653,8 @@ reg = request("POST", "/user/create", {"name": B_NAME, "email": B_EMAIL, "passwo
 if reg == (400, ERR_EMAIL_EXISTS):  # usuario viewer de una ejecución previa
     check("POST /user/create", "viewer POST /user/create (ya registrado en una ejecución previa)",
           reg, 400, ERR_EMAIL_EXISTS)
+    value("POST /user/create", "viewer POST /user/create (¿ALLOW_REGISTRATION=false o repetido?)",
+          reg[0] == 400, repr(reg)[:300])
 else:
     check("POST /user/create", "viewer POST /user/create (registro abierto en la demo)",
           reg, 201, USER_CREATE)
@@ -637,14 +667,34 @@ if vauth[0] != 200:
 vtok = parse(vauth[1])["token"]
 vid = parse(vauth[1])["id"]
 
-# Calendario de A con B de viewer (invita A, owner)
+# Calendario y lista de A con B de viewer: el alta externa es 403 (Q3) mientras B no sea miembro
+# del hogar del recurso (0014b/D-c); después se le da membresía por psql (snapshot legacy) y las
+# invitaciones repiten en 200 (control positivo, A-7: 106 + 2 = 108)
 b = check("POST /calendar/create", "viewer: owner crea CC-Viewer-Cal",
           request("POST", "/calendar/create", {"name": "CC-Viewer-Cal", "color": "#445566"}, tok),
           201, CAL_DETAIL)
 vcal = b.get("id") if isinstance(b, dict) else None
-check("POST /calendar/user", "owner invita al viewer (POST /calendar/user)",
-      request("POST", "/calendar/user", {"calendar_id": vcal, "email": B_EMAIL}, tok), 200, USER)
+check("POST /calendar/user", "owner invita al viewer (403: no miembro del hogar, Q3)",
+      request("POST", "/calendar/user", {"calendar_id": vcal, "email": B_EMAIL}, tok),
+      403, ERR_NOT_ALLOWED)
+b = check("POST /task-list/create", "viewer: owner crea CC-Viewer-Lista",
+          request("POST", "/task-list/create", {"name": "CC-Viewer-Lista", "color": "#445566"}, tok),
+          201, TL_DETAIL)
+vlist = b.get("id") if isinstance(b, dict) else None
+check("POST /task-list/user", "owner invita al viewer (403: no miembro del hogar, Q3)",
+      request("POST", "/task-list/user", {"task_list_id": vlist, "email": B_EMAIL}, tok),
+      403, ERR_NOT_ALLOWED)
 
+psql("insert into home_membership (home_id, app_user_id, role) "
+     "select (select default_home_id from app_user where email = '" + args.email + "'), "
+            "(select id from app_user where email = '" + B_EMAIL + "'), 'member' "
+     "on conflict (home_id, app_user_id) do nothing")
+check("POST /calendar/user", "owner invita al viewer (200 tras membresía, A-7)",
+      request("POST", "/calendar/user", {"calendar_id": vcal, "email": B_EMAIL}, tok), 200, USER)
+check("POST /task-list/user", "owner invita al viewer (200 tras membresía, A-7)",
+      request("POST", "/task-list/user", {"task_list_id": vlist, "email": B_EMAIL}, tok), 200, USER)
+
+# Matriz viewer del calendario (owner-only 403 y self-remove 400, desviaciones)
 check("PATCH /calendar/update", "viewer PATCH /calendar/update cambia name (403, desviación documentada)",
       request("PATCH", "/calendar/update", {"id": vcal, "name": "CC-Viewer-Cal RENOMBRADO",
                                             "color": "#445566"}, vtok), 403, ERR_NOT_ALLOWED)
@@ -663,13 +713,7 @@ check("PATCH /calendar/update", "viewer PATCH /calendar/update solo flags propia
 check("DELETE /calendar/delete", "viewer DELETE /calendar/delete (403, desviación documentada)",
       request("DELETE", "/calendar/delete", {"id": vcal}, vtok), 403, ERR_NOT_ALLOWED)
 
-# Misma matriz con task-list: invitación y retirada de miembros
-b = check("POST /task-list/create", "viewer: owner crea CC-Viewer-Lista",
-          request("POST", "/task-list/create", {"name": "CC-Viewer-Lista", "color": "#445566"}, tok),
-          201, TL_DETAIL)
-vlist = b.get("id") if isinstance(b, dict) else None
-check("POST /task-list/user", "owner invita al viewer (POST /task-list/user)",
-      request("POST", "/task-list/user", {"task_list_id": vlist, "email": B_EMAIL}, tok), 200, USER)
+# Misma matriz con task-list: retirada de miembros
 check("DELETE /task-list/user", "viewer DELETE /task-list/user saca al owner (403, desviación documentada)",
       request("DELETE", "/task-list/user", {"task_list_id": vlist, "user_id": aid}, vtok),
       403, ERR_NOT_ALLOWED)
@@ -688,4 +732,6 @@ if missing:
     print("Rutas sin cubrir: " + ", ".join(missing))
 if regressed:
     print("Rutas con regresión: " + ", ".join(regressed))
-sys.exit(1 if fails or missing else 0)
+if len(results) != EXPECTED_CASES:
+    print(f"conteo de casos: {len(results)} (esperado {EXPECTED_CASES}, A-7: 106 + 2)")
+sys.exit(1 if fails or missing or len(results) != EXPECTED_CASES else 0)
