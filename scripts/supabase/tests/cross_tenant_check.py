@@ -29,6 +29,11 @@ Administradores (1.6, plan §6.4): C antes de unirse en K20 → 404 en las 3 rut
 X-Home-Id de home(B) en las 3 rutas → 404; B sale de home(A) (200) y entonces
 GET /calendar/detail del compartido → 500 Not Found (sus ACL se borran en cascada).
 
+Permisos por kind (1.7, plan §6.3): C no miembro → 404 también en GET /home/membership de A; el
+seed de la membresía de B en home(B) (dance demote/restore vía psql — R1-02: el helper de 0019
+rechaza admins con 'Not Allowed') no altera la membresía de B en home(A) ni sus ACL, y los
+permisos sembrados en home(B) no aparecen en GET /home/membership de A (B sigue con legacy17).
+
 Setup/limpieza: usuarios xt-a/xt-b vía user/create (requiere ALLOW_REGISTRATION=true en la Edge o
 usuarios preexistentes) y `clean_xt()` completo (filas XT-%, membresías y hogares de xt — personales
 y no personales (R1-04) — y sus cuentas auth: se recrean en cada pasada: sin hogar, `create_calendar` fallaría con `Home header
@@ -64,6 +69,12 @@ LEGACY17 = ("('home.view'), ('calendar.view'), ('task.view'), ('routine.view'), 
             "('task.create'), ('task.edit'), ('task.complete'), ('task.assign'), ('task.delete'), "
             "('event.create'), ('event.edit'), ('event.delete'), ('event.assign'), "
             "('routine.create'), ('routine.edit'), ('routine.delete'), ('routine.assign')")
+# Los mismos 17 códigos en orden collate "C" (forma en que get_home_memberships devuelve el
+# snapshot: json_agg order by permission_code collate "C", 0016) — §6.3 de 1.7.
+LEGACY17_C = ['calendar.view', 'event.assign', 'event.create', 'event.delete', 'event.edit',
+              'home.view', 'routine.assign', 'routine.create', 'routine.delete', 'routine.edit',
+              'routine.view', 'task.assign', 'task.complete', 'task.create', 'task.delete',
+              'task.edit', 'task.view']
 
 if not ANON or not SVC:
     sys.exit("Faltan SUPABASE_ANON_KEY y/o SUPABASE_SERVICE_ROLE_KEY")
@@ -631,6 +642,12 @@ roles_post = psql(f"select string_agg(id || ':' || role::text, ',' order by id) 
 check("M4 los 404 de C no cambian home(A) (membresías y roles intactos)",
       roles_pre == roles_post, f"{roles_pre!r} ≠ {roles_post!r}")
 
+# ── 1.7 (plan §6.3): C no miembro → GET /home/membership de A → 404 (sin cambio) ──
+# fn_require_member (0012) → 'Not Found' P0002 antes de fn_require_permission: un no miembro no
+# ve las membresías del hogar (mismo criterio de las 3 rutas de arriba).
+expect("M4b C (no miembro) GET /home/membership?id=homeA → 404",
+       edge("GET", f"/home/membership?id={home_a}", None, c_tok), HOME_NOT_FOUND)
+
 psql(f"""
 begin;
 insert into home_membership (home_id, app_user_id, role) values ({home_a}, {c_id}, 'member');
@@ -671,6 +688,76 @@ for name, method, path, body in [
      {"home_id": home_a, "membership_id": b_membership}),
 ]:
     expect(name, edge(method, path, body, b_tok, home=home_b), HOME_NOT_FOUND)
+
+# ── 1.7 (plan §6.3): seed por kind de la membresía de B en home(B) — sin efecto en home(A) ──
+# R1-02: el helper de 0019 rechaza admins; B es admin de su hogar personal → dance
+# demote/restore vía psql (session_replication_role = replica: el trigger anti-admin diferido de
+# 0015 rechazaría dejar home(B) sin admin) + caso extra de rechazo 'Not Allowed' sobre admin.
+# El seed no debe alterar la membresía de B en home(A) ni sus ACL, y los permisos sembrados en
+# home(B) no deben aparecer en GET /home/membership de A.
+b_home_m = int(psql(f"select id from home_membership where home_id = {home_b} and app_user_id = {b_id}"))
+sig_pre = psql(f"""
+select (select coalesce(string_agg(hm.id || ':' || hm.role::text, ',' order by hm.id), '')
+          from home_membership hm where hm.home_id = {home_a} and hm.app_user_id = {b_id})
+    || '|' || (select coalesce(string_agg(mp.permission_code, ',' order by mp.permission_code), '')
+          from membership_permission mp
+          join home_membership hm on hm.id = mp.home_membership_id
+         where hm.home_id = {home_a} and hm.app_user_id = {b_id})""")
+acl_pre = psql(f"""
+select md5(coalesce((select string_agg(cu.calendar_id || ':' || cu.user_id || ':' || cu.role::text,
+                                      ',' order by cu.calendar_id, cu.user_id)
+                       from calendar_user cu where cu.user_id = {b_id}), ''))
+    || ' ' || md5(coalesce((select string_agg(tu.task_list_id || ':' || tu.user_id || ':' || tu.role::text,
+                                             ',' order by tu.task_list_id, tu.user_id)
+                              from task_list_user tu where tu.user_id = {b_id}), ''))""")
+out = psql(f"""
+do $$ begin
+    perform fn_seed_kind_permissions({b_home_m}, 'guest');
+    raise exception 'el helper no rechazo a un admin';
+exception
+    when insufficient_privilege then
+        if sqlerrm <> 'Not Allowed' then raise; end if;
+end $$;
+select 'rechazado';""")
+check("PK1 el helper rechaza la membresía admin de B en home(B) → 'Not Allowed' (R1-02)",
+      out == "rechazado", repr(out)[:200])
+psql(f"set session_replication_role = replica; "
+     f"update home_membership set role = 'member' where id = {b_home_m}; "
+     f"set session_replication_role = default;")
+psql(f"select fn_seed_kind_permissions({b_home_m}, 'guest')")
+snap = psql(f"select count(*) || ' ' || coalesce(string_agg(mp.permission_code, ',' "
+            f"order by mp.permission_code collate \"C\"), '') "
+            f"from membership_permission mp where mp.home_membership_id = {b_home_m}")
+check("PK2 seed guest sobre la membresía de B en home(B) = 3 claves de guest (collate \"C\")",
+      snap == "3 calendar.view,task.complete,task.view", repr(snap)[:200])
+psql(f"set session_replication_role = replica; "
+     f"update home_membership set role = 'admin' where id = {b_home_m}; "
+     f"set session_replication_role = default; "
+     f"delete from membership_permission where home_membership_id = {b_home_m};")  # promote = A-6
+sig_post = psql(f"""
+select (select coalesce(string_agg(hm.id || ':' || hm.role::text, ',' order by hm.id), '')
+          from home_membership hm where hm.home_id = {home_a} and hm.app_user_id = {b_id})
+    || '|' || (select coalesce(string_agg(mp.permission_code, ',' order by mp.permission_code), '')
+          from membership_permission mp
+          join home_membership hm on hm.id = mp.home_membership_id
+         where hm.home_id = {home_a} and hm.app_user_id = {b_id})""")
+acl_post = psql(f"""
+select md5(coalesce((select string_agg(cu.calendar_id || ':' || cu.user_id || ':' || cu.role::text,
+                                      ',' order by cu.calendar_id, cu.user_id)
+                       from calendar_user cu where cu.user_id = {b_id}), ''))
+    || ' ' || md5(coalesce((select string_agg(tu.task_list_id || ':' || tu.user_id || ':' || tu.role::text,
+                                             ',' order by tu.task_list_id, tu.user_id)
+                              from task_list_user tu where tu.user_id = {b_id}), ''))""")
+check("PK3 el seed de home(B) no altera la membresía de B en home(A) (id:rol + snapshot)",
+      sig_post == sig_pre, f"{sig_pre!r} ≠ {sig_post!r}")
+check("PK4 el seed de home(B) no altera las ACL de B (calendar_user/task_list_user)",
+      acl_post == acl_pre, f"{acl_pre!r} ≠ {acl_post!r}")
+bA = edge("GET", f"/home/membership?id={home_a}", None, a_tok)
+perms_b = next((m.get("permissions") for m in parse(bA[1])
+                if isinstance(m, dict) and m.get("app_user_id") == b_id), None) if bA[0] == 200 else None
+check("PK5 los permisos de B en home(B) no aparecen en GET /home/membership de A (sigue legacy17)",
+      perms_b == LEGACY17_C, repr(bA)[:300])
+
 m10 = edge("DELETE", "/home/membership",
            {"home_id": home_a, "membership_id": b_membership}, b_tok)
 check("M10 B DELETE /home/membership (sale de home(A), cualquiera puede salir) → 200 success",

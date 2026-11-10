@@ -31,6 +31,10 @@ segundo lado con el que comparar. Este script fija el comportamiento documentado
   owner único, último hogar) y 404 (no miembro, cabecera ajena, membresía ajena, hogar archived).
   C2 (§6.2): 3 carreras A/B de demote en paralelo → exactamente una 200 y una 403, admins = 1.
   El usuario demo no abandona su hogar original: la salida feliz la hace el viewer.
+* Bloque permisos por kind (1.7, §6.2): `fn_seed_kind_permissions` de 0019 por psql sobre la
+  membresía member de cc-mem → `GET /home/membership` devuelve `permissions` = el conjunto exacto
+  del kind (child 6, adult 18; collate "C"); admin = 23 del catálogo (A4, sin snapshot). R1-02:
+  el helper rechaza una membresía admin (`'Not Allowed'`, sin filas). Sin rutas nuevas (D-008).
 * `SUPABASE_SERVICE_ROLE_KEY` (reset de restos CC-%, R1-01): del entorno, de `.demo/functions.env`
   o de `supabase status -o env`; toda fuente con indicios de producción (`supabase.co`) se rechaza.
 * `PSQL` (membresía del bloque viewer): comando psql completo contra la BD local; para el stack
@@ -172,15 +176,18 @@ def shape(value, tmpl, where, issues):
 results = []
 covered = set()
 regressed = []
-EXPECTED_CASES = 266  # 207 (1.5: 106 históricos + 2 viewer + 43 home + 56 miembros) + 59 del bloque
+EXPECTED_CASES = 272  # 207 (1.5: 106 históricos + 2 viewer + 43 home + 56 miembros) + 59 del bloque
                       # M de 1.6 (§6.3): 5 setup (hogar CC-Membresias + cc-mem + GET /home/membership),
                       # 11 happy (promote/demote/transfer/transfer back con sus valores y GET),
                       # 7×400 (role inválido ×2, Invalid membership, ids ×4), 3×403 no admin,
                       # 2×403 último admin, 3×403 owner único, 1×403 último hogar, 3 salir feliz
                       # (viewer: DELETE 200 + GET con/ sin valor), 3×404 no miembro, 3×404 cabecera
                       # ajena, 3×404 membresía ajena, 3×404 hogar archived y 12 de C2 (setup + 3
-                      # carreras × (paralelo + GET + admins=1) + 2 repromociones). Conteo real de
-                      # la ejecución registrado en status.md.
+                      # carreras × (paralelo + GET + admins=1) + 2 repromociones) + 6 del bloque de
+                      # permisos por kind de 1.7 (§6.2): seed child (GET + 6 claves child + admin
+                      # = 23 del catálogo), seed adult (GET + 18 claves adult) y rechazo del helper
+                      # a una admin (R1-02, 0 filas). Conteo real de la ejecución registrado en
+                      # verificacion.md (builder no edita status.md).
 
 
 def record(route, name, ok, detail=""):
@@ -1431,9 +1438,80 @@ def scenario_membership():
                   request("PATCH", "/home/membership/role",
                           {"home_id": hM, "membership_id": demo_m if surv == mid else mem_m,
                            "role": "admin"}, tok if surv == aid else mtok), 200, MEMBERSHIP_STATE)
+    return hM, mem_m, demo_m, mid
 
 
-scenario_membership()
+hM, mem_m, demo_m, mid = scenario_membership()
+
+
+# ── Permisos por kind (1.7, plan §6.2): fn_seed_kind_permissions por psql → GET /home/membership ──
+# Sin rutas nuevas (D-008): el snapshot por kind se siembra con el helper de 0019 (sin grants
+# externos: solo psql) y se observa en `permissions` de GET /home/membership (0016, collate "C").
+# C2 deja exactamente un admin sin determinar cuál: se normaliza a demo=admin y cc-mem=member
+# (R1-02: el helper rechaza admins) satisfaciendo el trigger anti-admin de 0015 (demo primero).
+
+PERMS_CHILD = ['calendar.view', 'home.view', 'routine.view', 'task.complete', 'task.create',
+               'task.view']
+PERMS_ADULT = ['calendar.manage', 'calendar.view', 'event.assign', 'event.create', 'event.delete',
+               'event.edit', 'routine.assign', 'routine.create', 'routine.delete', 'routine.edit',
+               'routine.view', 'task.assign', 'task.complete', 'task.create', 'task.delete',
+               'task.edit', 'task.view', 'tasklist.manage']
+PERMS_CATALOG = ['calendar.manage', 'calendar.view', 'event.assign', 'event.create',
+                 'event.delete', 'event.edit', 'home.invite', 'home.members.manage',
+                 'home.permissions.manage', 'home.settings.manage', 'home.view', 'routine.assign',
+                 'routine.create', 'routine.delete', 'routine.edit', 'routine.view', 'task.assign',
+                 'task.complete', 'task.create', 'task.delete', 'task.edit', 'task.view',
+                 'tasklist.manage']
+
+
+def scenario_permisos_kind(hM, mem_m, demo_m, mid):
+    # C2 deja exactamente un admin sin determinar cuál: se normaliza a demo=admin y cc-mem=member
+    # (R1-02: el helper rechaza admins) satisfaciendo el trigger anti-admin de 0015 (demo primero).
+    # La normalización imita el promote de 0018 (A-6): además del rol borra el snapshot — el update
+    # crudo de psql no lo haría y dejaría un admin con las 17 filas legacy17 que sembró el demote
+    # de C2 (estado que A4 prohíbe y que K6 detecta; el resultado de C2 es no-determinista).
+    psql("begin; "
+         "update home_membership set role = 'admin' where id = %d; "
+         "delete from membership_permission where home_membership_id = %d; "
+         "update home_membership set role = 'member' where id = %d; "
+         "commit;" % (demo_m, demo_m, mem_m))
+    # K1–K3: seed child (reemplaza el snapshot de cc-mem) → 6 claves de child (collate "C") y el
+    # admin (demo) sigue con el catálogo entero (A4, sin filas)
+    psql("select fn_seed_kind_permissions(%d, 'child')" % mem_m)
+    b = check("GET /home/membership", "K1 seed child → GET /home/membership → [MEMBERSHIP_ITEM]",
+              request("GET", f"/home/membership?id={hM}", None, tok), 200, [MEMBERSHIP_ITEM])
+    value("GET /home/membership", 'K2 permissions de cc-mem = 6 claves de child (collate "C")',
+          next((x.get("permissions") for x in b
+                if isinstance(x, dict) and x.get("app_user_id") == mid), None) == PERMS_CHILD,
+          repr(b)[:300])
+    value("GET /home/membership", "K3 admin (demo) = 23 del catálogo (A4, sin snapshot)",
+          next((x.get("permissions") for x in b
+                if isinstance(x, dict) and x.get("app_user_id") == aid), None) == PERMS_CATALOG,
+          repr(b)[:300])
+    # K4–K5: seed adult reemplaza child → 18 claves de adult (reemplaza, no suma)
+    psql("select fn_seed_kind_permissions(%d, 'adult')" % mem_m)
+    b = check("GET /home/membership", "K4 seed adult reemplaza child → [MEMBERSHIP_ITEM]",
+              request("GET", f"/home/membership?id={hM}", None, tok), 200, [MEMBERSHIP_ITEM])
+    value("GET /home/membership", 'K5 permissions de cc-mem = 18 claves de adult (collate "C")',
+          next((x.get("permissions") for x in b
+                if isinstance(x, dict) and x.get("app_user_id") == mid), None) == PERMS_ADULT,
+          repr(b)[:300])
+    # K6: R1-02 — el helper rechaza la membresía admin de demo ('Not Allowed' 42501) y A4 aguanta:
+    # el admin sigue con 0 filas en membership_permission (si el helper no fallara, psql abortaría)
+    out = psql("do $$ begin "
+               "perform fn_seed_kind_permissions(%d, 'guest'); "
+               "raise exception 'el helper no rechazo a un admin'; "
+               "exception when insufficient_privilege then "
+               "if sqlerrm <> 'Not Allowed' then raise; end if; "
+               "end $$; "
+               "select count(*) from membership_permission mp "
+               "join home_membership hm on hm.id = mp.home_membership_id where hm.role = 'admin';"
+               % demo_m)
+    value("GET /home/membership", "K6 el helper rechaza admin (Not Allowed) y admin = 0 filas (A4)",
+          out == "0", repr(out)[:300])
+
+
+scenario_permisos_kind(hM, mem_m, demo_m, mid)
 
 
 # ── Resumen: cobertura de las 43 rutas legacy + 12 rutas home y rutas con regresión ──
@@ -1449,5 +1527,6 @@ if missing:
 if regressed:
     print("Rutas con regresión: " + ", ".join(regressed))
 if len(results) != EXPECTED_CASES:
-    print(f"conteo de casos: {len(results)} (esperado {EXPECTED_CASES}: 207 de 1.5 + 59 del bloque M/C2 de 1.6)")
+    print(f"conteo de casos: {len(results)} (esperado {EXPECTED_CASES}: 207 de 1.5 + 59 del bloque "
+          f"M/C2 de 1.6 + 6 del bloque de permisos por kind de 1.7)")
 sys.exit(1 if fails or missing or len(results) != EXPECTED_CASES else 0)
