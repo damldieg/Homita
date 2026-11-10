@@ -20,6 +20,14 @@ final class StubURLProtocol: URLProtocol, @unchecked Sendable {
     private static let lock = NSLock()
     private static var handler: ((URLRequest) -> Stub)?
     private static var captured: [URLRequest] = []
+    private static var homes = ""
+    private static let homesLock = NSLock()
+
+    /// Respuesta mutable de `GET home` para tests que recargan el contexto con otra lista.
+    static var currentHomes: String {
+        get { homesLock.lock(); defer { homesLock.unlock() }; return homes }
+        set { homesLock.lock(); defer { homesLock.unlock() }; homes = newValue }
+    }
 
     /// Fija el handler de respuesta y limpia las peticiones capturadas.
     static func reset(_ handler: @escaping (URLRequest) -> Stub) {
@@ -151,6 +159,16 @@ enum ContractFixtures {
     static let homeList = "[\(homeItem1),\(homeItem2)]"
     static let homeListEmpty = "[]"
     static let homeDetail = #"{"id":3,"name":"Nuevo","timezone":"UTC","is_personal":false,"extra":"ignorado"}"#
+    static let homeDetailFull = #"{"id":2,"name":"Familia","timezone":"Europe/Madrid","is_personal":false,"created_at":"2026-11-01 10:00:00","updated_at":"2026-11-02 11:00:00"}"#
+    static let membershipItem = #"{"membership_id":7,"app_user_id":1,"name":"Ana","email":"ana@homita.example","role":"admin","permissions":["calendar.read","calendar.write"]}"#
+    static let membershipItem2 = #"{"membership_id":8,"app_user_id":9,"name":"Beto","email":"beto@homita.example","role":"member","permissions":["calendar.read"]}"#
+    static let membershipList = "[\(membershipItem),\(membershipItem2)]"
+    static let membershipState = #"{"membership_id":8,"home_id":2,"app_user_id":9,"role":"admin"}"#
+    static let transferState = #"{"from_membership_id":7,"to_membership_id":8}"#
+    static let homeMemberList = ##"[{"id":1,"home_id":2,"kind":"adult","name":"Ana","color":"#FF0000","status":"active","linked":true,"created_at":"2026-11-01 10:00:00","updated_at":"2026-11-01 10:00:00"}]"##
+    static let permissionGet = #"{"catalog":[{"code":"calendar.read","domain":"calendar","description":"Ver calendario"},{"code":"calendar.write","domain":"calendar","description":"Editar calendario"},{"code":"task.read","domain":"task","description":"Ver tareas"}],"defaults":[{"kind":"adult","permissions":["calendar.read"]}],"memberships":[{"membership_id":7,"app_user_id":1,"name":"Ana","email":"ana@homita.example","role":"admin","kind":"adult","editable":false,"permissions":["calendar.read","calendar.write","task.read"]},{"membership_id":8,"app_user_id":9,"name":"Beto","email":"beto@homita.example","role":"member","editable":true,"permissions":["calendar.read"]}]}"#
+    static let permissionState = #"{"membership_id":8,"home_id":2,"permissions":["calendar.read","task.read"],"granted":["task.read"],"revoked":[]}"#
+    static let auditList = #"[{"id":12,"action":"membership.role_changed","target_type":"membership","target_id":8,"actor_app_user_id":1,"actor_name":"Ana","payload":{"role":"admin","granted":["a","b"],"nested":{"x":1},"n":3,"flag":true,"none":null},"created_at":"2026-11-02 11:00:00"},{"id":11,"action":"home.updated","target_type":"home","payload":{},"created_at":"2026-11-02 10:00:00"}]"#
     static let defaultHome = #"{"default_home_id":2}"#
     static let config = #"{"allow_registration":false}"#
     static let goTrue = #"{"access_token":"nuevo-access","refresh_token":"nuevo-refresh"}"#
@@ -179,6 +197,24 @@ enum ContractFixtures {
             return StubURLProtocol.Stub(status: 201, json: homeDetail)
         case ("PATCH", "home/default"):
             json = defaultHome
+        case ("GET", "home/detail"), ("PATCH", "home/update"):
+            json = homeDetailFull
+        case ("GET", "home/membership"):
+            json = membershipList
+        case ("PATCH", "home/membership/role"):
+            json = membershipState
+        case ("POST", "home/membership/transfer"):
+            json = transferState
+        case ("DELETE", "home/membership"):
+            json = ok
+        case ("GET", "home/member"):
+            json = homeMemberList
+        case ("GET", "home/permission"):
+            json = permissionGet
+        case ("PATCH", "home/permission"):
+            json = permissionState
+        case ("GET", "home/audit"):
+            json = auditList
         case ("GET", "calendar"):
             json = "[]"
         case (_, "calendar/detail"), (_, "calendar/create"), (_, "calendar/update"):

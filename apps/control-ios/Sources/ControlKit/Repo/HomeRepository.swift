@@ -29,4 +29,91 @@ public struct HomeRepository {
             as: DefaultHomeResponse.self
         )
     }
+
+    // MARK: - Administración del hogar (1.12). Todas llevan `X-Home-Id` (ver `RequestBuilder`).
+
+    /// `GET home/detail?id=` → `HOME_DETAIL`.
+    public func detail(id: Int) async throws -> HomeDetailFull {
+        try await client.send(
+            APIRequest(method: .get, path: "home/detail", query: [URLQueryItem(name: "id", value: String(id))]),
+            as: HomeDetailFull.self
+        )
+    }
+
+    /// `PATCH home/update` body `{id,name,timezone?}` → `HOME_DETAIL`. `timezone` nil se omite.
+    public func update(id: Int, name: String, timezone: String?) async throws -> HomeDetailFull {
+        try await client.send(
+            APIRequest(method: .patch, path: "home/update",
+                       body: try client.encode(UpdateHomeBody(id: id, name: name, timezone: timezone))),
+            as: HomeDetailFull.self
+        )
+    }
+
+    /// `GET home/membership?id=` → `[MEMBERSHIP_ITEM]`.
+    public func memberships(homeId: Int) async throws -> [MembershipItem] {
+        try await client.send(
+            APIRequest(method: .get, path: "home/membership", query: [URLQueryItem(name: "id", value: String(homeId))]),
+            as: [MembershipItem].self
+        )
+    }
+
+    /// `PATCH home/membership/role` body `{home_id,membership_id,role}` → `MEMBERSHIP_STATE`.
+    public func changeRole(homeId: Int, membershipId: Int, role: String) async throws -> MembershipState {
+        try await client.send(
+            APIRequest(method: .patch, path: "home/membership/role",
+                       body: try client.encode(ChangeRoleBody(homeId: homeId, membershipId: membershipId, role: role))),
+            as: MembershipState.self
+        )
+    }
+
+    /// `POST home/membership/transfer` body `{home_id,to_membership_id}` → `TRANSFER_STATE` (200).
+    public func transfer(homeId: Int, toMembershipId: Int) async throws -> TransferState {
+        try await client.send(
+            APIRequest(method: .post, path: "home/membership/transfer",
+                       body: try client.encode(TransferBody(homeId: homeId, toMembershipId: toMembershipId))),
+            as: TransferState.self
+        )
+    }
+
+    /// `DELETE home/membership` body `{home_id,membership_id}` → `{success:true}`.
+    public func remove(homeId: Int, membershipId: Int) async throws {
+        _ = try await client.send(
+            APIRequest(method: .delete, path: "home/membership",
+                       body: try client.encode(RemoveMembershipBody(homeId: homeId, membershipId: membershipId))),
+            as: OkResponse.self
+        )
+    }
+
+    /// `GET home/member?home_id=` → `[HOME_MEMBER]` (sin pantalla hasta 1.13).
+    public func members(homeId: Int) async throws -> [HomeMember] {
+        try await client.send(
+            APIRequest(method: .get, path: "home/member", query: [URLQueryItem(name: "home_id", value: String(homeId))]),
+            as: [HomeMember].self
+        )
+    }
+
+    /// `GET home/permission?home_id=` → `PERMISSION_GET`.
+    public func permissions(homeId: Int) async throws -> PermissionsResponse {
+        try await client.send(
+            APIRequest(method: .get, path: "home/permission", query: [URLQueryItem(name: "home_id", value: String(homeId))]),
+            as: PermissionsResponse.self
+        )
+    }
+
+    /// `PATCH home/permission` body `{home_id,membership_id,permissions[]}` → `PERMISSION_STATE`.
+    public func setPermissions(homeId: Int, membershipId: Int, permissions: [String]) async throws -> PermissionState {
+        try await client.send(
+            APIRequest(method: .patch, path: "home/permission",
+                       body: try client.encode(SetPermissionsBody(homeId: homeId, membershipId: membershipId, permissions: permissions))),
+            as: PermissionState.self
+        )
+    }
+
+    /// `GET home/audit?home_id=&limit=&before_id=` → `[AUDIT_ITEM]`; `limit` y `before_id` solo si no son nil.
+    public func audit(homeId: Int, limit: Int? = nil, beforeId: Int? = nil) async throws -> [AuditItem] {
+        var query = [URLQueryItem(name: "home_id", value: String(homeId))]
+        if let limit { query.append(URLQueryItem(name: "limit", value: String(limit))) }
+        if let beforeId { query.append(URLQueryItem(name: "before_id", value: String(beforeId))) }
+        return try await client.send(APIRequest(method: .get, path: "home/audit", query: query), as: [AuditItem].self)
+    }
 }

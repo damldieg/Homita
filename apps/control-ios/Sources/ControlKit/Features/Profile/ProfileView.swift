@@ -45,6 +45,15 @@ public struct ProfileView: View {
                         Label("Personas", systemImage: "person.2")
                     }
                 }
+                if case .ready(let home) = services.homeContext.state {
+                    Section("Hogar") {
+                        NavigationLink {
+                            HomeAdminView(services: services, home: home)
+                        } label: {
+                            Label("Administración del hogar", systemImage: "house")
+                        }
+                    }
+                }
                 Section {
                     Button("Cerrar sesión", role: .destructive) {
                         services.signOut()
