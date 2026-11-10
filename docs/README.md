@@ -5,6 +5,7 @@
 | [FRAME.md](FRAME.md) | Ficha del XORO CPF 10PF: hardware, particiones, software de fábrica, seguridad, TLS y cómo recuperarlo |
 | [ANDROID.md](ANDROID.md) | Hasta qué versión de Android se puede actualizar (GSI `arm32_binder64`, Linux en SD) y por qué no compensa |
 | [SETUP.md](SETUP.md) | Montaje recomendado paso a paso: copia de seguridad, launcher, quitar Uhale, quiosco, cortafuegos |
+| [CONTRATOS_HOME.md](CONTRATOS_HOME.md) | Contrato de las 15 rutas `/home/*` (hogares, miembros, membresías, permisos, auditoría) y diseño de invitaciones (1.15) |
 | [inventory/](inventory/) | Volcados en bruto del marco (14-10-2026): `getprop`, paquetes, particiones, sistema |
 
 ## Material de referencia
