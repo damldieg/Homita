@@ -176,18 +176,13 @@ def shape(value, tmpl, where, issues):
 results = []
 covered = set()
 regressed = []
-EXPECTED_CASES = 272  # 207 (1.5: 106 históricos + 2 viewer + 43 home + 56 miembros) + 59 del bloque
-                      # M de 1.6 (§6.3): 5 setup (hogar CC-Membresias + cc-mem + GET /home/membership),
-                      # 11 happy (promote/demote/transfer/transfer back con sus valores y GET),
-                      # 7×400 (role inválido ×2, Invalid membership, ids ×4), 3×403 no admin,
-                      # 2×403 último admin, 3×403 owner único, 1×403 último hogar, 3 salir feliz
-                      # (viewer: DELETE 200 + GET con/ sin valor), 3×404 no miembro, 3×404 cabecera
-                      # ajena, 3×404 membresía ajena, 3×404 hogar archived y 12 de C2 (setup + 3
-                      # carreras × (paralelo + GET + admins=1) + 2 repromociones) + 6 del bloque de
-                      # permisos por kind de 1.7 (§6.2): seed child (GET + 6 claves child + admin
-                      # = 23 del catálogo), seed adult (GET + 18 claves adult) y rechazo del helper
-                      # a una admin (R1-02, 0 filas). Conteo real de la ejecución registrado en
-                      # verificacion.md (builder no edita status.md).
+EXPECTED_CASES = 312  # 272 de 1.5/1.6/1.7 (207 + 59 M/C2 + 6 permisos kind) + 40 del bloque de la
+                      # matriz §3.4.1 de 1.8 (§6.2): MX0–MX5 setup (relogin, 4 fixtures, invitación
+                      # con manage, alta externa) + M1/M1b/M2/M3 (admin sin ACL ve y no escribe y
+                      # co-miembro sin ACL), M4/M4b/M5 (metadatos owner+manage, flags propios),
+                      # M6–M8b/M10 (contenido y *.assign solo al cambiar conjunto), M11a–f (tareas
+                      # por kind), M12 ×3 (sin ACL → Not Found), M13/M13b (compartir, Q3), M14/M14b
+                      # (último owner 403, self-remove 400) y M23/M23b (person_ids por hogar).
 
 
 def record(route, name, ok, detail=""):
@@ -1229,6 +1224,11 @@ def scenario_membership():
     mid = parse(mauth[1])["id"]
     psql("insert into home_membership (home_id, app_user_id, role) values (%d, %d, 'member') "
          "on conflict (home_id, app_user_id) do nothing" % (hM, mid))
+    # 1.8 (§3.4.1): el enforcement de la matriz exige calendar.manage/tasklist.manage para
+    # metadatos, borrar y compartir (M14b); el kind adult es el de la matriz con manage y se
+    # siembra como fixture del bloque M (los casos sin manage van en el bloque de 1.8 abajo).
+    psql("select fn_seed_kind_permissions((select id from home_membership where home_id = %d "
+         "and app_user_id = %d), 'adult')" % (hM, mid))
     b = check("GET /home/membership", "M0d GET /home/membership?id=<CC-Membresias> → [MEMBERSHIP_ITEM]",
               request("GET", f"/home/membership?id={hM}", None, tok), 200, [MEMBERSHIP_ITEM])
     ids = {x.get("app_user_id"): x.get("membership_id") for x in b if isinstance(x, dict)}
@@ -1319,6 +1319,11 @@ def scenario_membership():
           403, ERR_NOT_ALLOWED)
     # M14: 403 owner único — cc-mem es owner único de un calendario de CC-Membresias y no puede
     # salir hasta transferir la propiedad (§3.3); lo borra y el bloqueo desaparece
+    # 1.8 (§3.4.1): el dance promote/demote de arriba dejó a cc-mem con legacy17 (promote borra el
+    # snapshot A-6; demote siembra legacy17, sin calendar.manage). M14b exige owner + manage para
+    # borrar: se siembra adult como fixture del bloque M (los casos sin manage van en el bloque de
+    # 1.8; desviación documentada en el envelope).
+    psql("select fn_seed_kind_permissions(%d, 'adult')" % mem_m)
     b = check("POST /calendar/create", "M14 setup: cc-mem crea CC-M-Cal en CC-Membresias (X-Home-Id)",
               request("POST", "/calendar/create", {"name": "CC-M-Cal", "color": "#123456"}, mtok, home=hM),
               201, CAL_DETAIL)
@@ -1514,6 +1519,195 @@ def scenario_permisos_kind(hM, mem_m, demo_m, mid):
 scenario_permisos_kind(hM, mem_m, demo_m, mid)
 
 
+# ── Matriz §3.4.1 (1.8, §4.1/§6.2): enforcement por kind sobre recursos de CC-Membresias ──
+# Oracle = tabla §4.1 (sin rutas nuevas, D-008): admin sin ACL ve (widget/dashboard false) y no
+# escribe; metadatos/borrar/compartir = owner + calendar.manage|tasklist.manage; contenido =
+# ACL + permiso de la operación; *.assign solo si el conjunto de personas cambia (Q-C (a)).
+
+ERR_PERSON_IDS = '{"error":"person_ids must be a list of IDs"}'
+ERR_INVALID_PERSON = '{"error":"Invalid person"}'
+
+
+def seed_kind(kind):
+    psql("select fn_seed_kind_permissions(%d, '%s')" % (mem_m, kind))
+
+
+def scenario_matriz(hM, mem_m, mid):
+    mauth = request("POST", "/user/auth", {"email": MEM_EMAIL, "password": MEM_PASSWORD})
+    check("POST /user/auth", "MX0 POST /user/auth cc-mem (relogin del bloque 1.8)", mauth, 200, USER_AUTH)
+    if mauth[0] != 200:
+        sys.exit("no se pudo reautenticar cc-mem para el bloque 1.8")
+    mtok = parse(mauth[1])["token"]
+    # viewer B se da de alta en CC-Membresias (kind guest) y se comparte CC-M-Cal con él
+    psql("insert into home_membership (home_id, app_user_id, role) values (%d, %d, 'member') "
+         "on conflict (home_id, app_user_id) do nothing" % (hM, vid))
+    psql("select fn_seed_kind_permissions((select id from home_membership where home_id = %d "
+         "and app_user_id = %d), 'guest')" % (hM, vid))
+    seed_kind("adult")
+    cal = check("POST /calendar/create", "MX1 cc-mem crea CC-M-Cal (owner adult)",
+                request("POST", "/calendar/create", {"name": "CC-M-Cal", "color": "#112233"}, mtok),
+                201, CAL_DETAIL).get("id")
+    cal2 = check("POST /calendar/create", "MX2 cc-mem crea CC-M-Cal2 (sin compartir)",
+                 request("POST", "/calendar/create", {"name": "CC-M-Cal2", "color": "#445566"}, mtok),
+                 201, CAL_DETAIL).get("id")
+    lst = check("POST /task-list/create", "MX3 cc-mem crea CC-M-Lista (owner adult)",
+                request("POST", "/task-list/create", {"name": "CC-M-Lista", "color": "#778899",
+                                                      "sort": "title"}, mtok), 201, TL_DETAIL).get("id")
+    per = check("POST /person/create", "MX4 cc-mem crea CC-M-Persona (200 PHP, persons.ts:11)",
+                request("POST", "/person/create", {"name": "CC-M-Persona", "color": "#AABBCC"}, mtok),
+                200, PERSON).get("id")
+    check("POST /calendar/user", "M13 owner + calendar.manage invita al viewer → 200 USER",
+          request("POST", "/calendar/user", {"calendar_id": cal, "email": B_EMAIL}, mtok), 200, USER)
+
+    # M1/M1b/M2: admin sin ACL ve y no escribe (Q1/A-5; detalle por PostgREST+RLS, A-15)
+    b = check("GET /calendar", "M1 GET /calendar del admin → incluye CC-M-Cal (ACL de cc-mem)",
+              request("GET", "/calendar", None, tok, home=hM), 200, [CAL_ITEM])
+    item = next((x for x in b if isinstance(x, dict) and x.get("id") == cal), None) if isinstance(b, list) else None
+    value("GET /calendar", "M1 CC-M-Cal con widget=0 y dashboard=0 (admin sin ACL, A-5)",
+          isinstance(item, dict) and item.get("widget") == 0 and item.get("dashboard") == 0,
+          repr(item)[:300])
+    check("GET /calendar/detail", "M1b GET /calendar/detail del admin sin ACL → 200 (RLS, A-15)",
+          request("GET", f"/calendar/detail?id={cal}", None, tok, home=hM), 200, CAL_DETAIL)
+    check("PATCH /calendar/update", "M2 admin sin ACL rename → 500 Not Found",
+          request("PATCH", "/calendar/update", {"id": cal, "name": "CC-M-Cal X", "color": "#112233"},
+                  tok, home=hM), 500, ERR_NOT_FOUND)
+    check("GET /calendar/detail", "M3 co-miembro sin ACL → 500 Not Found",
+          request("GET", f"/calendar/detail?id={cal2}", None, vtok, home=hM), 500, ERR_NOT_FOUND)
+
+    # M4/M5: metadatos = owner + manage; flags propios = solo ACL (§5.1)
+    check("PATCH /calendar/update", "M4 owner adult rename → 200",
+          request("PATCH", "/calendar/update", {"id": cal, "name": "CC-M-Cal", "color": "#112233"},
+                  mtok, home=hM), 200, CAL_DETAIL)
+    psql("delete from membership_permission where home_membership_id = %d "
+         "and permission_code = 'calendar.manage'" % mem_m)
+    check("PATCH /calendar/update", "M4b owner sin calendar.manage rename → 403",
+          request("PATCH", "/calendar/update", {"id": cal, "name": "CC-M-Cal X", "color": "#112233"},
+                  mtok, home=hM), 403, ERR_NOT_ALLOWED)
+    seed_kind("adult")
+    res = request("PATCH", "/calendar/update", {"id": cal, "name": "CC-M-Cal", "color": "#112233",
+                                                "widget": False}, vtok, home=hM)
+    check("PATCH /calendar/update", "M5 viewer solo flags propias → 200", res, 200, CAL_DETAIL)
+
+    # M6–M8: contenido = ACL + permiso; *.assign solo si cambia el conjunto (Q-C (a))
+    check("POST /event/create", "M6 guest sin event.create crea evento → 403",
+          request("POST", "/event/create?timezone=Europe/Madrid",
+                  {"calendar_id": cal, "title": "CC-M-EvG", "date_at": "2026-12-01 10:00:00",
+                   "alarm": 5}, vtok, home=hM), 403, ERR_NOT_ALLOWED)
+    seed_kind("relative")
+    ev = check("POST /event/create", "M6b relative con event.create crea evento sin personas → 200",
+               request("POST", "/event/create?timezone=Europe/Madrid",
+                       {"calendar_id": cal, "title": "CC-M-EvR", "date_at": "2026-12-02 10:00:00",
+                        "alarm": 5}, mtok, home=hM), 200, EVENT_DETAIL).get("id")
+    check("POST /event/create", "M7 relative crea evento con personas (sin event.assign) → 403",
+          request("POST", "/event/create?timezone=Europe/Madrid",
+                  {"calendar_id": cal, "title": "CC-M-EvP", "date_at": "2026-12-03 10:00:00",
+                   "alarm": 5, "person_ids": [per]}, mtok, home=hM), 403, ERR_NOT_ALLOWED)
+    seed_kind("adult")
+    evp = check("POST /event/create", "M7b adult crea evento con personas (event.assign) → 200",
+                request("POST", "/event/create?timezone=Europe/Madrid",
+                        {"calendar_id": cal, "title": "CC-M-EvA", "date_at": "2026-12-04 10:00:00",
+                         "alarm": 5, "person_ids": [per]}, mtok, home=hM), 200, EVENT_DETAIL).get("id")
+    seed_kind("relative")
+    check("PATCH /event/update", "M8 relative reenvía el conjunto mostrado (sin cambio) → 200",
+          request("PATCH", "/event/update?timezone=Europe/Madrid",
+                  {"id": evp, "title": "CC-M-EvA", "date_at": "2026-12-04 10:00:00", "alarm": 5,
+                   "person_ids": [per]}, mtok, home=hM), 200, EVENT_DETAIL)
+    check("PATCH /event/update", "M8b relative quita una persona (cambia el conjunto) → 403",
+          request("PATCH", "/event/update?timezone=Europe/Madrid",
+                  {"id": evp, "title": "CC-M-EvA", "date_at": "2026-12-04 10:00:00", "alarm": 5,
+                   "person_ids": []}, mtok, home=hM), 403, ERR_NOT_ALLOWED)
+    check("DELETE /event/delete", "M10 relative borra evento (sin event.delete) → 403",
+          request("DELETE", "/event/delete?timezone=Europe/Madrid", {"id": ev}, mtok, home=hM),
+          403, ERR_NOT_ALLOWED)
+    seed_kind("adult")
+    check("DELETE /event/delete", "M10b adult borra evento → 200",
+          request("DELETE", "/event/delete?timezone=Europe/Madrid", {"id": ev}, mtok, home=hM),
+          200, SUCCESS)
+
+    # M11: tareas por kind (child crea, no borra; guest completa pero no crea)
+    seed_kind("child")
+    check("POST /task-list/create", "M11 child crea task-list (Q2, miembro basta) → 201",
+          request("POST", "/task-list/create", {"name": "CC-M-ListaK", "color": "#001122",
+                                                "sort": "title"}, mtok, home=hM), 201, TL_DETAIL)
+    tsk = check("POST /task/create", "M11b child crea tarea (task.create) → 201",
+                request("POST", "/task/create", {"task_list_id": lst, "title": "CC-M-TareaK"}, mtok,
+                        home=hM), 201, TASK_ITEM).get("id")
+    check("PATCH /task-list/update", "M11c child renombra lista (sin tasklist.manage, S14) → 403",
+          request("PATCH", "/task-list/update", {"id": lst, "name": "CC-M-Lista X", "color": "#778899",
+                                                 "sort": "title"}, mtok, home=hM), 403, ERR_NOT_ALLOWED)
+    check("DELETE /task/delete", "M11d child borra tarea (sin task.delete) → 403",
+          request("DELETE", "/task/delete", {"id": tsk}, mtok, home=hM), 403, ERR_NOT_ALLOWED)
+    seed_kind("guest")
+    check("POST /task/create", "M11e guest crea tarea (sin task.create) → 403",
+          request("POST", "/task/create", {"task_list_id": lst, "title": "CC-M-TareaG"}, mtok,
+                  home=hM), 403, ERR_NOT_ALLOWED)
+    check("PATCH /task/complete", "M11f guest completa tarea (task.complete) → 200",
+          request("PATCH", "/task/complete", {"id": tsk, "completed": True}, mtok, home=hM),
+          200, TASK_ITEM)
+
+    # M12: sin ACL → Not Found (500 legacy) incluso con permisos
+    seed_kind("adult")
+    b = check("POST /task/create", "M12 setup: tarea en CC-M-Lista (adult)",
+              request("POST", "/task/create", {"task_list_id": lst, "title": "CC-M-Tarea"}, mtok,
+                      home=hM), 201, TASK_ITEM)
+    tsk2 = b.get("id") if isinstance(b, dict) else None
+    check("PATCH /task/complete", "M12 complete_task sin ACL → 500 Not Found",
+          request("PATCH", "/task/complete", {"id": tsk2, "completed": True}, vtok, home=hM),
+          500, ERR_NOT_FOUND)
+    check("PATCH /task/order", "M12 task_order sin ACL → 500 Not Found",
+          request("PATCH", "/task/order", {"id": tsk2, "position": 0}, vtok, home=hM),
+          500, ERR_NOT_FOUND)
+    ev2 = check("POST /event/create", "M12 setup: evento en CC-M-Cal2 (adult)",
+                request("POST", "/event/create?timezone=Europe/Madrid",
+                        {"calendar_id": cal2, "title": "CC-M-Ev2", "date_at": "2026-12-05 10:00:00",
+                         "alarm": 5}, mtok, home=hM), 200, EVENT_DETAIL).get("id")
+    check("PATCH /event/alarm", "M12 set_event_alarm sin ACL → 500 Not Found",
+          request("PATCH", "/event/alarm?timezone=Europe/Madrid",
+                  {"event_id": ev2, "alarm": 9}, vtok, home=hM), 500, ERR_NOT_FOUND)
+
+    # M13/M14: compartir = owner + manage; Q3 no-miembro; último owner y self-remove (M14)
+    reg = request("POST", "/user/create", {"name": "CC-M-Extra", "email": "cc-m-extra@homita.example",
+                                           "password": "ccmextra1234"})
+    value("POST /user/create", "MX5 alta del usuario externo de Q3 (registro abierto)", reg[0] in (201, 400),
+          repr(reg)[:200])
+    check("POST /calendar/user", "M13 email de no-miembro del hogar → 403 (Q3)",
+          request("POST", "/calendar/user", {"calendar_id": cal2, "email": "cc-m-extra@homita.example"},
+                  mtok, home=hM), 403, ERR_NOT_ALLOWED)
+    psql("delete from membership_permission where home_membership_id = %d "
+         "and permission_code = 'calendar.manage'" % mem_m)
+    check("POST /calendar/user", "M13b owner sin calendar.manage invita → 403",
+          request("POST", "/calendar/user", {"calendar_id": cal2, "email": B_EMAIL}, mtok, home=hM),
+          403, ERR_NOT_ALLOWED)
+    seed_kind("adult")
+    check("DELETE /calendar/user", "M14 último owner se autoretira → 403 Not Allowed",
+          request("DELETE", "/calendar/user", {"calendar_id": cal2, "user_id": mid}, mtok, home=hM),
+          403, ERR_NOT_ALLOWED)
+    psql("update calendar_user set role = 'owner' where calendar_id = %d and user_id = %d" % (cal, vid))
+    check("DELETE /calendar/user", "M14b owner con reemplazo se autoretira → 400 self-remove",
+          request("DELETE", "/calendar/user", {"calendar_id": cal, "user_id": mid}, mtok, home=hM),
+          400, ERR_SELF_REMOVE)
+
+    # M23 (HTTP): person_ids de persona de otro hogar → 400 Invalid person (pasada 2 por hogar;
+    # la validación Edge de validate.ts solo rechaza listas malformadas, M22)
+    foreign = int(psql("insert into home_member (home_id, kind, name, color, status, created_by) "
+                       "values ((select default_home_id from app_user where email = '%s'), 'adult', "
+                       "'CC-M-Ajena', '#FFEEDD', 'active', %d) returning id" % (args.email, aid)))
+    psql("insert into person (user_id, home_id, home_member_id, name, color) values "
+         "(%d, (select default_home_id from app_user where email = '%s'), %d, 'CC-M-Ajena', '#FFEEDD')"
+         % (aid, args.email, foreign))
+    check("POST /event/create", "M23 person_ids de persona de otro hogar → 400 Invalid person",
+          request("POST", "/event/create?timezone=Europe/Madrid",
+                  {"calendar_id": cal, "title": "CC-M-EvF", "date_at": "2026-12-06 10:00:00",
+                   "alarm": 5, "person_ids": [foreign]}, mtok, home=hM), 400, ERR_INVALID_PERSON)
+    check("POST /event/create", "M23b person_ids de persona del hogar sin lista compartida → 200",
+          request("POST", "/event/create?timezone=Europe/Madrid",
+                  {"calendar_id": cal, "title": "CC-M-EvH", "date_at": "2026-12-07 10:00:00",
+                   "alarm": 5, "person_ids": [per]}, mtok, home=hM), 200, EVENT_DETAIL)
+
+
+scenario_matriz(hM, mem_m, mid)
+
+
 # ── Resumen: cobertura de las 43 rutas legacy + 12 rutas home y rutas con regresión ──
 
 missing = [r for r in ROUTES + HOME_ROUTES if r not in covered]
@@ -1528,5 +1722,5 @@ if regressed:
     print("Rutas con regresión: " + ", ".join(regressed))
 if len(results) != EXPECTED_CASES:
     print(f"conteo de casos: {len(results)} (esperado {EXPECTED_CASES}: 207 de 1.5 + 59 del bloque "
-          f"M/C2 de 1.6 + 6 del bloque de permisos por kind de 1.7)")
+          f"M/C2 de 1.6 + 6 del bloque de permisos por kind de 1.7 + 40 del bloque matriz §3.4.1 de 1.8)")
 sys.exit(1 if fails or missing or len(results) != EXPECTED_CASES else 0)

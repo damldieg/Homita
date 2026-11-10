@@ -34,6 +34,21 @@ seed de la membresía de B en home(B) (dance demote/restore vía psql — R1-02:
 rechaza admins con 'Not Allowed') no altera la membresía de B en home(A) ni sus ACL, y los
 permisos sembrados en home(B) no aparecen en GET /home/membership de A (B sigue con legacy17).
 
+Matriz §3.4.1 (1.8, plan §6.4 y §6.3): aislamiento con la guardia de 0020 — admin de B sobre
+XT-Otro (H donde B no es miembro) → 500 Not Found en lectura (calendar/detail, event/detail,
+task-list/detail) y escritura (calendar/update, event/create, task/delete); co-miembro C sin ACL →
+500 en la lectura admin-only y en escritura; admin A con ACL → 200 en lectura de todos los
+calendarios de H (incluido sin ACL propia); cabecera X-Home-Id ajena en ruta legacy → 500 (los
+/home/* 404 los cubren M5–M9 y el (5) «ACL tras DELETE /home/membership» lo cubren M10/M11).
+Concurrencia (§6.3, R1-01/R1-02/R1-09): T-C1 (degradación ∥ update_calendar: bloqueo en home con
+pg_stat_activity.wait_event_type='Lock' y Not Allowed tras commit), T-C1b (baja ∥ set_event_alarm:
+Not Found y 0 filas nuevas en event_user), T-C2 HTTP ×3 (PATCH solo widget ∥ DELETE /home/membership
+del propio U: 200/200 o 500 Not Found; ACL de U = 0 al final) y T-DL (10 pares W×D, ≥20
+iteraciones por par, orden invertido, 2 sesiones psql; 0×40P01 — el outcome de W es 200 o
+Not Found/Not Allowed si la mutación de membresía commitea antes). Fixtures §6.3: hogar scratch
+XT-Conc con admins A y B (sin owner único: XT-C1 con owners A y B) y hogar personal en los tres
+usuarios (sin 403 de último hogar).
+
 Setup/limpieza: usuarios xt-a/xt-b vía user/create (requiere ALLOW_REGISTRATION=true en la Edge o
 usuarios preexistentes) y `clean_xt()` completo (filas XT-%, membresías y hogares de xt — personales
 y no personales (R1-04) — y sus cuentas auth: se recrean en cada pasada: sin hogar, `create_calendar` fallaría con `Home header
@@ -50,6 +65,8 @@ import os
 import shlex
 import subprocess
 import sys
+import threading
+import time
 import urllib.error
 import urllib.request
 
@@ -758,12 +775,280 @@ perms_b = next((m.get("permissions") for m in parse(bA[1])
 check("PK5 los permisos de B en home(B) no aparecen en GET /home/membership de A (sigue legacy17)",
       perms_b == LEGACY17_C, repr(bA)[:300])
 
+# ── 1.8 (plan §6.4): aislamiento con la matriz §3.4.1 (guardia de 0020) ──
+# (1) admin de B (de home(B)) sobre XT-Otro (H donde B NO es miembro) → 500 Not Found en lectura y
+# escritura; (2) co-miembro C de home(A) sin ACL → 500 en la lectura admin-only de cal y en
+# escritura; (3) admin A de home(A) con ACL → 200 en lectura de todos los calendarios de H
+# (incluido el de C, sin ACL propia); (4) cabecera X-Home-Id de home(B) en ruta legacy de H → 500.
+o_cal = parse(edge("POST", "/calendar/create", {"name": "XT-CalOtro", "color": "#101010"},
+                   a_tok, home=otro_id)[1])["id"]
+o_lst = parse(edge("POST", "/task-list/create", {"name": "XT-ListaOtro", "color": "#202020",
+                                                 "sort": "title"}, a_tok, home=otro_id)[1])["id"]
+o_tsk = parse(edge("POST", "/task/create", {"task_list_id": o_lst, "title": "XT-TareaOtro"},
+                   a_tok, home=otro_id)[1])["id"]
+o_ev = parse(edge("POST", f"/event/create?timezone={TZ}",
+                  {"calendar_id": o_cal, "title": "XT-EvOtro", "date_at": "2026-12-30 12:00:00"},
+                  a_tok, home=otro_id)[1])["id"]
+check("S64-0 setup: A crea calendario/lista/tarea/evento en XT-Otro → 201 ×4",
+      all(isinstance(x, int) for x in (o_cal, o_lst, o_tsk, o_ev)), repr((o_cal, o_lst, o_tsk, o_ev))[:100])
+for name, res in [
+    ("S64-1a admin de B GET /calendar/detail de XT-Otro → 500",
+     edge("GET", f"/calendar/detail?id={o_cal}", None, b_tok)),
+    ("S64-1b admin de B GET /event/detail de XT-Otro → 500",
+     edge("GET", f"/event/detail?id={o_ev}&timezone={TZ}", None, b_tok)),
+    ("S64-1c admin de B GET /task-list/detail de XT-Otro → 500",
+     edge("GET", f"/task-list/detail?id={o_lst}", None, b_tok)),
+    ("S64-1d admin de B PATCH /calendar/update de XT-Otro → 500",
+     edge("PATCH", "/calendar/update", {"id": o_cal, "name": "XT-CalOtro X", "color": "#101010"}, b_tok)),
+    ("S64-1e admin de B POST /event/create en XT-Otro → 500",
+     edge("POST", f"/event/create?timezone={TZ}",
+          {"calendar_id": o_cal, "title": "XT-EvHack", "date_at": "2026-12-31 12:00:00"}, b_tok)),
+    ("S64-1f admin de B DELETE /task/delete de XT-Otro → 500",
+     edge("DELETE", "/task/delete", {"id": o_tsk}, b_tok)),
+    ("S64-2a co-miembro C sin ACL GET /calendar/detail de cal → 500 (lectura admin-only)",
+     edge("GET", f"/calendar/detail?id={cal}", None, c_tok)),
+    ("S64-2b co-miembro C sin ACL PATCH /calendar/update de cal → 500",
+     edge("PATCH", "/calendar/update", {"id": cal, "name": "XT-Cal X", "color": "#123456"},
+          c_tok, home=home_a)),
+]:
+    expect(name, res, NOT_FOUND)
+c_cal = parse(edge("POST", "/calendar/create", {"name": "XT-CalC", "color": "#303030"},
+                   c_tok, home=home_a)[1])["id"]
+s64_3a = edge("GET", "/calendar", None, a_tok, home=home_a)
+check("S64-3a admin A GET /calendar incluye el calendario de C (sin ACL propia)",
+      s64_3a[0] == 200 and any(isinstance(x, dict) and x.get("id") == c_cal
+                               for x in parse(s64_3a[1])), repr(s64_3a)[:200])
+check("S64-3b admin A GET /calendar/detail del calendario de C (sin ACL) → 200",
+      edge("GET", f"/calendar/detail?id={c_cal}", None, a_tok, home=home_a)[0] == 200)
+expect("S64-4 B PATCH /calendar/update de cal con X-Home-Id: home(B) → 500 (cabecera ajena)",
+       edge("PATCH", "/calendar/update", {"id": cal, "name": "XT-Cal X", "color": "#123456"},
+            b_tok, home=home_b), NOT_FOUND)
+
 m10 = edge("DELETE", "/home/membership",
            {"home_id": home_a, "membership_id": b_membership}, b_tok)
 check("M10 B DELETE /home/membership (sale de home(A), cualquiera puede salir) → 200 success",
       m10[0] == 200 and parse(m10[1]) == {"success": True}, repr(m10)[:200])
 expect("M11 B GET /calendar/detail del compartido tras salir → 500 Not Found (ACL borradas)",
        edge("GET", f"/calendar/detail?id={cal}", None, b_tok), NOT_FOUND)
+
+# ── 1.8 (plan §6.3): concurrencia — T-C1, T-C1b, T-C2 ×3 y T-DL ──
+# Hogar scratch XT-Conc (998001) con admins A y B y member C; XT-C1 (998001) con owners A y B
+# (sin owner único), XT-C2 (998002) owner B y XT-L1 (998001) owners A y B. Los tres usuarios
+# conservan su hogar personal (sin 403 de último hogar). T-C1: S1 = set_home_membership_role que
+# degrada a A (sin commit) ∥ S2 = update_calendar de A → debe bloquear en home
+# (pg_stat_activity.wait_event_type = 'Lock'); commit → S2 'Not Allowed' (A member con legacy17,
+# sin calendar.manage); variante solo widget → ok. T-C1b: S1 = remove_home_membership de A ∥
+# S2 = set_event_alarm de A → bloquea → commit → 'Not Found' y 0 filas nuevas en event_user. T-C2
+# HTTP ×3: PATCH solo widget ∥ DELETE /home/membership del propio U → 200 y 200, o 500 Not Found
+# del PATCH tras la baja; nunca error distinto; calendar_user de U = 0 tras la baja. T-DL: 10 pares
+# W×D, 20 iteraciones por par, orden invertido (iter par: W primero; impar: D primero), 2 sesiones
+# psql con pg_sleep(0.3) intra-transacción para solapar; 0×40P01 (R1-01: el orden global
+# hogar→membresía→ACL→contenido no cicla con 0018).
+
+a_uid = psql(f"select auth_uid from app_user where id = {a_id}")
+b_uid = psql(f"select auth_uid from app_user where id = {b_id}")
+c_uid = psql(f"select auth_uid from app_user where id = {c_id}")
+HC = 998001  # XT-Conc
+
+
+def psql_async(sql):
+    cmd = shlex.split(os.environ.get("PSQL", "psql"))
+    p = subprocess.Popen(cmd + ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-t", "-A"],
+                         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT, text=True)
+    p.stdin.write(sql)
+    p.stdin.close()
+    return p
+
+
+def wait_locked(like, timeout=15):
+    """True si alguna sesión está bloqueada en un lock con `like` en su query (pg_stat_activity)."""
+    for _ in range(int(timeout * 10)):
+        n = psql("select count(*) from pg_stat_activity "
+                 f"where wait_event_type = 'Lock' and query ilike '%{like}%' "
+                 "and query not ilike '%pg_stat_activity%'")
+        if n != "0":
+            return True
+        time.sleep(0.1)
+    return False
+
+
+psql(f"""
+set session_replication_role = replica;
+begin;
+delete from event_user where user_id in ({a_id}, {b_id}, {c_id}) and event_id between 998001 and 998002;
+delete from event_person where event_id between 998001 and 998002;
+delete from event where id between 998001 and 998002 or title like 'XT-Ev%' or title = 'XT-EvW';
+delete from task where id = 998001 or title = 'XT-TareaW';
+delete from task_list_user where task_list_id between 998001 and 998002;
+delete from task_list where id between 998001 and 998002 or name like 'XT-LD%';
+delete from calendar_user where calendar_id between 998001 and 998002;
+delete from calendar where id between 998001 and 998002 or name like 'XT-CD%';
+delete from membership_permission where home_membership_id between 998001 and 998003;
+delete from home_membership where id between 998001 and 998003;
+delete from home where id = {HC};
+commit;
+set session_replication_role = default;
+""")
+psql(f"""
+begin;
+insert into home (id, name, status, is_personal, created_by) values ({HC}, 'XT-Conc', 'active', false, {a_id});
+insert into home_membership (id, home_id, app_user_id, role) values
+    (998001, {HC}, {a_id}, 'admin'), (998002, {HC}, {b_id}, 'admin'), (998003, {HC}, {c_id}, 'member');
+insert into calendar (id, name, color, token, home_id) values
+    (998001, 'XT-C1', '#111111', 'xt-conc-1', {HC}), (998002, 'XT-C2', '#222222', 'xt-conc-2', {HC});
+insert into calendar_user (calendar_id, user_id, role, widget, dashboard, home_id) values
+    (998001, {a_id}, 'owner', true, true, {HC}), (998001, {b_id}, 'owner', true, true, {HC}),
+    (998002, {b_id}, 'owner', true, true, {HC}), (998002, {a_id}, 'viewer', true, true, {HC});
+insert into task_list (id, name, color, token, sort, home_id) values
+    (998001, 'XT-L1', '#333333', 'xt-conc-3', 'title', {HC});
+insert into task_list_user (task_list_id, user_id, role, widget, dashboard, home_id) values
+    (998001, {a_id}, 'owner', true, true, {HC}), (998001, {b_id}, 'owner', true, true, {HC});
+insert into event (id, calendar_id, title, date_at) values
+    (998001, 998001, 'XT-EvW', '2026-12-25 12:00:00'), (998002, 998002, 'XT-EvC2', '2026-12-26 12:00:00');
+commit;
+select fn_seed_kind_permissions(998003, 'adult');
+""")
+
+# T-C1: degradación (set_home_membership_role) ∥ update_calendar de A
+s1 = psql_async(f"begin;\nselect set_config('request.jwt.claim.sub', '{b_uid}', true);\n"
+                f"select set_home_membership_role({HC}, 998001, 'member');\n"
+                "select pg_sleep(6);\ncommit;\n")
+time.sleep(1.5)
+s2 = psql_async(f"begin;\nselect set_config('request.jwt.claim.sub', '{a_uid}', true);\n"
+                f"select update_calendar(998001, 'XT-C1 X', '#111111', true, true);\ncommit;\n")
+check("T-C1 S2 update_calendar de A bloquea en home (pg_stat_activity.wait_event_type='Lock')",
+      wait_locked("update_calendar(998001"))
+out1, _ = s1.communicate(timeout=60)
+out2, _ = s2.communicate(timeout=60)
+check("T-C1 S1 (degradación de A) commitea sin error", s1.returncode == 0, out1[:200])
+check("T-C1 S2 tras el commit → Not Allowed (A member con legacy17 sin calendar.manage)",
+      "Not Allowed" in out2 and "ERROR" in out2, out2[:200])
+t_c1v = psql(f"begin;\nselect set_config('request.jwt.claim.sub', '{a_uid}', true);\n"
+             f"select update_calendar(998001, 'XT-C1', '#111111', false, true);\ncommit;")
+check("T-C1 variante: update_calendar solo widget de A (member) → ok (ACL propia)",
+      '"id"' in t_c1v, t_c1v[:200])
+
+# T-C1b: remove_home_membership de A ∥ set_event_alarm de A (ruta sin p_code)
+psql(f"insert into calendar_user (calendar_id, user_id, role, widget, dashboard, home_id) "
+     f"values (998001, {a_id}, 'owner', true, true, {HC}) on conflict do nothing")
+n_eu_pre = psql(f"select count(*) from event_user where user_id = {a_id}")
+s1 = psql_async(f"begin;\nselect set_config('request.jwt.claim.sub', '{b_uid}', true);\n"
+                f"select remove_home_membership({HC}, 998001);\nselect pg_sleep(6);\ncommit;\n")
+time.sleep(1.5)
+s2 = psql_async(f"begin;\nselect set_config('request.jwt.claim.sub', '{a_uid}', true);\n"
+                f"select set_event_alarm(998002, 5, '{TZ}');\ncommit;\n")
+check("T-C1b S2 set_event_alarm de A bloquea en home (pg_stat_activity.wait_event_type='Lock')",
+      wait_locked("set_event_alarm(998002"))
+out1, _ = s1.communicate(timeout=60)
+out2, _ = s2.communicate(timeout=60)
+check("T-C1b S1 (baja de A) commitea sin error", s1.returncode == 0, out1[:200])
+check("T-C1b S2 tras el commit → Not Found (ACL borrada en cascada; R1-02)",
+      "Not Found" in out2 and "ERROR" in out2, out2[:200])
+n_eu_post = psql(f"select count(*) from event_user where user_id = {a_id}")
+check("T-C1b set_event_alarm no escribió filas event_user de A (R1-02)",
+      n_eu_post == n_eu_pre, f"{n_eu_pre} → {n_eu_post}")
+
+# T-C2 HTTP ×3: PATCH solo widget ∥ DELETE /home/membership del propio U (= C, viewer de XT-C2)
+for rep in range(3):
+    psql(f"insert into home_membership (id, home_id, app_user_id, role) "
+         f"values (998003, {HC}, {c_id}, 'member') on conflict (id) do update set role = 'member'; "
+         f"insert into calendar_user (calendar_id, user_id, role, widget, dashboard, home_id) "
+         f"values (998002, {c_id}, 'viewer', true, true, {HC}) on conflict do nothing")
+    res = {}
+    tp = threading.Thread(target=lambda: res.update(
+        patch=edge("PATCH", "/calendar/update", {"id": 998002, "name": "XT-C2", "color": "#222222",
+                                                 "widget": False}, c_tok, home=HC)))
+    td = threading.Thread(target=lambda: res.update(
+        dele=edge("DELETE", "/home/membership", {"home_id": HC, "membership_id": 998003}, c_tok)))
+    tp.start(); td.start(); tp.join(30); td.join(30)
+    pr, dr = res.get("patch"), res.get("dele")
+    check(f"T-C2 #{rep + 1} DELETE /home/membership de U → 200 success",
+          dr is not None and dr[0] == 200 and parse(dr[1]) == {"success": True}, repr(dr)[:200])
+    check(f"T-C2 #{rep + 1} PATCH solo widget → 200 antes de la baja o 500 Not Found tras ella",
+          pr is not None and (pr[0] == 200 or pr == NOT_FOUND), repr(pr)[:200])
+    left = psql(f"select count(*) from calendar_user where calendar_id = 998002 and user_id = {c_id}")
+    check(f"T-C2 #{rep + 1} calendar_user de U en XT-C2 = 0 tras la baja", left == "0", f"filas={left}")
+
+# T-C2 deja a C fuera de XT-Conc: se re-alta (member) para que W1/W2 de T-DL cumplan Q3
+psql(f"insert into home_membership (id, home_id, app_user_id, role) "
+     f"values (998003, {HC}, {c_id}, 'member') on conflict (id) do update set role = 'member'")
+
+# T-DL: 10 pares W×D, 20 iteraciones por par, orden invertido; 0×40P01 (R1-01)
+W_OPS = [
+    ("add_calendar_user", f"select add_calendar_user(998001, '{C_EMAIL}')"),
+    ("add_task_list_user", f"select add_task_list_user(998001, '{C_EMAIL}')"),
+    ("create_task_list", "select create_task_list('XT-LD', '#444444', 'title', true, true)"),
+    ("create_calendar", "select create_calendar('XT-CD', '#555555', true, true)"),
+    ("update_event", f"select update_event(998001, 'XT-EvW', '2026-12-25 12:00:00', null, null, '{TZ}')"),
+]
+D_OPS = [
+    ("remove_home_membership", f"select remove_home_membership({HC}, 998001)"),
+    ("set_home_membership_role", f"select set_home_membership_role({HC}, 998001, 'admin')"),
+]
+tdl_deadlocks = 0
+tdl_bad = 0
+for wname, wsql in W_OPS:
+    for dname, dsql in D_OPS:
+        pair_bad = 0
+        for i in range(20):
+            psql(f"""
+begin;
+delete from membership_permission where home_membership_id = 998001;
+delete from home_membership where id = 998001;
+delete from calendar_user where user_id = {c_id} and home_id = {HC};
+delete from task_list_user where user_id = {c_id} and home_id = {HC};
+insert into home_membership (id, home_id, app_user_id, role) values (998001, {HC}, {a_id}, 'admin');
+insert into calendar_user (calendar_id, user_id, role, widget, dashboard, home_id)
+    values (998001, {a_id}, 'owner', true, true, {HC}), (998001, {b_id}, 'owner', true, true, {HC})
+    on conflict do nothing;
+insert into task_list_user (task_list_id, user_id, role, widget, dashboard, home_id)
+    values (998001, {a_id}, 'owner', true, true, {HC}), (998001, {b_id}, 'owner', true, true, {HC})
+    on conflict do nothing;
+commit;
+""")
+            sqlw = (f"begin;\nselect set_config('request.jwt.claim.sub', '{a_uid}', true);\n"
+                    f"select pg_sleep(0.3);\n{wsql};\ncommit;\n")
+            sqld = (f"begin;\nselect set_config('request.jwt.claim.sub', '{b_uid}', true);\n"
+                    f"select pg_sleep(0.3);\n{dsql};\ncommit;\n")
+            if i % 2 == 0:  # orden invertido: par → W primero; impar → D primero
+                pw = psql_async(sqlw); time.sleep(0.1); pd = psql_async(sqld)
+            else:
+                pd = psql_async(sqld); time.sleep(0.1); pw = psql_async(sqlw)
+            outw, _ = pw.communicate(timeout=120)
+            outd, _ = pd.communicate(timeout=120)
+            bad = ("deadlock" in (outw + outd).lower() or "40P01" in (outw + outd))
+            if bad:
+                tdl_deadlocks += 1
+            for out in (outw, outd):
+                if "ERROR" in out and not ("Not Found" in out or "Not Allowed" in out):
+                    bad = True
+            if bad:
+                pair_bad += 1
+                tdl_bad += 1
+                print(f"  T-DL {wname} ∥ {dname} iter {i}: outW={outw[:120]!r} outD={outd[:120]!r}")
+        check(f"T-DL {wname} ∥ {dname}: 20 iteraciones, 0×40P01, outcomes 200/Not Found(/Not Allowed)",
+              pair_bad == 0, f"{pair_bad} iteraciones fuera de spec")
+check("T-DL global: 200 iteraciones (10 pares × 20), 0 deadlocks 40P01",
+      tdl_deadlocks == 0 and tdl_bad == 0, f"deadlocks={tdl_deadlocks} bad={tdl_bad}")
+
+psql(f"""
+set session_replication_role = replica;
+begin;
+delete from event_user where event_id in (998001, 998002);
+delete from event_person where event_id in (998001, 998002);
+delete from event where calendar_id between 998001 and 998002;
+delete from task where task_list_id between 998001 and 998002;
+delete from task_list_user where home_id = {HC};
+delete from task_list where home_id = {HC};
+delete from calendar_user where home_id = {HC};
+delete from calendar where home_id = {HC};
+delete from membership_permission where home_membership_id between 998001 and 998003;
+delete from home_membership where home_id = {HC};
+delete from home where id = {HC};
+commit;
+set session_replication_role = default;
+""")
 
 # ── K21 (1.5, plan §8.2) y §8.3: cascada app_user → person → home_member (trigger 0014c, I5) ──
 # Usuario scratch 995999 sin home_membership (sin admin de ningún hogar): borrar su app_user borra
