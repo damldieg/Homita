@@ -12,12 +12,14 @@ public final class APIClient {
     public let baseURL: URL
     private let session: URLSession
     private let tokenProvider: () -> String?
+    private let homeIdProvider: () -> String?
     public weak var refresher: (any TokenRefreshing)?
 
-    public init(baseURL: URL, session: URLSession = .shared, tokenProvider: @escaping () -> String?) {
+    public init(baseURL: URL, session: URLSession = .shared, tokenProvider: @escaping () -> String?, homeIdProvider: @escaping () -> String? = { nil }) {
         self.baseURL = baseURL
         self.session = session
         self.tokenProvider = tokenProvider
+        self.homeIdProvider = homeIdProvider
     }
 
     /// Codifica un body JSON (claves snake_case literales, orden estable).
@@ -45,7 +47,7 @@ public final class APIClient {
     }
 
     private func perform(_ request: APIRequest, allowRefresh: Bool) async throws -> Data {
-        let urlRequest = try RequestBuilder.urlRequest(baseURL: baseURL, apiRequest: request, accessToken: tokenProvider())
+        let urlRequest = try RequestBuilder.urlRequest(baseURL: baseURL, apiRequest: request, accessToken: tokenProvider(), homeId: homeIdProvider())
         let data: Data
         let response: URLResponse
         do {

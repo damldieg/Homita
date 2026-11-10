@@ -146,6 +146,12 @@ enum ContractFixtures {
     // `GET task-list/user` manda `tlu_id` (no `cu_id`) como clave de la fila (0005_read_rpcs.sql).
     static let taskListUsers = #"[{"tlu_id":10,"user_id":1,"name":"Demo","email":"demo@homita.example","role":"owner"},{"tlu_id":11,"user_id":9,"name":"Invitado","email":"invitado@homita.example","role":"viewer"}]"#
     static let ok = #"{"success":true}"#
+    static let homeItem1 = #"{"home_id":1,"name":"Casa","role":"admin","is_default":false,"is_personal":true}"#
+    static let homeItem2 = #"{"home_id":2,"name":"Familia","role":"adult","is_default":true,"is_personal":false}"#
+    static let homeList = "[\(homeItem1),\(homeItem2)]"
+    static let homeListEmpty = "[]"
+    static let homeDetail = #"{"id":3,"name":"Nuevo","timezone":"UTC","is_personal":false,"extra":"ignorado"}"#
+    static let defaultHome = #"{"default_home_id":2}"#
     static let config = #"{"allow_registration":false}"#
     static let goTrue = #"{"access_token":"nuevo-access","refresh_token":"nuevo-refresh"}"#
 
@@ -167,6 +173,12 @@ enum ContractFixtures {
             json = user
         case (_, let r) where r.hasSuffix("auth/v1/token"):
             json = goTrue
+        case ("GET", "home"):
+            json = homeList
+        case ("POST", "home/create"):
+            return StubURLProtocol.Stub(status: 201, json: homeDetail)
+        case ("PATCH", "home/default"):
+            json = defaultHome
         case ("GET", "calendar"):
             json = "[]"
         case (_, "calendar/detail"), (_, "calendar/create"), (_, "calendar/update"):
