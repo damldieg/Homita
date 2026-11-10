@@ -68,10 +68,24 @@ import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 URL = os.environ.get("SUPABASE_URL", "http://127.0.0.1:54321").rstrip("/")
 FN = os.environ.get("SUPABASE_FUNCTIONS_URL", URL + "/functions/v1/api").rstrip("/")
+
+
+def assert_local(url, what):
+    """Guarda: este script BORRA datos (clean_xt, DELETE con service_role). Solo acepta hosts locales;
+    sin excepciones (mismo criterio que contract_check.py). Evita que un SUPABASE_URL de producción en
+    el entorno —p. ej. cargando ~/.homita/supabase.env— ejecute el borrado contra el proyecto alojado."""
+    if urllib.parse.urlparse(url).hostname not in ("127.0.0.1", "localhost"):
+        sys.exit(f"{what} solo acepta hosts locales (127.0.0.1/localhost), llega {url!r}: "
+                 "este script escribe y borra datos y jamás debe tocar el proyecto alojado")
+
+
+assert_local(URL, "SUPABASE_URL")
+assert_local(FN, "SUPABASE_FUNCTIONS_URL")
 ANON = os.environ.get("SUPABASE_ANON_KEY", "")
 SVC = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 TZ = "Europe/Madrid"
@@ -205,10 +219,26 @@ commit;
         sys.exit(f"clean_xt: quedan hogares de xt ({left})")
 
 
+# Selector de bloques (A-16, T17): XT_ONLY = ids de bloque separados por comas (F1..F12, X1..X5,
+# TDL_A12 y BASE = fases legacy); vacío = todo. A12_ITERS controla las iteraciones del bloque
+# TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
+XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
+A12_ITERS = int(os.environ.get("A12_ITERS", "20"))
+# F1_ITERS: carreras de solape real por bloque F1/F2 (R1-06; el solape expone el 40P01 de 0020)
+F1_ITERS = int(os.environ.get("F1_ITERS", "10"))
 results = []
+counts = {}
+XT_BLOCK = "BASE"  # bloque actual para el selector (cada bloque nuevo lo fija al entrar)
+
+
+def xt_on(block):
+    return not XT_ONLY or block.upper() in XT_ONLY
 
 
 def check(name, ok, detail=""):
+    if not xt_on(XT_BLOCK):
+        return
+    counts[XT_BLOCK] = counts.get(XT_BLOCK, 0) + 1
     results.append(bool(ok))
     print(("ok   " if ok else "FAIL ") + name)
     if not ok and detail:
@@ -991,7 +1021,7 @@ tdl_bad = 0
 for wname, wsql in W_OPS:
     for dname, dsql in D_OPS:
         pair_bad = 0
-        for i in range(20):
+        for i in range(20 if not XT_ONLY else 0):  # A-16: solo con XT_ONLY vacío (bloques sueltos rápidos)
             psql(f"""
 begin;
 delete from membership_permission where home_membership_id = 998001;
@@ -1050,6 +1080,492 @@ commit;
 set session_replication_role = default;
 """)
 
+# ── 1.9 (plan §6.3/§6.4): A-12 funcional (F1–F6), permisos (F7–F12), cross-tenant (X1–X5) y
+# T-DL-A12 (15 pares) — bloques seleccionables con XT_ONLY (A-16) ──
+# Fixtures propias (ids fijos 9981xx; home 'XT-P19' created_by A): admins A y B, member M = C
+# vinculado (home_member 998110) y pet sin vínculo (998111); calendario/lista 998120/998121 con
+# owners A y B. Cada bloque resetea su fixture (p19_reset). T21: la limpieza final es p19_clean
+# (session_replication_role = replica SOLO para borrado, como T-DL) y la query de residuos que
+# anota clean_xt (0 filas XT-%, 0 membresías/hogares de xt) se verifica al final del script.
+
+P19_MID_A, P19_MID_B, P19_MID_M = 998101, 998102, 998103
+P19_HM_M, P19_HM_PET = 998110, 998111
+P19_CAL, P19_LST = 998120, 998121
+P19_Q = f"""
+set session_replication_role = replica;
+begin;
+delete from membership_permission where home_membership_id between 998101 and 998103;
+delete from home_membership where id between 998101 and 998103;
+delete from calendar_user where calendar_id = 998120;
+delete from task_list_user where task_list_id = 998121;
+delete from calendar where id = 998120;
+delete from task_list where id = 998121;
+delete from home_member where id between 998110 and 998111;
+delete from audit_log where home_id = 998100;
+delete from home where id = 998100;
+commit;
+set session_replication_role = default;
+"""
+
+
+def out_json(out):
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith("{") and line.endswith("}"):
+            try:
+                return json.loads(line)
+            except ValueError:
+                pass
+    return None
+
+
+def outcome(out):
+    """Clasifica la salida de psql de una RPC: ok | Not Found | Not Allowed | deadlock | otro."""
+    if "40P01" in out or "deadlock" in out.lower():
+        return "deadlock"
+    if "ERROR" not in out:
+        return "ok"
+    for msg in ("Not Found", "Not Allowed"):
+        if msg in out:
+            return msg
+    return "otro"
+
+
+def p19_reset(kind_m="adult"):
+    """Fixture del bloque 1.9 (kind_m = kind de M). Borra los ids fijos con replica (solo borrado)
+    y los recrea en una transacción (el anti-admin de 0015 es diferido). El snapshot de M se siembra
+    con fn_seed_kind_permissions del kind_m."""
+    psql(P19_Q + f"""
+begin;
+insert into home (id, name, status, is_personal, created_by)
+    values (998100, 'XT-P19', 'active', false, {a_id});
+insert into home_membership (id, home_id, app_user_id, role) values
+    (998101, 998100, {a_id}, 'admin'), (998102, 998100, {b_id}, 'admin'),
+    (998103, 998100, {c_id}, 'member');
+insert into home_member (id, home_id, kind, name, color, app_user_id) values
+    (998110, 998100, '{kind_m}', 'XT-P19-M', '#123456', {c_id}),
+    (998111, 998100, 'adult', 'XT-P19-Pet', '#654321', null);
+insert into calendar (id, name, color, token, home_id)
+    values (998120, 'XT-P19-C', '#111111', 'xt-p19-c', 998100);
+insert into calendar_user (calendar_id, user_id, role, widget, dashboard, home_id) values
+    (998120, {a_id}, 'owner', true, true, 998100), (998120, {b_id}, 'owner', true, true, 998100);
+insert into task_list (id, name, color, token, sort, home_id)
+    values (998121, 'XT-P19-L', '#222222', 'xt-p19-l', 'title', 998100);
+insert into task_list_user (task_list_id, user_id, role, widget, dashboard, home_id) values
+    (998121, {a_id}, 'owner', true, true, 998100), (998121, {b_id}, 'owner', true, true, 998100);
+commit;
+select fn_seed_kind_permissions(998103, '{kind_m}');
+""")
+
+
+def p19_race(sql1, sub1, sql2, sub2, wait_like=None, hold=6, stagger=1.5):
+    """Patrón T-C1: S1 mantiene la transacción abierta con pg_sleep(hold) y S2 se lanza `stagger`
+    después; con wait_like se comprueba que S2 queda bloqueado en pg_stat_activity.
+    → (out1, out2, blocked|None)."""
+    s1 = psql_async(f"begin;\nselect set_config('request.jwt.claim.sub', '{sub1}', true);\n"
+                    f"{sql1};\nselect pg_sleep({hold});\ncommit;\n")
+    time.sleep(stagger)
+    s2 = psql_async(f"begin;\nselect set_config('request.jwt.claim.sub', '{sub2}', true);\n"
+                    f"{sql2};\ncommit;\n")
+    blocked = wait_locked(wait_like) if wait_like else None
+    out1, _ = s1.communicate(timeout=120)
+    out2, _ = s2.communicate(timeout=120)
+    return out1, out2, blocked
+
+
+def kind_change(where=""):
+    return psql(f"select count(*) from audit_log where home_id = 998100 "
+                f"and payload->>'source' = 'kind_change' {where}")
+
+
+def m_perms():
+    return psql("select coalesce(string_agg(permission_code, ',' order by permission_code), '') "
+                "from membership_permission where home_membership_id = 998103")
+
+
+def kind_defaults(kind):
+    return psql("select coalesce(string_agg(permission_code, ',' order by permission_code), '') "
+                f"from member_kind_default where kind = '{kind}'::member_kind")
+
+
+def block_f1(sql_other, name):
+    """F1/F2: O1 quita a O2 ∥ O2 quita a O1 en el mismo recurso (A-12) → exactamente 1 éxito +
+    perdedor Not Found/Not Allowed, owners finales = 1 y 0×40P01 (R1-06). Carreras de solape real
+    (estilo T-DL, F1_ITERS por bloque): ambas RPC se lanzan en sesiones psql que despiertan a la
+    vez (pg_sleep hasta un instante común) y el orden de lanzamiento se alterna. El patrón T-C1
+    serializado NO expone el bug de 0020 (FOR SHARE propio + DELETE cruzado = ciclo de mejora de
+    lock entre dos removes → 40P01, plan §6.3 «remove ∥ remove»); contra 0021 el set-lock ACL en
+    orden de id serializa y el invariante se cumple en todas las carreras (desviación documentada
+    en build.md sobre plan §6.3 «patrón T-C1» para F1/F2)."""
+    p19_reset()
+    bad_out, bad_owners, deadlocks = [], [], []
+    for i in range(F1_ITERS):
+        if i:  # reseed ligero entre carreras: la anterior deja el recurso con 1 owner
+            psql(f"begin;\ndelete from {sql_other[2]} where {sql_other[3]};\n"
+                 f"{sql_other[4]};\ncommit;")
+        until = (datetime.datetime.now(datetime.timezone.utc)
+                 + datetime.timedelta(seconds=1)).strftime("%Y-%m-%d %H:%M:%S.%f+00")
+        rendezvous = ("select pg_sleep(greatest(0::double precision, "
+                      f"extract(epoch from (timestamptz '{until}' - now()))::double precision));")
+        sa = (f"begin;\nselect set_config('request.jwt.claim.sub', '{a_uid}', true);\n"
+              f"{rendezvous}\n{sql_other[0]};\ncommit;\n")
+        sb = (f"begin;\nselect set_config('request.jwt.claim.sub', '{b_uid}', true);\n"
+              f"{rendezvous}\n{sql_other[1]};\ncommit;\n")
+        if i % 2 == 0:  # orden invertido (T-DL): par → S1 primero; impar → S2 primero
+            p1 = psql_async(sa); time.sleep(0.1); p2 = psql_async(sb)
+        else:
+            p2 = psql_async(sb); time.sleep(0.1); p1 = psql_async(sa)
+        out1, _ = p1.communicate(timeout=120)
+        out2, _ = p2.communicate(timeout=120)
+        outs = out1 + out2
+        if "40P01" in outs or "deadlock" in outs.lower():
+            deadlocks.append(i)
+        o1, o2 = outcome(out1), outcome(out2)
+        if not ((o1 == "ok" and o2 in ("Not Found", "Not Allowed"))
+                or (o2 == "ok" and o1 in ("Not Found", "Not Allowed"))):
+            bad_out.append(f"iter{i}:S1={o1} S2={o2}")
+        owners = psql(f"select count(*) from {sql_other[2]} where {sql_other[3]} and role = 'owner'")
+        if owners != "1":
+            bad_owners.append(f"iter{i}={owners}")
+    check(f"{name} carreras solapadas ({F1_ITERS}×): exactamente 1 éxito y perdedor "
+          "Not Found/Not Allowed", not bad_out, "; ".join(bad_out)[:200])
+    check(f"{name} owners finales del recurso = 1 tras cada carrera", not bad_owners,
+          "; ".join(bad_owners)[:200])
+    check(f"{name} 0×40P01 en las {F1_ITERS} carreras", not deadlocks,
+          f"deadlocks en iters {deadlocks}")
+
+
+def block_f3(sql_add, count_sql, name):
+    """F3/F4: dos adds del mismo email (A-12) → 2 éxitos, 1 fila, sin 23505."""
+    p19_reset()
+    out1, out2, blocked = p19_race(sql_add, a_uid, sql_add, b_uid, sql_add.split("(")[0].split()[-1])
+    check(f"{name} S2 (segundo add del mismo email) espera el índice único (pg_stat_activity)",
+          blocked is True, f"S1={outcome(out1)} S2={outcome(out2)}")
+    ok = outcome(out1) == "ok" and outcome(out2) == "ok" and "23505" not in out1 + out2
+    check(f"{name} ambos adds → ok, sin 23505 (ON CONFLICT, A-12)", ok,
+          f"S1={out1[:120]!r} S2={out2[:120]!r}")
+    n = psql(count_sql)
+    check(f"{name} 1 fila ACL de C tras los dos adds", n == "1", f"filas={n}")
+
+
+def block_f5(sql_remove, count_sql, name):
+    """F5/F6: remove_home_membership(O1) ∥ remove_*_user (O1 quita a O2) → owners ≥ 1 (A-5)."""
+    p19_reset()
+    out1, out2, blocked = p19_race("select remove_home_membership(998100, 998101)", b_uid,
+                                   sql_remove, a_uid, sql_remove.split("(")[0].split()[-1])
+    check(f"{name} S2 (O1 quita a O2) espera el lock de hogar de la baja", blocked is True,
+          f"S1={outcome(out1)} S2={outcome(out2)}")
+    ok = (outcome(out1) == "ok" and outcome(out2) in ("Not Found", "Not Allowed")
+          and "40P01" not in out1 + out2)
+    check(f"{name} baja de O1 → ok y S2 → Not Found/Not Allowed (ACL en cascada) sin 40P01", ok,
+          f"S1={out1[:120]!r} S2={out2[:120]!r}")
+    owners = psql(count_sql)
+    check(f"{name} owners finales del recurso ≥ 1", int(owners) >= 1, f"owners={owners}")
+
+
+XT_BLOCK = "F1"
+if xt_on("F1"):
+    block_f1((f"select remove_calendar_user({P19_CAL}, {b_id})",
+              f"select remove_calendar_user({P19_CAL}, {a_id})",
+              "calendar_user", f"calendar_id = {P19_CAL}",
+              f"insert into calendar_user (calendar_id, user_id, role, widget, dashboard, home_id) "
+              f"values ({P19_CAL}, {a_id}, 'owner', true, true, 998100), "
+              f"({P19_CAL}, {b_id}, 'owner', true, true, 998100)"), "F1")
+XT_BLOCK = "F2"
+if xt_on("F2"):
+    block_f1((f"select remove_task_list_user({P19_LST}, {b_id})",
+              f"select remove_task_list_user({P19_LST}, {a_id})",
+              "task_list_user", f"task_list_id = {P19_LST}",
+              f"insert into task_list_user (task_list_id, user_id, role, widget, dashboard, "
+              f"home_id) values ({P19_LST}, {a_id}, 'owner', true, true, 998100), "
+              f"({P19_LST}, {b_id}, 'owner', true, true, 998100)"), "F2")
+XT_BLOCK = "F3"
+if xt_on("F3"):
+    block_f3(f"select add_calendar_user({P19_CAL}, '{C_EMAIL}')",
+             f"select count(*) from calendar_user where calendar_id = {P19_CAL} and user_id = {c_id}",
+             "F3")
+XT_BLOCK = "F4"
+if xt_on("F4"):
+    block_f3(f"select add_task_list_user({P19_LST}, '{C_EMAIL}')",
+             f"select count(*) from task_list_user where task_list_id = {P19_LST} and user_id = {c_id}",
+             "F4")
+XT_BLOCK = "F5"
+if xt_on("F5"):
+    block_f5(f"select remove_calendar_user({P19_CAL}, {b_id})",
+             f"select count(*) from calendar_user where calendar_id = {P19_CAL} and role = 'owner'",
+             "F5")
+XT_BLOCK = "F6"
+if xt_on("F6"):
+    block_f5(f"select remove_task_list_user({P19_LST}, {b_id})",
+             f"select count(*) from task_list_user where task_list_id = {P19_LST} and role = 'owner'",
+             "F6")
+
+# F7: set_home_permissions ∥ promoción del target → 0 filas finales (A4)
+XT_BLOCK = "F7"
+if xt_on("F7"):
+    p19_reset()
+    out1, out2, blocked = p19_race(
+        "select set_home_permissions(998100, 998103, '[\"home.view\"]'::jsonb)", a_uid,
+        "select set_home_membership_role(998100, 998103, 'admin')", b_uid,
+        "set_home_membership_role")
+    check("F7 S2 (promoción del target) espera el lock de membresía del set", blocked is True,
+          f"S1={outcome(out1)} S2={outcome(out2)}")
+    ok = outcome(out1) == "ok" and outcome(out2) == "ok" and "40P01" not in out1 + out2
+    check("F7 set y promoción → ambos ok sin 40P01", ok, f"S1={out1[:120]!r} S2={out2[:120]!r}")
+    n = psql("select count(*) from membership_permission where home_membership_id = 998103")
+    check("F7 target admin al final → 0 filas de snapshot (A4)", n == "0", f"filas={n}")
+
+# F8: promoción primero → set posterior Not Allowed (A4)
+XT_BLOCK = "F8"
+if xt_on("F8"):
+    p19_reset()
+    out1 = psql_run(f"begin;\nselect set_config('request.jwt.claim.sub', '{b_uid}', true);\n"
+                    "select set_home_membership_role(998100, 998103, 'admin');\ncommit;\n")[1]
+    out2 = psql_run(f"begin;\nselect set_config('request.jwt.claim.sub', '{a_uid}', true);\n"
+                    "select set_home_permissions(998100, 998103, '[\"home.view\"]'::jsonb);\n"
+                    "commit;\n")[1]
+    check("F8 promoción primero → ok y set posterior → Not Allowed",
+          outcome(out1) == "ok" and outcome(out2) == "Not Allowed",
+          f"promote={out1[:120]!r} set={out2[:120]!r}")
+    n = psql("select count(*) from membership_permission where home_membership_id = 998103")
+    check("F8 0 filas de snapshot tras la promoción y el set rechazado", n == "0", f"filas={n}")
+
+# F9: dos set_home_permissions del mismo target → serializados, estado final = el segundo
+XT_BLOCK = "F9"
+if xt_on("F9"):
+    p19_reset()
+    out1, out2, blocked = p19_race(
+        "select set_home_permissions(998100, 998103, '[\"home.view\"]'::jsonb)", a_uid,
+        "select set_home_permissions(998100, 998103, '[\"calendar.view\"]'::jsonb)", b_uid,
+        "set_home_permissions")
+    check("F9 los dos sets del mismo target serializan (pg_stat_activity)", blocked is True,
+          f"S1={outcome(out1)} S2={outcome(out2)}")
+    check("F9 estado final = el segundo set ([calendar.view])", m_perms() == "calendar.view",
+          f"perms={m_perms()}")
+    rows = psql("select count(*) from audit_log where home_id = 998100 "
+                "and payload->>'source' = 'set' and payload->>'permission_code' = 'home.view' "
+                "and payload->>'after' = 'true'")
+    rows2 = psql("select count(*) from audit_log where home_id = 998100 "
+                 "and payload->>'source' = 'set' and payload->>'permission_code' = 'home.view' "
+                 "and payload->>'after' = 'false'")
+    rows3 = psql("select count(*) from audit_log where home_id = 998100 "
+                 "and payload->>'source' = 'set' and payload->>'permission_code' = 'calendar.view' "
+                 "and payload->>'after' = 'true'")
+    check("F9 audit = deltas (grant y revoke de home.view, grant de calendar.view)",
+          rows == "1" and rows2 == "1" and rows3 == "1", f"grant/revoke/grant={rows}/{rows2}/{rows3}")
+
+# F10: update_home_member (kind) ∥ set_home_permissions → estado final coherente
+XT_BLOCK = "F10"
+if xt_on("F10"):
+    p19_reset(kind_m="child")
+    out1, out2, _ = p19_race(
+        "select update_home_member(998110, 'adult', null, null, null)", a_uid,
+        "select set_home_permissions(998100, 998103, '[\"home.view\"]'::jsonb)", a_uid)
+    ok = outcome(out1) == "ok" and outcome(out2) == "ok" and "40P01" not in out1 + out2
+    check("F10 update kind ∥ set_perms: ambos ok sin 40P01", ok,
+          f"S1={out1[:120]!r} S2={out2[:120]!r}")
+    kind = psql("select kind from home_member where id = 998110")
+    check("F10 estado final coherente (kind=adult y snapshot = el set posterior al reset)",
+          kind == "adult" and m_perms() == "home.view", f"kind={kind} perms={m_perms()}")
+
+# F11 (R1-02, 4 checks): no-admin con home.members.manage reenvía el kind que leyó mientras el
+# admin cambia el kind → Not Allowed (D-011), kind/snapshot coherentes y una sola tanda de audit
+XT_BLOCK = "F11"
+if xt_on("F11"):
+    p19_reset(kind_m="child")
+    psql(f"update home_membership set role = 'member' where id = {P19_MID_B}; "
+         f"insert into membership_permission (home_membership_id, permission_code) values "
+         f"({P19_MID_B}, 'home.members.manage'), ({P19_MID_B}, 'home.view')")
+    out0, out1, blocked = p19_race(
+        "select update_home_member(998110, 'adult', null, null, null)", a_uid,
+        "select update_home_member(998110, 'child', null, null, null)", b_uid, "update_home_member")
+    check("F11 S1 (no-admin con manage, kind leído = child) espera el lock de hogar", blocked is True,
+          f"S0={outcome(out0)} S1={outcome(out1)}")
+    ok = (outcome(out0) == "ok" and outcome(out1) == "Not Allowed" and "40P01" not in out0 + out1)
+    check("F11 S0 (admin, child→adult) → ok y S1 → Not Allowed sin 40P01 (D-011, R1-02)", ok,
+          f"S0={out0[:120]!r} S1={out1[:120]!r}")
+    kind = psql("select kind from home_member where id = 998110")
+    check("F11 finales: kind = adult y snapshot de M = defaults de adult",
+          kind == "adult" and m_perms() == kind_defaults(kind) and m_perms() != "",
+          f"kind={kind} perms={m_perms()}")
+    n_all = kind_change()
+    n_ok = kind_change(where="and payload->>'kind_from' = 'child' "
+                             "and payload->>'kind_to' = 'adult'")
+    n_child = kind_change(where="and payload->>'kind_to' = 'child'")
+    check("F11 exactamente una tanda kind_change (la de S0; nada del intento de S1)",
+          int(n_all) > 0 and n_all == n_ok and n_child == "0",
+          f"tandas={n_all} child→adult={n_ok} a_child={n_child}")
+
+# F12 (R1-02, 8 checks): (a) kinds distintos → encadenado, el segundo decide; (b) mismo kind →
+# exactamente un reset; (c) rama 4a: baja de M en paralelo → 200 sin reset ni audit
+XT_BLOCK = "F12"
+if xt_on("F12"):
+    p19_reset(kind_m="adult")
+    out1, out2, _ = p19_race(
+        "select update_home_member(998110, 'child', null, null, null)", a_uid,
+        "select update_home_member(998110, 'relative', null, null, null)", a_uid,
+        hold=0.3, stagger=0.1)
+    check("F12(a) ambos 200 sin 40P01 (2 sesiones del admin)",
+          outcome(out1) == "ok" and outcome(out2) == "ok" and "40P01" not in out1 + out2,
+          f"S1={out1[:120]!r} S2={out2[:120]!r}")
+    kind = psql("select kind from home_member where id = 998110")
+    check("F12(a) kind final = el del segundo (relative)", kind == "relative", f"kind={kind}")
+    check("F12(a) snapshot final = defaults de relative",
+          m_perms() == kind_defaults(kind) and m_perms() != "", f"perms={m_perms()}")
+    n1 = kind_change(where="and payload->>'kind_from' = 'adult' and payload->>'kind_to' = 'child'")
+    n2 = kind_change(where="and payload->>'kind_from' = 'child' and payload->>'kind_to' = 'relative'")
+    check("F12(a) audit encadenado (kind_from del segundo = kind_to del primero)",
+          int(n1) > 0 and int(n2) > 0, f"adult→child={n1} child→relative={n2}")
+
+    p19_reset(kind_m="adult")
+    out1, out2, _ = p19_race(
+        "select update_home_member(998110, 'child', null, null, null)", a_uid,
+        "select update_home_member(998110, 'child', null, null, null)", a_uid,
+        hold=0.3, stagger=0.1)
+    n_all = kind_change()
+    n_ok = kind_change(where="and payload->>'kind_from' = 'adult' and payload->>'kind_to' = 'child'")
+    check("F12(b) ambos 200 sin 40P01 y exactamente un reset (una tanda kind_change)",
+          outcome(out1) == "ok" and outcome(out2) == "ok" and "40P01" not in out1 + out2
+          and int(n_all) > 0 and n_all == n_ok,
+          f"S1={out1[:120]!r} S2={out2[:120]!r} tandas={n_all} adult→child={n_ok}")
+    kind = psql("select kind from home_member where id = 998110")
+    check("F12(b) snapshot final = defaults de child",
+          kind == "child" and m_perms() == kind_defaults(kind) and m_perms() != "",
+          f"kind={kind} perms={m_perms()}")
+
+    p19_reset(kind_m="adult")
+    n_pre = kind_change()
+    out0, out1, blocked = p19_race(
+        "select remove_home_membership(998100, 998103)", a_uid,
+        "select update_home_member(998110, 'child', null, null, null)", a_uid, "update_home_member")
+    body = out_json(out1)
+    check("F12(c) S1 espera el lock de hogar y responde ok con kind = child (rama 4a)",
+          blocked is True and outcome(out0) == "ok" and outcome(out1) == "ok"
+          and isinstance(body, dict) and body.get("kind") == "child",
+          f"blocked={blocked} S0={outcome(out0)} S1={outcome(out1)} body={str(body)[:120]}")
+    n_mem = psql("select count(*) from home_membership where id = 998103")
+    n_perm = psql("select count(*) from membership_permission where home_membership_id = 998103")
+    check("F12(c) sin membresía, 0 filas de membership_permission y 0 audit nuevo para M",
+          n_mem == "0" and n_perm == "0" and kind_change() == n_pre,
+          f"membresias={n_mem} perms={n_perm} audit {n_pre}→{kind_change()}")
+
+# X1–X5: cross-tenant de las rutas 1.9 — admin de B sobre hogar A y member de A sin permisos
+# (C ya es miembro de home(A) desde K20: alta idempotente, on conflict no cambia su snapshot)
+XT_BLOCK = "X0"
+mid_x = int(psql(f"with x as (insert into home_membership (home_id, app_user_id, role) "
+                 f"values ({home_a}, {c_id}, 'member') "
+                 f"on conflict (home_id, app_user_id) do update set role = 'member' returning id) "
+                 f"select id from x"))
+for cid, sub, sqlcall, want, name in (
+        ("X1", b_uid, f"select set_home_permissions({home_a}, {mid_x}, '[\"home.view\"]'::jsonb)",
+         "Not Found", "X1 admin de B → set_home_permissions sobre hogar A → Not Found"),
+        ("X2", b_uid, f"select get_home_permissions({home_a})", "Not Found",
+         "X2 admin de B → get_home_permissions sobre hogar A → Not Found"),
+        ("X3", b_uid, f"select get_home_audit({home_a}, null, null)", "Not Found",
+         "X3 admin de B → get_home_audit sobre hogar A → Not Found"),
+        ("X4", c_uid, f"select set_home_permissions({home_a}, {mid_x}, '[\"home.view\"]'::jsonb)",
+         "Not Allowed", "X4 member de A sin manage → set_home_permissions → Not Allowed"),
+        ("X5", c_uid, f"select get_home_audit({home_a}, null, null)", "Not Allowed",
+         "X5 member de A no admin → get_home_audit → Not Allowed")):
+    XT_BLOCK = cid
+    if xt_on(cid):
+        out = psql_run(f"begin;\nselect set_config('request.jwt.claim.sub', '{sub}', true);\n"
+                       f"{sqlcall};\ncommit;\n")[1]
+        check(name, outcome(out) == want and "40P01" not in out, f"out={out[:160]!r}")
+XT_BLOCK = "BASE"
+
+# T-DL-A12 (R1-03/R1-02, 16 checks): 15 pares con orden invertido (A12_ITERS por par; el builder
+# usa 3, el verifier 20) y pg_sleep(0.3) intra-transacción. Criterio: 0×40P01 y outcomes solo ok /
+# Not Found / Not Allowed. El check global cierra con los invariantes finales (owners ≥ 1, 0 filas
+# de admin, snapshot de M = defaults de su kind final).
+XT_BLOCK = "TDL_A12"
+if xt_on("TDL_A12"):
+    A12_PAIRS = [
+        ("remove_cal ∥ remove_cal",
+         f"select remove_calendar_user({P19_CAL}, {b_id})", f"select remove_calendar_user({P19_CAL}, {a_id})"),
+        ("remove_tl ∥ remove_tl",
+         f"select remove_task_list_user({P19_LST}, {b_id})", f"select remove_task_list_user({P19_LST}, {a_id})"),
+        ("add_cal ∥ add_cal",
+         f"select add_calendar_user({P19_CAL}, '{C_EMAIL}')", f"select add_calendar_user({P19_CAL}, '{C_EMAIL}')"),
+        ("add_tl ∥ add_tl",
+         f"select add_task_list_user({P19_LST}, '{C_EMAIL}')", f"select add_task_list_user({P19_LST}, '{C_EMAIL}')"),
+        ("remove_cal ∥ remove_home_membership",
+         f"select remove_calendar_user({P19_CAL}, {b_id})", "select remove_home_membership(998100, 998101)"),
+        ("remove_tl ∥ remove_home_membership",
+         f"select remove_task_list_user({P19_LST}, {b_id})", "select remove_home_membership(998100, 998101)"),
+        ("remove_cal ∥ add_cal",
+         f"select remove_calendar_user({P19_CAL}, {b_id})", f"select add_calendar_user({P19_CAL}, '{C_EMAIL}')"),
+        ("delete_calendar ∥ remove_cal",
+         "select delete_calendar(998120)", f"select remove_calendar_user({P19_CAL}, {a_id})"),
+        ("delete_task_list ∥ remove_tl",
+         "select delete_task_list(998121)", f"select remove_task_list_user({P19_LST}, {a_id})"),
+        ("set_perms ∥ set_home_membership_role",
+         "select set_home_permissions(998100, 998103, '[\"home.view\"]'::jsonb)",
+         "select set_home_membership_role(998100, 998103, 'admin')"),
+        ("set_perms ∥ set_perms",
+         "select set_home_permissions(998100, 998103, '[\"home.view\"]'::jsonb)",
+         "select set_home_permissions(998100, 998103, '[\"calendar.view\"]'::jsonb)"),
+        ("set_perms ∥ remove_home_membership",
+         "select set_home_permissions(998100, 998103, '[\"home.view\"]'::jsonb)",
+         "select remove_home_membership(998100, 998103)"),
+        ("update_home_member(kind) ∥ set_perms",
+         "select update_home_member(998110, 'adult', null, null, null)",
+         "select set_home_permissions(998100, 998103, '[\"home.view\"]'::jsonb)"),
+        ("set_perms ∥ update_calendar",
+         "select set_home_permissions(998100, 998103, '[\"home.view\"]'::jsonb)",
+         "select update_calendar(998120, 'XT-P19-C', '#111111', true, true)"),
+        ("update_home_member(kind=a) ∥ update_home_member(kind=b)",
+         "select update_home_member(998110, 'child', null, null, null)",
+         "select update_home_member(998110, 'relative', null, null, null)"),
+    ]
+    a12_deadlocks = 0
+    a12_bad = 0
+    for pname, sqla, sqlb in A12_PAIRS:
+        pair_bad = 0
+        for i in range(A12_ITERS):
+            p19_reset()
+            sa = (f"begin;\nselect set_config('request.jwt.claim.sub', '{a_uid}', true);\n"
+                  f"select pg_sleep(0.3);\n{sqla};\ncommit;\n")
+            sb = (f"begin;\nselect set_config('request.jwt.claim.sub', '{b_uid}', true);\n"
+                  f"select pg_sleep(0.3);\n{sqlb};\ncommit;\n")
+            if i % 2 == 0:  # orden invertido: par → A primero; impar → B primero
+                pa = psql_async(sa); time.sleep(0.1); pb = psql_async(sb)
+            else:
+                pb = psql_async(sb); time.sleep(0.1); pa = psql_async(sa)
+            outa, _ = pa.communicate(timeout=120)
+            outb, _ = pb.communicate(timeout=120)
+            outs = outa + outb
+            dl = "40P01" in outs or "deadlock" in outs.lower()
+            bad = dl or any(outcome(o) not in ("ok", "Not Found", "Not Allowed")
+                            for o in (outa, outb))
+            if dl:
+                a12_deadlocks += 1
+            if bad:
+                pair_bad += 1
+                a12_bad += 1
+                print(f"  TDL-A12 {pname} iter {i}: A={outa[:120]!r} B={outb[:120]!r}")
+        check(f"TDL-A12 {pname}: {A12_ITERS} iteraciones, 0×40P01, "
+              "outcomes ok/Not Found(/Not Allowed)", pair_bad == 0,
+              f"{pair_bad} iteraciones fuera de spec")
+    kind = psql("select kind from home_member where id = 998110")
+    owners = psql(f"select count(*) from calendar_user where calendar_id = {P19_CAL} "
+                  "and role = 'owner'")
+    admin_rows = psql("select count(*) from membership_permission mp "
+                      "join home_membership hm on hm.id = mp.home_membership_id "
+                      "where hm.role = 'admin'")
+    check("TDL-A12 global: 0×40P01 y invariantes finales (owners ≥ 1, 0 filas de admin, "
+          "snapshot de M = defaults de su kind final)",
+          a12_deadlocks == 0 and a12_bad == 0 and int(owners) >= 1 and admin_rows == "0"
+          and m_perms() == kind_defaults(kind) and m_perms() != "",
+          f"deadlocks={a12_deadlocks} bad={a12_bad} owners={owners} admin_rows={admin_rows} "
+          f"kind={kind} perms={m_perms()}")
+XT_BLOCK = "BASE"
+
+# T21: limpieza del bloque (replica solo para borrado) y query de residuos anotada: tras esta
+# limpieza no quedan filas 9981xx; clean_xt() de más abajo verifica además 0 filas XT-% y 0
+# membresías/hogares de xt, y aborta el script si queda algún residuo.
+psql(P19_Q)
+
 # ── K21 (1.5, plan §8.2) y §8.3: cascada app_user → person → home_member (trigger 0014c, I5) ──
 # Usuario scratch 995999 sin home_membership (sin admin de ningún hogar): borrar su app_user borra
 # sus person en cascada (0001: person.user_id ON DELETE CASCADE) y fn_person_deleted (0014c) borra
@@ -1092,5 +1608,6 @@ check("I5: todo home_member con person del mismo home_id", i5c == "0", f"n={i5c}
 
 clean_xt()
 fugas = results.count(False)
-print(f"\n{len(results) - fugas}/{len(results)} casos ok — {fugas} fugas")
+print(f"\n{len(results) - fugas}/{len(results)} casos ok — {fugas} fugas"
+      + (" · bloques: " + " ".join(f"{k}={v}" for k, v in counts.items()) if counts else ""))
 sys.exit(1 if fugas else 0)

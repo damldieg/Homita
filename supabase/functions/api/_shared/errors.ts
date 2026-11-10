@@ -30,6 +30,8 @@ const RPC_STATUS: Record<string, number> = {
     // 1.6: rol fuera de admin/member y transferencia a la propia membresía (0018; plan §3.5)
     "Invalid role": 400,
     "Invalid membership": 400,
+    // 1.9: código fuera del catálogo o shape de permissions inválido (0021; plan §4.3)
+    "Invalid permission": 400,
 };
 
 // Router::error de PHP: InvalidArgumentException → 400; el resto → 500 con el mensaje
@@ -76,6 +78,10 @@ export const errHomeMemberIdRequired = (): Response => error("Member ID is requi
 // home/membership (1.6 §6.1): id de home_membership (lo devuelve GET /home/membership) y role
 export const errHomeMembershipIdRequired = (): Response => error("Membership ID is required", 400);
 export const errInvalidRole = (): Response => error("Invalid role", 400);
+
+// home/permission (1.9 §4.2): permissions ausente, no array o con elemento no string, y códigos
+// fuera del catálogo (rechazo en la Edge sin llamar a la RPC; la RPC repite la barrera)
+export const errInvalidPermission = (): Response => error("Invalid permission", 400);
 
 // user/create (UserCreate.php)
 export const errUserFieldsRequired = (): Response => error("Name, email and password are required", 400);
