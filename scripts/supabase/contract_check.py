@@ -9,8 +9,9 @@ segundo lado con el que comparar. Este script fija el comportamiento documentado
 
 * Cobertura: las 43 rutas del contrato (tabla ROUTES de `supabase/functions/api/index.ts`),
   incluidas `GET /config` y `PATCH /user/update` (no cubiertas por el antiguo oráculo), más las
-  12 rutas `/home/*` de 1.4/1.5/1.6 (`HOME_ROUTES`, contrato nuevo sin oráculo PHP). El resumen
-  final exige 43/43 legacy, 12/12 home y exit 0 solo si todos los casos pasan.
+  15 rutas `/home/*` de 1.4/1.5/1.6/1.9 (`HOME_ROUTES`, contrato nuevo sin oráculo PHP; las 3 de
+  1.9: `GET /home/permission`, `PATCH /home/permission`, `GET /home/audit`). El
+  resumen final exige 43/43 legacy, 15/15 home y exit 0 solo si todos los casos pasan.
 * Forma: plantillas con claves EXACTAS — `"<ts>"` (`Y-m-d H:i:s`), `"<token>"` (string no vacío),
   `"<id>"`/`"<int>"`, `"<str>"`, `"<bool>"`, `"<01>"` (entero 0/1 del contrato), sufijo `?` =
   nullable (`"<int?>"`), `[t]` = todo elemento cumple `t`, literal = igualdad exacta. El sufijo de
@@ -163,6 +164,7 @@ def shape(value, tmpl, where, issues):
             "str": lambda v: isinstance(v, str) and v != "",
             "bool": lambda v: isinstance(v, bool),
             "01": lambda v: v in (0, 1) and not isinstance(v, bool),
+            "obj": lambda v: isinstance(v, dict),
         }[base](value)
         if not ok:
             issues.append(f"{where}: {value!r} no cumple {tmpl}")
@@ -176,13 +178,10 @@ def shape(value, tmpl, where, issues):
 results = []
 covered = set()
 regressed = []
-EXPECTED_CASES = 312  # 272 de 1.5/1.6/1.7 (207 + 59 M/C2 + 6 permisos kind) + 40 del bloque de la
-                      # matriz §3.4.1 de 1.8 (§6.2): MX0–MX5 setup (relogin, 4 fixtures, invitación
-                      # con manage, alta externa) + M1/M1b/M2/M3 (admin sin ACL ve y no escribe y
-                      # co-miembro sin ACL), M4/M4b/M5 (metadatos owner+manage, flags propios),
-                      # M6–M8b/M10 (contenido y *.assign solo al cambiar conjunto), M11a–f (tareas
-                      # por kind), M12 ×3 (sin ACL → Not Found), M13/M13b (compartir, Q3), M14/M14b
-                      # (último owner 403, self-remove 400) y M23/M23b (person_ids por hogar).
+EXPECTED_CASES = 351  # 312 de 1.5/1.6/1.7/1.8 (207 + 59 M/C2 + 6 permisos kind + 40 matriz §3.4.1)
+                      # + 39 del bloque 1.9 de configuración de permisos (desglose 3+8+15+7+6:
+                      # PX0–PX2 setup 3, PG1–PG8 GET 8, PP1–PP15 PATCH 15, PA1–PA7 audit 7,
+                      # PK1–PK6 kind 6).
 
 
 def record(route, name, ok, detail=""):
@@ -264,6 +263,19 @@ HOME_DETAIL = {"id": "<id>", "name": "<str>", "timezone": "<str>", "is_personal"
                "created_at": "<ts>", "updated_at": "<ts>"}
 MEMBERSHIP_ITEM = {"membership_id": "<id>", "app_user_id": "<id>", "name": "<str>",
                    "email": "<str>", "role": "<str>", "permissions": ["<str>"]}
+# Contrato nuevo de 1.9 (§4.2): GET/PATCH /home/permission y GET /home/audit (plantillas
+# aditivas PERMISSION_*/AUDIT_ITEM; kind nullable = sin home_member vinculado)
+PERMISSION_CATALOG = {"code": "<str>", "domain": "<str>", "description": "<str>"}
+PERMISSION_DEFAULT = {"kind": "<str>", "permissions": ["<str>"]}
+PERMISSION_ITEM = {"membership_id": "<id>", "app_user_id": "<id>", "name": "<str>", "email": "<str>",
+                   "role": "<str>", "kind": "<str?>", "editable": "<bool>", "permissions": ["<str>"]}
+PERMISSION_GET = {"catalog": [PERMISSION_CATALOG], "defaults": [PERMISSION_DEFAULT],
+                  "memberships": [PERMISSION_ITEM]}
+PERMISSION_STATE = {"membership_id": "<id>", "home_id": "<id>", "permissions": ["<str>"],
+                    "granted": ["<str>"], "revoked": ["<str>"]}
+AUDIT_ITEM = {"id": "<id>", "action": "<str>", "target_type": "<str>", "target_id": "<int?>",
+              "actor_app_user_id": "<int?>", "actor_name": "<str?>", "payload": "<obj>",
+              "created_at": "<ts>"}
 # Contrato nuevo de 1.6 (§3.4/§4): respuesta de /home/membership/* (CAL_USER/TL_USER con
 # 'home_role' solo en GET; USER de add_*_user sin cambio, D-008)
 MEMBERSHIP_STATE = {"membership_id": "<id>", "home_id": "<id>", "app_user_id": "<id>", "role": "<str>"}
@@ -292,6 +304,9 @@ ERR_COLOR_INVALID = '{"error":"Color must be #RRGGBB"}'
 ERR_INVALID_ROLE = '{"error":"Invalid role"}'
 ERR_INVALID_MEMBERSHIP = '{"error":"Invalid membership"}'
 ERR_MEMBERSHIP_ID_REQUIRED = '{"error":"Membership ID is required"}'
+# 1.9 (/home/permission, §4.3): código fuera del catálogo o shape de permissions inválido
+ERR_INVALID_PERMISSION = '{"error":"Invalid permission"}'
+ERR_UNAUTHORIZED = '{"error":"Unauthorized"}'
 # TypeError del motor, mensaje exacto del contrato (sufijo de traza normalizado a fichero+línea)
 ERR_CAL_NO_COLOR = (r'App\Models\Calendar::create(): Argument #2 ($color) must be of '
                     r'type string, null given, called in CalendarCreate.php on line 21')
@@ -312,13 +327,15 @@ ROUTES = [
 ]
 
 # Rutas nuevas /home/* (1.4 §2 R1–R6; 1.5 §6.1 añade /home/member/*; 1.6 §4 añade
-# /home/membership/*). ROUTES se mantiene en 43: "43/43" sigue siendo la métrica legacy
-# (invariante D-008); la cobertura home se reporta aparte (12/12).
+# /home/membership/*; 1.9 §4.1 añade /home/permission GET/PATCH y /home/audit). ROUTES se
+# mantiene en 43: "43/43" sigue siendo la métrica legacy (invariante D-008); la cobertura home
+# se reporta aparte (15/15).
 HOME_ROUTES = [
     "GET /home", "POST /home/create", "GET /home/detail", "PATCH /home/update",
     "PATCH /home/default", "GET /home/membership",
     "PATCH /home/membership/role", "POST /home/membership/transfer", "DELETE /home/membership",
     "GET /home/member", "POST /home/member/create", "PATCH /home/member/update",
+    "GET /home/permission", "PATCH /home/permission", "GET /home/audit",
 ]
 
 
@@ -471,8 +488,33 @@ delete from audit_log
 delete from home
     where (name like 'CC-%' and created_by = (select id from app_user where email = '{demo}'))
        or created_by = (select id from app_user where email = '{mem}');
+-- Bloque 1.9 (cc-perm-*, hogares CC-Perm%): mismas tablas, cualquier creador (T16, higiene)
+delete from membership_permission where home_membership_id in (
+    select hm.id from home_membership hm
+    where hm.home_id in (select id from home where name like 'CC-Perm%')
+       or hm.app_user_id in (select id from app_user where email like 'cc-perm-%'));
+delete from home_membership
+    where home_id in (select id from home where name like 'CC-Perm%')
+       or app_user_id in (select id from app_user where email like 'cc-perm-%');
+delete from person
+    where home_id in (select id from home where name like 'CC-Perm%')
+       or home_id in (select id from home
+                      where created_by in (select id from app_user where email like 'cc-perm-%'));
+delete from home_member
+    where home_id in (select id from home where name like 'CC-Perm%')
+       or home_id in (select id from home
+                      where created_by in (select id from app_user where email like 'cc-perm-%'))
+       or app_user_id in (select id from app_user where email like 'cc-perm-%');
+delete from audit_log
+    where home_id in (select id from home where name like 'CC-Perm%')
+       or home_id in (select id from home
+                      where created_by in (select id from app_user where email like 'cc-perm-%'));
+delete from home
+    where name like 'CC-Perm%'
+       or created_by in (select id from app_user where email like 'cc-perm-%');
 delete from auth.users
     where id = (select auth_uid from app_user where email = '{mem}');
+delete from auth.users where email like 'cc-perm-%';
 update app_user u set default_home_id = coalesce(
     (select min(h.id) from home h where h.is_personal and h.created_by = u.id),
     (select min(hm.home_id) from home_membership hm where hm.app_user_id = u.id))
@@ -481,7 +523,363 @@ commit;
 """)
 
 
+# ── Bloque 1.9 (configuración de permisos, plan §6.2 T15/T16): 39 casos ──
+# Desglose: PX0–PX2 (3: altas, hogares+fixtures por psql, relogins), PG1–PG8 (8), PP1–PP15 (15),
+# PA1–PA7 (7) y PK1–PK6 (6). Usuarios propios cc-perm-a/m/k/x y hogares CC-Perm/CC-Perm2 (X admin)
+# para no interferir con los bloques legacy. Fixtures solo por psql (sin grants externos): A admin
+# vinculado, M member adult con home.permissions.manage + home.members.manage, K member child con
+# home.view y pet sin vínculo. Desviación 1.5 (D-011): PK4 (403 exacto + kind intacto) y PK6 (name
+# o mismo kind sigue en 200: la desviación es estrecha).
+
+PERMISOS_CASES = 39
+PERM_ADULT = ['calendar.manage', 'calendar.view', 'event.assign', 'event.create', 'event.delete',
+              'event.edit', 'routine.assign', 'routine.create', 'routine.delete', 'routine.edit',
+              'routine.view', 'task.assign', 'task.complete', 'task.create', 'task.delete',
+              'task.edit', 'task.view', 'tasklist.manage']
+PERM_KIND_COUNTS = {'adult': 18, 'child': 6, 'guest': 3, 'relative': 10}
+PERM_EMAIL = {'a': 'cc-perm-a@homita.example', 'm': 'cc-perm-m@homita.example',
+              'k': 'cc-perm-k@homita.example', 'x': 'cc-perm-x@homita.example'}
+PERM_PWD = 'ccperm1234'
+
+
+def scenario_permisos_config():
+    # PX0: altas de los 4 usuarios (registro abierto; V4 lo fija en la Edge local)
+    oks = []
+    for who, name in (('a', 'CC-Perm A'), ('m', 'CC-Perm M'), ('k', 'CC-Perm K'), ('x', 'CC-Perm X')):
+        res = request("POST", "/user/create",
+                      {"name": name, "email": PERM_EMAIL[who], "password": PERM_PWD})
+        oks.append(res[0] in (200, 201))
+    value("POST /user/create", "PX0 altas de cc-perm-a/m/k/x → 200/201", all(oks), repr(oks))
+
+    # PX1: hogares CC-Perm/CC-Perm2 + fixtures por psql (snapshot por kind, manages a M). Home y
+    # membresía admin en la misma sentencia (trigger anti-hogar-sin-admin diferido de 0015)
+    uid = {w: int(psql(f"select id from app_user where email = '{PERM_EMAIL[w]}'")) for w in 'akmx'}
+    row = psql("with h as (insert into home (name, created_by) values "
+               f"('CC-Perm', {uid['a']}) returning id) "
+               "insert into home_membership (home_id, app_user_id, role) "
+               f"select h.id, {uid['a']}, 'admin' from h returning id, home_id")
+    mid_a, hc = (int(x) for x in row.split('|'))
+    row = psql("with h as (insert into home (name, created_by) values "
+               f"('CC-Perm2', {uid['x']}) returning id) "
+               "insert into home_membership (home_id, app_user_id, role) "
+               f"select h.id, {uid['x']}, 'admin' from h returning id, home_id")
+    mid_x, hc2 = (int(x) for x in row.split('|'))
+    mid_m = int(psql("insert into home_membership (home_id, app_user_id, role) values "
+                     f"({hc}, {uid['m']}, 'member') returning id"))
+    mid_k = int(psql("insert into home_membership (home_id, app_user_id, role) values "
+                     f"({hc}, {uid['k']}, 'member') returning id"))
+    hmid_a = int(psql("insert into home_member (home_id, kind, name, color, app_user_id) values "
+                      f"({hc}, 'adult', 'CC-Perm A', '#778899', {uid['a']}) returning id"))
+    hmid_m = int(psql("insert into home_member (home_id, kind, name, color, app_user_id) values "
+                      f"({hc}, 'adult', 'CC-Perm M', '#112233', {uid['m']}) returning id"))
+    hmid_k = int(psql("insert into home_member (home_id, kind, name, color, app_user_id) values "
+                      f"({hc}, 'child', 'CC-Perm K', '#445566', {uid['k']}) returning id"))
+    hmid_pet = int(psql("insert into home_member (home_id, kind, name, color) values "
+                        f"({hc}, 'adult', 'CC-Perm Pet', '#AABBCC') returning id"))
+    # person emparejada 1:1 con cada home_member (invariante I5 de cross_tenant: sin home_member
+    # huérfano de person; el bloque deja sus datos al terminar y V3 corre después de V2)
+    psql(f"insert into person (user_id, home_id, home_member_id, name, color) values "
+         f"({uid['a']}, {hc}, {hmid_a}, 'CC-Perm A', '#778899'), "
+         f"({uid['a']}, {hc}, {hmid_m}, 'CC-Perm M', '#112233'), "
+         f"({uid['a']}, {hc}, {hmid_k}, 'CC-Perm K', '#445566'), "
+         f"({uid['a']}, {hc}, {hmid_pet}, 'CC-Perm Pet', '#AABBCC')")
+    psql(f"select fn_seed_kind_permissions({mid_m}, 'adult'); "
+         f"select fn_seed_kind_permissions({mid_k}, 'child')")
+    psql(f"insert into membership_permission (home_membership_id, permission_code) values "
+         f"({mid_m}, 'home.permissions.manage'), ({mid_m}, 'home.members.manage')")
+    value("GET /home/permission",
+          "PX1 CC-Perm/CC-Perm2 + fixtures psql (seed por kind, manages a M, pet sin vínculo)",
+          min(hc, hc2, mid_a, mid_m, mid_k, mid_x, hmid_a, hmid_m, hmid_k, hmid_pet) > 0,
+          f"hc={hc} hc2={hc2} mids={mid_a}/{mid_m}/{mid_k}/{mid_x}")
+
+    # PX2: relogins de A/M/K/X
+    toks = {}
+    for w in 'akmx':
+        res = request("POST", "/user/auth", {"email": PERM_EMAIL[w], "password": PERM_PWD})
+        toks[w] = parse(res[1]).get("token") if res[0] == 200 else None
+    value("POST /user/auth", "PX2 relogins de A/M/K/X → token no vacío", all(toks.values()),
+          repr({k: bool(v) for k, v in toks.items()}))
+    atok, mtok, ktok, xtok = toks['a'], toks['m'], toks['k'], toks['x']
+
+    # PG1–PG3: GET admin → 200 PERMISSION_GET; catálogo 23, defaults 18/6/10/3 con home.view en
+    # child/relative; fila admin editable=false/permissions=23 y fila member editable=true
+    b = check("GET /home/permission", "PG1 GET /home/permission admin → 200 PERMISSION_GET",
+              request("GET", f"/home/permission?home_id={hc}", None, atok), 200, PERMISSION_GET)
+    cat = [c.get("code") for c in b.get("catalog", [])] if isinstance(b, dict) else []
+    defs = ({d.get("kind"): d.get("permissions") for d in b.get("defaults", [])}
+            if isinstance(b, dict) else {})
+    counts = {k: len(v or []) for k, v in defs.items()}
+    value("GET /home/permission",
+          "PG2 catálogo 23 y defaults 18/6/10/3 con home.view en child/relative",
+          len(cat) == 23 and counts == PERM_KIND_COUNTS
+          and 'home.view' in (defs.get('child') or []) and 'home.view' in (defs.get('relative') or []),
+          f"catalog={len(cat)} defaults={counts}")
+    rows = {r.get("app_user_id"): r for r in b.get("memberships", [])} if isinstance(b, dict) else {}
+    ra = rows.get(uid['a'], {})
+    value("GET /home/permission",
+          "PG3 admin editable=false/permissions=23 y member editable=true",
+          ra.get("editable") is False and ra.get("permissions") == cat
+          and len(ra.get("permissions") or []) == 23
+          and rows.get(uid['m'], {}).get("editable") is True,
+          repr(rows)[:300])
+
+    # PG4–PG8: member con home.view 200 todo editable=false; sin home.view 403; no miembro 404;
+    # sin home_id 400; cabecera X-Home-Id ajena 404
+    res = request("GET", f"/home/permission?home_id={hc}", None, ktok)
+    b4 = trace_norm(parse(res[1]))
+    value("GET /home/permission", "PG4 member con home.view → 200 y todo editable=false",
+          res[0] == 200 and isinstance(b4, dict) and b4.get("memberships")
+          and all(r.get("editable") is False for r in b4.get("memberships", [])),
+          f"status={res[0]} {res[1][:120]}")
+    psql(f"delete from membership_permission where home_membership_id = {mid_k} "
+         "and permission_code = 'home.view'")
+    check("GET /home/permission", "PG5 member sin home.view → 403",
+          request("GET", f"/home/permission?home_id={hc}", None, ktok), 403, ERR_NOT_ALLOWED)
+    psql(f"select fn_seed_kind_permissions({mid_k}, 'child')")
+    check("GET /home/permission", "PG6 no miembro (X) → 404",
+          request("GET", f"/home/permission?home_id={hc}", None, xtok), 404, ERR_NOT_FOUND)
+    check("GET /home/permission", "PG7 sin home_id → 400",
+          request("GET", "/home/permission", None, atok), 400, ERR_HOME_ID_REQUIRED)
+    check("GET /home/permission", "PG8 cabecera X-Home-Id ajena (CC-Perm2) → 404",
+          request("GET", f"/home/permission?home_id={hc}", None, atok, home=hc2), 404, ERR_NOT_FOUND)
+
+    # PP1–PP2: set con grant+revoke (granted/revoked exactos); reenvío idempotente = deltas vacíos
+    s_m = PERM_ADULT + ['home.members.manage', 'home.permissions.manage']
+    set1 = [c for c in s_m if c != 'calendar.manage'] + ['home.invite']
+    res = request("PATCH", "/home/permission",
+                  {"home_id": hc, "membership_id": mid_m, "permissions": set1}, atok)
+    b1 = trace_norm(parse(res[1]))
+    issues = []
+    shape(b1, PERMISSION_STATE, "body", issues)
+    value("PATCH /home/permission", "PP1 grant+revoke → 200 con granted/revoked exactos",
+          res[0] == 200 and not issues and b1.get("granted") == ['home.invite']
+          and b1.get("revoked") == ['calendar.manage'],
+          f"status={res[0]} " + "\n     ".join(issues)[:300])
+    res = request("PATCH", "/home/permission",
+                  {"home_id": hc, "membership_id": mid_m, "permissions": set1}, atok)
+    b2 = trace_norm(parse(res[1]))
+    value("PATCH /home/permission", "PP2 idempotente → 200 granted=[] revoked=[]",
+          res[0] == 200 and b2.get("granted") == [] and b2.get("revoked") == [],
+          f"status={res[0]} {res[1][:120]}")
+
+    # PP3: efecto observable — revocar home.view a K y GET /home/membership del member → 403
+    child = defs.get('child') or []
+    r1 = request("PATCH", "/home/permission",
+                 {"home_id": hc, "membership_id": mid_k,
+                  "permissions": [c for c in child if c != 'home.view']}, atok)
+    r2 = request("GET", f"/home/membership?id={hc}", None, ktok)
+    value("PATCH /home/permission",
+          "PP3 revocar home.view → member GET /home/membership 403 (efecto observable)",
+          r1[0] == 200 and r2[0] == 403 and trace_norm(r2[1]) == ERR_NOT_ALLOWED,
+          f"patch={r1[0]} get={r2[0]} {r2[1][:80]}")
+    psql(f"select fn_seed_kind_permissions({mid_k}, 'child')")
+
+    # PP4–PP6: member con manage 403 (Q1); target admin 403 + 0 filas; membresía ajena 404
+    check("PATCH /home/permission", "PP4 member con home.permissions.manage → 403 (Q1, sin escalada)",
+          request("PATCH", "/home/permission",
+                  {"home_id": hc, "membership_id": mid_k, "permissions": ['home.view']}, mtok),
+          403, ERR_NOT_ALLOWED)
+    res = request("PATCH", "/home/permission",
+                  {"home_id": hc, "membership_id": mid_a, "permissions": []}, atok)
+    n = psql(f"select count(*) from membership_permission where home_membership_id = {mid_a}")
+    value("PATCH /home/permission", "PP5 target admin → 403 y 0 filas de snapshot",
+          res[0] == 403 and trace_norm(res[1]) == ERR_NOT_ALLOWED and n == "0",
+          f"status={res[0]} filas={n}")
+    check("PATCH /home/permission", "PP6 membresía ajena (X en CC-Perm2) → 404",
+          request("PATCH", "/home/permission",
+                  {"home_id": hc, "membership_id": mid_x, "permissions": []}, atok),
+          404, ERR_NOT_FOUND)
+
+    # PP7–PP9: código fuera de catálogo 400 + snapshot intacto; permissions no array/ausente 400;
+    # elemento no string 400
+    before7 = psql(f"select coalesce(string_agg(permission_code, ',' order by permission_code), '') "
+                   f"from membership_permission where home_membership_id = {mid_m}")
+    res = request("PATCH", "/home/permission",
+                  {"home_id": hc, "membership_id": mid_m, "permissions": ['no.existe']}, atok)
+    after7 = psql(f"select coalesce(string_agg(permission_code, ',' order by permission_code), '') "
+                  f"from membership_permission where home_membership_id = {mid_m}")
+    value("PATCH /home/permission", "PP7 código fuera de catálogo → 400 y snapshot intacto",
+          res[0] == 400 and trace_norm(res[1]) == ERR_INVALID_PERMISSION and before7 == after7,
+          f"status={res[0]} snapshot={before7 == after7}")
+    r1 = request("PATCH", "/home/permission",
+                 {"home_id": hc, "membership_id": mid_m, "permissions": "home.view"}, atok)
+    r2 = request("PATCH", "/home/permission", {"home_id": hc, "membership_id": mid_m}, atok)
+    value("PATCH /home/permission", "PP8 permissions no array o ausente → 400",
+          r1[0] == 400 and trace_norm(r1[1]) == ERR_INVALID_PERMISSION
+          and r2[0] == 400 and trace_norm(r2[1]) == ERR_INVALID_PERMISSION,
+          f"{r1[0]} {r1[1][:60]} / {r2[0]} {r2[1][:60]}")
+    check("PATCH /home/permission", "PP9 elemento no string → 400",
+          request("PATCH", "/home/permission",
+                  {"home_id": hc, "membership_id": mid_m, "permissions": [123]}, atok),
+          400, ERR_INVALID_PERMISSION)
+
+    # PP10–PP12: sin home_id 400; sin membership_id 400; set [] → 200 (vaciado + restauración)
+    check("PATCH /home/permission", "PP10 sin home_id → 400",
+          request("PATCH", "/home/permission",
+                  {"membership_id": mid_m, "permissions": []}, atok), 400, ERR_HOME_ID_REQUIRED)
+    check("PATCH /home/permission", "PP11 sin membership_id → 400",
+          request("PATCH", "/home/permission",
+                  {"home_id": hc, "permissions": []}, atok), 400, ERR_MEMBERSHIP_ID_REQUIRED)
+    check("PATCH /home/permission", "PP12 permissions [] → 200 PERMISSION_STATE",
+          request("PATCH", "/home/permission",
+                  {"home_id": hc, "membership_id": mid_m, "permissions": []}, atok),
+          200, PERMISSION_STATE)
+    psql(f"select fn_seed_kind_permissions({mid_m}, 'adult'); "
+         f"insert into membership_permission (home_membership_id, permission_code) values "
+         f"({mid_m}, 'home.permissions.manage'), ({mid_m}, 'home.members.manage')")
+
+    # PP13: sin token → 401
+    check("PATCH /home/permission", "PP13 sin token → 401",
+          request("PATCH", "/home/permission",
+                  {"home_id": hc, "membership_id": mid_m, "permissions": []}), 401, ERR_UNAUTHORIZED)
+
+    # PP14–PP15: efecto observable de grant/revoke sobre la acción GET /home/permission (home.view)
+    r0 = request("GET", f"/home/permission?home_id={hc}", None, mtok)
+    r1 = request("PATCH", "/home/permission",
+                 {"home_id": hc, "membership_id": mid_m, "permissions": sorted(s_m + ['home.view'])},
+                 atok)
+    r2 = request("GET", f"/home/permission?home_id={hc}", None, mtok)
+    b1 = trace_norm(parse(r1[1]))
+    value("PATCH /home/permission", "PP14 member recupera la acción tras grant (home.view)",
+          r0[0] == 403 and r1[0] == 200 and b1.get("granted") == ['home.view'] and r2[0] == 200,
+          f"pre={r0[0]} patch={r1[0]} post={r2[0]}")
+    r3 = request("PATCH", "/home/permission",
+                 {"home_id": hc, "membership_id": mid_m, "permissions": sorted(s_m)}, atok)
+    r4 = request("GET", f"/home/permission?home_id={hc}", None, mtok)
+    b3 = trace_norm(parse(r3[1]))
+    value("PATCH /home/permission", "PP15 member pierde la acción tras revoke (home.view)",
+          r3[0] == 200 and b3.get("revoked") == ['home.view'] and r4[0] == 403,
+          f"patch={r3[0]} post={r4[0]}")
+
+    # PA1–PA2: admin 200 [AUDIT_ITEM] con before/after en payload; PATCH idempotente = 0 filas
+    res = request("GET", f"/home/audit?home_id={hc}", None, atok)
+    body = trace_norm(parse(res[1]))
+    issues = []
+    shape(body, [AUDIT_ITEM], "body", issues)
+    items = body if isinstance(body, list) else []
+    value("GET /home/audit", "PA1 admin → 200 [AUDIT_ITEM] con before/after en payload",
+          res[0] == 200 and not issues and items
+          and all({'before', 'after'} <= set(i.get('payload') or {}) for i in items),
+          f"status={res[0]} items={len(items)} " + "\n     ".join(issues)[:300])
+    cur = psql(f"select coalesce(string_agg(permission_code, ',' order by permission_code), '') "
+               f"from membership_permission where home_membership_id = {mid_m}")
+    snap = psql(f"select count(*) from audit_log where home_id = {hc}")
+    res = request("PATCH", "/home/permission",
+                  {"home_id": hc, "membership_id": mid_m,
+                   "permissions": cur.split(',') if cur else []}, atok)
+    snap2 = psql(f"select count(*) from audit_log where home_id = {hc}")
+    value("PATCH /home/permission", "PA2 PATCH idempotente = 0 filas nuevas en audit",
+          res[0] == 200 and snap == snap2, f"audit {snap}→{snap2} status={res[0]}")
+
+    # PA3–PA4: member 403; no miembro 404
+    check("GET /home/audit", "PA3 member (M) → 403",
+          request("GET", f"/home/audit?home_id={hc}", None, mtok), 403, ERR_NOT_ALLOWED)
+    check("GET /home/audit", "PA4 no miembro (X) → 404",
+          request("GET", f"/home/audit?home_id={hc}", None, xtok), 404, ERR_NOT_FOUND)
+
+    # PA5: limit=1 + before_id → paginación por id sin repetir ni omitir
+    full = trace_norm(parse(request("GET", f"/home/audit?home_id={hc}", None, atok)[1]))
+    ids_full = [i.get("id") for i in full] if isinstance(full, list) else []
+    walked, before = [], None
+    while len(walked) <= len(ids_full):
+        path = f"/home/audit?home_id={hc}&limit=1" + (f"&before_id={before}" if before else "")
+        page = trace_norm(parse(request("GET", path, None, atok)[1]))
+        if not isinstance(page, list) or not page:
+            break
+        walked.append(page[0].get("id"))
+        before = page[0].get("id")
+    value("GET /home/audit", "PA5 limit=1 + before_id: paginación por id sin repetir ni omitir",
+          walked == ids_full and all(a > b for a, b in zip(walked, walked[1:])),
+          f"paginas={len(walked)} total={len(ids_full)}")
+
+    # PA6: admin de otro hogar → 404 en CC-Perm y sin filas ajenas en CC-Perm2
+    r1 = request("GET", f"/home/audit?home_id={hc}", None, xtok)
+    r2 = request("GET", f"/home/audit?home_id={hc2}", None, xtok)
+    b2 = trace_norm(parse(r2[1]))
+    value("GET /home/audit", "PA6 admin de otro hogar → 404 en CC-Perm y sin filas ajenas",
+          r1[0] == 404 and trace_norm(r1[1]) == ERR_NOT_FOUND and r2[0] == 200
+          and isinstance(b2, list)
+          and not [i for i in b2 if i.get("target_id") in (mid_a, mid_m, mid_k)],
+          f"r1={r1[0]} r2={r2[0]} items={len(b2) if isinstance(b2, list) else '?'}")
+
+    # PA7 (R1-01): fila backfill.home.v1 en audit_log no se expone (filtro home.% incondicional)
+    psql(f"insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload) "
+         f"values ({hc}, null, 'backfill.home.v1', 'home', null, '{{\"counts\": 42}}')")
+    n7 = psql(f"select count(*) from audit_log where home_id = {hc} and action like 'backfill.%'")
+    res = request("GET", f"/home/audit?home_id={hc}", None, atok)
+    body = trace_norm(parse(res[1]))
+    leaked = ([i for i in body if str(i.get("action", "")).startswith("backfill.")]
+              if isinstance(body, list) else ["?"])
+    value("GET /home/audit", "PA7 fila backfill.home.v1 no se expone (filtro action like 'home.%')",
+          n7 == "1" and res[0] == 200 and leaked == [],
+          f"filas_backfill={n7} expuestas={len(leaked)}")
+
+    # PK1–PK2: admin cambia kind de vinculado → snapshot = defaults del kind final (Q6) y
+    # auditoría kind_change (grant+revoke con kind_from/kind_to)
+    res = request("PATCH", "/home/member/update", {"id": hmid_k, "kind": "adult"}, atok)
+    mb = trace_norm(parse(request("GET", f"/home/membership?id={hc}", None, atok)[1]))
+    perms_k = (next((r.get("permissions") for r in mb
+                     if isinstance(r, dict) and r.get("app_user_id") == uid['k']), None)
+               if isinstance(mb, list) else None)
+    value("PATCH /home/member/update",
+          "PK1 cambio de kind (child→adult) → defaults de adult en GET /home/membership",
+          res[0] == 200 and perms_k == PERM_ADULT, f"status={res[0]} perms={perms_k}")
+    res = request("GET", f"/home/audit?home_id={hc}", None, atok)
+    body = trace_norm(parse(res[1]))
+    kc = [i for i in body if isinstance(i, dict)
+          and (i.get("payload") or {}).get("source") == 'kind_change'
+          and (i.get("payload") or {}).get("kind_from") == 'child'
+          and (i.get("payload") or {}).get("kind_to") == 'adult']
+    value("GET /home/audit", "PK2 audit del reset por kind_change (child→adult, grant+revoke)",
+          res[0] == 200 and kc
+          and {'home.permission.grant', 'home.permission.revoke'} <= {i.get("action") for i in kc},
+          f"filas_kind_change={len(kc)}")
+
+    # PK3: admin vinculado → kind cambia sin sembrar filas (A4, admin sin snapshot)
+    res = request("PATCH", "/home/member/update", {"id": hmid_a, "kind": "child"}, atok)
+    n = psql(f"select count(*) from membership_permission where home_membership_id = {mid_a}")
+    value("PATCH /home/member/update", "PK3 admin vinculado: kind cambia sin sembrar filas (A4)",
+          res[0] == 200 and n == "0", f"status={res[0]} filas={n}")
+
+    # PK4 (D-011): no-admin con home.members.manage cambia kind de vinculado → 403 exacto, kind
+    # intacto
+    res = request("PATCH", "/home/member/update", {"id": hmid_k, "kind": "child"}, mtok)
+    kind = psql(f"select kind from home_member where id = {hmid_k}")
+    value("PATCH /home/member/update",
+          "PK4 no-admin con manage cambia kind de vinculado → 403 exacto, kind intacto (D-011)",
+          res[0] == 403 and trace_norm(res[1]) == ERR_NOT_ALLOWED and kind == "adult",
+          f"status={res[0]} {res[1][:80]} kind={kind}")
+
+    # PK5: sin vínculo (pet) → 200 sin reset ni audit (la desviación es solo para vinculados)
+    n = psql(f"select count(*) from audit_log where home_id = {hc}")
+    res = request("PATCH", "/home/member/update", {"id": hmid_pet, "kind": "child"}, mtok)
+    n2 = psql(f"select count(*) from audit_log where home_id = {hc}")
+    kind = psql(f"select kind from home_member where id = {hmid_pet}")
+    value("PATCH /home/member/update", "PK5 no-admin con manage cambia kind de SIN vínculo → 200 sin audit",
+          res[0] == 200 and kind == "child" and n == n2,
+          f"status={res[0]} kind={kind} audit {n}→{n2}")
+
+    # PK6 (D-011): no-admin con manage: name o mismo kind → 200 (desviación estrecha)
+    r1 = request("PATCH", "/home/member/update", {"id": hmid_k, "name": "CC-Perm K2"}, mtok)
+    r2 = request("PATCH", "/home/member/update", {"id": hmid_k, "kind": "adult"}, mtok)
+    value("PATCH /home/member/update",
+          "PK6 no-admin con manage: name o mismo kind → 200 (desviación estrecha)",
+          r1[0] == 200 and r2[0] == 200, f"name={r1[0]} mismo_kind={r2[0]}")
+
+
 # ── config, auth y reset ──
+
+# Selector mínimo (T15): CONTRACT_ONLY=permisos ejecuta solo el bloque 1.9 (39 casos) tras el
+# reset y sale; el resto de bloques no se toca (útil para carreras parciales del builder).
+CONTRACT_ONLY = os.environ.get("CONTRACT_ONLY", "")
+if CONTRACT_ONLY == "permisos":
+    reset_leftovers()
+    scenario_permisos_config()
+    fails = results.count(False)
+    print(f"\n{len(results) - fails}/{len(results)} casos ok · bloque 1.9 (CONTRACT_ONLY=permisos)")
+    if regressed:
+        print("Rutas con regresión: " + ", ".join(regressed))
+    sys.exit(1 if fails or len(results) != PERMISOS_CASES else 0)
 
 try:
     cfg = request("GET", "/config")
@@ -500,6 +898,7 @@ tok = parse(auth[1])["token"]
 aid = parse(auth[1])["id"]
 
 reset_leftovers()
+scenario_permisos_config()
 
 # ── Lecturas del dashboard (escenarios de ContentRepository y CalendarRepository) ──
 
@@ -1708,7 +2107,7 @@ def scenario_matriz(hM, mem_m, mid):
 scenario_matriz(hM, mem_m, mid)
 
 
-# ── Resumen: cobertura de las 43 rutas legacy + 12 rutas home y rutas con regresión ──
+# ── Resumen: cobertura de las 43 rutas legacy + 15 rutas home y rutas con regresión ──
 
 missing = [r for r in ROUTES + HOME_ROUTES if r not in covered]
 fails = results.count(False)
@@ -1722,5 +2121,6 @@ if regressed:
     print("Rutas con regresión: " + ", ".join(regressed))
 if len(results) != EXPECTED_CASES:
     print(f"conteo de casos: {len(results)} (esperado {EXPECTED_CASES}: 207 de 1.5 + 59 del bloque "
-          f"M/C2 de 1.6 + 6 del bloque de permisos por kind de 1.7 + 40 del bloque matriz §3.4.1 de 1.8)")
+          f"M/C2 de 1.6 + 6 del bloque de permisos por kind de 1.7 + 40 del bloque matriz §3.4.1 "
+          f"de 1.8 + 39 del bloque 1.9 de configuración de permisos (3+8+15+7+6))")
 sys.exit(1 if fails or missing or len(results) != EXPECTED_CASES else 0)

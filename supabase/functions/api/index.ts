@@ -58,6 +58,7 @@ import {
     handleHomeCreate, handleHomeDefault, handleHomeDetail, handleHomeIndex, handleHomeMemberCreate,
     handleHomeMemberIndex, handleHomeMemberUpdate, handleHomeMembership, handleHomeMembershipRemove,
     handleHomeMembershipRole, handleHomeMembershipTransfer, handleHomeUpdate,
+    handleHomePermissionIndex, handleHomePermissionUpdate, handleHomeAudit,
 } from "./usecases/homes.ts";
 
 type Handler = (req: Request, token: string, uid: string) => Promise<Response> | Response;
@@ -127,6 +128,9 @@ const ROUTES: Record<string, { auth: boolean; home?: boolean; handler: Handler }
     "GET /home/member": { auth: true, home: true, handler: (req, t) => handleHomeMemberIndex(req, t) },
     "POST /home/member/create": { auth: true, home: true, handler: (req, t) => handleHomeMemberCreate(req, t) },
     "PATCH /home/member/update": { auth: true, home: true, handler: (req, t) => handleHomeMemberUpdate(req, t) },
+    "GET /home/permission": { auth: true, home: true, handler: (req, t) => handleHomePermissionIndex(req, t) },
+    "PATCH /home/permission": { auth: true, home: true, handler: (req, t) => handleHomePermissionUpdate(req, t) },
+    "GET /home/audit": { auth: true, home: true, handler: (req, t) => handleHomeAudit(req, t) },
 };
 
 // Ruta lógica sin el prefijo de montaje (…/functions/v1/api/… o …/api/…) — sin endsWith

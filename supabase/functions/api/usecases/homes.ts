@@ -6,7 +6,7 @@
 import { getInput, inputInt, inputString, inputTimezone, phpEmpty, phpInput, type PhpInput } from "../_shared/contract.ts";
 import {
     error, errHomeIdRequired, errHomeMemberIdRequired, errHomeMembershipIdRequired,
-    errInvalidRole, errInvalidTimezone, errNameRequired,
+    errInvalidPermission, errInvalidRole, errInvalidTimezone, errNameRequired,
     errPersonColorInvalid, errPersonNameRequired, rpcPassHome,
 } from "../_shared/errors.ts";
 import { rpc } from "../_shared/supabase.ts";
@@ -171,5 +171,48 @@ export const handleHomeMembershipRemove = async (req: Request, token: string): P
     if (phpEmpty(membershipId)) return errHomeMembershipIdRequired();
     return rpcPassHome(await rpc("remove_home_membership", {
         p_home_id: homeId, p_membership_id: membershipId,
+    }, token));
+};
+
+// P1 (1.9 §4.2): GET /home/permission?home_id= — catálogo + defaults por kind (BD) + permisos
+// efectivos por membresía con flag editable. La RPC repite la barrera (cabecera ≠ home_id o no
+// miembro → Not Found; sin home.view → Not Allowed).
+export const handleHomePermissionIndex = async (req: Request, token: string): Promise<Response> => {
+    const input = await phpInput(req);
+    const homeId = inputInt(input, "home_id");
+    if (phpEmpty(homeId)) return errHomeIdRequired();
+    return rpcPassHome(await rpc("get_home_permissions", { p_home_id: homeId }, token));
+};
+
+// P2: PATCH /home/permission {home_id, membership_id, permissions:[codes]} — set completo
+// idempotente (Q2); el servidor calcula el delta. permissions ausente, no array o con elemento
+// no string → 'Invalid permission' sin llamar a la RPC (la RPC repite la barrera: códigos fuera
+// del catálogo, shape, target admin → Not Allowed, membresía ajena → Not Found).
+export const handleHomePermissionUpdate = async (req: Request, token: string): Promise<Response> => {
+    const input = await phpInput(req);
+    const homeId = inputInt(input, "home_id");
+    if (phpEmpty(homeId)) return errHomeIdRequired();
+    const membershipId = inputInt(input, "membership_id");
+    if (phpEmpty(membershipId)) return errHomeMembershipIdRequired();
+    const permissions = getInput(input, "permissions");
+    if (!Array.isArray(permissions) || permissions.some((c) => typeof c !== "string")) {
+        return errInvalidPermission();
+    }
+    return rpcPassHome(await rpc("set_home_permissions", {
+        p_home_id: homeId, p_membership_id: membershipId, p_permissions: permissions,
+    }, token));
+};
+
+// A1: GET /home/audit?home_id=&limit=&before_id= — auditoría admin-only del hogar (solo acciones
+// home.*, R1-01). limit/before_id opcionales: ausentes o no numéricos → null (la RPC aplica
+// default 50, clamp 1..200 y paginación por id desc con before_id).
+export const handleHomeAudit = async (req: Request, token: string): Promise<Response> => {
+    const input = await phpInput(req);
+    const homeId = inputInt(input, "home_id");
+    if (phpEmpty(homeId)) return errHomeIdRequired();
+    const limit = inputInt(input, "limit");
+    const beforeId = inputInt(input, "before_id");
+    return rpcPassHome(await rpc("get_home_audit", {
+        p_home_id: homeId, p_limit: limit, p_before_id: beforeId,
     }, token));
 };
