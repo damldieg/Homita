@@ -47,7 +47,7 @@ public struct ProfileView: View {
                 }
                 Section {
                     Button("Cerrar sesión", role: .destructive) {
-                        services.session.signOut()
+                        services.signOut()
                     }
                 } footer: {
                     Text("Con firma gratuita la app caduca a los 7 días; reinstálala y vuelve a iniciar sesión.")

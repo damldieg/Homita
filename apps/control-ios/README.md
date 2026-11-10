@@ -17,8 +17,10 @@ apps/control-ios/scripts/gen-config.sh   # escribe Config.xcconfig (permisos 600
 ```sh
 cd apps/control-ios
 swift build    # compila ControlKit en el Mac (macOS está solo para esto y swift test; la app es iOS)
-swift test     # 83 tests XCTest: Flex, fechas PHP, reloj local, modelos, red/auth, reglas de rutina
+swift test     # 102 tests XCTest: Flex, fechas PHP, reloj local, modelos, red/auth, contexto de hogar, reglas de rutina
 ```
+
+**Contexto de hogar (1.11).** Tras el login/arranque `HomeContextStore` carga `GET home` y fija el hogar activo (persistido en Keychain bajo `active_home_id` si sigue en la lista; si no el `is_default`; si no el primero). `APIClient` envía `X-Home-Id` solo en rutas autenticadas `home/*`, excepto `GET home`, `POST home/create` y `PATCH home/default`. Sin hogares, las pestañas Tareas y Calendario muestran «Crear hogar»; Perfil siempre está accesible. El cierre de sesión pasa por `AppServices.signOut()`, que limpia el hogar activo. Sin selector de hogar hasta 1.12.
 
 Con el proyecto Xcode creado: `xcodebuild -scheme ControlApp -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build` y `xcodebuild test` en un simulador iOS 17+.
 

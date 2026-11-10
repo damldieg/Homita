@@ -28,8 +28,21 @@ public struct APIRequest: Equatable, Sendable {
 }
 
 public enum RequestBuilder {
+    /// Rutas `home/*` que NO llevan `X-Home-Id`: `home/create` (no opera sobre un hogar existente)
+    /// y `home/default` (el contrato responde 404 si la cabecera difiere del `home_id` pedido).
+    /// `GET home` (path `home`) tampoco la lleva porque no empieza por `home/`.
+    static let homeHeaderExcludedPaths: Set<String> = ["home/create", "home/default"]
+
+    /// Regla de envío de `X-Home-Id`: ruta autenticada bajo `home/` y fuera de las excluidas.
+    static func sendsHomeHeader(for apiRequest: APIRequest) -> Bool {
+        !apiRequest.isPublic
+            && apiRequest.path.hasPrefix("home/")
+            && !homeHeaderExcludedPaths.contains(apiRequest.path)
+    }
+
     /// Construye el `URLRequest` final. GET/HEAD nunca llevan body aunque se pase (desviación 9).
-    public static func urlRequest(baseURL: URL, apiRequest: APIRequest, accessToken: String?) throws -> URLRequest {
+    /// `X-Home-Id` solo se añade si `homeId` no está vacío y aplica la regla de `sendsHomeHeader`.
+    public static func urlRequest(baseURL: URL, apiRequest: APIRequest, accessToken: String?, homeId: String? = nil) throws -> URLRequest {
         let joined = baseURL.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard var components = URLComponents(string: joined + "/" + apiRequest.path) else {
             throw APIError.decoding("URL inválida: \(apiRequest.path)")
@@ -48,6 +61,9 @@ public enum RequestBuilder {
         }
         if !apiRequest.isPublic, let accessToken {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        if let homeId, !homeId.isEmpty, sendsHomeHeader(for: apiRequest) {
+            request.setValue(homeId, forHTTPHeaderField: "X-Home-Id")
         }
         if apiRequest.method != .get {
             request.httpBody = apiRequest.body

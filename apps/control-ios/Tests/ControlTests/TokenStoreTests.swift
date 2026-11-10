@@ -69,6 +69,8 @@ final class TokenStoreTests: XCTestCase {
         let restored = SessionStore(store: tokens)
         restored.restore()
         XCTAssertNil(restored.session)
+        // El hogar activo (store propio, mismo TokenStore) no queda tras el cierre de sesión.
+        XCTAssertNil(try tokens.get("active_home_id"))
     }
 
     func testKeychainStoreSaveLoadDelete() throws {

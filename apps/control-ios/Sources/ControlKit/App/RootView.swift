@@ -9,10 +9,11 @@ public struct RootView: View {
 
     public init() {
         let config = AppConfig.load()
-        let session = SessionStore(store: KeychainTokenStore())
+        let tokenStore = KeychainTokenStore()
+        let session = SessionStore(store: tokenStore)
         session.restore()
         _session = State(initialValue: session)
-        _services = State(initialValue: AppServices(config: config, session: session))
+        _services = State(initialValue: AppServices(config: config, session: session, tokenStore: tokenStore))
     }
 
     public var body: some View {
@@ -21,6 +22,9 @@ public struct RootView: View {
                 WelcomeView(services: services)
             } else {
                 MainTabView(services: services)
+                    .task(id: session.session?.id) {
+                        await services.homeContext.load(using: services.homes)
+                    }
             }
         }
         .environment(session)
@@ -31,11 +35,16 @@ struct MainTabView: View {
     let services: AppServices
 
     var body: some View {
+        let state = services.homeContext.state
         TabView {
-            TasksRootView(services: services)
-                .tabItem { Label("Tareas", systemImage: "checklist") }
-            CalendarsRootView(services: services)
-                .tabItem { Label("Calendario", systemImage: "calendar") }
+            HomeGate(services: services, state: state) {
+                TasksRootView(services: services)
+            }
+            .tabItem { Label("Tareas", systemImage: "checklist") }
+            HomeGate(services: services, state: state) {
+                CalendarsRootView(services: services)
+            }
+            .tabItem { Label("Calendario", systemImage: "calendar") }
             ProfileView(services: services)
                 .tabItem { Label("Perfil", systemImage: "person.crop.circle") }
         }
