@@ -36,6 +36,12 @@ segundo lado con el que comparar. Este script fija el comportamiento documentado
   membresía member de cc-mem → `GET /home/membership` devuelve `permissions` = el conjunto exacto
   del kind (child 6, adult 18; collate "C"); admin = 23 del catálogo (A4, sin snapshot). R1-02:
   el helper rechaza una membresía admin (`'Not Allowed'`, sin filas). Sin rutas nuevas (D-008).
+* Bloque 1.10 (contratos de /home/*, 34 casos = 15 + 15 + 4; `docs/CONTRATOS_HOME.md`): por cada
+  ruta home un caso sin Bearer → `401 Unauthorized` y otro con `X-Home-Id: abc` → `400 Invalid
+  home`; más `GET /home/detail` sin `home.view` → 403, `PATCH /home/default` sin `home_id` → 400,
+  `PATCH /home/member/update` con `status` no string → 400 `Invalid member` y `GET /home` con
+  `X-Home-Id` vacía → 200 (A9). El total esperado pasa de 351 a 385 y el resumen imprime los casos
+  por ruta home; el exit code falla si alguna ruta home tiene menos de 3 casos (`MIN_HOME_CASES`).
 * `SUPABASE_SERVICE_ROLE_KEY` (reset de restos CC-%, R1-01): del entorno, de `.demo/functions.env`
   o de `supabase status -o env`; toda fuente con indicios de producción (`supabase.co`) se rechaza.
 * `PSQL` (membresía del bloque viewer): comando psql completo contra la BD local; para el stack
@@ -49,6 +55,7 @@ Variables de entorno (equivalentes a las opciones): SUPABASE_FUNCTIONS_URL y
 SUPABASE_SERVICE_ROLE_KEY.
 """
 import argparse
+import collections
 import datetime
 import json
 import os
@@ -176,16 +183,21 @@ def shape(value, tmpl, where, issues):
 # ── resultados y cobertura ──
 
 results = []
-covered = set()
+covered = collections.Counter()  # casos por ruta: `route in covered` sigue siendo la cobertura binaria
 regressed = []
-EXPECTED_CASES = 351  # 312 de 1.5/1.6/1.7/1.8 (207 + 59 M/C2 + 6 permisos kind + 40 matriz §3.4.1)
-                      # + 39 del bloque 1.9 de configuración de permisos (desglose 3+8+15+7+6:
-                      # PX0–PX2 setup 3, PG1–PG8 GET 8, PP1–PP15 PATCH 15, PA1–PA7 audit 7,
-                      # PK1–PK6 kind 6).
+MIN_HOME_CASES = 3  # 1.10: umbral de casos por ruta /home/* (la cobertura binaria no prueba completitud)
+CASES_BASE = 351    # 312 de 1.5/1.6/1.7/1.8 (207 + 59 M/C2 + 6 permisos kind + 40 matriz §3.4.1)
+                    # + 39 del bloque 1.9 de configuración de permisos (desglose 3+8+15+7+6:
+                    # PX0–PX2 setup 3, PG1–PG8 GET 8, PP1–PP15 PATCH 15, PA1–PA7 audit 7,
+                    # PK1–PK6 kind 6).
+CASES_110 = 15 + 15 + 4  # bloque 1.10: 15 sin Bearer → 401, 15 X-Home-Id abc → 400 Invalid home
+                         # y 4 específicos (detail 403, default 400, member/update status no
+                         # string 400, GET /home con X-Home-Id vacía 200)
+EXPECTED_CASES = CASES_BASE + CASES_110  # 385
 
 
 def record(route, name, ok, detail=""):
-    covered.add(route)
+    covered[route] += 1
     results.append(bool(ok))
     print(("ok   " if ok else "FAIL ") + name)
     if not ok:
@@ -2107,6 +2119,53 @@ def scenario_matriz(hM, mem_m, mid):
 scenario_matriz(hM, mem_m, mid)
 
 
+# ── Bloque 1.10 (contratos de /home/*): 34 casos ──
+# Huecos de la superficie /home/* detectados al documentar `docs/CONTRATOS_HOME.md`: 401 sin Bearer
+# y 400 Invalid home por ruta (el dispatcher los resuelve antes del handler: sin tocar datos) más 4
+# casos específicos. Solo lectura/errores de validación; el único cambio de estado (snapshot de
+# cc-mem para el 403 de detail) se restaura al terminar. Corre tras la matriz 1.8: usa cc-mem.
+
+HOME_ROUTE_CALLS = [
+    ("GET", "/home"), ("POST", "/home/create"), ("GET", "/home/detail"),
+    ("PATCH", "/home/update"), ("PATCH", "/home/default"), ("GET", "/home/membership"),
+    ("PATCH", "/home/membership/role"), ("POST", "/home/membership/transfer"),
+    ("DELETE", "/home/membership"), ("GET", "/home/member"), ("POST", "/home/member/create"),
+    ("PATCH", "/home/member/update"), ("GET", "/home/permission"), ("PATCH", "/home/permission"),
+    ("GET", "/home/audit"),
+]
+
+
+def scenario_home_110(hM, mem_m):
+    for method, path in HOME_ROUTE_CALLS:
+        body = {} if method != "GET" else None
+        check(f"{method} {path}", f"H110 {method} {path} sin Bearer → 401 Unauthorized",
+              request(method, path, body), 401, ERR_UNAUTHORIZED)
+    for method, path in HOME_ROUTE_CALLS:
+        body = {} if method != "GET" else None
+        check(f"{method} {path}", f"H110 {method} {path} con X-Home-Id: abc → 400 Invalid home",
+              request(method, path, body, tok, home="abc"), 400, ERR_INVALID_HOME)
+    # detail sin home.view: cc-mem (member) con snapshot child sin home.view → 403 Not Allowed
+    mauth = request("POST", "/user/auth", {"email": MEM_EMAIL, "password": MEM_PASSWORD})
+    mtok = parse(mauth[1]).get("token") if mauth[0] == 200 else None
+    if mtok is None:
+        sys.exit("no se pudo reautenticar cc-mem para el bloque 1.10")
+    psql(f"select fn_seed_kind_permissions({mem_m}, 'child'); "
+         f"delete from membership_permission where home_membership_id = {mem_m} "
+         "and permission_code = 'home.view'")
+    check("GET /home/detail", "H110 GET /home/detail member sin home.view → 403 Not Allowed",
+          request("GET", f"/home/detail?id={hM}", None, mtok), 403, ERR_NOT_ALLOWED)
+    psql(f"select fn_seed_kind_permissions({mem_m}, 'adult')")
+    check("PATCH /home/default", "H110 PATCH /home/default sin home_id → 400 Home ID is required",
+          request("PATCH", "/home/default", {}, tok), 400, ERR_HOME_ID_REQUIRED)
+    check("PATCH /home/member/update", "H110 PATCH /home/member/update status no string → 400",
+          request("PATCH", "/home/member/update", {"id": 1, "status": 1}, tok), 400, ERR_INVALID_MEMBER)
+    check("GET /home", "H110 GET /home con X-Home-Id vacía = sin cabecera (A9) → 200",
+          request("GET", "/home", None, tok, home=""), 200, [HOME_ITEM])
+
+
+scenario_home_110(hM, mem_m)
+
+
 # ── Resumen: cobertura de las 43 rutas legacy + 15 rutas home y rutas con regresión ──
 
 missing = [r for r in ROUTES + HOME_ROUTES if r not in covered]
@@ -2115,12 +2174,17 @@ legacy_cov = len([r for r in ROUTES if r in covered])
 home_cov = len([r for r in HOME_ROUTES if r in covered])
 print(f"\n{len(results) - fails}/{len(results)} casos ok · {legacy_cov}/{len(ROUTES)} rutas legacy"
       f" · {home_cov}/{len(HOME_ROUTES)} rutas home")
+print("casos por ruta home: " + ", ".join(f"{r} {covered[r]}" for r in HOME_ROUTES))
+thin = [r for r in HOME_ROUTES if covered[r] < MIN_HOME_CASES]
 if missing:
     print("Rutas sin cubrir: " + ", ".join(missing))
+if thin:
+    print(f"Rutas home con menos de {MIN_HOME_CASES} casos: " + ", ".join(thin))
 if regressed:
     print("Rutas con regresión: " + ", ".join(regressed))
 if len(results) != EXPECTED_CASES:
     print(f"conteo de casos: {len(results)} (esperado {EXPECTED_CASES}: 207 de 1.5 + 59 del bloque "
           f"M/C2 de 1.6 + 6 del bloque de permisos por kind de 1.7 + 40 del bloque matriz §3.4.1 "
-          f"de 1.8 + 39 del bloque 1.9 de configuración de permisos (3+8+15+7+6))")
-sys.exit(1 if fails or missing or len(results) != EXPECTED_CASES else 0)
+          f"de 1.8 + 39 del bloque 1.9 de configuración de permisos (3+8+15+7+6) + 34 del bloque "
+          f"1.10 de contratos home (15+15+4))")
+sys.exit(1 if fails or missing or thin or len(results) != EXPECTED_CASES else 0)
