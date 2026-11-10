@@ -6,9 +6,10 @@ import {
     errTaskListUserIdRequired, rpcPass,
 } from "../_shared/errors.ts";
 import { rpc, selectRows } from "../_shared/supabase.ts";
+import { currentHome } from "../_shared/home.ts";
 
 const SORTS = ["updated_at", "title", "custom"];
-const TL_COLS = "id,name,color,token,sort,created_at,updated_at";
+const TL_COLS = "id,name,color,token,sort,created_at,updated_at,home_id";
 
 const tlRow = (r: Record<string, unknown>): Record<string, unknown> => ({
     ...r,
@@ -20,12 +21,15 @@ const tlRow = (r: Record<string, unknown>): Record<string, unknown> => ({
 export const handleTaskListIndex = async (_req: Request, token: string): Promise<Response> =>
     rpcPass(await rpc("get_task_lists", {}, token));
 
-// GET /task-list/detail (TaskListDetail.php): id → M (RLS) → TaskList::findById (sin flags/count)
+// GET /task-list/detail (TaskListDetail.php): id → M (RLS) → TaskList::findById (sin flags/count).
+// Con X-Home-Id el recurso debe ser del hogar activo (§2.2/D-2): filtro home_id=eq (sin
+// cabecera, sin filtro).
 export const handleTaskListDetail = async (req: Request, token: string): Promise<Response> => {
     const input = await phpInput(req);
     const id = inputInt(input, "id");
     if (phpEmpty(id)) return errTaskListIdRequired();
-    const rows = await selectRows("task_list", `id=eq.${id}&select=${TL_COLS}&limit=1`, token);
+    const homeFilter = currentHome() === null ? "" : `&home_id=eq.${currentHome()}`;
+    const rows = await selectRows("task_list", `id=eq.${id}&select=${TL_COLS}&limit=1${homeFilter}`, token);
     if (rows.length === 0) return errPhpNotFound();
     return json(tlRow(rows[0]));
 };

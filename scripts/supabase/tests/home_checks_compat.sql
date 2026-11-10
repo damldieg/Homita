@@ -6,8 +6,10 @@
 --
 -- Cubre: V5j altas atómicas por trigger 0014(a), V5k filas nuevas de las RPC de compat con home_id
 -- coherente, V5l add_*_user (D-c: 42501 para no miembro, P0002 email inexistente), V5m delete_person
--- → home_member borrado (D-d), V5n delete_routine copia solo personas activas (0014f), V5o trigger
--- de asignaciones persona↔recurso (0015 iv) y V5p fn_sync_assignments por diferencia (0015 v).
+-- → baja soft (1.5: person conservada, home_member inactive, asignaciones borradas) y delete físico
+-- de person → home_member borrado (0014c), V5n delete_routine copia solo personas activas (0014f),
+-- V5o trigger de asignaciones persona↔recurso (0015 iv) y V5p fn_sync_assignments por diferencia
+-- (0015 v).
 -- V5h (anti-admin diferido) vive en home_checks_admin.sh: sus casos negativos exigen un COMMIT que
 -- falla, imposible de atrapar dentro de un bloque DO.
 --
@@ -222,7 +224,11 @@ begin
     raise notice 'ok V5l: no miembro → Not Allowed 42501 sin filas; miembro → viewer con home_id; inexistente → Not Found P0002';
 end $$;
 
--- ── V5m (0014c, D-d): delete_person → home_member borrado ──
+-- ── V5m (1.5 §8.1 V5): delete_person → baja soft; delete físico → home_member (0014c) ──
+-- (i) delete_person(v) conserva la person, deja home_member.status = 'inactive' y borra sus
+-- event_person/routine_person (paridad Q1a). (ii) el `delete from person` directo (triggers
+-- activos) sí borra home_member vía person_after_delete_home_member (0014c): las cascadas
+-- app_user→person siguen sin dejar huérfanos (I5, K21 de cross_tenant_check).
 -- Nota: el subcaso 'person sin home_member_id no rompe el delete' es inválido tras 0015(ii)
 -- (person.home_member_id NOT NULL); fn_person_deleted tolera null (no-op) — cubierto por código.
 
@@ -233,14 +239,34 @@ declare
 begin
     perform set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000901', true);
     select id, home_member_id into v, v_hm from person where name = 'V5k-Persona';
+    -- asignaciones de prueba (evento + rutina en V5k-Cal) para verificar la desasignación
+    insert into event (id, calendar_id, title, date_at)
+        select 995901, id, 'V5m-Evento', '2026-12-29 10:00:00' from calendar where name = 'V5k-Cal';
+    insert into routine (id, calendar_id, title, days, time, start_date, end_date, active, available_from, frequency, interval)
+        select 995901, id, 'V5m-Rutina', '[1, 3]'::jsonb, '09:30', '2026-06-01', null, true,
+               '2026-06-01 00:00:00', 'weekly', 1
+        from calendar where name = 'V5k-Cal';
+    insert into event_person (event_id, person_id) values (995901, v);
+    insert into routine_person (routine_id, person_id) values (995901, v);
+    -- (i) baja soft (1.5 §1.4): las filas person y home_member NO se borran
     perform delete_person(v);
-    if exists (select 1 from person where id = v) then
-        raise exception 'home_checks V5m: delete_person no borró la person';
+    if not exists (select 1 from person where id = v) then
+        raise exception 'home_checks V5m: delete_person borró la person (debe conservarla)';
     end if;
+    if not exists (select 1 from home_member where id = v_hm and status = 'inactive') then
+        raise exception 'home_checks V5m: home_member % no quedó inactive', v_hm;
+    end if;
+    if exists (select 1 from event_person where person_id = v)
+       or exists (select 1 from routine_person where person_id = v) then
+        raise exception 'home_checks V5m: delete_person no borró las asignaciones de %', v;
+    end if;
+    raise notice 'ok V5m: delete_person → baja soft (person conservada, home_member inactive, asignaciones borradas)';
+    -- (ii) borrado físico de person (triggers activos) → fn_person_deleted borra home_member (0014c)
+    delete from person where id = v;
     if exists (select 1 from home_member where id = v_hm) then
         raise exception 'home_checks V5m: home_member % no borrado por fn_person_deleted', v_hm;
     end if;
-    raise notice 'ok V5m: delete_person → home_member borrado (D-d)';
+    raise notice 'ok V5m: delete from person → home_member borrado por person_after_delete_home_member (0014c)';
 end $$;
 
 -- ── V5n (0014f): delete_routine copia solo personas activas ──
@@ -404,7 +430,7 @@ begin
     delete from event_person where event_id in (
         select e.id from event e join calendar c on c.id = e.calendar_id where c.name = 'V5k-Cal')
         or person_id in (995001, 995002, 995003, 995004, 995005, 995006, 995007);
-    delete from routine_person where routine_id in (995001, 995002)
+    delete from routine_person where routine_id in (995001, 995002, 995901)
         or person_id in (995001, 995002, 995003, 995004, 995005, 995006, 995007);
     delete from routine_exception where routine_id in (995001, 995002);
     delete from routine_event_alarm where routine_id in (995001, 995002);
@@ -412,7 +438,7 @@ begin
     delete from event_user where event_id in (
         select e.id from event e join calendar c on c.id = e.calendar_id where c.name = 'V5k-Cal');
     delete from event where calendar_id in (select id from calendar where name = 'V5k-Cal');
-    delete from routine where id in (995001, 995002);
+    delete from routine where id in (995001, 995002, 995901);
     delete from task where task_list_id in (select id from task_list where name = 'V5k-Lista');
     delete from task_list_user where home_id in (990001, 990002);
     delete from calendar_user where home_id in (990001, 990002);
