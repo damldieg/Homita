@@ -24,6 +24,11 @@ inactivo → 400 Invalid person; K20 usuario C con snapshot `adult` de member_ki
 códigos sin home.view, no LEGACY17) → 403 en GET /home/member; K21 cascada app_user → person →
 home_member (trigger 0014c) e invariante I5 (§8.3) al final.
 
+Administradores (1.6, plan §6.4): C antes de unirse en K20 → 404 en las 3 rutas
+/home/membership/* sin cambios en home(A); B (member) → 403 en role/transfer; cabecera
+X-Home-Id de home(B) en las 3 rutas → 404; B sale de home(A) (200) y entonces
+GET /calendar/detail del compartido → 500 Not Found (sus ACL se borran en cascada).
+
 Setup/limpieza: usuarios xt-a/xt-b vía user/create (requiere ALLOW_REGISTRATION=true en la Edge o
 usuarios preexistentes) y `clean_xt()` completo (filas XT-%, membresías y hogares de xt — personales
 y no personales (R1-04) — y sus cuentas auth: se recrean en cada pasada: sin hogar, `create_calendar` fallaría con `Home header
@@ -606,6 +611,26 @@ if c_auth[0] != 200:
     sys.exit(f"no se pudo autenticar xt-c (¿ALLOW_REGISTRATION=true en la Edge para el alta?) {c!r}")
 c_tok = parse(c_auth[1])["token"]
 c_id = parse(c_auth[1])["id"]
+
+# ── 1.6 (plan §6.4): C, aún NO miembro de home(A) → 404 en las 3 rutas /home/membership/* ──
+# (antes de unirse en K20). Sin cambios en A: membresías y roles idénticos antes/después.
+a_membership = int(psql(f"select id from home_membership where home_id = {home_a} and app_user_id = {a_id}"))
+roles_pre = psql(f"select string_agg(id || ':' || role::text, ',' order by id) "
+                 f"from home_membership where home_id = {home_a}")
+for name, method, path, body in [
+    ("M1 C (no miembro) PATCH /home/membership/role sobre home(A) → 404", "PATCH",
+     "/home/membership/role", {"home_id": home_a, "membership_id": a_membership, "role": "member"}),
+    ("M2 C (no miembro) POST /home/membership/transfer sobre home(A) → 404", "POST",
+     "/home/membership/transfer", {"home_id": home_a, "to_membership_id": a_membership}),
+    ("M3 C (no miembro) DELETE /home/membership sobre home(A) → 404", "DELETE",
+     "/home/membership", {"home_id": home_a, "membership_id": a_membership}),
+]:
+    expect(name, edge(method, path, body, c_tok), HOME_NOT_FOUND)
+roles_post = psql(f"select string_agg(id || ':' || role::text, ',' order by id) "
+                  f"from home_membership where home_id = {home_a}")
+check("M4 los 404 de C no cambian home(A) (membresías y roles intactos)",
+      roles_pre == roles_post, f"{roles_pre!r} ≠ {roles_post!r}")
+
 psql(f"""
 begin;
 insert into home_membership (home_id, app_user_id, role) values ({home_a}, {c_id}, 'member');
@@ -625,6 +650,33 @@ expect("K20 C GET /home/member?home_id=homeA → 403 Not Allowed (adult sin home
 expect("K20b C POST /home/member/create → 403 (adult sin home.members.manage)",
        edge("POST", "/home/member/create", {"home_id": home_a, "kind": "adult", "name": "XT-C-Crea"},
             c_tok), NOT_ALLOWED)
+
+# ── 1.6 (plan §6.4): /home/membership/* — B (member de home(A)) y cabecera ajena ──
+# B → 403 en role/transfer (expulsión ajena la cubre contract_check); X-Home-Id de home(B) en las
+# 3 rutas → 404 (cabecera ≠ home_id del body); B sale de home(A) (200) y pierde el acceso al
+# calendario compartido (GET /calendar/detail → 500 Not Found: las ACL se borran en cascada).
+b_membership = int(psql(f"select id from home_membership where home_id = {home_a} and app_user_id = {b_id}"))
+expect("M5 B PATCH /home/membership/role sobre home(A) → 403 (no admin)",
+       edge("PATCH", "/home/membership/role",
+            {"home_id": home_a, "membership_id": b_membership, "role": "member"}, b_tok), NOT_ALLOWED)
+expect("M6 B POST /home/membership/transfer sobre home(A) → 403 (no admin)",
+       edge("POST", "/home/membership/transfer",
+            {"home_id": home_a, "to_membership_id": b_membership}, b_tok), NOT_ALLOWED)
+for name, method, path, body in [
+    ("M7 B role sobre home(A) con X-Home-Id: homeB → 404", "PATCH", "/home/membership/role",
+     {"home_id": home_a, "membership_id": b_membership, "role": "member"}),
+    ("M8 B transfer sobre home(A) con X-Home-Id: homeB → 404", "POST", "/home/membership/transfer",
+     {"home_id": home_a, "to_membership_id": b_membership}),
+    ("M9 B DELETE sobre home(A) con X-Home-Id: homeB → 404", "DELETE", "/home/membership",
+     {"home_id": home_a, "membership_id": b_membership}),
+]:
+    expect(name, edge(method, path, body, b_tok, home=home_b), HOME_NOT_FOUND)
+m10 = edge("DELETE", "/home/membership",
+           {"home_id": home_a, "membership_id": b_membership}, b_tok)
+check("M10 B DELETE /home/membership (sale de home(A), cualquiera puede salir) → 200 success",
+      m10[0] == 200 and parse(m10[1]) == {"success": True}, repr(m10)[:200])
+expect("M11 B GET /calendar/detail del compartido tras salir → 500 Not Found (ACL borradas)",
+       edge("GET", f"/calendar/detail?id={cal}", None, b_tok), NOT_FOUND)
 
 # ── K21 (1.5, plan §8.2) y §8.3: cascada app_user → person → home_member (trigger 0014c, I5) ──
 # Usuario scratch 995999 sin home_membership (sin admin de ningún hogar): borrar su app_user borra

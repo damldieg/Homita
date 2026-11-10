@@ -9,8 +9,8 @@ segundo lado con el que comparar. Este script fija el comportamiento documentado
 
 * Cobertura: las 43 rutas del contrato (tabla ROUTES de `supabase/functions/api/index.ts`),
   incluidas `GET /config` y `PATCH /user/update` (no cubiertas por el antiguo oráculo), más las
-  9 rutas `/home/*` de 1.4/1.5 (`HOME_ROUTES`, contrato nuevo sin oráculo PHP). El resumen final
-  exige 43/43 legacy, 9/9 home y exit 0 solo si todos los casos pasan.
+  12 rutas `/home/*` de 1.4/1.5/1.6 (`HOME_ROUTES`, contrato nuevo sin oráculo PHP). El resumen
+  final exige 43/43 legacy, 12/12 home y exit 0 solo si todos los casos pasan.
 * Forma: plantillas con claves EXACTAS — `"<ts>"` (`Y-m-d H:i:s`), `"<token>"` (string no vacío),
   `"<id>"`/`"<int>"`, `"<str>"`, `"<bool>"`, `"<01>"` (entero 0/1 del contrato), sufijo `?` =
   nullable (`"<int?>"`), `[t]` = todo elemento cumple `t`, literal = igualdad exacta. El sufijo de
@@ -25,6 +25,12 @@ segundo lado con el que comparar. Este script fija el comportamiento documentado
   del recurso) → `403 {"error":"Not Allowed"}` (Q3); tras dar la membresía por psql repite las
   invitaciones → 200 (+2 casos). `reset_leftovers` borra esa membresía (CASCADE a
   membership_permission y ACL) para que el caso 403 sea determinista en cada ejecución.
+* Bloque M (1.6, §6.2–6.3): `/home/membership/*` sobre el hogar CC-Membresias y el usuario de
+  prueba cc-mem (su cuenta/hogares/membresías los borra `reset_leftovers`): happy promote/demote/
+  transfer/salir, 400 (role inválido, `Invalid membership`, ids), 403 (no admin, último admin,
+  owner único, último hogar) y 404 (no miembro, cabecera ajena, membresía ajena, hogar archived).
+  C2 (§6.2): 3 carreras A/B de demote en paralelo → exactamente una 200 y una 403, admins = 1.
+  El usuario demo no abandona su hogar original: la salida feliz la hace el viewer.
 * `SUPABASE_SERVICE_ROLE_KEY` (reset de restos CC-%, R1-01): del entorno, de `.demo/functions.env`
   o de `supabase status -o env`; toda fuente con indicios de producción (`supabase.co`) se rechaza.
 * `PSQL` (membresía del bloque viewer): comando psql completo contra la BD local; para el stack
@@ -46,6 +52,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -165,17 +172,15 @@ def shape(value, tmpl, where, issues):
 results = []
 covered = set()
 regressed = []
-EXPECTED_CASES = 207  # A-7: 106 históricos + 2 del bloque viewer (invitaciones 200 tras membresía)
-                      # + 43 del bloque home (plan §7.1 H1–H18 = 30 llamadas check/value más
-                      # R1-01: filtro positivo de GET /calendar y /task-list con X-Home-Id y
-                      # detalle con cabecera (H19–H25) y R1-02: trim de name y timezone opcional
-                      # en create/update (H3b/H3c/H6b/H8b), más H14b (cabecera ajena en /home/*).
-                      # Conteo real de la ejecución (1.4 e2e): 151 = 108 + 43 (la estimación
-                      # previa de 41 se quedaba corta en H24/H25, casos del detalle de /task-list
-                      # con cabecera añadidos por R1-01)
-                      # + 56 del bloque miembros 1.5 (§8.2: K1–K7, K9, K10, K13–K19, K22 —
-                      # K0 setup + K6/K7 sus dos llamadas cada uno; K8/K11/K12/K20/K21 viven en
-                      # cross_tenant_check)
+EXPECTED_CASES = 266  # 207 (1.5: 106 históricos + 2 viewer + 43 home + 56 miembros) + 59 del bloque
+                      # M de 1.6 (§6.3): 5 setup (hogar CC-Membresias + cc-mem + GET /home/membership),
+                      # 11 happy (promote/demote/transfer/transfer back con sus valores y GET),
+                      # 7×400 (role inválido ×2, Invalid membership, ids ×4), 3×403 no admin,
+                      # 2×403 último admin, 3×403 owner único, 1×403 último hogar, 3 salir feliz
+                      # (viewer: DELETE 200 + GET con/ sin valor), 3×404 no miembro, 3×404 cabecera
+                      # ajena, 3×404 membresía ajena, 3×404 hogar archived y 12 de C2 (setup + 3
+                      # carreras × (paralelo + GET + admins=1) + 2 repromociones). Conteo real de
+                      # la ejecución registrado en status.md.
 
 
 def record(route, name, ok, detail=""):
@@ -220,7 +225,8 @@ CAL_ITEM = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>",
             "upcoming_event_count": "<int>", "home_id": "<id>"}
 CAL_DETAIL = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>",
               "created_at": "<ts>", "updated_at": "<ts>", "home_id": "<id>"}
-CAL_USER = {"cu_id": "<id>", "user_id": "<id>", "name": "<str>", "email": "<str>", "role": "<str>"}
+CAL_USER = {"cu_id": "<id>", "user_id": "<id>", "name": "<str>", "email": "<str>", "role": "<str>",
+            "home_role": "<str>"}
 USER = {"id": "<id>", "name": "<str>", "email": "<str>", "created_at": "<ts>", "updated_at": "<ts>"}
 USER_CREATE = {"id": "<id>", "name": "<str>", "email": "<str>", "token": "<token>",
                "created_at": "<ts>", "updated_at": "<ts>"}
@@ -246,7 +252,8 @@ TL_ITEM = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>", 
            "pending_task_count": "<int>", "home_id": "<id>"}
 TL_DETAIL = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>", "sort": "<str>",
              "created_at": "<ts>", "updated_at": "<ts>", "home_id": "<id>"}
-TL_USER = {"tlu_id": "<id>", "user_id": "<id>", "name": "<str>", "email": "<str>", "role": "<str>"}
+TL_USER = {"tlu_id": "<id>", "user_id": "<id>", "name": "<str>", "email": "<str>", "role": "<str>",
+           "home_role": "<str>"}
 # Contrato nuevo de 1.4 (§2, sin oráculo PHP). R1-03: role es "<str>" (shape() no conoce
 # "<admin|member>"); el dominio admin|member se valida con value() en el escenario.
 HOME_ITEM = {"home_id": "<id>", "name": "<str>", "role": "<str>", "is_default": "<bool>",
@@ -255,6 +262,10 @@ HOME_DETAIL = {"id": "<id>", "name": "<str>", "timezone": "<str>", "is_personal"
                "created_at": "<ts>", "updated_at": "<ts>"}
 MEMBERSHIP_ITEM = {"membership_id": "<id>", "app_user_id": "<id>", "name": "<str>",
                    "email": "<str>", "role": "<str>", "permissions": ["<str>"]}
+# Contrato nuevo de 1.6 (§3.4/§4): respuesta de /home/membership/* (CAL_USER/TL_USER con
+# 'home_role' solo en GET; USER de add_*_user sin cambio, D-008)
+MEMBERSHIP_STATE = {"membership_id": "<id>", "home_id": "<id>", "app_user_id": "<id>", "role": "<str>"}
+TRANSFER_STATE = {"from_membership_id": "<id>", "to_membership_id": "<id>"}
 # Contrato nuevo de 1.5 (§6.1): miembros del hogar (sin app_user_id ni email, §3.3)
 HOME_MEMBER = {"id": "<id>", "home_id": "<id>", "kind": "<str>", "name": "<str>", "color": "<str>",
                "status": "<str>", "linked": "<bool>", "created_at": "<ts>", "updated_at": "<ts>"}
@@ -275,6 +286,10 @@ ERR_INVALID_MEMBER = '{"error":"Invalid member"}'
 ERR_MEMBER_ID_REQUIRED = '{"error":"Member ID is required"}'
 ERR_PERSON_NAME_REQUIRED = '{"error":"Name is required (max 50 characters)"}'
 ERR_COLOR_INVALID = '{"error":"Color must be #RRGGBB"}'
+# 1.6 (/home/membership/*, §3.5/§4)
+ERR_INVALID_ROLE = '{"error":"Invalid role"}'
+ERR_INVALID_MEMBERSHIP = '{"error":"Invalid membership"}'
+ERR_MEMBERSHIP_ID_REQUIRED = '{"error":"Membership ID is required"}'
 # TypeError del motor, mensaje exacto del contrato (sufijo de traza normalizado a fichero+línea)
 ERR_CAL_NO_COLOR = (r'App\Models\Calendar::create(): Argument #2 ($color) must be of '
                     r'type string, null given, called in CalendarCreate.php on line 21')
@@ -294,12 +309,13 @@ ROUTES = [
     "PATCH /task/complete", "PATCH /task/order", "DELETE /task/delete",
 ]
 
-# Rutas nuevas /home/* (1.4 §2 R1–R6; 1.5 §6.1 añade /home/member/*). ROUTES se mantiene en 43:
-# "43/43" sigue siendo la métrica legacy (invariante D-008); la cobertura home se reporta aparte
-# (9/9).
+# Rutas nuevas /home/* (1.4 §2 R1–R6; 1.5 §6.1 añade /home/member/*; 1.6 §4 añade
+# /home/membership/*). ROUTES se mantiene en 43: "43/43" sigue siendo la métrica legacy
+# (invariante D-008); la cobertura home se reporta aparte (12/12).
 HOME_ROUTES = [
     "GET /home", "POST /home/create", "GET /home/detail", "PATCH /home/update",
     "PATCH /home/default", "GET /home/membership",
+    "PATCH /home/membership/role", "POST /home/membership/transfer", "DELETE /home/membership",
     "GET /home/member", "POST /home/member/create", "PATCH /home/member/update",
 ]
 
@@ -386,8 +402,10 @@ def psql(sql):
 def reset_leftovers():
     """Higiene entre ejecuciones: borra los restos con prefijo CC-% (escenarios y bloque viewer —
     la Edge no llega a borrar el calendario del viewer: 403) y XT-% (restos del suite de aislamiento)
-    para poder re-ejecutar sin re-sembrar, y la membresía de viewer en hogares ajenos (CASCADE a
-    membership_permission y ACL) para que el caso 403 del alta externa sea determinista (A-7).
+    para poder re-ejecutar sin re-sembrar, la membresía de viewer en hogares ajenos (CASCADE a
+    membership_permission y ACL) para que el caso 403 del alta externa sea determinista (A-7), y el
+    usuario de prueba cc-mem del bloque M (1.6): sus membresías, sus hogares (personal incluido) y
+    su cuenta auth (se recrea en cada pasada; CASCADE a app_user).
     DELETE REST vía service_role contra el REST local derivado de --fn (local por el guard); padre
     basta (cascade); los eventos van antes que las rutinas (`event.routine_id` es set null).
     En psql (una transacción, 1.4 §7.1/RK7): los hogares NO personales CC-% del usuario demo
@@ -417,30 +435,42 @@ def reset_leftovers():
                 print(f"aviso: reset_leftovers {table} falló ({e.code}): {e.read().decode()[:120]}")
     demo = args.email.replace("'", "''")
     viewer = "viewer@homita.example"
+    mem = "cc-mem@homita.example"  # usuario de prueba del bloque M (1.6): cuenta/hogares/membresías
     psql(f"""
 begin;
 delete from membership_permission where home_membership_id in (
     select hm.id from home_membership hm
     where hm.home_id in (select id from home where name like 'CC-%'
-                         and created_by = (select id from app_user where email = '{demo}')));
+                         and created_by = (select id from app_user where email = '{demo}'))
+       or hm.app_user_id = (select id from app_user where email = '{mem}'));
 delete from home_membership
     where home_id in (select id from home where name like 'CC-%'
                       and created_by = (select id from app_user where email = '{demo}'))
+       or app_user_id = (select id from app_user where email = '{mem}')
        or (app_user_id = (select id from app_user where email = '{viewer}')
            and home_id in (select id from home
                            where created_by is distinct from (select id from app_user where email = '{viewer}')));
 delete from person
     where name like 'CC-%'
        or home_id in (select id from home where name like 'CC-%'
-                      and created_by = (select id from app_user where email = '{demo}'));
+                      and created_by = (select id from app_user where email = '{demo}'))
+       or home_id in (select id from home
+                      where created_by = (select id from app_user where email = '{mem}'));
 delete from home_member
     where home_id in (select id from home where name like 'CC-%'
-                      and created_by = (select id from app_user where email = '{demo}'));
+                      and created_by = (select id from app_user where email = '{demo}'))
+       or home_id in (select id from home
+                      where created_by = (select id from app_user where email = '{mem}'));
 delete from audit_log
     where home_id in (select id from home where name like 'CC-%'
-                      and created_by = (select id from app_user where email = '{demo}'));
+                      and created_by = (select id from app_user where email = '{demo}'))
+       or home_id in (select id from home
+                      where created_by = (select id from app_user where email = '{mem}'));
 delete from home
-    where name like 'CC-%' and created_by = (select id from app_user where email = '{demo}');
+    where (name like 'CC-%' and created_by = (select id from app_user where email = '{demo}'))
+       or created_by = (select id from app_user where email = '{mem}');
+delete from auth.users
+    where id = (select auth_uid from app_user where email = '{mem}');
 update app_user u set default_home_id = coalesce(
     (select min(h.id) from home h where h.is_personal and h.created_by = u.id),
     (select min(hm.home_id) from home_membership hm where hm.app_user_id = u.id))
@@ -1163,7 +1193,250 @@ def scenario_member():
 scenario_member()
 
 
-# ── Resumen: cobertura de las 43 rutas legacy + 6 rutas home y rutas con regresión ──
+# ── Administradores (1.6, plan §6.2–6.3): /home/membership/* y C2 ──
+
+MEM_EMAIL, MEM_PASSWORD, MEM_NAME = "cc-mem@homita.example", "ccmem1234", "CC Miembro"
+
+
+def scenario_membership():
+    """Bloque M (1.6, §6.2–6.3): /home/membership/* sobre el hogar de prueba CC-Membresias y el
+    usuario cc-mem (su cuenta, hogares y membresías los borra reset_leftovers). El demo no abandona
+    su hogar original: la salida feliz la hace el viewer (de su membresía en el hogar del demo) y
+    los bloqueos de salida usan a cc-mem. Happy: promote/demote/transfer (+ vuelta)/salir; 400:
+    role inválido, Invalid membership, ids faltantes; 403: no admin, último admin, owner único,
+    último hogar; 404: no miembro, cabecera ajena, membresía ajena, hogar archived (A-5, psql).
+    C2 (§6.2): 3 carreras A/B de demote en paralelo con dos admins → exactamente una 200 y una
+    403 Not Allowed, admins = 1 (sin estados con 0 admins)."""
+    # M0: setup — CC-Membresias (admin demo) + cc-mem (member por psql, como el viewer) con ids
+    b = check("POST /home/create", "M0 POST /home/create {CC-Membresias} → 201 HOME_DETAIL",
+              request("POST", "/home/create", {"name": "CC-Membresias"}, tok), 201, HOME_DETAIL)
+    hM = b.get("id") if isinstance(b, dict) else None
+    check("POST /user/create", "M0b POST /user/create cc-mem (registro abierto en la demo)",
+          request("POST", "/user/create", {"name": MEM_NAME, "email": MEM_EMAIL,
+                                           "password": MEM_PASSWORD}), 201, USER_CREATE)
+    mauth = request("POST", "/user/auth", {"email": MEM_EMAIL, "password": MEM_PASSWORD})
+    check("POST /user/auth", "M0c POST /user/auth cc-mem", mauth, 200, USER_AUTH)
+    if mauth[0] != 200:
+        sys.exit("no se pudo crear/autenticar cc-mem (¿ALLOW_REGISTRATION=true en la Edge?)")
+    mtok = parse(mauth[1])["token"]
+    mid = parse(mauth[1])["id"]
+    psql("insert into home_membership (home_id, app_user_id, role) values (%d, %d, 'member') "
+         "on conflict (home_id, app_user_id) do nothing" % (hM, mid))
+    b = check("GET /home/membership", "M0d GET /home/membership?id=<CC-Membresias> → [MEMBERSHIP_ITEM]",
+              request("GET", f"/home/membership?id={hM}", None, tok), 200, [MEMBERSHIP_ITEM])
+    ids = {x.get("app_user_id"): x.get("membership_id") for x in b if isinstance(x, dict)}
+    demo_m, mem_m = ids.get(aid), ids.get(mid)
+    value("GET /home/membership", "M0e dos filas: demo admin y cc-mem member, con membership_id",
+          isinstance(b, list) and len(b) == 2 and demo_m is not None and mem_m is not None
+          and any(x.get("app_user_id") == aid and x.get("role") == "admin" for x in b)
+          and any(x.get("app_user_id") == mid and x.get("role") == "member" for x in b),
+          repr(b)[:300])
+    # M1–M2: promote (borra snapshot) y demote (siembra legacy17, A-6) sobre la misma membresía
+    b = check("PATCH /home/membership/role", "M1 promote cc-mem → 200 MEMBERSHIP_STATE",
+              request("PATCH", "/home/membership/role",
+                      {"home_id": hM, "membership_id": mem_m, "role": "admin"}, tok),
+              200, MEMBERSHIP_STATE)
+    value("PATCH /home/membership/role", "M1 role=admin con membership_id/home_id/app_user_id",
+          isinstance(b, dict) and b.get("role") == "admin" and b.get("membership_id") == mem_m
+          and b.get("home_id") == hM and b.get("app_user_id") == mid, repr(b)[:300])
+    b = check("PATCH /home/membership/role", "M2 demote cc-mem → 200 MEMBERSHIP_STATE",
+              request("PATCH", "/home/membership/role",
+                      {"home_id": hM, "membership_id": mem_m, "role": "member"}, tok),
+              200, MEMBERSHIP_STATE)
+    value("PATCH /home/membership/role", "M2 role=member",
+          isinstance(b, dict) and b.get("role") == "member", repr(b)[:300])
+    # M3–M4: transfer atómica demo→cc-mem y vuelta cc-mem→demo (el caller queda member)
+    b = check("POST /home/membership/transfer", "M3 transfer demo→cc-mem → 200 TRANSFER_STATE",
+              request("POST", "/home/membership/transfer",
+                      {"home_id": hM, "to_membership_id": mem_m}, tok), 200, TRANSFER_STATE)
+    value("POST /home/membership/transfer", "M3 from=demo_m to=cc-mem_m",
+          isinstance(b, dict) and b.get("from_membership_id") == demo_m
+          and b.get("to_membership_id") == mem_m, repr(b)[:300])
+    b = check("GET /home/membership", "M3 GET /home/membership tras transfer → [MEMBERSHIP_ITEM]",
+              request("GET", f"/home/membership?id={hM}", None, tok), 200, [MEMBERSHIP_ITEM])
+    value("GET /home/membership", "M3 cc-mem admin y demo member",
+          isinstance(b, list)
+          and any(x.get("app_user_id") == mid and x.get("role") == "admin" for x in b)
+          and any(x.get("app_user_id") == aid and x.get("role") == "member" for x in b),
+          repr(b)[:300])
+    check("POST /home/membership/transfer", "M4 transfer cc-mem→demo (vuelta) → 200 TRANSFER_STATE",
+          request("POST", "/home/membership/transfer",
+                  {"home_id": hM, "to_membership_id": demo_m}, mtok), 200, TRANSFER_STATE)
+    b = check("GET /home/membership", "M4 GET /home/membership restaurado → [MEMBERSHIP_ITEM]",
+              request("GET", f"/home/membership?id={hM}", None, tok), 200, [MEMBERSHIP_ITEM])
+    value("GET /home/membership", "M4 demo admin y cc-mem member otra vez",
+          isinstance(b, list)
+          and any(x.get("app_user_id") == aid and x.get("role") == "admin" for x in b)
+          and any(x.get("app_user_id") == mid and x.get("role") == "member" for x in b),
+          repr(b)[:300])
+    # M6–M11: 400 de la Edge (role inválido, Invalid membership, ids faltantes)
+    check("PATCH /home/membership/role", "M6 role 'owner' → 400 Invalid role",
+          request("PATCH", "/home/membership/role",
+                  {"home_id": hM, "membership_id": mem_m, "role": "owner"}, tok), 400, ERR_INVALID_ROLE)
+    check("PATCH /home/membership/role", "M6b role no-string → 400 Invalid role",
+          request("PATCH", "/home/membership/role",
+                  {"home_id": hM, "membership_id": mem_m, "role": 123}, tok), 400, ERR_INVALID_ROLE)
+    check("POST /home/membership/transfer", "M7 transfer a la propia membresía → 400 Invalid membership",
+          request("POST", "/home/membership/transfer",
+                  {"home_id": hM, "to_membership_id": demo_m}, tok), 400, ERR_INVALID_MEMBERSHIP)
+    check("PATCH /home/membership/role", "M8 role sin membership_id → 400 Membership ID is required",
+          request("PATCH", "/home/membership/role", {"home_id": hM, "role": "member"}, tok),
+          400, ERR_MEMBERSHIP_ID_REQUIRED)
+    check("POST /home/membership/transfer",
+          "M9 transfer sin to_membership_id → 400 Membership ID is required",
+          request("POST", "/home/membership/transfer", {"home_id": hM}, tok),
+          400, ERR_MEMBERSHIP_ID_REQUIRED)
+    check("DELETE /home/membership", "M10 DELETE sin membership_id → 400 Membership ID is required",
+          request("DELETE", "/home/membership", {"home_id": hM}, tok),
+          400, ERR_MEMBERSHIP_ID_REQUIRED)
+    check("PATCH /home/membership/role", "M11 role sin home_id → 400 Home ID is required",
+          request("PATCH", "/home/membership/role", {"membership_id": mem_m, "role": "member"}, tok),
+          400, ERR_HOME_ID_REQUIRED)
+    # M12: 403 no admin — cc-mem (member) en las 3 rutas
+    check("PATCH /home/membership/role", "M12 member degrada a un admin → 403 Not Allowed",
+          request("PATCH", "/home/membership/role",
+                  {"home_id": hM, "membership_id": demo_m, "role": "member"}, mtok),
+          403, ERR_NOT_ALLOWED)
+    check("POST /home/membership/transfer", "M12b member transfiere la administración → 403 Not Allowed",
+          request("POST", "/home/membership/transfer",
+                  {"home_id": hM, "to_membership_id": demo_m}, mtok), 403, ERR_NOT_ALLOWED)
+    check("DELETE /home/membership", "M12c member expulsa a otro → 403 Not Allowed",
+          request("DELETE", "/home/membership", {"home_id": hM, "membership_id": demo_m}, mtok),
+          403, ERR_NOT_ALLOWED)
+    # M13: 403 último admin — demo es el único admin de CC-Membresias
+    check("PATCH /home/membership/role", "M13 último admin se degrada a sí mismo → 403 Not Allowed",
+          request("PATCH", "/home/membership/role",
+                  {"home_id": hM, "membership_id": demo_m, "role": "member"}, tok), 403, ERR_NOT_ALLOWED)
+    check("DELETE /home/membership", "M13b último admin sale → 403 Not Allowed",
+          request("DELETE", "/home/membership", {"home_id": hM, "membership_id": demo_m}, tok),
+          403, ERR_NOT_ALLOWED)
+    # M14: 403 owner único — cc-mem es owner único de un calendario de CC-Membresias y no puede
+    # salir hasta transferir la propiedad (§3.3); lo borra y el bloqueo desaparece
+    b = check("POST /calendar/create", "M14 setup: cc-mem crea CC-M-Cal en CC-Membresias (X-Home-Id)",
+              request("POST", "/calendar/create", {"name": "CC-M-Cal", "color": "#123456"}, mtok, home=hM),
+              201, CAL_DETAIL)
+    m14cal = b.get("id") if isinstance(b, dict) else None
+    check("DELETE /home/membership", "M14 owner único de un calendario sale → 403 Not Allowed",
+          request("DELETE", "/home/membership", {"home_id": hM, "membership_id": mem_m}, mtok),
+          403, ERR_NOT_ALLOWED)
+    check("DELETE /calendar/delete", "M14b cc-mem borra su calendario (owner) → 200 success",
+          request("DELETE", "/calendar/delete", {"id": m14cal}, mtok), 200, SUCCESS)
+    # M15: 403 último hogar — a cc-mem se le borra su hogar personal (psql: home_membership.home_id
+    # no cascades, membresía antes que hogar; el trigger anti-admin ve el hogar borrado y no
+    # bloquea): CC-Membresias queda siendo su único hogar active y la salida se bloquea (D13)
+    cc_home = int(psql("select default_home_id from app_user where id = %d" % mid))
+    psql("begin; "
+         "delete from membership_permission where home_membership_id in "
+         "(select id from home_membership where home_id = %d); "
+         "delete from home_membership where home_id = %d; "
+         "delete from audit_log where home_id = %d; "
+         "delete from home where id = %d; "
+         "commit;" % (cc_home, cc_home, cc_home, cc_home))
+    check("DELETE /home/membership", "M15 último hogar (cc-mem solo vive en CC-Membresias) → 403",
+          request("DELETE", "/home/membership", {"home_id": hM, "membership_id": mem_m}, mtok),
+          403, ERR_NOT_ALLOWED)
+    # M5: salir (cualquier miembro, §4.1) — el viewer abandona su membresía en el hogar original
+    # del demo (el demo no lo abandona en ningún escenario, §6.3)
+    orig_home = int(psql("select default_home_id from app_user where id = %d" % aid))
+    viewer_m = int(psql("select id from home_membership where home_id = %d and app_user_id = %d"
+                        % (orig_home, vid)))
+    check("DELETE /home/membership", "M5 viewer sale del hogar del demo → 200 success",
+          request("DELETE", "/home/membership",
+                  {"home_id": orig_home, "membership_id": viewer_m}, vtok), 200, SUCCESS)
+    b = check("GET /home/membership", "M5b GET /home/membership tras la salida → [MEMBERSHIP_ITEM]",
+              request("GET", f"/home/membership?id={orig_home}", None, tok), 200, [MEMBERSHIP_ITEM])
+    value("GET /home/membership", "M5b la membresía del viewer ya no aparece",
+          isinstance(b, list) and all(x.get("app_user_id") != vid for x in b), repr(b)[:300])
+    # M16: 404 no miembro — el viewer no es miembro de CC-Membresias (guard fn_require_member)
+    check("PATCH /home/membership/role", "M16 role por no miembro → 404 Not Found",
+          request("PATCH", "/home/membership/role",
+                  {"home_id": hM, "membership_id": mem_m, "role": "member"}, vtok), 404, ERR_NOT_FOUND)
+    check("POST /home/membership/transfer", "M16b transfer por no miembro → 404 Not Found",
+          request("POST", "/home/membership/transfer",
+                  {"home_id": hM, "to_membership_id": mem_m}, vtok), 404, ERR_NOT_FOUND)
+    check("DELETE /home/membership", "M16c DELETE por no miembro → 404 Not Found",
+          request("DELETE", "/home/membership", {"home_id": hM, "membership_id": mem_m}, vtok),
+          404, ERR_NOT_FOUND)
+    # M17: 404 cabecera ajena — X-Home-Id del hogar original ≠ home_id del body (demo es miembro
+    # de ambos: pasa el guard de la Edge y falla fn_home_mutation_guard de la RPC)
+    for route, name, method, path, body in [
+        ("PATCH /home/membership/role", "M17 role", "PATCH", "/home/membership/role",
+         {"home_id": hM, "membership_id": mem_m, "role": "member"}),
+        ("POST /home/membership/transfer", "M17b transfer", "POST", "/home/membership/transfer",
+         {"home_id": hM, "to_membership_id": mem_m}),
+        ("DELETE /home/membership", "M17c DELETE", "DELETE", "/home/membership",
+         {"home_id": hM, "membership_id": mem_m}),
+    ]:
+        check(route, name + " con X-Home-Id ajena → 404 Not Found",
+              request(method, path, body, tok, home=orig_home), 404, ERR_NOT_FOUND)
+    # M18: 404 membresía ajena — membership_id de otro hogar (la del demo en su hogar original)
+    other_m = int(psql("select id from home_membership where home_id = %d and app_user_id = %d"
+                       % (orig_home, aid)))
+    check("PATCH /home/membership/role", "M18 role con membership de otro hogar → 404 Not Found",
+          request("PATCH", "/home/membership/role",
+                  {"home_id": hM, "membership_id": other_m, "role": "member"}, tok), 404, ERR_NOT_FOUND)
+    check("POST /home/membership/transfer", "M18b transfer a membership de otro hogar → 404 Not Found",
+          request("POST", "/home/membership/transfer",
+                  {"home_id": hM, "to_membership_id": other_m}, tok), 404, ERR_NOT_FOUND)
+    check("DELETE /home/membership", "M18c DELETE con membership de otro hogar → 404 Not Found",
+          request("DELETE", "/home/membership", {"home_id": hM, "membership_id": other_m}, tok),
+          404, ERR_NOT_FOUND)
+    # M19: 404 hogar archived (A-5) — la API no crea archived: alta por psql con membresía del demo
+    # (si el guard no filtrara archived, la operación tendría éxito y el caso fallaría)
+    arch_h = int(psql("insert into home (name, status, is_personal, created_by) "
+                      "values ('CC-M-Archived', 'archived', false, %d) returning id" % aid))
+    arch_m = int(psql("insert into home_membership (home_id, app_user_id, role) "
+                      "values (%d, %d, 'admin') returning id" % (arch_h, aid)))
+    check("PATCH /home/membership/role", "M19 role sobre hogar archived → 404 Not Found",
+          request("PATCH", "/home/membership/role",
+                  {"home_id": arch_h, "membership_id": arch_m, "role": "member"}, tok),
+          404, ERR_NOT_FOUND)
+    check("POST /home/membership/transfer", "M19b transfer sobre hogar archived → 404 Not Found",
+          request("POST", "/home/membership/transfer",
+                  {"home_id": arch_h, "to_membership_id": arch_m}, tok), 404, ERR_NOT_FOUND)
+    check("DELETE /home/membership", "M19c DELETE sobre hogar archived → 404 Not Found",
+          request("DELETE", "/home/membership", {"home_id": arch_h, "membership_id": arch_m}, tok),
+          404, ERR_NOT_FOUND)
+    # C2 (§6.2): dos admins se degradan en paralelo (A demote B, B demote A) — la carrera HTTP no
+    # es determinista pero el resultado sí: exactamente una 200 y una 403, admins = 1. ×3.
+    check("PATCH /home/membership/role", "C2 setup: cc-mem vuelve a admin (dos admins)",
+          request("PATCH", "/home/membership/role",
+                  {"home_id": hM, "membership_id": mem_m, "role": "admin"}, tok), 200, MEMBERSHIP_STATE)
+    for i in (1, 2, 3):
+        res = {}
+
+        def demote(who, token, membership):
+            res[who] = request("PATCH", "/home/membership/role",
+                               {"home_id": hM, "membership_id": membership, "role": "member"}, token)
+
+        threads = [threading.Thread(target=demote, args=("demo", tok, mem_m)),
+                   threading.Thread(target=demote, args=("cc-mem", mtok, demo_m))]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        pair = sorted((res["demo"], res["cc-mem"]), key=lambda r: r[0])
+        value("PATCH /home/membership/role",
+              f"C2.{i} carrera A/B en paralelo: exactamente una 200 y una 403 Not Allowed",
+              [r[0] for r in pair] == [200, 403] and pair[1][1] == ERR_NOT_ALLOWED, repr(res)[:300])
+        b = check("GET /home/membership", f"C2.{i} GET /home/membership → [MEMBERSHIP_ITEM]",
+                  request("GET", f"/home/membership?id={hM}", None, tok), 200, [MEMBERSHIP_ITEM])
+        admins = [x for x in b if isinstance(x, dict) and x.get("role") == "admin"]
+        value("GET /home/membership", f"C2.{i} admins = 1 (sin estados con 0 admins)",
+              len(admins) == 1, repr(b)[:300])
+        if i < 3:  # restaurar dos admins para la siguiente carrera
+            surv = admins[0].get("app_user_id") if admins else None
+            check("PATCH /home/membership/role",
+                  f"C2.{i} el admin sobreviviente repromueve al degradado",
+                  request("PATCH", "/home/membership/role",
+                          {"home_id": hM, "membership_id": demo_m if surv == mid else mem_m,
+                           "role": "admin"}, tok if surv == aid else mtok), 200, MEMBERSHIP_STATE)
+
+
+scenario_membership()
+
+
+# ── Resumen: cobertura de las 43 rutas legacy + 12 rutas home y rutas con regresión ──
 
 missing = [r for r in ROUTES + HOME_ROUTES if r not in covered]
 fails = results.count(False)
@@ -1176,5 +1449,5 @@ if missing:
 if regressed:
     print("Rutas con regresión: " + ", ".join(regressed))
 if len(results) != EXPECTED_CASES:
-    print(f"conteo de casos: {len(results)} (esperado {EXPECTED_CASES}, A-7: 106 + 2 + 43 home)")
+    print(f"conteo de casos: {len(results)} (esperado {EXPECTED_CASES}: 207 de 1.5 + 59 del bloque M/C2 de 1.6)")
 sys.exit(1 if fails or missing or len(results) != EXPECTED_CASES else 0)

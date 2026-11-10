@@ -5,7 +5,8 @@
 // rpcPassHome: Not Found → 404 (D16), Not Allowed → 403, validación → 400.
 import { getInput, inputInt, inputString, inputTimezone, phpEmpty, phpInput, type PhpInput } from "../_shared/contract.ts";
 import {
-    error, errHomeIdRequired, errHomeMemberIdRequired, errInvalidTimezone, errNameRequired,
+    error, errHomeIdRequired, errHomeMemberIdRequired, errHomeMembershipIdRequired,
+    errInvalidRole, errInvalidTimezone, errNameRequired,
     errPersonColorInvalid, errPersonNameRequired, rpcPassHome,
 } from "../_shared/errors.ts";
 import { rpc } from "../_shared/supabase.ts";
@@ -128,5 +129,47 @@ export const handleHomeMemberUpdate = async (req: Request, token: string): Promi
     if (color instanceof Response) return color;
     return rpcPassHome(await rpc("update_home_member", {
         p_id: id, p_kind: kind, p_name: name, p_color: color, p_status: status,
+    }, token));
+};
+
+// M4 (1.6 §6.1): PATCH /home/membership/role {home_id, membership_id, role (req, admin|member)} →
+// 200 MEMBERSHIP_STATE. Validación antes de la RPC: ids → 400 del campo; role ausente, no string o
+// fuera de admin/member → 'Invalid role' 400 (la RPC repite la barrera con coalesce null-safe).
+export const handleHomeMembershipRole = async (req: Request, token: string): Promise<Response> => {
+    const input = await phpInput(req);
+    const homeId = inputInt(input, "home_id");
+    if (phpEmpty(homeId)) return errHomeIdRequired();
+    const membershipId = inputInt(input, "membership_id");
+    if (phpEmpty(membershipId)) return errHomeMembershipIdRequired();
+    const roleRaw = getInput(input, "role");
+    if (roleRaw !== "admin" && roleRaw !== "member") return errInvalidRole();
+    return rpcPassHome(await rpc("set_home_membership_role", {
+        p_home_id: homeId, p_membership_id: membershipId, p_role: roleRaw,
+    }, token));
+};
+
+// M5: POST /home/membership/transfer {home_id, to_membership_id (req)} → 200 (atómico, §3.3 del
+// diseño; el caller queda member). A-1: la Edge parsea body en POST/DELETE igual que php://input.
+export const handleHomeMembershipTransfer = async (req: Request, token: string): Promise<Response> => {
+    const input = await phpInput(req);
+    const homeId = inputInt(input, "home_id");
+    if (phpEmpty(homeId)) return errHomeIdRequired();
+    const toMembershipId = inputInt(input, "to_membership_id");
+    if (phpEmpty(toMembershipId)) return errHomeMembershipIdRequired();
+    return rpcPassHome(await rpc("transfer_home_admin", {
+        p_home_id: homeId, p_to_membership_id: toMembershipId,
+    }, token));
+};
+
+// M6: DELETE /home/membership {home_id, membership_id (req)} → 200 SUCCESS (salir o expulsar;
+// A-1: phpInput parsea body en DELETE, como DELETE /calendar/user)
+export const handleHomeMembershipRemove = async (req: Request, token: string): Promise<Response> => {
+    const input = await phpInput(req);
+    const homeId = inputInt(input, "home_id");
+    if (phpEmpty(homeId)) return errHomeIdRequired();
+    const membershipId = inputInt(input, "membership_id");
+    if (phpEmpty(membershipId)) return errHomeMembershipIdRequired();
+    return rpcPassHome(await rpc("remove_home_membership", {
+        p_home_id: homeId, p_membership_id: membershipId,
     }, token));
 };

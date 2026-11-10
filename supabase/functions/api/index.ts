@@ -56,7 +56,8 @@ import {
 } from "./usecases/tasks.ts";
 import {
     handleHomeCreate, handleHomeDefault, handleHomeDetail, handleHomeIndex, handleHomeMemberCreate,
-    handleHomeMemberIndex, handleHomeMemberUpdate, handleHomeMembership, handleHomeUpdate,
+    handleHomeMemberIndex, handleHomeMemberUpdate, handleHomeMembership, handleHomeMembershipRemove,
+    handleHomeMembershipRole, handleHomeMembershipTransfer, handleHomeUpdate,
 } from "./usecases/homes.ts";
 
 type Handler = (req: Request, token: string, uid: string) => Promise<Response> | Response;
@@ -120,6 +121,9 @@ const ROUTES: Record<string, { auth: boolean; home?: boolean; handler: Handler }
     "PATCH /home/update": { auth: true, home: true, handler: (req, t) => handleHomeUpdate(req, t) },
     "PATCH /home/default": { auth: true, home: true, handler: (req, t) => handleHomeDefault(req, t) },
     "GET /home/membership": { auth: true, home: true, handler: (req, t) => handleHomeMembership(req, t) },
+    "PATCH /home/membership/role": { auth: true, home: true, handler: (req, t) => handleHomeMembershipRole(req, t) },
+    "POST /home/membership/transfer": { auth: true, home: true, handler: (req, t) => handleHomeMembershipTransfer(req, t) },
+    "DELETE /home/membership": { auth: true, home: true, handler: (req, t) => handleHomeMembershipRemove(req, t) },
     "GET /home/member": { auth: true, home: true, handler: (req, t) => handleHomeMemberIndex(req, t) },
     "POST /home/member/create": { auth: true, home: true, handler: (req, t) => handleHomeMemberCreate(req, t) },
     "PATCH /home/member/update": { auth: true, home: true, handler: (req, t) => handleHomeMemberUpdate(req, t) },

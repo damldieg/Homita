@@ -27,6 +27,9 @@ const RPC_STATUS: Record<string, number> = {
     "Name is required": 400,
     // 1.5: kind/status inválido o pet vinculado (0017; plan §4.5, §6.1)
     "Invalid member": 400,
+    // 1.6: rol fuera de admin/member y transferencia a la propia membresía (0018; plan §3.5)
+    "Invalid role": 400,
+    "Invalid membership": 400,
 };
 
 // Router::error de PHP: InvalidArgumentException → 400; el resto → 500 con el mensaje
@@ -69,6 +72,10 @@ export const errInvalidHome = (): Response => error("Invalid home", 400);
 // home/member (1.5 §6.1): id de miembro; los tipos JSON no-string de kind/status emiten
 // 'Invalid member' desde homes.ts (el mensaje vive una sola vez en errors.ts: RPC_STATUS)
 export const errHomeMemberIdRequired = (): Response => error("Member ID is required", 400);
+
+// home/membership (1.6 §6.1): id de home_membership (lo devuelve GET /home/membership) y role
+export const errHomeMembershipIdRequired = (): Response => error("Membership ID is required", 400);
+export const errInvalidRole = (): Response => error("Invalid role", 400);
 
 // user/create (UserCreate.php)
 export const errUserFieldsRequired = (): Response => error("Name, email and password are required", 400);
