@@ -397,6 +397,16 @@ struct HomitaRadioGroup<ID: Hashable & Sendable>: View {
     let items: [(id: ID, title: String)]
 
     var body: some View {
+        // ComponentsKit exige al menos una opción (assertionFailure en debug): sin opciones no se pinta.
+        if items.isEmpty {
+            EmptyView()
+        } else {
+            radioContent
+        }
+    }
+
+    @ViewBuilder
+    private var radioContent: some View {
         #if canImport(ComponentsKit)
         SURadioGroup(selectedId: $selection, model: radioModel)
         #else

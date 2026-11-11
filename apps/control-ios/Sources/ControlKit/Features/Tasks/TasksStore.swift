@@ -8,6 +8,8 @@ public final class TasksStore {
     public private(set) var taskLists: [TaskListEntry] = []
     public private(set) var tasks: [TaskEntry] = []
     public private(set) var members: [MemberEntry] = []
+    /// Personas invitables a una tarea (selector del editor, 0025).
+    public private(set) var persons: [PersonEntry] = []
     public private(set) var isLoading = false
     /// Primera carga de listas y de tareas completada (loader hasta entonces).
     public private(set) var hasLoadedLists = false
@@ -18,8 +20,10 @@ public final class TasksStore {
 
     private let taskListsRepo: TaskListRepository
     private let tasksRepo: TaskRepository
+    private let personsRepo: PersonRepository?
 
-    public init(taskLists: TaskListRepository, tasks: TaskRepository) {
+    public init(taskLists: TaskListRepository, tasks: TaskRepository, persons: PersonRepository? = nil) {
+        self.personsRepo = persons
         self.taskListsRepo = taskLists
         self.tasksRepo = tasks
     }
@@ -51,7 +55,16 @@ public final class TasksStore {
     }
 
     /// Alta rápida con guard de título duplicado por lista (paridad con Android).
-    public func createTask(title: String, listId: Int) async {
+    public func loadPersons() async {
+        guard let personsRepo else { return }
+        do {
+            persons = try await personsRepo.index()
+        } catch {
+            report(error)
+        }
+    }
+
+    public func createTask(title: String, listId: Int, personIds: [Int]? = nil) async {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let duplicate = tasks.contains {
@@ -62,16 +75,16 @@ public final class TasksStore {
             return
         }
         do {
-            _ = try await tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed))
+            _ = try await tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed, person_ids: personIds))
             await loadTasks()
         } catch {
             report(error)
         }
     }
 
-    public func updateTask(_ task: TaskEntry, title: String) async {
+    public func updateTask(_ task: TaskEntry, title: String, personIds: [Int]? = nil) async {
         do {
-            _ = try await tasksRepo.update(UpdateTaskRequest(id: task.id, title: title))
+            _ = try await tasksRepo.update(UpdateTaskRequest(id: task.id, title: title, person_ids: personIds))
             await loadTasks()
         } catch {
             report(error)

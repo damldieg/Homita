@@ -8,7 +8,7 @@ public struct TasksRootView: View {
 
     public init(services: AppServices) {
         self.services = services
-        _store = State(initialValue: TasksStore(taskLists: services.taskLists, tasks: services.tasks))
+        _store = State(initialValue: TasksStore(taskLists: services.taskLists, tasks: services.tasks, persons: services.persons))
     }
 
     public var body: some View {
@@ -28,6 +28,7 @@ public struct TasksRootView: View {
             .task {
                 await store.loadLists()
                 await store.loadTasks()
+                await store.loadPersons()
             }
             .errorAlert($store.errorMessage)
         }
@@ -165,15 +166,15 @@ struct TasksView: View {
         #endif
         .sheet(isPresented: $showCreateTask) {
             NavigationStack {
-                TaskEditorView(taskLists: store.taskLists, task: nil) { title, listId in
-                    Task { await store.createTask(title: title, listId: listId) }
+                TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: nil) { title, listId, personIds in
+                    Task { await store.createTask(title: title, listId: listId, personIds: personIds) }
                 }
             }
         }
         .sheet(item: $taskToEdit) { task in
             NavigationStack {
-                TaskEditorView(taskLists: store.taskLists, task: task) { title, _ in
-                    Task { await store.updateTask(task, title: title) }
+                TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: task) { title, _, personIds in
+                    Task { await store.updateTask(task, title: title, personIds: personIds) }
                 } onDelete: {
                     Task { await store.deleteTask(task) }
                 }
