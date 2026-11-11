@@ -17,10 +17,12 @@ apps/control-ios/scripts/gen-config.sh   # escribe Config.xcconfig (permisos 600
 ```sh
 cd apps/control-ios
 swift build    # compila ControlKit en el Mac (macOS está solo para esto y swift test; la app es iOS)
-swift test     # 102 tests XCTest: Flex, fechas PHP, reloj local, modelos, red/auth, contexto de hogar, reglas de rutina
+swift test     # 154 tests XCTest: Flex, fechas PHP, reloj local, modelos, red/auth, contexto de hogar, administración del hogar, reglas de rutina
 ```
 
-**Contexto de hogar (1.11).** Tras el login/arranque `HomeContextStore` carga `GET home` y fija el hogar activo (persistido en Keychain bajo `active_home_id` si sigue en la lista; si no el `is_default`; si no el primero). `APIClient` envía `X-Home-Id` solo en rutas autenticadas `home/*`, excepto `GET home`, `POST home/create` y `PATCH home/default`. Sin hogares, las pestañas Tareas y Calendario muestran «Crear hogar»; Perfil siempre está accesible. El cierre de sesión pasa por `AppServices.signOut()`, que limpia el hogar activo. Sin selector de hogar hasta 1.12.
+**Contexto de hogar (1.11).** Tras el login/arranque `HomeContextStore` carga `GET home` y fija el hogar activo (persistido en Keychain bajo `active_home_id` si sigue en la lista; si no el `is_default`; si no el primero). `APIClient` envía `X-Home-Id` solo en rutas autenticadas `home/*`, excepto `GET home`, `POST home/create` y `PATCH home/default`. Sin hogares, las pestañas Tareas y Calendario muestran «Crear hogar»; Perfil siempre está accesible. El cierre de sesión pasa por `AppServices.signOut()`, que limpia el hogar activo. Sin selector de hogar.
+
+**Administración del hogar (1.12).** Perfil > Hogar (solo con hogar activo) abre Configuración (nombre y zona IANA; edita solo admin), Administradores (rol, transferir, quitar, salir con confirmación), Accesos (permisos por miembro, solo admin) y Auditoría (solo admin, «Cargar más» por `before_id`). Un miembro ve configuración y administradores sin acciones. El cliente solo oculta; el servidor decide (403 con mensaje de administrador). Tras salir, transferir o cambiar el propio rol se recarga `homeContext`. Hogar personal: se puede renombrar; transferir, quitar y salir no se ofrecen. UI sin verificar en simulador (no hay `.xcodeproj`).
 
 Con el proyecto Xcode creado: `xcodebuild -scheme ControlApp -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build` y `xcodebuild test` en un simulador iOS 17+.
 

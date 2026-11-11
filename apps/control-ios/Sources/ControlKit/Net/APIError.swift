@@ -26,6 +26,20 @@ public enum APIError: Error, Equatable {
         return false
     }
 
+    /// Mensaje para las pantallas de administración del hogar (`home/*`): el permiso exigido es
+    /// admin, no propietario. El resto delega en `userMessage`.
+    public var homeAdminMessage: String {
+        if isOwnerOnly { return "Solo un administrador puede realizar esta acción" }
+        return userMessage
+    }
+
+    /// Mensaje para degradar/quitar/salir: un 403 `Not Allowed` puede ser falta de permiso o último
+    /// admin y el servidor no lo distingue, así que el texto es neutro.
+    public var membershipActionMessage: String {
+        if isOwnerOnly { return "No se puede completar la acción: el hogar debe conservar al menos un administrador" }
+        return userMessage
+    }
+
     /// Mensaje en español para la UI.
     public var userMessage: String {
         switch self {
