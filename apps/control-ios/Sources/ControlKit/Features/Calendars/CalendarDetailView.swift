@@ -25,6 +25,36 @@ struct CalendarDetailView: View {
         _dashboard = State(initialValue: calendar?.showsInDashboard ?? true)
     }
 
+    /// Eventos y rutinas vinculados a este calendario (A4). Vacío con mensaje si no hay ninguno.
+    private var linkedPanel: some View {
+        HomitaPanel("Eventos y rutinas", systemImage: "list.bullet",
+                    count: store.linkedEvents.count + store.linkedRoutines.count) {
+            if store.linkedLoaded && store.linkedEvents.isEmpty && store.linkedRoutines.isEmpty {
+                HomitaFootnote(text: "No hay eventos próximos ni rutinas vinculados a este calendario.")
+            }
+            ForEach(store.linkedEvents, id: \.id) { event in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(event.title)
+                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                        .foregroundStyle(Palette.ink)
+                    Text(DateDisplay.dateTime(event.date_at))
+                        .font(HomitaFont.geist(13, relativeTo: .footnote))
+                        .foregroundStyle(Palette.inkSoft)
+                }
+            }
+            ForEach(store.linkedRoutines, id: \.id) { routine in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(routine.title)
+                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                        .foregroundStyle(Palette.ink)
+                    Text("Rutina · \(routine.time)")
+                        .font(HomitaFont.geist(13, relativeTo: .footnote))
+                        .foregroundStyle(Palette.inkSoft)
+                }
+            }
+        }
+    }
+
     var body: some View {
         HomitaForm {
             HomitaPanel("Calendario", systemImage: "calendar") {
@@ -36,6 +66,9 @@ struct CalendarDetailView: View {
             HomitaPanel("Visible en", systemImage: "eye") {
                 HomitaToggle(title: "Widget", isOn: $widget)
                 HomitaToggle(title: "Dashboard", isOn: $dashboard)
+            }
+            if calendar != nil {
+                linkedPanel
             }
             HomitaButton(
                 title: calendar == nil ? "Crear calendario" : "Guardar",
@@ -70,6 +103,7 @@ struct CalendarDetailView: View {
         .task {
             if let calendar {
                 await store.loadMembers(calendarId: calendar.id)
+                await store.loadLinked(calendarId: calendar.id)
             }
         }
         .homitaConfirm("Se eliminará el calendario con sus eventos.", isPresented: $showDeleteConfirm, confirmTitle: "Eliminar calendario") {

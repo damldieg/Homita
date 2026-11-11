@@ -7,6 +7,8 @@ public final class EventStore {
     public private(set) var upcoming: [EventEntry] = []
     public private(set) var past: [EventEntry] = []
     public private(set) var isLoading = false
+    /// Primera carga completada: hasta entonces la vista muestra el loader, no el estado vacío.
+    public private(set) var hasLoaded = false
     public var errorMessage: String?
     public var calendarFilterId: Int?
     public var searchText: String = ""
@@ -34,7 +36,7 @@ public final class EventStore {
 
     public func load() async {
         isLoading = true
-        defer { isLoading = false }
+        defer { isLoading = false; hasLoaded = true }
         generation &+= 1
         let localNow = clock().localNowEpoch
         let search = searchText.trimmingCharacters(in: .whitespacesAndNewlines)

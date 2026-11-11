@@ -65,7 +65,7 @@ export const errAuthFieldsRequired = (): Response => error("Email and password a
 export const errInvalidCredentials = (): Response => error("Invalid credentials", 401);
 export const errUnauthorized = (): Response => error("Unauthorized", 401);
 export const errRouteNotFound = (): Response => error("Not Found", 404);
-export const errPhpNotFound = (): Response => error("Not Found", 500);
+export const errNotFound500 = (): Response => error("Not Found", 500);
 export const errInvalidTimezone = (): Response => error("Invalid timezone", 400);
 export const errNotAllowed = (): Response => error("Not Allowed", 403);
 export const errUserCannotRemoveThemselves = (): Response => error("User cannot remove themselves", 400);

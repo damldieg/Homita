@@ -8,7 +8,7 @@ public struct TasksRootView: View {
 
     public init(services: AppServices) {
         self.services = services
-        _store = State(initialValue: TasksStore(taskLists: services.taskLists, tasks: services.tasks))
+        _store = State(initialValue: TasksStore(taskLists: services.taskLists, tasks: services.tasks, persons: services.persons))
     }
 
     public var body: some View {
@@ -28,6 +28,7 @@ public struct TasksRootView: View {
             .task {
                 await store.loadLists()
                 await store.loadTasks()
+                await store.loadPersons()
             }
             .errorAlert($store.errorMessage)
         }
@@ -112,17 +113,21 @@ struct TasksView: View {
                 }
             }
 
-            if store.pendingTasks.isEmpty && store.completedTasks.isEmpty && !store.isLoading {
-                if store.listFilterId == nil {
-                    Button("Nueva tarea") {
-                        showCreateTask = true
-                    }
-                    .homitaRow()
-                } else {
-                    Text("Sin tareas")
-                        .foregroundStyle(Palette.inkSoft)
-                        .homitaRow()
+            if !store.hasLoadedTasks || (store.isLoading && store.pendingTasks.isEmpty && store.completedTasks.isEmpty) {
+                HomitaLoadingCard(message: "Cargando tareas…").homitaRow()
+            }
+            if store.hasLoadedTasks && store.pendingTasks.isEmpty && store.completedTasks.isEmpty && !store.isLoading {
+                HomitaEmptyState(
+                    illustration: .tasks,
+                    title: "Sin tareas",
+                    message: store.listFilterId == nil
+                        ? "Crea tu primera tarea y ponle una lista para tenerla a mano."
+                        : "Esta lista no tiene tareas todavía.",
+                    actionTitle: "Nueva tarea"
+                ) {
+                    showCreateTask = true
                 }
+                .homitaRow()
             }
         }
         .homitaList()
@@ -161,15 +166,15 @@ struct TasksView: View {
         #endif
         .sheet(isPresented: $showCreateTask) {
             NavigationStack {
-                TaskEditorView(taskLists: store.taskLists, task: nil) { title, listId in
-                    Task { await store.createTask(title: title, listId: listId) }
+                TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: nil) { title, listId, personIds in
+                    Task { await store.createTask(title: title, listId: listId, personIds: personIds) }
                 }
             }
         }
         .sheet(item: $taskToEdit) { task in
             NavigationStack {
-                TaskEditorView(taskLists: store.taskLists, task: task) { title, _ in
-                    Task { await store.updateTask(task, title: title) }
+                TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: task) { title, _, personIds in
+                    Task { await store.updateTask(task, title: title, personIds: personIds) }
                 } onDelete: {
                     Task { await store.deleteTask(task) }
                 }
@@ -189,6 +194,21 @@ struct TaskListsView: View {
 
     var body: some View {
         List {
+            if !store.hasLoadedLists || (store.isLoading && store.taskLists.isEmpty) {
+                HomitaLoadingCard(message: "Cargando listas…").homitaRow()
+            }
+            if store.hasLoadedLists && store.taskLists.isEmpty && !store.isLoading {
+                HomitaEmptyState(
+                    illustration: .lists,
+                    title: "Sin listas",
+                    message: "Las listas agrupan tus tareas: compra, casa, trabajo…",
+                    actionTitle: "Nueva lista"
+                ) {
+                    showCreateList = true
+                }
+                .homitaRow()
+            }
+            if !store.taskLists.isEmpty {
             Section {
                 ForEach(store.taskLists, id: \.id) { list in
                     NavigationLink {
@@ -225,6 +245,7 @@ struct TaskListsView: View {
                 }
                 .buttonStyle(.plain)
                 .homitaRow()
+            }
             }
         }
         .homitaList()
@@ -263,6 +284,7 @@ struct TaskRow: View {
                         .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
                         .foregroundStyle(task.isCompleted ? Palette.inkMuted : Palette.ink)
                         .strikethrough(task.isCompleted)
+                    AssignedPersonsLine(persons: task.persons)
                     if showListName, let name = task.task_list_name {
                         HomitaBadge(title: name, tintHex: task.task_list_color ?? Palette.accentHex)
                             .padding(.top, 2)

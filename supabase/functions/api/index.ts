@@ -30,7 +30,7 @@
 // Layout: entrypoint fino (routing + guard Bearer + dispatch) + usecases/{auth,calendars,persons,
 // routines,events,task-lists,tasks}.ts + _shared/{supabase,contract,errors,validate}.ts.
 
-import { error, errInvalidHome, errPhpNotFound, errRouteHomeNotFound, errRouteNotFound, errUnauthorized } from "./_shared/errors.ts";
+import { error, errInvalidHome, errNotFound500, errRouteHomeNotFound, errRouteNotFound, errUnauthorized } from "./_shared/errors.ts";
 import { checkHomeMember, parseHomeHeader, runWithHome } from "./_shared/home.ts";
 import { verifyUser } from "./_shared/supabase.ts";
 import {
@@ -69,7 +69,7 @@ import {
 type Handler = (req: Request, token: string, uid: string) => Promise<Response> | Response;
 
 // `home: true` (rutas /home/*, 1.4): el "no miembro" del contexto X-Home-Id se mapea a 404
-// (D16) en vez del 500 legacy (errPhpNotFound). `homeContext: false` (1.15, D-015): la ruta
+// (D16) en vez del 500 legacy (errNotFound500). `homeContext: false` (1.15, D-015): la ruta
 // ignora el contexto de hogar (sin comprobar membresía ni propagar la cabecera a PostgREST).
 const ROUTES: Record<string, { auth: boolean; home?: boolean; homeContext?: boolean; handler: Handler }> = {
     "GET /config": { auth: false, handler: () => handleConfig() },
@@ -178,7 +178,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
             if (hp === "INVALID") return errInvalidHome();
             if (hp.present && route.homeContext !== false) {
                 if (!(await checkHomeMember(hp.id, token))) {
-                    return route.home ? errRouteHomeNotFound() : errPhpNotFound();
+                    return route.home ? errRouteHomeNotFound() : errNotFound500();
                 }
                 activeHome = hp.id;
             }

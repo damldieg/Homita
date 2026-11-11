@@ -154,8 +154,8 @@ struct TaskListDetailView: View {
         }
         .sheet(item: $taskToEdit) { task in
             NavigationStack {
-                TaskEditorView(taskLists: store.taskLists, task: task) { title, _ in
-                    Task { await store.updateTask(task, title: title) }
+                TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: task) { title, _, personIds in
+                    Task { await store.updateTask(task, title: title, personIds: personIds) }
                 } onDelete: {
                     Task { await store.deleteTask(task) }
                 }

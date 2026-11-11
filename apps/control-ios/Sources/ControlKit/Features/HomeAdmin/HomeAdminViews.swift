@@ -795,7 +795,7 @@ struct HomeInvitationsView: View {
         .refreshable { await store.load() }
         .errorAlert($store.errorMessage)
         .sheet(isPresented: $showCreate) {
-            NavigationStack { InvitationCreateView(store: store, callerRole: home.role) }
+            NavigationStack { InvitationCreateView(store: store, callerRole: home.role, homeName: home.name) }
         }
         .homitaConfirm("¿Revocar la invitación? El código dejará de funcionar.",
                        isPresented: Binding(get: { toRevoke != nil }, set: { if !$0 { toRevoke = nil } }),
@@ -836,6 +836,7 @@ struct HomeInvitationsView: View {
 struct InvitationCreateView: View {
     let store: InvitationStore
     let callerRole: String
+    let homeName: String
 
     @Environment(\.dismiss) private var dismiss
     @State private var kind: MemberKind
@@ -843,9 +844,10 @@ struct InvitationCreateView: View {
     @State private var email = ""
     @State private var isWorking = false
 
-    init(store: InvitationStore, callerRole: String) {
+    init(store: InvitationStore, callerRole: String, homeName: String) {
         self.store = store
         self.callerRole = callerRole
+        self.homeName = homeName
         _kind = State(initialValue: InvitationRules.allowedKinds(callerRole: callerRole).first ?? .guest)
     }
 
@@ -880,7 +882,17 @@ struct InvitationCreateView: View {
                     .textSelection(.enabled)
                 HomitaFootnote(text: "Solo se muestra una vez. Compártelo con la persona invitada; caduca en 7 días.")
             }
-            HomitaButton(title: "Copiar", kind: .secondary) { copy(code) }
+            HomitaButton(title: "Copiar código", kind: .secondary) { copy(code) }
+            HomitaButton(title: "Enviar por WhatsApp", kind: .secondary) { openWhatsApp(code) }
+            ShareLink(item: Self.inviteMessage(code: code, homeName: homeName)) {
+                Label("Compartir invitación", systemImage: "square.and.arrow.up")
+                    .font(HomitaFont.geist(17, weight: .semibold, relativeTo: .body))
+                    .foregroundStyle(Palette.ink)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(Palette.card, in: RoundedRectangle(cornerRadius: 18))
+                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(Palette.line, lineWidth: 1.5))
+            }
+            .accessibilityHint("Abre las opciones para enviar el código por mensaje, correo u otra app")
         }
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
@@ -888,6 +900,50 @@ struct InvitationCreateView: View {
                     .foregroundStyle(Palette.ink)
             }
         }
+    }
+
+    /// Texto que se envía: explica qué hacer al recibirlo, sin depender de que el código se entienda solo.
+    static func inviteMessage(code: String, homeName: String) -> String {
+        "Te invito a unirte a mi hogar «\(homeName)» en Homita.\n\n"
+            + "1. Abre Homita y entra con tu cuenta (o crea una).\n"
+            + "2. Ve a Perfil › Unirse a un hogar con un código.\n"
+            + "3. Pega este código: \(code)\n\n"
+            + "El código caduca en 7 días y solo sirve una vez."
+    }
+
+    /// Abre WhatsApp con el texto de la invitación (A7). Si no se puede abrir (no instalado), cae a la
+    /// hoja de compartir del sistema con el mismo texto.
+    private func openWhatsApp(_ code: String) {
+        let text = Self.inviteMessage(code: code, homeName: homeName)
+        // Codifica también & + = (el nombre del hogar puede traerlos): solo quedan sin escapar alfanuméricos y -._~.
+        let safe = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
+        guard let encoded = text.addingPercentEncoding(withAllowedCharacters: safe),
+              let url = URL(string: "whatsapp://send?text=\(encoded)") else {
+            presentShareSheet(text)
+            return
+        }
+        #if canImport(UIKit)
+        UIApplication.shared.open(url) { opened in
+            if !opened {
+                Task { @MainActor in presentShareSheet(text) }
+            }
+        }
+        #endif
+    }
+
+    /// Hoja de compartir nativa (UIKit) sobre la vista más arriba: el fallback de WhatsApp.
+    private func presentShareSheet(_ text: String) {
+        #if canImport(UIKit)
+        let controller = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard let root = scenes.flatMap(\.windows).first(where: \.isKeyWindow)?.rootViewController else {
+            store.errorMessage = "No se pudo abrir la hoja de compartir."
+            return
+        }
+        var top = root
+        while let presented = top.presentedViewController { top = presented }
+        top.present(controller, animated: true)
+        #endif
     }
 
     private func copy(_ text: String?) {

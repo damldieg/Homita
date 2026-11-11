@@ -22,19 +22,21 @@ struct RoutineListView: View {
 
     var body: some View {
         List {
+            if !store.routines.isEmpty {
             Section {
-                ForEach(store.routines, id: \.id) { routine in
+                ForEach(store.routinesByNextOccurrence, id: \.id) { routine in
                     RoutineRow(routine: routine, next: store.nextSession(for: routine)) {
                         routineToEdit = routine
                     }
                     .homitaRow()
                 }
                 .onDelete { indexSet in
-                    let removed = indexSet.map { store.routines[$0] }
+                    let removed = indexSet.map { store.routinesByNextOccurrence[$0] }
                     Task { for routine in removed { await store.delete(routine) } }
                 }
             } header: {
                 HomitaSectionHeader(title: "Rutinas", count: store.routines.count, systemImage: "repeat")
+            }
             }
             if !upcomingSessions.isEmpty {
                 Section {
@@ -61,12 +63,17 @@ struct RoutineListView: View {
                     HomitaSectionHeader(title: "Próximas sesiones", count: upcomingSessions.count, systemImage: "calendar.badge.clock", tint: Palette.inkSoft)
                 }
             }
-            if store.routines.isEmpty && !store.isLoading {
-                HomitaCard {
-                    Text("Sin rutinas")
-                        .font(HomitaFont.geist(16, relativeTo: .body))
-                        .foregroundStyle(Palette.inkSoft)
-                        .frame(maxWidth: .infinity)
+            if !store.hasLoaded || (store.isLoading && store.routines.isEmpty) {
+                HomitaLoadingCard(message: "Cargando rutinas…").homitaRow()
+            }
+            if store.hasLoaded && store.routines.isEmpty && !store.isLoading {
+                HomitaEmptyState(
+                    illustration: .routines,
+                    title: "Sin rutinas",
+                    message: "Las rutinas repiten eventos cada día, semana o mes sin que las vuelvas a escribir.",
+                    actionTitle: "Nueva rutina"
+                ) {
+                    showCreate = true
                 }
                 .homitaRow()
             }
@@ -124,6 +131,7 @@ struct RoutineRow: View {
                     Text(routine.title)
                         .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
                         .foregroundStyle(Palette.ink)
+                    AssignedPersonsLine(persons: routine.persons)
                     if let next {
                         Text("PRÓXIMA · \(DateDisplay.dateTime(next.date_at).uppercased())")
                             .font(HomitaFont.geist(12, weight: .semibold, relativeTo: .caption))
