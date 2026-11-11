@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Perfil: datos de cuenta (`PATCH user/update`: nombre, email y contraseña opcional), acceso a
 /// Personas, unirse a un hogar con un código de invitación (1.15) y cierre de sesión (local: no
-/// hay endpoint de revocación).
+/// hay endpoint de revocación). «Mis hogares» y la administración del hogar viven en la pestaña Hogar.
 public struct ProfileView: View {
     let services: AppServices
 
@@ -33,12 +33,6 @@ public struct ProfileView: View {
                     accountCard
                     familyCard
                     invitationsCard
-                    if !services.homeContext.homes.isEmpty {
-                        homesCard
-                    }
-                    if case .ready(let home) = services.homeContext.state {
-                        homeAdminCard(home: home)
-                    }
                     HomitaButton(title: "Cerrar sesión", kind: .secondary) {
                         showSignOutConfirm = true
                     }
@@ -115,61 +109,6 @@ public struct ProfileView: View {
                 AcceptInvitationView(services: services)
             } label: {
                 linkRow(title: "Unirse a un hogar con un código", systemImage: "person.badge.plus", tint: Palette.onlineHex)
-            }
-            .buttonStyle(.plain)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: 24))
-        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Palette.cardBorder, lineWidth: 1))
-    }
-
-    private var homesCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HomitaSectionHeader(title: "Mis hogares", count: services.homeContext.homes.count, systemImage: "house")
-            ForEach(HomeSwitcher.rows(homes: services.homeContext.homes,
-                                      activeHomeId: services.homeContext.activeHomeId)) { row in
-                Button {
-                    services.homeContext.select(homeId: row.id)
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(row.name)
-                                .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
-                                .foregroundStyle(Palette.ink)
-                            Text(row.roleLabel)
-                                .font(HomitaFont.geist(13, relativeTo: .footnote))
-                                .foregroundStyle(Palette.inkSoft)
-                        }
-                        Spacer()
-                        if row.isActive {
-                            HomitaBadge(title: "Activo", tintHex: Palette.onlineHex)
-                        }
-                    }
-                    .padding(.vertical, 6)
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(row.isActive ? .isSelected : [])
-            }
-            if let error = services.homeContext.persistenceError {
-                Text(error)
-                    .font(HomitaFont.geist(13, relativeTo: .footnote))
-                    .foregroundStyle(Palette.accent)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: 24))
-        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Palette.cardBorder, lineWidth: 1))
-    }
-
-    private func homeAdminCard(home: HomeItem) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HomitaSectionHeader(title: "Hogar", systemImage: "house.fill")
-            NavigationLink {
-                HomeAdminView(services: services, home: home)
-            } label: {
-                linkRow(title: "Administración del hogar", systemImage: "gearshape", tint: "#F5A623")
             }
             .buttonStyle(.plain)
         }
