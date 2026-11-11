@@ -286,15 +286,46 @@ public final class PermissionStore {
 
     /// Envía el estado final completo del borrador. Solo sobre filas `editable && member`.
     @discardableResult
-    public func save(item: PermissionItem, draft: PermissionDraft) async -> Bool {
+    public func save(item: PermissionItem, draft: PermissionDraft, callerRole: String) async -> Bool {
+        guard HomeAdminAccess.isAdmin(role: callerRole) else {
+            errorMessage = PermissionRules.memberCallerReason
+            return false
+        }
         guard item.editable, item.role == "member" else {
-            errorMessage = "Este miembro no admite edición de accesos"
+            errorMessage = PermissionRules.lockReason(callerRole: callerRole, item: item)
+                ?? PermissionRules.fallbackReason
             return false
         }
         guard isActive else { return false }
         do {
             _ = try await repo.setPermissions(homeId: homeId, membershipId: item.membershipId,
                                               permissions: draft.finalPermissions)
+            if isActive { await load() }
+            return true
+        } catch {
+            errorMessage = homeAdminMessage(error)
+            return false
+        }
+    }
+
+    /// Restablece al set completo de defaults del tipo del miembro (sin endpoint propio).
+    /// Sin condiciones (sin kind, sin defaults, fuera de catálogo, caller no admin) no llama a la red.
+    @discardableResult
+    public func reset(item: PermissionItem, callerRole: String) async -> Bool {
+        guard let response,
+              PermissionRules.canReset(callerRole: callerRole, item: item,
+                                       defaults: response.defaults, catalog: response.catalog),
+              let permissions = PermissionRules.resetPermissions(for: item, defaults: response.defaults,
+                                                                 catalog: response.catalog)
+        else {
+            errorMessage = PermissionRules.lockReason(callerRole: callerRole, item: item)
+                ?? "No hay accesos por defecto para este tipo"
+            return false
+        }
+        guard isActive else { return false }
+        do {
+            _ = try await repo.setPermissions(homeId: homeId, membershipId: item.membershipId,
+                                              permissions: permissions)
             if isActive { await load() }
             return true
         } catch {

@@ -95,6 +95,30 @@ final class HomeAdminAccessTests: XCTestCase {
         XCTAssertFalse(HomeAdminAccess.requiresConfirmation(action: .editPermissions))
     }
 
+    func testRequiresConfirmationResetPermissions() {
+        XCTAssertTrue(HomeAdminAccess.requiresConfirmation(action: .resetPermissions))
+        XCTAssertFalse(HomeAdminAccess.requiresConfirmation(action: .editPermissions))
+    }
+
+    func testRowActionsNeverEmitResetPermissions() {
+        for callerRole in ["admin", "member"] {
+            for rowRole in ["admin", "member"] {
+                for isPersonal in [true, false] {
+                    for editable in [true, false, nil] as [Bool?] {
+                        let row = MembershipItem(membershipId: 1, appUserId: 5, name: "X", email: "x@x",
+                                                 role: rowRole, permissions: [])
+                        for caller in [5, 6] {
+                            let actions = HomeAdminAccess.rowActions(
+                                callerRole: callerRole, row: row, callerAppUserId: caller,
+                                isPersonal: isPersonal, permissionEditable: editable, adminCount: 2)
+                            XCTAssertFalse(actions.contains(.resetPermissions))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     func testScreenModel() {
         let member = HomeAdminScreenModel(role: "member")
         XCTAssertTrue(member.showSettings)
@@ -174,5 +198,90 @@ final class AuditPagerTests: XCTestCase {
         XCTAssertEqual(msg("Member ID is required"), "Falta el identificador del miembro")
         XCTAssertEqual(APIError.http(status: 403, message: "Not Allowed").homeAdminMessage,
                        "Solo un administrador puede realizar esta acción")
+    }
+}
+
+
+final class PermissionRulesTests: XCTestCase {
+    private let catalog = [
+        PermissionCatalogEntry(code: "calendar.read", domain: "calendar", description: ""),
+        PermissionCatalogEntry(code: "calendar.write", domain: "calendar", description: ""),
+        PermissionCatalogEntry(code: "task.read", domain: "task", description: "")
+    ]
+    private let defaults = [
+        PermissionDefaults(kind: "adult", permissions: ["task.read", "calendar.write", "calendar.read"]),
+        PermissionDefaults(kind: "child", permissions: ["task.read", "calendar.read"]),
+        PermissionDefaults(kind: "guest", permissions: ["bogus.code", "calendar.read"])
+    ]
+
+    private func item(role: String = "member", kind: String? = "child", editable: Bool = true,
+                      permissions: [String] = ["calendar.write"]) -> PermissionItem {
+        PermissionItem(membershipId: 8, appUserId: 9, name: "Beto", email: "b@x", role: role, kind: kind,
+                       editable: editable, permissions: permissions)
+    }
+
+    func testLockReasonAdminTarget() {
+        XCTAssertEqual(PermissionRules.lockReason(callerRole: "admin", item: item(role: "admin", editable: false)),
+                       "Administrador: todos los accesos")
+        // Prioridad: destino admin gana sobre caller member.
+        XCTAssertEqual(PermissionRules.lockReason(callerRole: "member", item: item(role: "admin", editable: false)),
+                       "Administrador: todos los accesos")
+    }
+
+    func testLockReasonMemberCaller() {
+        XCTAssertEqual(PermissionRules.lockReason(callerRole: "member", item: item(editable: false)),
+                       "Solo un administrador puede editar accesos")
+    }
+
+    func testLockReasonEditableIsNil() {
+        XCTAssertNil(PermissionRules.lockReason(callerRole: "admin", item: item()))
+    }
+
+    func testLockReasonFallback() {
+        XCTAssertEqual(PermissionRules.lockReason(callerRole: "admin", item: item(editable: false)),
+                       "Este miembro no admite edición de accesos")
+    }
+
+    func testCanResetVisibility() {
+        struct Case { let name: String; let caller: String; let item: PermissionItem; let expected: Bool }
+        let cases = [
+            Case(name: "ok", caller: "admin", item: item(), expected: true),
+            Case(name: "caller member", caller: "member", item: item(), expected: false),
+            Case(name: "destino admin", caller: "admin", item: item(role: "admin"), expected: false),
+            Case(name: "sin kind", caller: "admin", item: item(kind: nil), expected: false),
+            Case(name: "kind sin defaults", caller: "admin", item: item(kind: "pet"), expected: false),
+            Case(name: "defaults fuera de catalogo", caller: "admin", item: item(kind: "guest"), expected: false),
+            Case(name: "no editable", caller: "admin", item: item(editable: false), expected: false)
+        ]
+        for c in cases {
+            XCTAssertEqual(PermissionRules.canReset(callerRole: c.caller, item: c.item, defaults: defaults,
+                                                    catalog: catalog), c.expected, c.name)
+        }
+    }
+
+    func testResetPermissionsSortedFullSet() {
+        XCTAssertEqual(PermissionRules.resetPermissions(for: item(kind: "adult"), defaults: defaults, catalog: catalog),
+                       ["calendar.read", "calendar.write", "task.read"])
+        XCTAssertEqual(PermissionRules.resetPermissions(for: item(), defaults: defaults, catalog: catalog),
+                       ["calendar.read", "task.read"])
+        XCTAssertNil(PermissionRules.resetPermissions(for: item(kind: nil), defaults: defaults, catalog: catalog))
+    }
+
+    func testUnknownCodes() {
+        let it = item(permissions: ["zeta.x", "calendar.read", "alfa.y"])
+        XCTAssertEqual(PermissionRules.unknownCodes(item: it, catalog: catalog), ["alfa.y", "zeta.x"])
+        XCTAssertEqual(PermissionRules.unknownCodes(item: item(), catalog: catalog), [])
+    }
+
+    func testKindSummaryGroupsByKindAndDomain() {
+        let summary = PermissionRules.kindSummary(defaults: defaults, catalog: catalog)
+        XCTAssertEqual(summary.map(\.kind), ["adult", "child", "guest"])
+        XCTAssertEqual(summary[0].domains, [
+            KindSummary.Domain(domain: "calendar", codes: ["calendar.read", "calendar.write"]),
+            KindSummary.Domain(domain: "task", codes: ["task.read"])
+        ])
+        // guest: "bogus.code" fuera del catálogo se omite.
+        XCTAssertEqual(summary[2].domains, [KindSummary.Domain(domain: "calendar", codes: ["calendar.read"])])
+        XCTAssertEqual(PermissionRules.kindSummary(defaults: [], catalog: catalog), [])
     }
 }

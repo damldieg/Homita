@@ -8,6 +8,8 @@ public enum MembershipRowAction: Equatable, Hashable, Sendable {
     case remove
     case leave
     case editPermissions
+    /// Acción del editor de accesos (no de la fila): nunca sale de `rowActions`.
+    case resetPermissions
 }
 
 /// Gating de cliente de la administración del hogar. Puro y sin red: el cliente solo oculta,
@@ -62,7 +64,7 @@ public enum HomeAdminAccess {
     /// Si la acción exige confirmación previa (destructivas o que ceden poder).
     public static func requiresConfirmation(action: MembershipRowAction) -> Bool {
         switch action {
-        case .remove, .leave, .transfer, .demote: return true
+        case .remove, .leave, .transfer, .demote, .resetPermissions: return true
         case .promote, .editPermissions: return false
         }
     }
@@ -86,6 +88,69 @@ public struct PermissionDraft: Equatable, Sendable {
 
     public var isDirty: Bool { current != original }
     public var finalPermissions: [String] { current.sorted() }
+}
+
+/// Resumen de un tipo de miembro: dominios cubiertos por sus accesos por defecto.
+public struct KindSummary: Equatable, Sendable {
+    public struct Domain: Equatable, Sendable {
+        public let domain: String
+        public let codes: [String]
+    }
+
+    public let kind: String
+    public let domains: [Domain]
+}
+
+/// Reglas puras de la pantalla de Accesos (explicación de bloqueos, restablecer, resumen).
+/// El cliente solo oculta y explica; el servidor decide.
+public enum PermissionRules {
+    public static let adminTargetReason = "Administrador: todos los accesos"
+    public static let memberCallerReason = "Solo un administrador puede editar accesos"
+    public static let fallbackReason = "Este miembro no admite edición de accesos"
+
+    /// Por qué una fila no es editable; `nil` si lo es. Prioridad: destino admin, caller no admin, fallback.
+    public static func lockReason(callerRole: String, item: PermissionItem) -> String? {
+        if item.role == "admin" { return adminTargetReason }
+        if !HomeAdminAccess.isAdmin(role: callerRole) { return memberCallerReason }
+        if !item.editable || item.role != "member" { return fallbackReason }
+        return nil
+    }
+
+    /// Set de defaults del kind del miembro (ordenado). `nil` sin kind, sin entrada en `defaults`
+    /// o con códigos fuera del catálogo (el servidor respondería 400).
+    public static func resetPermissions(for item: PermissionItem, defaults: [PermissionDefaults],
+                                        catalog: [PermissionCatalogEntry]) -> [String]? {
+        guard let kind = item.kind, let entry = defaults.first(where: { $0.kind == kind }) else { return nil }
+        let known = Set(catalog.map(\.code))
+        guard entry.permissions.allSatisfy(known.contains) else { return nil }
+        return Set(entry.permissions).sorted()
+    }
+
+    /// Visibilidad del botón "Restablecer a tipo".
+    public static func canReset(callerRole: String, item: PermissionItem, defaults: [PermissionDefaults],
+                                catalog: [PermissionCatalogEntry]) -> Bool {
+        HomeAdminAccess.isAdmin(role: callerRole) && item.role == "member" && item.editable
+            && resetPermissions(for: item, defaults: defaults, catalog: catalog) != nil
+    }
+
+    /// Códigos del miembro que no están en el catálogo (ordenados). No se filtran: se advierten.
+    public static func unknownCodes(item: PermissionItem, catalog: [PermissionCatalogEntry]) -> [String] {
+        let known = Set(catalog.map(\.code))
+        return Set(item.permissions).filter { !known.contains($0) }.sorted()
+    }
+
+    /// Resumen solo lectura por tipo: dominios y códigos ordenados; omite códigos fuera del catálogo.
+    public static func kindSummary(defaults: [PermissionDefaults],
+                                   catalog: [PermissionCatalogEntry]) -> [KindSummary] {
+        let domainByCode = Dictionary(catalog.map { ($0.code, $0.domain) }, uniquingKeysWith: { first, _ in first })
+        return defaults.sorted { $0.kind < $1.kind }.map { entry in
+            let known = Set(entry.permissions).filter { domainByCode[$0] != nil }
+            let grouped = Dictionary(grouping: known) { domainByCode[$0] ?? "" }
+            let domains = grouped.map { KindSummary.Domain(domain: $0.key, codes: $0.value.sorted()) }
+                .sorted { $0.domain < $1.domain }
+            return KindSummary(kind: entry.kind, domains: domains)
+        }
+    }
 }
 
 /// Catálogo agrupado por `domain` (dominios y códigos ordenados).
