@@ -71,6 +71,10 @@ public final class APIClient {
             guard allowRefresh, let refresher else { throw expireSession() }
             do {
                 try await refresher.refreshSession()
+            } catch let error as APIError {
+                // Solo un refresh rechazado cierra la sesión; un fallo transitorio se propaga tal cual.
+                if case .sessionExpired = error { throw expireSession() }
+                throw error
             } catch {
                 throw expireSession()
             }

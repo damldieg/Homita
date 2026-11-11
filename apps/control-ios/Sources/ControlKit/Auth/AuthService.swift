@@ -120,7 +120,11 @@ public final class AuthService: TokenRefreshing {
             throw APIError.network(error.localizedDescription)
         }
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-            throw APIError.sessionExpired
+            // Solo un rechazo del refresh token caduca la sesión. 429/5xx son transitorios: no se cierra sesión.
+            if let http = response as? HTTPURLResponse, [400, 401, 403].contains(http.statusCode) {
+                throw APIError.sessionExpired
+            }
+            throw APIError.network("No se pudo refrescar la sesión (HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0))")
         }
         guard let tokens = try? JSONCoding.decoder().decode(GoTrueTokenResponse.self, from: data) else {
             throw APIError.decoding("respuesta de refresco inválida")

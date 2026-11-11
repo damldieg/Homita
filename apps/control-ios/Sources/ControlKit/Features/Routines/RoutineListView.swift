@@ -111,6 +111,7 @@ struct RoutineRow: View {
             rowContent
         }
         .buttonStyle(.plain)
+        .accessibilityAction(named: "Editar") { onEdit() }
     }
 
     private var rowContent: some View {
