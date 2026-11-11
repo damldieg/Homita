@@ -31,6 +31,8 @@ final class APIErrorTests: XCTestCase {
     func testInvitationMessage() {
         XCTAssertEqual(APIError.http(status: 404, message: "Not Found").invitationMessage,
                        "El código no es válido, ya se usó o ha caducado")
+        XCTAssertEqual(APIError.http(status: 403, message: "Not Allowed").invitationMessage,
+                       "Esta invitación es para otro email")
         XCTAssertEqual(APIError.http(status: 400, message: "Already member").invitationMessage,
                        "Ya eres miembro de ese hogar")
         XCTAssertEqual(APIError.http(status: 400, message: "Invitation code is required").invitationMessage,
@@ -38,5 +40,14 @@ final class APIErrorTests: XCTestCase {
         XCTAssertEqual(APIError.http(status: 400, message: "Invalid member").invitationMessage,
                        "La invitación ya no es válida para ese miembro")
         XCTAssertEqual(APIError.network("x").invitationMessage, APIError.network("x").userMessage)
+    }
+
+    func testInvitationAdminMessage() {
+        XCTAssertEqual(APIError.http(status: 400, message: "Already member").invitationAdminMessage,
+                       "Esa persona ya es miembro del hogar")
+        XCTAssertEqual(APIError.http(status: 400, message: "Invalid email").invitationAdminMessage,
+                       "Revisa el email de la invitación")
+        XCTAssertEqual(APIError.http(status: 403, message: "Not Allowed").invitationAdminMessage,
+                       "No tienes permiso para crear esta invitación")
     }
 }

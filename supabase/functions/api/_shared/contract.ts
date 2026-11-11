@@ -58,6 +58,17 @@ export const contractInput = async (req: Request): Promise<ContractInput> => {
     return { ...q, ...b };
 };
 
+// Solo el body JSON (sin query string): para datos sensibles que no deben acabar en logs de URL.
+export const contractBodyOnly = async (req: Request): Promise<ContractInput> => {
+    const raw = await req.text().catch(() => "");
+    try {
+        const body: unknown = raw ? JSON.parse(raw) : null;
+        return body !== null && typeof body === "object" && !Array.isArray(body) ? (body as ContractInput) : {};
+    } catch {
+        return {};
+    }
+};
+
 export const getInput = (input: ContractInput, key: string): unknown => (key in input ? input[key] : null);
 
 // getInputString: solo strings (sin trim)

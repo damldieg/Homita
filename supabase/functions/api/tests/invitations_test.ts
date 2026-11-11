@@ -106,3 +106,29 @@ Deno.test("home/invitation/create con email válido llama a la RPC con p_email e
         assertEquals((c.body as Record<string, unknown>).p_email, "bob@example.com");
     });
 });
+
+Deno.test("signup envía el marcador invitation_pending (no el código) solo cuando hay código (0027)", async () => {
+    const stop = () => jsonRes(400, { msg: "stop" });
+    await withFetch((url) => url.includes("/rpc/") ? jsonRes(200, null) : stop(), async (calls) => {
+        await handleUserCreate(req(userBody({ invitation_code: "  ABC123  " })));
+        const s = calls.find(isSignup)!;
+        assertEquals((s.body as { data: unknown }).data, { name: "Ana Pérez", invitation_pending: true });
+    });
+    await withFetch(stop, async (calls) => {
+        await handleUserCreate(req(userBody()));
+        const s = calls.find(isSignup)!;
+        assertEquals((s.body as { data: unknown }).data, { name: "Ana Pérez" });
+    });
+});
+
+Deno.test("user/create ignora invitation_code en el query string (R1-06)", async () => {
+    const stop = () => jsonRes(400, { msg: "stop" });
+    await withFetch(stop, async (calls) => {
+        const r = new Request("http://x/user/create?invitation_code=abc123", {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(userBody()),
+        });
+        await handleUserCreate(r);
+        assertEquals(calls.some(isCheck), false);
+        assertEquals((calls.find(isSignup)!.body as { data: unknown }).data, { name: "Ana Pérez" });
+    });
+});

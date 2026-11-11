@@ -22,7 +22,7 @@ Los comandos usan `supabase …`; sin CLI instalada, `npx supabase@latest …`.
 | `SUPABASE_DB_URL` | (opcional) psql para verificación de esquema |
 | `SUPABASE_ACCESS_TOKEN` | Token personal del CLI (`login`, `link`, `migration list`, `db push`, `functions deploy`) |
 | `SUPABASE_PROJECT_REF` | Ref del proyecto para `supabase link --project-ref` |
-| `ALLOW_REGISTRATION` | Secreto de la función (`functions serve --env-file` o Supabase Secrets): alta abierta de usuarios (`POST user/create`). Default `false` (registro cerrado, Q3); ver `docs/SETUP.md` |
+| `ALLOW_REGISTRATION` | Secreto de la función (`functions serve --env-file` o Supabase Secrets): alta abierta de usuarios (`POST user/create`). Default `false` (registro cerrado, Q3); ver `docs/SETUP.md`. También gobierna el registro con `invitation_code` (no lo salta); contrato en `docs/CONTRATOS_HOME.md` (Invitaciones) |
 
 ## Stack local (Docker)
 

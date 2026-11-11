@@ -1,5 +1,5 @@
 // user/auth, user/create, user/update y config (UserAuth/UserCreate/UserUpdate/Config.php).
-import { fmt, inputEmail, inputString, json, contractEmpty, contractInput } from "../_shared/contract.ts";
+import { fmt, inputEmail, inputString, json, contractEmpty, contractInput, contractBodyOnly } from "../_shared/contract.ts";
 import {
     errAuthFieldsRequired, errEmailExists, errInvalidCredentials, errNameLength, errNotAllowed,
     errPasswordLength, errNotFound500, errProfileFieldsRequired, errUserFieldsRequired, error, rpcPass,
@@ -49,6 +49,7 @@ export const handleUserAuth = async (req: Request): Promise<Response> => {
 export const handleUserCreate = async (req: Request): Promise<Response> => {
     if (!allowRegistration()) return errNotAllowed(); // UserCreate.php:13 (verbatim)
 
+    const bodyReq = req.clone();
     const input = await contractInput(req);
     const name = inputString(input, "name");
     const email = inputEmail(input, "email");
@@ -59,10 +60,12 @@ export const handleUserCreate = async (req: Request): Promise<Response> => {
 
     // 0026: registro con código de invitación. Se valida ANTES de crear la cuenta: código y email
     // deben corresponder a la misma invitación. No crea hogar: la persona lo acepta después en la app.
-    const invitationCode = inputString(input, "invitation_code");
-    if (invitationCode !== null && invitationCode.trim() !== "") {
+    // R1-06: el código solo del body JSON (un ?invitation_code= acabaría en logs de URL).
+    const rawCode = inputString(await contractBodyOnly(bodyReq), "invitation_code");
+    const invitationCode = rawCode !== null && rawCode.trim() !== "" ? rawCode.trim().toLowerCase() : undefined;
+    if (invitationCode !== undefined) {
         const check = await rpcAnon("check_home_invitation_for_signup", {
-            p_code: invitationCode.trim().toLowerCase(), p_email: (email as string).toLowerCase(),
+            p_code: invitationCode, p_email: (email as string).toLowerCase(),
         });
         if (!check.ok) {
             const body = await check.json().catch(() => null) as { message?: string } | null;
@@ -73,7 +76,7 @@ export const handleUserCreate = async (req: Request): Promise<Response> => {
         }
     }
 
-    const res = await signup(name as string, email as string, password as string);
+    const res = await signup(name as string, email as string, password as string, invitationCode !== undefined);
     if (!res.ok) {
         const body = await res.json().catch(() => null) as { msg?: string; message?: string } | null;
         const msg = String(body?.msg ?? body?.message ?? "");

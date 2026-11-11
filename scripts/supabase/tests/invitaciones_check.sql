@@ -63,7 +63,19 @@ create temp table n_codes (k text primary key, code text not null);
 
 create function pg_temp.clean() returns void
 language plpgsql as $$
+declare v_res bigint[] := array(select id from app_user
+    where auth_uid between '00000000-0000-4000-8000-000000000991' and '00000000-0000-4000-8000-000000000996'
+      and id not between 997101 and 997106);  -- residuo de otras pruebas (registro_codigo_check.sql)
 begin
+    delete from audit_log where home_id in (select home_id from home_membership where app_user_id = any (v_res));
+    delete from membership_permission where home_membership_id in (
+        select id from home_membership where app_user_id = any (v_res));
+    delete from person where user_id = any (v_res);
+    delete from home_member where created_by = any (v_res) or app_user_id = any (v_res);
+    update app_user set default_home_id = null where id = any (v_res);
+    delete from home_membership where app_user_id = any (v_res);
+    delete from home where created_by = any (v_res);
+    delete from app_user where id = any (v_res);
     delete from audit_log where home_id between 997101 and 997103;
     delete from home_invitation where home_id between 997101 and 997103;
     delete from membership_permission where home_membership_id in (

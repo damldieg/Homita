@@ -294,6 +294,10 @@ Auditoría del hogar (solo acciones `home.%`).
 - **Solo admin invita `adult` (D-017):** un `member` con `home.invite` puede invitar con `child`, `relative` o `guest`; con `adult` (directo o vía un miembro `adult`) recibe `403 Not Allowed`. Si el miembro de una invitación no-`adult` pasa a `adult` antes de aceptarse, aceptar responde `400 Invalid member` (sin consumir).
 - **Auditoría:** `home.invitation.create`, `home.invitation.accept` y `home.invitation.revoke` en `audit_log` (visibles en `GET /home/audit`), con `invitation_id`, `kind`, `member_id` y `membership_id`; nunca código ni hash.
 
+- **Invitación ligada a email (0026):** `POST /home/invitation/create` exige `email` válido (`400 Invalid email`; `400 Already member` si ya es miembro). Aceptar con una cuenta de otro email responde `403 Not Allowed` sin consumir el código.
+- **Registro con código (`POST /user/create`, 0026/0027):** además de `name`, `email` y `password`, acepta `invitation_code` (32 hex, **solo en el body JSON**; un `?invitation_code=` se ignora). La Edge llama antes del alta a `check_home_invitation_for_signup(code, email)`: código inexistente/usado/revocado/caducado → `404 Not Found`; email distinto → `403 Not Allowed`; en ambos casos no se crea la cuenta. Si es válido, GoTrue recibe solo el marcador `invitation_pending` (nunca el código) y el trigger `fn_auth_user_created` no crea hogar personal: la persona queda sin hogar y acepta la invitación después con `POST /home/invitation/accept`. Sin código, el alta crea el hogar personal con su miembro admin vinculado y `person`.
+- **`ALLOW_REGISTRATION`:** no cambia. Sigue siendo el primer chequeo de `user/create`: con el flag en `false` el registro está cerrado también con código (`403 Not Allowed`). Los usuarios ya existentes sin hogar aceptan invitaciones sin registro.
+
 | Ruta | Permiso | Éxito |
 |---|---|---|
 | `GET /home/invitation` | `home.invite` | `200 [INVITATION_ITEM]` |

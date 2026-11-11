@@ -47,6 +47,8 @@ public enum APIError: Error, Equatable {
             case (403, "Not Allowed"): return "No tienes permiso para crear esta invitación"
             case (400, "Invalid member"): return "Ese miembro ya no se puede invitar; la lista se ha actualizado"
             case (404, "Not Found"): return "La invitación ya no existe: se usó, se revocó o caducó"
+            case (400, "Already member"): return "Esa persona ya es miembro del hogar"
+            case (400, "Invalid email"): return "Revisa el email de la invitación"
             default: break
             }
         }
@@ -59,6 +61,7 @@ public enum APIError: Error, Equatable {
         if case .http(let status, let message) = self {
             switch (status, message) {
             case (404, "Not Found"): return "El código no es válido, ya se usó o ha caducado"
+            case (403, "Not Allowed"): return "Esta invitación es para otro email"
             case (400, "Already member"): return "Ya eres miembro de ese hogar"
             case (400, "Invitation code is required"): return "Introduce el código de invitación"
             case (400, "Invalid member"): return "La invitación ya no es válida para ese miembro"

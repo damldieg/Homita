@@ -371,11 +371,18 @@ for name, method, path, body in [
 for name, rpc_name in [
     ("B rpc get_calendars → []", "get_calendars"),
     ("B rpc get_task_lists → []", "get_task_lists"),
-    ("B rpc get_persons → []", "get_persons"),
     ("B rpc get_routines → []", "get_routines"),
 ]:
     res = rpc_direct(rpc_name, {}, b_tok)
     check(name, res[0] == 200 and parse(res[1]) == [], repr(res)[:200])
+# B tiene su persona 1:1 en su hogar personal (0023/0027): solo propias, ninguna de A.
+res = rpc_direct("get_persons", {}, b_tok)
+persons_b = parse(res[1]) if res[0] == 200 else None
+check("B rpc get_persons → solo personas propias",
+      isinstance(persons_b, list)
+      and all(isinstance(p, dict) and p.get("user_id") == b_id for p in persons_b)
+      and not any(isinstance(p, dict) and p.get("user_id") == a_id for p in persons_b),
+      repr(res)[:200])
 for name, rpc_name, args in [
     ("B rpc get_calendar_users de A → Not Found", "get_calendar_users", {"p_calendar_id": cal}),
     ("B rpc get_task_list_users de A → Not Found", "get_task_list_users", {"p_task_list_id": lst}),
