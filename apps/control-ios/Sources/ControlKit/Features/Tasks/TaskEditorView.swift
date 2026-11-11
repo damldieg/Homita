@@ -26,31 +26,32 @@ struct TaskEditorView: View {
         _listId = State(initialValue: task?.task_list_id ?? taskLists.first?.id ?? 0)
     }
 
+    private var canSave: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
-        Form {
-            Section("Tarea") {
-                TextField("Título", text: $title)
+        HomitaForm {
+            HomitaPanel("Tarea", systemImage: "checklist") {
+                HomitaField(placeholder: "Título", text: $title)
                 if task == nil {
-                    Picker("Lista", selection: $listId) {
-                        ForEach(taskLists, id: \.id) { list in
-                            Text(list.name).tag(list.id)
-                        }
-                    }
+                    Text("Lista")
+                        .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .footnote))
+                        .foregroundStyle(Palette.inkSoft)
+                    HomitaRadioGroup(
+                        selection: Binding(get: { listId }, set: { listId = $0 ?? listId }),
+                        items: taskLists.map { (id: $0.id, title: $0.name) }
+                    )
                 }
             }
-            Section {
-                Button("Guardar") {
-                    onSave(title.trimmingCharacters(in: .whitespacesAndNewlines), listId)
-                    dismiss()
-                }
-                .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            HomitaButton(title: task == nil ? "Crear tarea" : "Guardar", isEnabled: canSave) {
+                onSave(title.trimmingCharacters(in: .whitespacesAndNewlines), listId)
+                dismiss()
             }
             if let onDelete {
-                Section {
-                    Button("Eliminar tarea", role: .destructive) {
-                        onDelete()
-                        dismiss()
-                    }
+                HomitaButton(title: "Eliminar tarea", kind: .secondary) {
+                    onDelete()
+                    dismiss()
                 }
             }
         }
@@ -58,6 +59,7 @@ struct TaskEditorView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancelar") { dismiss() }
+                    .foregroundStyle(Palette.ink)
             }
         }
     }

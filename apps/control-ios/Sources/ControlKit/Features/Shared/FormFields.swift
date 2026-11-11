@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(ComponentsKit)
+import ComponentsKit
+#endif
 
 /// Valores de alarma del contrato: `null` (sin aviso) | 0 | 10 | 20 | 30 | 40 | 60 minutos.
 /// En v1 solo se guardan en el servidor: el iPhone no programa avisos (README).
@@ -10,47 +13,50 @@ enum AlarmOption {
     }
 }
 
+/// Aviso de evento/rutina con `SURadioGroup`. «Sin aviso» se codifica como -1 en el selector.
 struct AlarmField: View {
     @Binding var alarm: Int?
 
+    private static let noAlarm = -1
+
     var body: some View {
-        Picker("Aviso", selection: $alarm) {
-            Text("Sin aviso").tag(Int?.none)
-            ForEach(AlarmOption.minutes, id: \.self) { minutes in
-                Text(AlarmOption.label(minutes)).tag(Int?.some(minutes))
-            }
+        HomitaPanel("Aviso", systemImage: "bell") {
+            HomitaRadioGroup(
+                selection: Binding(
+                    get: { alarm ?? Self.noAlarm },
+                    set: { alarm = ($0 == Self.noAlarm) ? nil : $0 }
+                ),
+                items: [(id: Self.noAlarm, title: "Sin aviso")] + AlarmOption.minutes.map { (id: $0, title: AlarmOption.label($0)) }
+            )
+            HomitaFootnote(text: "La alarma se guarda en el servidor. El aviso en este iPhone llegará con las notificaciones (fase 3).")
         }
-        Text("La alarma se guarda en el servidor; el iPhone no avisará en v1.")
-            .font(.caption)
-            .foregroundStyle(.secondary)
     }
 }
 
-/// Selector múltiple de personas asignadas (eventos y rutinas).
+/// Selector múltiple de personas asignadas (eventos y rutinas), con casillas de Homita.
 struct PersonSelector: View {
     let persons: [PersonEntry]
     @Binding var selected: [Int]
 
     var body: some View {
-        Section("Personas") {
+        HomitaPanel("Personas", systemImage: "person.2", count: selected.count) {
+            if persons.isEmpty {
+                HomitaFootnote(text: "Aún no tienes personas. Créalas en Perfil › Personas.")
+            }
             ForEach(persons, id: \.id) { person in
-                Button {
-                    if selected.contains(person.id) {
-                        selected.removeAll { $0 == person.id }
-                    } else {
-                        selected.append(person.id)
-                    }
-                } label: {
-                    HStack {
-                        Circle()
-                            .fill(Color(hex: person.color))
-                            .frame(width: 12, height: 12)
-                        Text(person.name)
-                            .foregroundStyle(.primary)
-                        Spacer()
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(Color(hex: person.color))
+                        .frame(width: 14, height: 14)
+                    Text(person.name)
+                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                        .foregroundStyle(Palette.ink)
+                    Spacer()
+                    HomitaCheckbox(isOn: selected.contains(person.id), tintHex: person.color) {
                         if selected.contains(person.id) {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(.tint)
+                            selected.removeAll { $0 == person.id }
+                        } else {
+                            selected.append(person.id)
                         }
                     }
                 }
@@ -59,20 +65,13 @@ struct PersonSelector: View {
     }
 }
 
-/// Campo de email sin autocapitalización ni autocorrección (iOS) / plano en macOS.
+/// Campo de email (sin autocapitalización ni autocorrección): `HomitaField` con `SUInputField`.
 struct EmailTextField: View {
     let prompt: String
     @Binding var text: String
 
     var body: some View {
-        #if os(iOS)
-        TextField(prompt, text: $text)
-            .keyboardType(.emailAddress)
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled()
-        #else
-        TextField(prompt, text: $text)
-        #endif
+        HomitaField(placeholder: prompt, text: $text, isEmail: true)
     }
 }
 
@@ -93,39 +92,42 @@ struct MembersSection: View {
     }
 
     var body: some View {
-        Section("Personas con acceso") {
+        HomitaPanel("Personas con acceso", systemImage: "person.badge.key", count: members.count) {
             ForEach(members, id: \.id) { member in
-                HStack {
-                    VStack(alignment: .leading) {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(member.name)
+                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .foregroundStyle(Palette.ink)
                         Text(member.email)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(HomitaFont.geist(13, relativeTo: .footnote))
+                            .foregroundStyle(Palette.inkSoft)
                     }
                     Spacer()
-                    Text(member.isOwner ? "Propietario" : "Solo lectura")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HomitaBadge(title: member.isOwner ? "Propietario" : "Solo lectura",
+                                tintHex: member.isOwner ? Palette.accentHex : "#6E6358")
                     if isOwner && member.user_id != currentUserId {
-                        Button(role: .destructive) {
+                        Button {
                             onRemove(member.user_id)
                         } label: {
                             Image(systemName: "person.badge.minus")
+                                .foregroundStyle(Palette.accent)
                         }
                         .buttonStyle(.borderless)
                     }
                 }
             }
             if isOwner {
-                HStack {
-                    EmailTextField(prompt: "Email a invitar", text: $inviteEmail)
-                    Button("Invitar") {
-                        let email = inviteEmail.trimmingCharacters(in: .whitespaces)
-                        guard !email.isEmpty else { return }
-                        onInvite(email)
-                        inviteEmail = ""
-                    }
-                    .disabled(inviteEmail.trimmingCharacters(in: .whitespaces).isEmpty)
+                HomitaField(placeholder: "Email a invitar", text: $inviteEmail, isEmail: true)
+                HomitaButton(
+                    title: "Invitar",
+                    kind: .secondary,
+                    isEnabled: !inviteEmail.trimmingCharacters(in: .whitespaces).isEmpty
+                ) {
+                    let email = inviteEmail.trimmingCharacters(in: .whitespaces)
+                    guard !email.isEmpty else { return }
+                    onInvite(email)
+                    inviteEmail = ""
                 }
             }
         }
@@ -133,18 +135,32 @@ struct MembersSection: View {
 }
 
 extension View {
-    /// Alerta genérica para los errores de los stores (`errorMessage`).
+    /// Alerta genérica para los errores de los stores (`errorMessage`): `SUAlert` de ComponentsKit
+    /// en iOS, alerta de sistema en macOS.
     func errorAlert(_ message: Binding<String?>) -> some View {
-        alert(
-            "Aviso",
-            isPresented: Binding(
-                get: { message.wrappedValue != nil },
-                set: { if !$0 { message.wrappedValue = nil } }
-            )
-        ) {
+        let isPresented = Binding(
+            get: { message.wrappedValue != nil },
+            set: { if !$0 { message.wrappedValue = nil } }
+        )
+        #if canImport(ComponentsKit)
+        return self.suAlert(isPresented: isPresented, model: errorAlertModel(message.wrappedValue ?? ""))
+        #else
+        return alert("Aviso", isPresented: isPresented) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(message.wrappedValue ?? "")
         }
+        #endif
     }
 }
+
+#if canImport(ComponentsKit)
+/// Modelo de la alerta de error de Homita (título «Aviso», botón «OK»).
+private func errorAlertModel(_ text: String) -> AlertVM {
+    AlertVM {
+        $0.title = "Aviso"
+        $0.message = text
+        $0.primaryButton = AlertButtonVM { $0.title = "OK" }
+    }
+}
+#endif

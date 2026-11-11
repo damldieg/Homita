@@ -14,12 +14,8 @@ public struct TasksRootView: View {
     public var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Picker("", selection: $segment) {
-                    Text("Tareas").tag(0)
-                    Text("Listas").tag(1)
-                }
-                .pickerStyle(.segmented)
-                .padding([.horizontal, .top])
+                HomitaSegmented(selection: $segment, items: [(id: 0, title: "Tareas"), (id: 1, title: "Listas")])
+                    .padding([.horizontal, .top])
 
                 if segment == 0 {
                     TasksView(store: store)
@@ -27,6 +23,7 @@ public struct TasksRootView: View {
                     TaskListsView(store: store)
                 }
             }
+            .background(Palette.background.ignoresSafeArea())
             .navigationTitle(segment == 0 ? "Tareas" : "Listas")
             .task {
                 await store.loadLists()
@@ -52,29 +49,35 @@ struct TasksView: View {
     var body: some View {
         List {
             if store.listFilterId != nil {
-                HStack {
-                    TextField("Nueva tarea", text: $newTaskTitle)
-                    Button {
-                        Task {
-                            await store.createTask(title: newTaskTitle, listId: store.listFilterId ?? 0)
-                            newTaskTitle = ""
+                HomitaCard {
+                    HStack(spacing: 10) {
+                        HomitaField(placeholder: "Nueva tarea", text: $newTaskTitle)
+                        Button {
+                            Task {
+                                await store.createTask(title: newTaskTitle, listId: store.listFilterId ?? 0)
+                                newTaskTitle = ""
+                            }
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(Palette.ink)
                         }
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
+                        .buttonStyle(.borderless)
+                        .disabled(newTaskTitle.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
-                    .buttonStyle(.borderless)
-                    .disabled(newTaskTitle.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
+                .homitaRow()
             }
 
             if !store.pendingTasks.isEmpty {
-                Section("Pendientes (\(store.pendingTasks.count))") {
+                Section {
                     ForEach(store.pendingTasks, id: \.id) { task in
                         TaskRow(task: task, showListName: store.listFilterId == nil) {
                             Task { await store.toggleComplete(task) }
                         } onEdit: {
                             taskToEdit = task
                         }
+                        .homitaRow()
                     }
                     .onDelete { indexSet in
                         let removed = indexSet.map { store.pendingTasks[$0] }
@@ -85,22 +88,27 @@ struct TasksView: View {
                         let task = store.pendingTasks[from]
                         Task { await store.movePendingTask(id: task.id, to: destination) }
                     }
+                } header: {
+                    HomitaSectionHeader(title: "Pendientes", count: store.pendingTasks.count, systemImage: "checklist")
                 }
             }
 
             if !store.completedTasks.isEmpty {
-                Section("Completadas (\(store.completedTasks.count))") {
+                Section {
                     ForEach(store.completedTasks, id: \.id) { task in
                         TaskRow(task: task, showListName: store.listFilterId == nil) {
                             Task { await store.toggleComplete(task) }
                         } onEdit: {
                             taskToEdit = task
                         }
+                        .homitaRow()
                     }
                     .onDelete { indexSet in
                         let removed = indexSet.map { store.completedTasks[$0] }
                         Task { for task in removed { await store.deleteTask(task) } }
                     }
+                } header: {
+                    HomitaSectionHeader(title: "Completadas", count: store.completedTasks.count, systemImage: "checkmark.circle", tint: Palette.online)
                 }
             }
 
@@ -109,12 +117,15 @@ struct TasksView: View {
                     Button("Nueva tarea") {
                         showCreateTask = true
                     }
+                    .homitaRow()
                 } else {
                     Text("Sin tareas")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Palette.inkSoft)
+                        .homitaRow()
                 }
             }
         }
+        .homitaList()
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
@@ -129,7 +140,9 @@ struct TasksView: View {
                         }
                     }
                 } label: {
-                    Label("Filtrar", systemImage: "line.3.horizontal.decrease.circle")
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                        .foregroundStyle(Palette.ink)
+                        .accessibilityLabel("Filtrar")
                 }
             }
             #if os(iOS)
@@ -138,6 +151,7 @@ struct TasksView: View {
                     Button(editMode == .active ? "OK" : "Editar") {
                         editMode = editMode == .active ? .inactive : .active
                     }
+                    .foregroundStyle(Palette.ink)
                 }
             }
             #endif
@@ -175,27 +189,45 @@ struct TaskListsView: View {
 
     var body: some View {
         List {
-            ForEach(store.taskLists, id: \.id) { list in
-                NavigationLink {
-                    TaskListDetailView(store: store, list: list)
+            Section {
+                ForEach(store.taskLists, id: \.id) { list in
+                    NavigationLink {
+                        TaskListDetailView(store: store, list: list)
+                    } label: {
+                        HomitaCard {
+                            HStack(spacing: 12) {
+                                Circle()
+                                    .fill(Color(hex: list.color))
+                                    .frame(width: 14, height: 14)
+                                Text(list.name)
+                                    .font(HomitaFont.geist(17, weight: .semibold, relativeTo: .body))
+                                    .foregroundStyle(Palette.ink)
+                                Spacer()
+                                HomitaBadge(title: "\(list.pendingTaskCount)", tintHex: list.color)
+                            }
+                        }
+                    }
+                    .homitaRow()
+                }
+            } header: {
+                HomitaSectionHeader(title: "Listas", count: store.taskLists.count, systemImage: "list.bullet")
+            }
+
+            Section {
+                Button {
+                    showCreateList = true
                 } label: {
-                    HStack {
-                        Circle()
-                            .fill(Color(hex: list.color))
-                            .frame(width: 12, height: 12)
-                        Text(list.name)
-                        Spacer()
-                        Text("\(list.pendingTaskCount)")
-                            .foregroundStyle(.secondary)
+                    HomitaCard {
+                        Label("Nueva lista", systemImage: "plus")
+                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .foregroundStyle(Palette.accent)
                     }
                 }
-            }
-            Button {
-                showCreateList = true
-            } label: {
-                Label("Nueva lista", systemImage: "plus")
+                .buttonStyle(.plain)
+                .homitaRow()
             }
         }
+        .homitaList()
         .sheet(isPresented: $showCreateList) {
             NavigationStack {
                 TaskListEditorView(store: store, editing: nil)
@@ -207,7 +239,7 @@ struct TaskListsView: View {
     }
 }
 
-/// Fila de tarea: completar/descompletar y toque para editar.
+/// Fila de tarea como tarjeta: casilla para completar y toque para editar.
 struct TaskRow: View {
     let task: TaskEntry
     let showListName: Bool
@@ -215,24 +247,28 @@ struct TaskRow: View {
     let onEdit: () -> Void
 
     var body: some View {
-        HStack {
-            Button(action: onToggle) {
-                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(task.isCompleted ? Color.green : Color.secondary)
-            }
-            .buttonStyle(.borderless)
-            VStack(alignment: .leading) {
-                Text(task.title)
-                    .strikethrough(task.isCompleted)
-                if showListName, let name = task.task_list_name {
-                    Text(name)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
+        Button(action: onEdit) {
+            rowContent
         }
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onEdit)
+        .buttonStyle(.plain)
+    }
+
+    private var rowContent: some View {
+        HomitaCard {
+            HStack(spacing: 12) {
+                HomitaCheckbox(isOn: task.isCompleted, tintHex: Palette.onlineHex, onChange: onToggle)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(task.title)
+                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                        .foregroundStyle(task.isCompleted ? Palette.inkMuted : Palette.ink)
+                        .strikethrough(task.isCompleted)
+                    if showListName, let name = task.task_list_name {
+                        HomitaBadge(title: name, tintHex: task.task_list_color ?? Palette.accentHex)
+                            .padding(.top, 2)
+                    }
+                }
+                Spacer()
+            }
+        }
     }
 }

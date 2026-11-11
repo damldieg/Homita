@@ -13,27 +13,36 @@ public struct LoginView: View {
         self.services = services
     }
 
+    private var canSubmit: Bool {
+        !email.trimmingCharacters(in: .whitespaces).isEmpty && !password.isEmpty
+    }
+
     public var body: some View {
-        Form {
-            Section("Cuenta") {
-                EmailTextField(prompt: "Email", text: $email)
-                SecureField("Contraseña", text: $password)
-            }
-            Section {
-                Button {
-                    Task { await login() }
-                } label: {
-                    if isWorking {
-                        ProgressView()
-                    } else {
-                        Text("Iniciar sesión")
+        ScrollView {
+            VStack(spacing: 16) {
+                HomitaCard {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HomitaSectionHeader(title: "Cuenta", systemImage: "person.crop.circle")
+                        HomitaField(placeholder: "Email", text: $email, isEmail: true)
+                        HomitaField(placeholder: "Contraseña", text: $password, isSecure: true)
                     }
                 }
-                .disabled(email.trimmingCharacters(in: .whitespaces).isEmpty || password.isEmpty || isWorking)
+                HomitaPrimaryButton(title: "Iniciar sesión", isEnabled: canSubmit, isLoading: isWorking) {
+                    Task { await login() }
+                }
+            }
+            .padding(20)
+        }
+        .background(Palette.background.ignoresSafeArea())
+        .navigationTitle("Iniciar sesión")
+        .homitaNavigationBar()
+        .errorAlert($errorMessage)
+        .overlay {
+            if isWorking {
+                HomitaLoadingOverlay(message: "Entrando…")
             }
         }
-        .navigationTitle("Iniciar sesión")
-        .errorAlert($errorMessage)
+        .disabled(isWorking)
     }
 
     private func login() async {

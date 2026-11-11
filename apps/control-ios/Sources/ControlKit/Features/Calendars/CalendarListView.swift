@@ -8,27 +8,46 @@ struct CalendarListView: View {
 
     var body: some View {
         List {
-            ForEach(store.calendars, id: \.id) { calendar in
-                NavigationLink {
-                    CalendarDetailView(store: store, calendar: calendar)
+            Section {
+                ForEach(store.calendars, id: \.id) { calendar in
+                    NavigationLink {
+                        CalendarDetailView(store: store, calendar: calendar)
+                    } label: {
+                        HomitaCard {
+                            HStack(spacing: 12) {
+                                Circle()
+                                    .fill(Color(hex: calendar.color))
+                                    .frame(width: 14, height: 14)
+                                Text(calendar.name)
+                                    .font(HomitaFont.geist(17, weight: .semibold, relativeTo: .body))
+                                    .foregroundStyle(Palette.ink)
+                                Spacer()
+                                HomitaBadge(title: "\(calendar.upcomingEventCount)", tintHex: calendar.color)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .homitaRow()
+                }
+            } header: {
+                HomitaSectionHeader(title: "Calendarios", count: store.calendars.count, systemImage: "calendar")
+            }
+
+            Section {
+                Button {
+                    showCreate = true
                 } label: {
-                    HStack {
-                        Circle()
-                            .fill(Color(hex: calendar.color))
-                            .frame(width: 12, height: 12)
-                        Text(calendar.name)
-                        Spacer()
-                        Text("\(calendar.upcomingEventCount)")
-                            .foregroundStyle(.secondary)
+                    HomitaCard {
+                        Label("Nuevo calendario", systemImage: "plus")
+                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .foregroundStyle(Palette.accent)
                     }
                 }
-            }
-            Button {
-                showCreate = true
-            } label: {
-                Label("Nuevo calendario", systemImage: "plus")
+                .buttonStyle(.plain)
+                .homitaRow()
             }
         }
+        .homitaList()
         .sheet(isPresented: $showCreate) {
             NavigationStack {
                 CalendarDetailView(store: store, calendar: nil)

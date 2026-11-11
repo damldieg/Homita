@@ -16,8 +16,20 @@ let package = Package(
     products: [
         .library(name: "ControlKit", targets: ["ControlKit"])
     ],
+    dependencies: [
+        // ComponentsKit (MIT, solo iOS; UIKit + envoltorios SwiftUI). Tema Homita en Theme/HomitaComponents.swift.
+        .package(url: "https://github.com/componentskit/ComponentsKit", from: "1.0.0"),
+    ],
     targets: [
-        .target(name: "ControlKit"),
+        .target(
+            name: "ControlKit",
+            dependencies: [
+                // Solo iOS: en el host macOS (swift test) la dependencia no se enlaza.
+                .product(name: "ComponentsKit", package: "ComponentsKit", condition: .when(platforms: [.iOS])),
+            ],
+            // Geist/GeistMono del dashboard (OFL, ver Resources/Fonts/OFL.txt).
+            resources: [.process("Resources/Fonts")]
+        ),
         .testTarget(name: "ControlTests", dependencies: ["ControlKit"])
     ]
 )

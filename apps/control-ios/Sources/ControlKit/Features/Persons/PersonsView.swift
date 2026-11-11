@@ -10,50 +10,68 @@ struct PersonsView: View {
 
     var body: some View {
         List {
-            ForEach(store.persons, id: \.id) { person in
-                HStack {
-                    Circle()
-                        .fill(Color(hex: person.color))
-                        .frame(width: 12, height: 12)
-                    VStack(alignment: .leading) {
-                        Text(person.name)
-                        if !person.isEditable {
-                            Text("Compartida (solo lectura)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+            Section {
+                ForEach(store.persons, id: \.id) { person in
+                    HomitaCard {
+                        HStack(spacing: 12) {
+                            Circle()
+                                .fill(Color(hex: person.color))
+                                .frame(width: 14, height: 14)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(person.name)
+                                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                                    .foregroundStyle(Palette.ink)
+                                if !person.isEditable {
+                                    HomitaBadge(title: "Compartida (solo lectura)", tintHex: "#6E6358")
+                                }
+                            }
+                            Spacer()
+                            if PersonActions.available(editable: person.isEditable).contains(.edit) {
+                                Button {
+                                    personToEdit = person
+                                } label: {
+                                    Image(systemName: "pencil")
+                                        .foregroundStyle(Palette.ink)
+                                }
+                                .buttonStyle(.borderless)
+                            }
+                            if PersonActions.available(editable: person.isEditable).contains(.delete) {
+                                Button(role: .destructive) {
+                                    Task { await store.delete(person) }
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .foregroundStyle(Palette.accent)
+                                }
+                                .buttonStyle(.borderless)
+                            }
                         }
                     }
-                    Spacer()
-                    if PersonActions.available(editable: person.isEditable).contains(.edit) {
-                        Button {
-                            personToEdit = person
-                        } label: {
-                            Image(systemName: "pencil")
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                    if PersonActions.available(editable: person.isEditable).contains(.delete) {
-                        Button(role: .destructive) {
-                            Task { await store.delete(person) }
-                        } label: {
-                            Image(systemName: "trash")
-                        }
-                        .buttonStyle(.borderless)
-                    }
+                    .homitaRow()
                 }
+            } header: {
+                HomitaSectionHeader(title: "Personas", count: store.persons.count, systemImage: "person.2")
             }
             if store.persons.isEmpty && !store.isLoading {
-                Text("Sin personas")
-                    .foregroundStyle(.secondary)
+                HomitaCard {
+                    Text("Sin personas")
+                        .font(HomitaFont.geist(16, relativeTo: .body))
+                        .foregroundStyle(Palette.inkSoft)
+                        .frame(maxWidth: .infinity)
+                }
+                .homitaRow()
             }
         }
+        .homitaList()
         .navigationTitle("Personas")
+        .homitaNavigationBar()
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     showCreate = true
                 } label: {
-                    Label("Nueva persona", systemImage: "plus")
+                    Image(systemName: "plus")
+                        .foregroundStyle(Palette.ink)
+                        .accessibilityLabel("Nueva persona")
                 }
             }
         }
@@ -88,26 +106,38 @@ struct PersonEditorView: View {
         self.store = store
         self.editing = editing
         _name = State(initialValue: editing?.name ?? "")
-        _color = State(initialValue: Color(hex: editing?.color ?? "#6923E2"))
+        _color = State(initialValue: Color(hex: editing?.color ?? Palette.fallbackItem))
     }
 
     var body: some View {
-        Form {
-            Section("Persona") {
-                TextField("Nombre (1-50)", text: $name)
-                ColorPicker("Color", selection: $color, supportsOpacity: false)
-            }
-            Section {
-                Button(editing == nil ? "Crear persona" : "Guardar") {
+        ScrollView {
+            VStack(spacing: 16) {
+                HomitaCard {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HomitaSectionHeader(title: "Persona", systemImage: "person.crop.circle")
+                        HomitaField(placeholder: "Nombre (1-50)", text: $name)
+                        ColorPicker("Color", selection: $color, supportsOpacity: false)
+                            .font(HomitaFont.geist(17, relativeTo: .body))
+                            .foregroundStyle(Palette.ink)
+                    }
+                }
+                HomitaPrimaryButton(
+                    title: editing == nil ? "Crear persona" : "Guardar",
+                    isEnabled: !name.trimmingCharacters(in: .whitespaces).isEmpty && !isWorking,
+                    isLoading: isWorking
+                ) {
                     Task { await save() }
                 }
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isWorking)
             }
+            .padding(20)
         }
+        .background(Palette.background.ignoresSafeArea())
         .navigationTitle(editing == nil ? "Nueva persona" : "Editar persona")
+        .homitaNavigationBar()
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancelar") { dismiss() }
+                    .foregroundStyle(Palette.ink)
             }
         }
         .errorAlert($store.errorMessage)

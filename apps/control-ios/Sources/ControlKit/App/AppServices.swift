@@ -25,6 +25,13 @@ public struct AppServices {
             tokenProvider: { [weak session] in session?.accessToken },
             homeIdProvider: { [weak homeContext] in homeContext?.activeHomeId }
         )
+        client.onSessionExpired = { [weak session, weak homeContext] in
+            Task { @MainActor in
+                // Mismo orden que signOut(): primero el hogar activo, luego la sesión (C3).
+                homeContext?.clear()
+                session?.signOut()
+            }
+        }
         let auth = AuthService(client: client, session: session, config: config, http: http)
         client.refresher = auth
         self.auth = auth

@@ -26,7 +26,11 @@ struct RoutineEditorView: View {
     @State private var showDeleteConfirm = false
     @State private var isWorking = false
 
-    private static let weekdayLabels = [(1, "L"), (2, "M"), (3, "X"), (4, "J"), (5, "V"), (6, "S"), (7, "D")]
+    /// ISO 8601 (1 = lunes), letra visible y nombre completo para VoiceOver (I5).
+    private static let weekdayLabels = [
+        (1, "L", "lunes"), (2, "M", "martes"), (3, "X", "miércoles"), (4, "J", "jueves"),
+        (5, "V", "viernes"), (6, "S", "sábado"), (7, "D", "domingo"),
+    ]
 
     init(store: RoutineStore, calendars: CalendarStore, persons: PersonStore, routine: RoutineEntry?) {
         self.store = store
@@ -48,64 +52,70 @@ struct RoutineEditorView: View {
     }
 
     var body: some View {
-        Form {
-            Section("Rutina") {
-                TextField("Título", text: $title)
+        HomitaForm {
+            HomitaPanel("Rutina", systemImage: "repeat") {
+                HomitaField(placeholder: "Título", text: $title)
                 if routine == nil {
-                    Picker("Calendario", selection: $calendarId) {
-                        ForEach(calendars.calendars, id: \.id) { calendar in
-                            Text(calendar.name).tag(calendar.id)
-                        }
-                    }
+                    Text("Calendario")
+                        .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .footnote))
+                        .foregroundStyle(Palette.inkSoft)
+                    HomitaRadioGroup(
+                        selection: Binding(get: { calendarId }, set: { calendarId = $0 ?? calendarId }),
+                        items: calendars.calendars.map { (id: $0.id, title: $0.name) }
+                    )
                 }
             }
-            Section("Frecuencia") {
-                Picker("Repetir", selection: $frequency) {
-                    Text("Diaria").tag("daily")
-                    Text("Semanal").tag("weekly")
-                    Text("Mensual").tag("monthly")
-                }
+            HomitaPanel("Frecuencia", systemImage: "calendar.day.timeline.left") {
+                HomitaRadioGroup(
+                    selection: Binding(get: { frequency }, set: { frequency = $0 ?? frequency }),
+                    items: [(id: "daily", title: "Diaria"), (id: "weekly", title: "Semanal"), (id: "monthly", title: "Mensual")]
+                )
+                // El Stepper no tiene equivalente en ComponentsKit: se mantiene nativo.
                 Stepper("Cada \(interval) \(unitLabel)", value: $interval, in: 1...99)
+                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                    .foregroundStyle(Palette.ink)
                 if frequency == "weekly" {
-                    HStack {
-                        ForEach(Self.weekdayLabels, id: \.0) { iso, label in
-                            Button(label) {
+                    // Selección múltiple de días: ComponentsKit solo ofrece selección única.
+                    HStack(spacing: 6) {
+                        ForEach(Self.weekdayLabels, id: \.0) { iso, label, name in
+                            Button {
                                 if days.contains(iso) { days.remove(iso) } else { days.insert(iso) }
+                            } label: {
+                                Text(label)
+                                    .font(HomitaFont.geist(15, weight: .semibold, relativeTo: .body))
+                                    .foregroundStyle(days.contains(iso) ? Color.white : Palette.ink)
+                                    .frame(width: 38, height: 38)
+                                    .background(days.contains(iso) ? Palette.accent : Palette.background, in: Circle())
                             }
-                            .buttonStyle(.bordered)
-                            .foregroundStyle(days.contains(iso) ? Color.white : Color.primary)
-                            .background(days.contains(iso) ? Color.accentColor : Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(name)
                         }
                     }
                 }
             }
-            Section("Horario") {
-                DatePicker("Hora", selection: $time, displayedComponents: .hourAndMinute)
-                DatePicker("Inicio", selection: $startDate, displayedComponents: .date)
-                Toggle("Fecha fin", isOn: $hasEndDate)
+            HomitaPanel("Horario", systemImage: "clock") {
+                HomitaDatePicker(title: "Hora", selection: $time, components: .hourAndMinute)
+                HomitaDatePicker(title: "Inicio", selection: $startDate, components: .date)
+                HomitaToggle(title: "Fecha fin", isOn: $hasEndDate)
                 if hasEndDate {
-                    DatePicker("Fin", selection: $endDate, displayedComponents: .date)
+                    HomitaDatePicker(title: "Fin", selection: $endDate, components: .date)
                 }
             }
-            Section("Estado") {
-                Toggle("Activa", isOn: $active)
+            HomitaPanel("Estado", systemImage: "power") {
+                HomitaToggle(title: "Activa", isOn: $active)
             }
-            Section {
-                AlarmField(alarm: $alarm)
-            }
+            AlarmField(alarm: $alarm)
             PersonSelector(persons: persons.persons, selected: $personIds)
-            Section {
-                Button(routine == nil ? "Crear rutina" : "Guardar") {
-                    Task { await save() }
-                }
-                .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || isWorking)
+            HomitaButton(
+                title: routine == nil ? "Crear rutina" : "Guardar",
+                isEnabled: !title.trimmingCharacters(in: .whitespaces).isEmpty && !isWorking,
+                isLoading: isWorking
+            ) {
+                Task { await save() }
             }
             if routine != nil {
-                Section {
-                    Button("Eliminar rutina", role: .destructive) {
-                        showDeleteConfirm = true
-                    }
+                HomitaButton(title: "Eliminar rutina", kind: .secondary) {
+                    showDeleteConfirm = true
                 }
             }
         }
@@ -113,16 +123,11 @@ struct RoutineEditorView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancelar") { dismiss() }
+                    .foregroundStyle(Palette.ink)
             }
         }
-        .confirmationDialog(
-            "Se eliminará la rutina y sus sesiones futuras.",
-            isPresented: $showDeleteConfirm, titleVisibility: .visible
-        ) {
-            Button("Eliminar rutina", role: .destructive) {
-                Task { await delete() }
-            }
-            Button("Cancelar", role: .cancel) {}
+        .homitaConfirm("Se eliminará la rutina y sus sesiones futuras.", isPresented: $showDeleteConfirm, confirmTitle: "Eliminar rutina") {
+            Task { await delete() }
         }
         .errorAlert($store.errorMessage)
     }

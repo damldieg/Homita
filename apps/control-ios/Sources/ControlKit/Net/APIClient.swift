@@ -14,6 +14,9 @@ public final class APIClient {
     private let tokenProvider: () -> String?
     private let homeIdProvider: () -> String?
     public weak var refresher: (any TokenRefreshing)?
+    /// Se llama cuando la sesión caduca (refresh fallido o sin refresher). Lo usa `AppServices`
+    /// para cerrar sesión local y volver a Welcome (C3). Puede llamarse desde cualquier hilo.
+    public var onSessionExpired: (@Sendable () -> Void)?
 
     public init(baseURL: URL, session: URLSession = .shared, tokenProvider: @escaping () -> String?, homeIdProvider: @escaping () -> String? = { nil }) {
         self.baseURL = baseURL
@@ -46,6 +49,12 @@ public final class APIClient {
         return APIRequest(method: method, path: path, query: query, body: data, isPublic: isPublic)
     }
 
+    /// Avisa de la caducidad y devuelve el error para lanzarlo.
+    private func expireSession() -> APIError {
+        onSessionExpired?()
+        return .sessionExpired
+    }
+
     private func perform(_ request: APIRequest, allowRefresh: Bool) async throws -> Data {
         let urlRequest = try RequestBuilder.urlRequest(baseURL: baseURL, apiRequest: request, accessToken: tokenProvider(), homeId: homeIdProvider())
         let data: Data
@@ -59,11 +68,11 @@ public final class APIClient {
             throw APIError.network("Respuesta sin HTTPURLResponse")
         }
         if http.statusCode == 401, !request.isPublic {
-            guard allowRefresh, let refresher else { throw APIError.sessionExpired }
+            guard allowRefresh, let refresher else { throw expireSession() }
             do {
                 try await refresher.refreshSession()
             } catch {
-                throw APIError.sessionExpired
+                throw expireSession()
             }
             return try await perform(request, allowRefresh: false)
         }

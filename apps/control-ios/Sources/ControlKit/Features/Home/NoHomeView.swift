@@ -10,28 +10,19 @@ struct NoHomeView: View {
     private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
-        VStack(spacing: 12) {
-            Text("No tienes ningún hogar")
-                .font(.headline)
-            Text("Crea uno para empezar a usar tareas y calendarios.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            TextField("Nombre del hogar", text: $name)
-                .textFieldStyle(.roundedBorder)
-            Button {
+        HomitaForm {
+            HomitaPanel("No tienes ningún hogar", systemImage: "house") {
+                HomitaFootnote(text: "Crea uno para empezar a usar tareas y calendarios.")
+                HomitaField(placeholder: "Nombre del hogar", text: $name)
+            }
+            HomitaPrimaryButton(title: "Crear hogar", isEnabled: !trimmed.isEmpty && !isWorking, isLoading: isWorking) {
                 Task {
                     isWorking = true
                     errorMessage = await services.homeContext.create(name: trimmed, using: services.homes)
                     isWorking = false
                 }
-            } label: {
-                if isWorking { ProgressView() } else { Text("Crear hogar") }
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(trimmed.isEmpty || isWorking)
         }
-        .padding()
         .errorAlert($errorMessage)
     }
 }

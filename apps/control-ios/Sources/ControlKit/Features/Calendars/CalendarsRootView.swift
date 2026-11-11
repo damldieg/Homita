@@ -21,12 +21,9 @@ public struct CalendarsRootView: View {
     public var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Picker("", selection: $segment) {
-                    Text("Eventos").tag(0)
-                    Text("Rutinas").tag(1)
-                    Text("Calendarios").tag(2)
-                }
-                .pickerStyle(.segmented)
+                HomitaSegmented(selection: $segment, items: [
+                    (id: 0, title: "Eventos"), (id: 1, title: "Rutinas"), (id: 2, title: "Calendarios"),
+                ])
                 .padding([.horizontal, .top])
 
                 switch segment {
@@ -38,6 +35,7 @@ public struct CalendarsRootView: View {
                     CalendarListView(store: calendarStore)
                 }
             }
+            .background(Palette.background.ignoresSafeArea())
             .navigationTitle(["Eventos", "Rutinas", "Calendarios"][segment])
             .task {
                 await calendarStore.load()

@@ -21,86 +21,41 @@ public struct ProfileView: View {
 
     public var body: some View {
         NavigationStack {
-            Form {
-                Section("Cuenta") {
-                    TextField("Nombre", text: $name)
-                    EmailTextField(prompt: "Email", text: $email)
-                    SecureField("Nueva contraseña (opcional, mínimo 8)", text: $password)
-                }
-                Section {
-                    Button {
-                        Task { await save() }
-                    } label: {
-                        if isWorking {
-                            ProgressView()
-                        } else {
-                            Text("Guardar cambios")
-                        }
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Título propio: el título grande de la barra no se ve con el scroll de tarjetas.
+                    Text("Perfil")
+                        .font(HomitaFont.geist(34, weight: .bold, relativeTo: .largeTitle))
+                        .foregroundStyle(Palette.ink)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 8)
+                    accountCard
+                    familyCard
+                    invitationsCard
+                    if !services.homeContext.homes.isEmpty {
+                        homesCard
                     }
-                    .disabled(!isValid || isWorking)
-                }
-                Section("Familia") {
-                    NavigationLink {
-                        PersonsView(store: personStore)
-                    } label: {
-                        Label("Personas", systemImage: "person.2")
+                    if case .ready(let home) = services.homeContext.state {
+                        homeAdminCard(home: home)
                     }
-                }
-                // 1.15 (D-016): fuera del `if case .ready`, visible también sin hogar activo.
-                Section("Invitaciones") {
-                    NavigationLink {
-                        AcceptInvitationView(services: services)
-                    } label: {
-                        Label("Unirse a un hogar con un código", systemImage: "person.badge.plus")
-                    }
-                }
-                if !services.homeContext.homes.isEmpty {
-                    Section {
-                        ForEach(HomeSwitcher.rows(homes: services.homeContext.homes,
-                                                  activeHomeId: services.homeContext.activeHomeId)) { row in
-                            Button {
-                                services.homeContext.select(homeId: row.id)
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading) {
-                                        Text(row.name).foregroundStyle(.primary)
-                                        Text(row.roleLabel).font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    if row.isActive {
-                                        Image(systemName: "checkmark").foregroundStyle(.tint)
-                                    }
-                                }
-                            }
-                            .accessibilityAddTraits(row.isActive ? .isSelected : [])
-                        }
-                    } header: {
-                        Text("Mis hogares")
-                    } footer: {
-                        if let error = services.homeContext.persistenceError {
-                            Text(error).foregroundStyle(.red)
-                        }
-                    }
-                }
-                if case .ready(let home) = services.homeContext.state {
-                    Section("Hogar") {
-                        NavigationLink {
-                            HomeAdminView(services: services, home: home)
-                        } label: {
-                            Label("Administración del hogar", systemImage: "house")
-                        }
-                    }
-                }
-                Section {
-                    Button("Cerrar sesión", role: .destructive) {
+                    HomitaButton(title: "Cerrar sesión", kind: .secondary) {
                         services.signOut()
                     }
-                } footer: {
                     Text("Con firma gratuita la app caduca a los 7 días; reinstálala y vuelve a iniciar sesión.")
+                        .font(HomitaFont.geist(13, relativeTo: .footnote))
+                        .foregroundStyle(Palette.inkSoft)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(20)
+            }
+            .background(Palette.background.ignoresSafeArea())
+            .homitaNavigationBar()
+            .errorAlert($errorMessage)
+            .overlay {
+                if isWorking {
+                    HomitaLoadingOverlay(message: "Guardando…")
                 }
             }
-            .navigationTitle("Perfil")
-            .errorAlert($errorMessage)
             .onAppear {
                 name = services.session.session?.name ?? ""
                 email = services.session.session?.email ?? ""
@@ -113,6 +68,134 @@ public struct ProfileView: View {
             }
         }
     }
+
+    // MARK: - Tarjetas
+
+    private var accountCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HomitaSectionHeader(title: "Cuenta", systemImage: "person.crop.circle")
+            HomitaField(placeholder: "Nombre", text: $name)
+            HomitaField(placeholder: "Email", text: $email, isEmail: true)
+            HomitaField(placeholder: "Nueva contraseña (opcional, mínimo 8)", text: $password, isSecure: true)
+            HomitaPrimaryButton(title: "Guardar cambios", isEnabled: isValid && !isWorking, isLoading: isWorking) {
+                Task { await save() }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Palette.card, in: RoundedRectangle(cornerRadius: 24))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Palette.cardBorder, lineWidth: 1))
+    }
+
+    private var familyCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HomitaSectionHeader(title: "Familia", systemImage: "person.2")
+            NavigationLink {
+                PersonsView(store: personStore)
+            } label: {
+                linkRow(title: "Personas", systemImage: "person.2.fill", tint: Palette.accentHex)
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Palette.card, in: RoundedRectangle(cornerRadius: 24))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Palette.cardBorder, lineWidth: 1))
+    }
+
+    // 1.15 (D-016): fuera del `if case .ready`, visible también sin hogar activo.
+    private var invitationsCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HomitaSectionHeader(title: "Invitaciones", systemImage: "envelope.badge")
+            NavigationLink {
+                AcceptInvitationView(services: services)
+            } label: {
+                linkRow(title: "Unirse a un hogar con un código", systemImage: "person.badge.plus", tint: Palette.onlineHex)
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Palette.card, in: RoundedRectangle(cornerRadius: 24))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Palette.cardBorder, lineWidth: 1))
+    }
+
+    private var homesCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HomitaSectionHeader(title: "Mis hogares", count: services.homeContext.homes.count, systemImage: "house")
+            ForEach(HomeSwitcher.rows(homes: services.homeContext.homes,
+                                      activeHomeId: services.homeContext.activeHomeId)) { row in
+                Button {
+                    services.homeContext.select(homeId: row.id)
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(row.name)
+                                .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                                .foregroundStyle(Palette.ink)
+                            Text(row.roleLabel)
+                                .font(HomitaFont.geist(13, relativeTo: .footnote))
+                                .foregroundStyle(Palette.inkSoft)
+                        }
+                        Spacer()
+                        if row.isActive {
+                            HomitaBadge(title: "Activo", tintHex: Palette.onlineHex)
+                        }
+                    }
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(row.isActive ? .isSelected : [])
+            }
+            if let error = services.homeContext.persistenceError {
+                Text(error)
+                    .font(HomitaFont.geist(13, relativeTo: .footnote))
+                    .foregroundStyle(Palette.accent)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Palette.card, in: RoundedRectangle(cornerRadius: 24))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Palette.cardBorder, lineWidth: 1))
+    }
+
+    private func homeAdminCard(home: HomeItem) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HomitaSectionHeader(title: "Hogar", systemImage: "house.fill")
+            NavigationLink {
+                HomeAdminView(services: services, home: home)
+            } label: {
+                linkRow(title: "Administración del hogar", systemImage: "gearshape", tint: "#F5A623")
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Palette.card, in: RoundedRectangle(cornerRadius: 24))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Palette.cardBorder, lineWidth: 1))
+    }
+
+    /// Fila de navegación dentro de una tarjeta: baldosa de color, título y chevron.
+    private func linkRow(title: String, systemImage: String, tint: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Color(hex: tint))
+                .frame(width: 36, height: 36)
+                .background(Color(hex: tint).opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
+            Text(title)
+                .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                .foregroundStyle(Palette.ink)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Palette.inkMuted)
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+    }
+
+    // MARK: - Lógica
 
     private var isValid: Bool {
         name.codepointCount >= 3 && name.codepointCount <= 50

@@ -21,6 +21,14 @@ public final class EventStore {
 
     private var timezone: String { TimeZone.current.identifier }
 
+    /// Tamaño de página de «Pasados» (contrato `limit`/`offset`, I2).
+    public static let pageSize = 50
+    /// Hay más pasados que cargar (la última página vino llena).
+    public private(set) var hasMorePast = false
+    public private(set) var isLoadingMore = false
+    /// Filas de «Pasados» ya cargadas: `offset` de la siguiente página.
+    private var pastOffset = 0
+
     public func load() async {
         isLoading = true
         defer { isLoading = false }
@@ -40,14 +48,45 @@ public final class EventStore {
         } catch {
             report(error)
         }
-        filters.startDate = nil
-        filters.endDate = localNow
-        filters.orderMode = "DESC"
         do {
-            past = try await repo.index(filters)
+            let page = try await repo.index(pastFilters(localNow: localNow, offset: 0))
+            past = page
+            pastOffset = page.count
+            hasMorePast = page.count == Self.pageSize
         } catch {
             report(error)
         }
+    }
+
+    /// Siguiente página de «Pasados» (I2). Sin efecto si no hay más o ya hay una en curso.
+    public func loadMorePast() async {
+        guard hasMorePast, !isLoadingMore else { return }
+        isLoadingMore = true
+        defer { isLoadingMore = false }
+        do {
+            let page = try await repo.index(pastFilters(localNow: clock().localNowEpoch, offset: pastOffset))
+            past.append(contentsOf: page)
+            pastOffset += page.count
+            hasMorePast = page.count == Self.pageSize
+        } catch {
+            report(error)
+        }
+    }
+
+    /// Filtros de «Pasados»: fin = ahora, orden descendente, paginado.
+    private func pastFilters(localNow: String, offset: Int) -> EventFilters {
+        let search = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        var filters = EventFilters(
+            calendarId: calendarFilterId,
+            search: search.isEmpty ? nil : search,
+            routine: false,
+            timezone: timezone
+        )
+        filters.endDate = localNow
+        filters.orderMode = "DESC"
+        filters.limit = Self.pageSize
+        filters.offset = offset
+        return filters
     }
 
     /// Alta/edición. La validación de cliente exige título (v1 sin "modo IA").

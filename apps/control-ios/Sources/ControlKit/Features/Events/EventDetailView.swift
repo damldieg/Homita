@@ -31,33 +31,32 @@ struct EventDetailView: View {
     }
 
     var body: some View {
-        Form {
-            Section("Evento") {
-                TextField("Título", text: $title)
-                DatePicker("Fecha y hora", selection: $date)
+        HomitaForm {
+            HomitaPanel("Evento", systemImage: "calendar") {
+                HomitaField(placeholder: "Título", text: $title)
+                HomitaDatePicker(title: "Fecha y hora", selection: $date, components: [.date, .hourAndMinute])
                 if event == nil {
-                    Picker("Calendario", selection: $calendarId) {
-                        ForEach(calendars.calendars, id: \.id) { calendar in
-                            Text(calendar.name).tag(calendar.id)
-                        }
-                    }
+                    Text("Calendario")
+                        .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .footnote))
+                        .foregroundStyle(Palette.inkSoft)
+                    HomitaRadioGroup(
+                        selection: Binding(get: { calendarId }, set: { calendarId = $0 ?? calendarId }),
+                        items: calendars.calendars.map { (id: $0.id, title: $0.name) }
+                    )
                 }
             }
-            Section {
-                AlarmField(alarm: $alarm)
-            }
+            AlarmField(alarm: $alarm)
             PersonSelector(persons: persons.persons, selected: $personIds)
-            Section {
-                Button(event == nil ? "Crear evento" : "Guardar") {
-                    Task { await save() }
-                }
-                .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || isWorking)
+            HomitaButton(
+                title: event == nil ? "Crear evento" : "Guardar",
+                isEnabled: !title.trimmingCharacters(in: .whitespaces).isEmpty && !isWorking,
+                isLoading: isWorking
+            ) {
+                Task { await save() }
             }
             if event != nil {
-                Section {
-                    Button("Eliminar evento", role: .destructive) {
-                        showDeleteConfirm = true
-                    }
+                HomitaButton(title: "Eliminar evento", kind: .secondary) {
+                    showDeleteConfirm = true
                 }
             }
         }
@@ -65,16 +64,11 @@ struct EventDetailView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancelar") { dismiss() }
+                    .foregroundStyle(Palette.ink)
             }
         }
-        .confirmationDialog(
-            "Se eliminará el evento.",
-            isPresented: $showDeleteConfirm, titleVisibility: .visible
-        ) {
-            Button("Eliminar evento", role: .destructive) {
-                Task { await delete() }
-            }
-            Button("Cancelar", role: .cancel) {}
+        .homitaConfirm("Se eliminará el evento.", isPresented: $showDeleteConfirm, confirmTitle: "Eliminar evento") {
+            Task { await delete() }
         }
         .errorAlert($store.errorMessage)
     }
