@@ -78,11 +78,13 @@ struct EventListView: View {
                 }
             }
             if store.upcoming.isEmpty && store.past.isEmpty && !store.isLoading {
-                HomitaCard {
-                    Text("Sin eventos")
-                        .font(HomitaFont.geist(16, relativeTo: .body))
-                        .foregroundStyle(Palette.inkSoft)
-                        .frame(maxWidth: .infinity)
+                HomitaEmptyState(
+                    systemImage: "calendar.badge.plus",
+                    title: "Sin eventos",
+                    message: "Añade un evento con fecha y hora para verlo aquí.",
+                    actionTitle: "Nuevo evento"
+                ) {
+                    showCreate = true
                 }
                 .homitaRow()
             }

@@ -550,3 +550,37 @@ struct HomitaLinkRow: View {
         }
     }
 }
+
+/// Estado vacío de Homita: icono en baldosa, título, explicación y botón para crear desde ahí.
+struct HomitaEmptyState: View {
+    let systemImage: String
+    let title: String
+    let message: String
+    let actionTitle: String
+    let action: () -> Void
+
+    var body: some View {
+        HomitaCard {
+            VStack(spacing: 14) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(Palette.accent)
+                    .frame(width: 84, height: 84)
+                    .background(Palette.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 26))
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(HomitaFont.geist(20, weight: .bold, relativeTo: .title3))
+                    .foregroundStyle(Palette.ink)
+                    .multilineTextAlignment(.center)
+                Text(message)
+                    .font(HomitaFont.geist(15, relativeTo: .body))
+                    .foregroundStyle(Palette.inkSoft)
+                    .multilineTextAlignment(.center)
+                HomitaButton(title: actionTitle, action: action)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+        }
+        .accessibilityElement(children: .contain)
+    }
+}

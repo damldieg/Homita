@@ -62,11 +62,13 @@ struct RoutineListView: View {
                 }
             }
             if store.routines.isEmpty && !store.isLoading {
-                HomitaCard {
-                    Text("Sin rutinas")
-                        .font(HomitaFont.geist(16, relativeTo: .body))
-                        .foregroundStyle(Palette.inkSoft)
-                        .frame(maxWidth: .infinity)
+                HomitaEmptyState(
+                    systemImage: "repeat",
+                    title: "Sin rutinas",
+                    message: "Las rutinas repiten eventos cada día, semana o mes sin que las vuelvas a escribir.",
+                    actionTitle: "Nueva rutina"
+                ) {
+                    showCreate = true
                 }
                 .homitaRow()
             }

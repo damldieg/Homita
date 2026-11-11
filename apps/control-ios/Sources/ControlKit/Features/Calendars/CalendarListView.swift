@@ -8,6 +8,17 @@ struct CalendarListView: View {
 
     var body: some View {
         List {
+            if store.calendars.isEmpty && !store.isLoading {
+                HomitaEmptyState(
+                    systemImage: "calendar",
+                    title: "Sin calendarios",
+                    message: "Los calendarios agrupan eventos y rutinas por color, como Trabajo o Familia.",
+                    actionTitle: "Nuevo calendario"
+                ) {
+                    showCreate = true
+                }
+                .homitaRow()
+            }
             Section {
                 ForEach(store.calendars, id: \.id) { calendar in
                     NavigationLink {

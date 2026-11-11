@@ -113,16 +113,17 @@ struct TasksView: View {
             }
 
             if store.pendingTasks.isEmpty && store.completedTasks.isEmpty && !store.isLoading {
-                if store.listFilterId == nil {
-                    Button("Nueva tarea") {
-                        showCreateTask = true
-                    }
-                    .homitaRow()
-                } else {
-                    Text("Sin tareas")
-                        .foregroundStyle(Palette.inkSoft)
-                        .homitaRow()
+                HomitaEmptyState(
+                    systemImage: "checklist",
+                    title: "Sin tareas",
+                    message: store.listFilterId == nil
+                        ? "Crea tu primera tarea y ponle una lista para tenerla a mano."
+                        : "Esta lista no tiene tareas todavía.",
+                    actionTitle: "Nueva tarea"
+                ) {
+                    showCreateTask = true
                 }
+                .homitaRow()
             }
         }
         .homitaList()
@@ -189,6 +190,17 @@ struct TaskListsView: View {
 
     var body: some View {
         List {
+            if store.taskLists.isEmpty && !store.isLoading {
+                HomitaEmptyState(
+                    systemImage: "list.bullet",
+                    title: "Sin listas",
+                    message: "Las listas agrupan tus tareas: compra, casa, trabajo…",
+                    actionTitle: "Nueva lista"
+                ) {
+                    showCreateList = true
+                }
+                .homitaRow()
+            }
             Section {
                 ForEach(store.taskLists, id: \.id) { list in
                     NavigationLink {
