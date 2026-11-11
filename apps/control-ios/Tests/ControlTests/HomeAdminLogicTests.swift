@@ -105,6 +105,20 @@ final class HomeAdminAccessTests: XCTestCase {
         let admin = HomeAdminScreenModel(role: "admin")
         XCTAssertTrue(admin.showPermissions && admin.showAudit && admin.canEdit)
     }
+
+    func testMembersVisibleToEveryoneManagedOnlyByAdmin() {
+        for role in ["admin", "member", "adult", "child"] {
+            XCTAssertTrue(HomeAdminScreenModel(role: role).showMembers, role)
+        }
+        let admin = HomeAdminScreenModel(role: "admin")
+        XCTAssertTrue(admin.canCreateMembers)
+        XCTAssertTrue(admin.canEditMembers)
+        let member = HomeAdminScreenModel(role: "member")
+        XCTAssertFalse(member.canCreateMembers)
+        XCTAssertFalse(member.canEditMembers)
+        XCTAssertTrue(HomeAdminAccess.canManageMembers(role: "admin"))
+        XCTAssertFalse(HomeAdminAccess.canManageMembers(role: "member"))
+    }
 }
 
 final class PermissionDraftTests: XCTestCase {
@@ -150,5 +164,15 @@ final class AuditPagerTests: XCTestCase {
     func testMergeNoDuplicates() {
         let merged = AuditPager.merge([item(12), item(11)], [item(11), item(10)])
         XCTAssertEqual(merged.map(\.id), [12, 11, 10])
+    }
+
+    func testMemberErrorMessagesInSpanish() {
+        func msg(_ m: String) -> String { APIError.http(status: 400, message: m).userMessage }
+        XCTAssertEqual(msg("Invalid member"), "Tipo de miembro no válido")
+        XCTAssertEqual(msg("Name is required (max 50 characters)"), "El nombre es obligatorio (máx. 50 caracteres)")
+        XCTAssertEqual(msg("Color must be #RRGGBB"), "El color debe ser #RRGGBB")
+        XCTAssertEqual(msg("Member ID is required"), "Falta el identificador del miembro")
+        XCTAssertEqual(APIError.http(status: 403, message: "Not Allowed").homeAdminMessage,
+                       "Solo un administrador puede realizar esta acción")
     }
 }

@@ -166,6 +166,92 @@ public final class MembershipStore {
     }
 }
 
+/// Miembros del hogar: lista, alta y edición. La recarga de `homeContext` (`onOwnRowChanged`) solo
+/// se dispara cuando `isOwnRow` reconoce la fila editada como la del caller; hoy el payload no
+/// identifica esa fila, así que la vista la cablea a `{ _ in false }` hasta 1.15.
+@Observable
+public final class HomeMembersStore {
+    public private(set) var items: [HomeMember] = []
+    public private(set) var state: HomeAdminLoadState = .idle
+    public var errorMessage: String?
+
+    private let repo: HomeRepository
+    public let homeId: Int
+    private let activeHomeId: () -> String?
+    private let isOwnRow: (HomeMember) -> Bool
+    private let onOwnRowChanged: () async -> Void
+
+    public init(repo: HomeRepository, homeId: Int, activeHomeId: @escaping () -> String?,
+                isOwnRow: @escaping (HomeMember) -> Bool = { _ in false },
+                onOwnRowChanged: @escaping () async -> Void = {}) {
+        self.repo = repo
+        self.homeId = homeId
+        self.activeHomeId = activeHomeId
+        self.isOwnRow = isOwnRow
+        self.onOwnRowChanged = onOwnRowChanged
+    }
+
+    private var isActive: Bool { activeHomeId() == String(homeId) }
+
+    public func load() async {
+        state = .loading
+        do {
+            let result = try await repo.members(homeId: homeId)
+            guard isActive else { return }
+            items = result
+            state = .loaded
+        } catch {
+            guard isActive else { return }
+            state = .failed(homeAdminMessage(error))
+        }
+    }
+
+    /// Alta (nombre recortado, validado en cliente). `true` si se creó.
+    @discardableResult
+    public func create(kind: MemberKind, name: String, color: String) async -> Bool {
+        if let message = MemberValidation.validate(name: name, color: color) {
+            errorMessage = message
+            return false
+        }
+        guard isActive else { return false }
+        do {
+            _ = try await repo.createMember(homeId: homeId, kind: kind, name: MemberValidation.trimmedName(name), color: color)
+            if isActive { await load() }
+            return true
+        } catch {
+            errorMessage = homeAdminMessage(error)
+            return false
+        }
+    }
+
+    /// Edición con solo los campos cambiados. `true` si se guardó (o no había cambios que enviar).
+    @discardableResult
+    public func update(_ member: HomeMember, kind: MemberKind?, status: MemberStatus?,
+                       name: String, color: String?) async -> Bool {
+        if let message = MemberValidation.validate(name: name, color: color ?? MemberValidation.defaultColor) {
+            errorMessage = message
+            return false
+        }
+        if member.linked && kind == .pet {
+            errorMessage = "Una persona vinculada a una cuenta no puede ser mascota"
+            return false
+        }
+        guard let body = MemberRules.makeUpdateBody(original: member, kind: kind, status: status, name: name, color: color) else {
+            return true
+        }
+        guard isActive else { return false }
+        do {
+            _ = try await repo.updateMember(body)
+            if body.kind != nil, isOwnRow(member) { await onOwnRowChanged() }
+            if isActive { await load() }
+            return true
+        } catch {
+            errorMessage = homeAdminMessage(error)
+            return false
+        }
+    }
+}
+
 /// Accesos: catálogo + permisos por miembro, con borrador.
 @Observable
 public final class PermissionStore {

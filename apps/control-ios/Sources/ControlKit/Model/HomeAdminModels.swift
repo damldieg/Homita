@@ -157,7 +157,19 @@ public struct SetPermissionsBody: Codable, Equatable, Sendable {
     }
 }
 
-/// `HOME_MEMBER` (`GET home/member`). Solo lectura; la pantalla de miembros es de 1.13.
+/// Tipo de miembro del hogar (`kind`). `pet` no puede estar vinculado a una cuenta.
+public enum MemberKind: String, CaseIterable, Codable, Sendable {
+    case adult, child, relative, guest, pet
+}
+
+/// Estado de un miembro (`status`); desactivar es el borrado lógico.
+public enum MemberStatus: String, CaseIterable, Codable, Sendable {
+    case active, inactive
+}
+
+/// `HOME_MEMBER` (`GET home/member`, `POST home/member/create`, `PATCH home/member/update`).
+/// `kind` y `status` se guardan como texto: un valor nuevo del servidor no rompe el listado
+/// (los enums `MemberKind`/`MemberStatus` se usan en la entrada y en la UI).
 public struct HomeMember: Codable, Equatable, Sendable {
     public let id: Int
     public let homeId: Int
@@ -169,6 +181,20 @@ public struct HomeMember: Codable, Equatable, Sendable {
     public let createdAt: String?
     public let updatedAt: String?
 
+    public init(id: Int, homeId: Int, kind: String, name: String, color: String? = nil,
+                status: String = "active", linked: Bool = false,
+                createdAt: String? = nil, updatedAt: String? = nil) {
+        self.id = id
+        self.homeId = homeId
+        self.kind = kind
+        self.name = name
+        self.color = color
+        self.status = status
+        self.linked = linked
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
     enum CodingKeys: String, CodingKey {
         case id
         case homeId = "home_id"
@@ -176,6 +202,47 @@ public struct HomeMember: Codable, Equatable, Sendable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
+}
+
+/// Body de `POST home/member/create`.
+public struct CreateMemberBody: Codable, Equatable, Sendable {
+    public let homeId: Int
+    public let kind: String
+    public let name: String
+    public let color: String
+
+    public init(homeId: Int, kind: MemberKind, name: String, color: String) {
+        self.homeId = homeId
+        self.kind = kind.rawValue
+        self.name = name
+        self.color = color
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case homeId = "home_id"
+        case kind, name, color
+    }
+}
+
+/// Body de `PATCH home/member/update`: sin `home_id` (el hogar viaja en `X-Home-Id`); los campos
+/// nil se omiten del JSON y el servidor los deja como están.
+public struct UpdateMemberBody: Codable, Equatable, Sendable {
+    public let id: Int
+    public let kind: String?
+    public let status: String?
+    public let name: String?
+    public let color: String?
+
+    public init(id: Int, kind: MemberKind? = nil, status: MemberStatus? = nil, name: String? = nil, color: String? = nil) {
+        self.id = id
+        self.kind = kind?.rawValue
+        self.status = status?.rawValue
+        self.name = name
+        self.color = color
+    }
+
+    /// Sin ningún campo a cambiar.
+    public var isEmpty: Bool { kind == nil && status == nil && name == nil && color == nil }
 }
 
 public struct PermissionCatalogEntry: Codable, Equatable, Sendable {

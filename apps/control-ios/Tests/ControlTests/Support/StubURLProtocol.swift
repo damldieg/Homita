@@ -165,7 +165,8 @@ enum ContractFixtures {
     static let membershipList = "[\(membershipItem),\(membershipItem2)]"
     static let membershipState = #"{"membership_id":8,"home_id":2,"app_user_id":9,"role":"admin"}"#
     static let transferState = #"{"from_membership_id":7,"to_membership_id":8}"#
-    static let homeMemberList = ##"[{"id":1,"home_id":2,"kind":"adult","name":"Ana","color":"#FF0000","status":"active","linked":true,"created_at":"2026-11-01 10:00:00","updated_at":"2026-11-01 10:00:00"}]"##
+    static let homeMember = ##"{"id":1,"home_id":2,"kind":"adult","name":"Ana","color":"#FF0000","status":"active","linked":true,"created_at":"2026-11-01 10:00:00","updated_at":"2026-11-01 10:00:00"}"##
+    static let homeMemberList = "[\(homeMember)]"
     static let permissionGet = #"{"catalog":[{"code":"calendar.read","domain":"calendar","description":"Ver calendario"},{"code":"calendar.write","domain":"calendar","description":"Editar calendario"},{"code":"task.read","domain":"task","description":"Ver tareas"}],"defaults":[{"kind":"adult","permissions":["calendar.read"]}],"memberships":[{"membership_id":7,"app_user_id":1,"name":"Ana","email":"ana@homita.example","role":"admin","kind":"adult","editable":false,"permissions":["calendar.read","calendar.write","task.read"]},{"membership_id":8,"app_user_id":9,"name":"Beto","email":"beto@homita.example","role":"member","editable":true,"permissions":["calendar.read"]}]}"#
     static let permissionState = #"{"membership_id":8,"home_id":2,"permissions":["calendar.read","task.read"],"granted":["task.read"],"revoked":[]}"#
     static let auditList = #"[{"id":12,"action":"membership.role_changed","target_type":"membership","target_id":8,"actor_app_user_id":1,"actor_name":"Ana","payload":{"role":"admin","granted":["a","b"],"nested":{"x":1},"n":3,"flag":true,"none":null},"created_at":"2026-11-02 11:00:00"},{"id":11,"action":"home.updated","target_type":"home","payload":{},"created_at":"2026-11-02 10:00:00"}]"#
@@ -209,6 +210,10 @@ enum ContractFixtures {
             json = ok
         case ("GET", "home/member"):
             json = homeMemberList
+        case ("POST", "home/member/create"):
+            return StubURLProtocol.Stub(status: 201, json: homeMember)
+        case ("PATCH", "home/member/update"):
+            json = homeMember
         case ("GET", "home/permission"):
             json = permissionGet
         case ("PATCH", "home/permission"):

@@ -51,6 +51,10 @@ public enum APIError: Error, Equatable {
             case "Invalid credentials": return "Email o contraseña incorrectos"
             case "User cannot remove themselves": return "No puedes quitarte a ti mismo"
             case "Email already exists": return "Ese email ya está registrado"
+            case "Invalid member": return "Tipo de miembro no válido"
+            case "Name is required (max 50 characters)": return "El nombre es obligatorio (máx. 50 caracteres)"
+            case "Color must be #RRGGBB": return "El color debe ser #RRGGBB"
+            case "Member ID is required": return "Falta el identificador del miembro"
             default: return message
             }
         case .network:
