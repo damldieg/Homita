@@ -47,6 +47,11 @@ struct TasksView: View {
     @State private var editMode: EditMode = .inactive
     #endif
 
+    /// Hay alguna tarea visible (pendiente o completada); excluyente con el estado vacío.
+    private var hasTasks: Bool {
+        !store.pendingTasks.isEmpty || !store.completedTasks.isEmpty
+    }
+
     var body: some View {
         List {
             if store.listFilterId != nil {
@@ -113,10 +118,26 @@ struct TasksView: View {
                 }
             }
 
-            if !store.hasLoadedTasks || (store.isLoading && store.pendingTasks.isEmpty && store.completedTasks.isEmpty) {
+            if hasTasks {
+                Section {
+                    Button {
+                        showCreateTask = true
+                    } label: {
+                        HomitaCard {
+                            Label("Nueva tarea", systemImage: "plus")
+                                .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                                .foregroundStyle(Palette.accent)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .homitaRow()
+                }
+            }
+
+            if !store.hasLoadedTasks || (store.isLoading && !hasTasks) {
                 HomitaLoadingCard(message: "Cargando tareas…").homitaRow()
             }
-            if store.hasLoadedTasks && store.pendingTasks.isEmpty && store.completedTasks.isEmpty && !store.isLoading {
+            if store.hasLoadedTasks && !hasTasks && !store.isLoading {
                 HomitaEmptyState(
                     illustration: .tasks,
                     title: "Sin tareas",
