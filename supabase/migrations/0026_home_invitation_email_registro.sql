@@ -247,6 +247,10 @@ end $$;
 
 -- ─────────────────── (g) Backfill: creador sin miembro vinculado ───────────────────
 
+-- R1-04: si home.created_by es null (o el creador ya no es miembro) se usa el primer admin
+-- (home_membership role admin, menor id). R1-05: si ya existe un home_member adult sin vincular
+-- con el mismo nombre que ese usuario en el hogar, se vincula en vez de insertar otro.
+-- Idempotente: solo actúa sobre hogares donde el usuario elegido no tiene home_member vinculado.
 do $$
 declare
     r record;
@@ -254,29 +258,52 @@ declare
     v_color text;
     v_hm bigint;
     v_n integer := 0;
-    v_sin_creador integer;
+    v_linked integer := 0;
+    v_sin_admin integer;
 begin
     for r in
-        select h.id as home_id, h.created_by, u.name as user_name
+        select h.id as home_id, c.user_id, u.name as user_name
           from home h
-          join app_user u on u.id = h.created_by
-         where h.created_by is not null
-           and exists (select 1 from home_membership hm
-                        where hm.home_id = h.id and hm.app_user_id = h.created_by)
+          cross join lateral (
+              select coalesce(
+                  (select hm.app_user_id from home_membership hm
+                    where hm.home_id = h.id and hm.app_user_id = h.created_by),
+                  (select hm.app_user_id from home_membership hm
+                    where hm.home_id = h.id and hm.role = 'admin'
+                    order by hm.id limit 1)
+              ) as user_id
+          ) c
+          join app_user u on u.id = c.user_id
+         where c.user_id is not null
            and not exists (select 1 from home_member hm
-                            where hm.home_id = h.id and hm.app_user_id = h.created_by)
+                            where hm.home_id = h.id and hm.app_user_id = c.user_id)
     loop
-        select f.v_name, f.v_color into v_name, v_color
-          from fn_validate_person_fields(r.user_name, '#6923E2') f;
-        insert into home_member (home_id, kind, name, color, status, app_user_id, created_by)
-        values (r.home_id, 'adult', v_name, v_color, 'active', r.created_by, r.created_by)
-        returning id into v_hm;
-        insert into person (user_id, home_id, home_member_id, name, color)
-        values (r.created_by, r.home_id, v_hm, v_name, v_color);
-        v_n := v_n + 1;
+        v_hm := null;
+        -- R3-02: el backfill nunca aborta; nombre saneado sin validar (vacío → 'Admin', máx. 50)
+        v_name := coalesce(nullif(btrim(left(r.user_name, 50)), ''), 'Admin');
+        v_color := '#6923E2';
+        -- R1-05: miembro sin vincular con el mismo nombre → se vincula
+        select hm.id into v_hm from home_member hm
+         where hm.home_id = r.home_id and hm.app_user_id is null and hm.kind = 'adult'
+           and lower(btrim(hm.name)) = lower(v_name)
+         order by hm.id limit 1;
+        if v_hm is not null then
+            update home_member set app_user_id = r.user_id where id = v_hm;
+            v_linked := v_linked + 1;
+        else
+            insert into home_member (home_id, kind, name, color, status, app_user_id, created_by)
+            values (r.home_id, 'adult', v_name, v_color, 'active', r.user_id, r.user_id)
+            returning id into v_hm;
+            v_n := v_n + 1;
+        end if;
+        if not exists (select 1 from person where home_member_id = v_hm) then
+            insert into person (user_id, home_id, home_member_id, name, color)
+            values (r.user_id, r.home_id, v_hm, v_name, v_color);
+        end if;
     end loop;
-    select count(*) into v_sin_creador from home where created_by is null;
-    raise notice '0026 backfill: % miembro(s) creador(es) creados; % hogar(es) sin created_by', v_n, v_sin_creador;
+    select count(*) into v_sin_admin from home h
+     where not exists (select 1 from home_membership hm where hm.home_id = h.id and hm.role = 'admin');
+    raise notice '0026 backfill: % miembro(s) creados, % vinculado(s); % hogar(es) sin admin', v_n, v_linked, v_sin_admin;
 end $$;
 
 -- ─────────────────── (h) Grants ───────────────────

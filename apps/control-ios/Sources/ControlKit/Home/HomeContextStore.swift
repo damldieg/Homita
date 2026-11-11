@@ -136,6 +136,7 @@ public final class HomeContextStore {
         homes = []
         sessionChoice = nil
         persistenceError = nil
+        pendingInvitationCode = nil
         state = .unresolved
     }
 

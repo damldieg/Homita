@@ -218,6 +218,14 @@ final class HomeContextStoreTests: XCTestCase {
         XCTAssertNil(error)
         XCTAssertEqual(store.activeHomeId, "2")
     }
+
+    /// R2-04: cerrar sesión no deja el código de invitación pendiente en memoria.
+    func testClearResetsPendingInvitationCode() throws {
+        let (store, _, _) = try makeSUT()
+        store.pendingInvitationCode = "0123456789abcdef0123456789abcdef"
+        store.clear()
+        XCTAssertNil(store.pendingInvitationCode)
+    }
 }
 
 final class HomeSwitcherTests: XCTestCase {

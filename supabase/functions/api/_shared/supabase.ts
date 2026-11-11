@@ -17,11 +17,15 @@ export const passwordGrant = (email: string, password: string): Promise<Response
     });
 
 // User::create (alta): GoTrue signup con anon key; el trigger on_auth_user_created crea app_user
-export const signup = (name: string, email: string, password: string): Promise<Response> =>
+// 0027: con invitationPending viaja solo un marcador booleano (nunca el código en claro, R2-03)
+// y el trigger no crea hogar personal.
+export const signup = (
+    name: string, email: string, password: string, invitationPending = false,
+): Promise<Response> =>
     fetch(`${SUPABASE_URL}/auth/v1/signup`, {
         method: "POST",
         headers: { apikey: ANON_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, data: { name } }),
+        body: JSON.stringify({ email, password, data: invitationPending ? { name, invitation_pending: true } : { name } }),
     });
 
 // User::update (perfil): PUT /auth/v1/user con el JWT del usuario (Q8/Q9); app_user lo sincroniza
