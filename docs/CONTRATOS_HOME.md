@@ -1,12 +1,12 @@
 # Contratos de la API de hogares y membresías (`/home/*`)
 
-Contrato de las 15 rutas `/home/*` de la Edge Function `api` (tarjeta 1.10 de `HOMITA_FUNDATIONS.md:201`). Pensado para los clientes nuevos (iOS 1.11-1.14) y para 1.15 (invitaciones). Es documentación: no cambia la Edge, las migraciones ni las 43 rutas legacy (D-008).
+Contrato de las 19 rutas `/home/*` de la Edge Function `api` (tarjeta 1.10 de `HOMITA_FUNDATIONS.md:201`; las 4 de invitaciones las añade 1.15). Pensado para los clientes nuevos (iOS 1.11-1.15). Es documentación del comportamiento vigente; las 43 rutas legacy no cambian (D-008).
 
 ## Alcance y fuentes
 
 - **Fuente.** No hay oráculo PHP para `/home/*` (`supabase/functions/api/usecases/homes.ts:2`). El contrato es el código de la Edge (`index.ts`, `usecases/homes.ts`, `_shared/errors.ts`, `_shared/home.ts`), las migraciones 0012 a 0021 y los casos de `scripts/supabase/contract_check.py`. Cada código HTTP y mensaje de este documento sale de ahí; donde no hay caso de contrato se indica "sin caso".
-- **Verificación.** `contract_check.py` completo contra la Edge local: 385/385 casos, 43/43 rutas legacy, 15/15 rutas home, mínimo 3 casos por ruta home. El total sube de 351 a 385 con el bloque 1.10 (15 casos 401, 15 casos `Invalid home` y 4 específicos).
-- **Invitaciones (Q1 a).** El contrato de invitaciones se documenta al final como **diseñado, no implementado**. La implementación queda en 1.15 (`HOMITA_FUNDATIONS.md:221`), con la migración `0022` (libre: la última existente es `0021`). No hay rutas `invitation` en la Edge.
+- **Verificación.** `contract_check.py` completo contra la Edge local: 454/454 casos, 43/43 rutas legacy, 19/19 rutas home, mínimo 3 casos por ruta home. El total sube de 351 a 385 con el bloque 1.10 (15 casos 401, 15 casos `Invalid home` y 4 específicos) y de 385 a 454 con el bloque 1.15 de invitaciones (69 casos).
+- **Invitaciones (1.15, vigente).** Las 4 rutas `/home/invitation*` y la tabla `home_invitation` (migración `0022_home_invitations.sql`) se documentan en la sección [Invitaciones](#invitaciones-115).
 - **Idioma de los errores.** Los mensajes son inglés, exactos y sensibles a mayúsculas. Los clientes pueden depender del texto.
 
 ## Convenciones
@@ -23,6 +23,7 @@ Opcional, solo en rutas autenticadas (`index.ts:163-175`; `_shared/home.ts:15-20
 - Formato `^[0-9]{1,18}$` (se normaliza, `007` pasa a `7`). Otro valor: `400 {"error":"Invalid home"}` (`index.ts:168`; `errors.ts:72`).
 - Hogar válido pero el usuario no es miembro (o está archivado: `get_homes` solo lista activos): `404 {"error":"Not Found"}` en las rutas `/home/*` (`index.ts:171`; `errors.ts:71`).
 - Si la cabecera está presente y es de otro hogar que el pedido en query o body, la RPC responde `404 Not Found` (comparación con `fn_active_home_id()`).
+- **Excepción (1.15, D-015):** `POST /home/invitation/accept` valida el formato (400 `Invalid home`), pero no comprueba la pertenencia ni propaga la cabecera a la RPC (`homeContext: false` en `index.ts`): quien acepta aún no es miembro y el hogar lo fija el código. La RPC tampoco lee `fn_active_home_id()`.
 
 ### Orden de validación
 
@@ -46,7 +47,7 @@ Opcional, solo en rutas autenticadas (`index.ts:163-175`; `_shared/home.ts:15-20
 |---|---|
 | `Not Found` | 404 |
 | `Not Allowed` | 403 |
-| `Invalid member`, `Invalid role`, `Invalid membership`, `Invalid permission`, `Name is required`, `Name is required (max 50 characters)`, `Color must be #RRGGBB` | 400 |
+| `Invalid member`, `Invalid role`, `Invalid membership`, `Invalid permission`, `Already member`, `Name is required`, `Name is required (max 50 characters)`, `Color must be #RRGGBB` | 400 |
 | otro | 500 |
 
 ### Plantillas de respuesta
@@ -65,6 +66,9 @@ Claves exactas, las de `contract_check.py`. `<ts>` = `YYYY-MM-DD HH:MM:SS`; `<id
 | `PERMISSION_ITEM` | `{membership_id, app_user_id, name, email, role, kind?, editable, permissions: [string]}` |
 | `PERMISSION_STATE` | `{membership_id, home_id, permissions: [string], granted: [string], revoked: [string]}` |
 | `AUDIT_ITEM` | `{id, action, target_type, target_id?, actor_app_user_id?, actor_name?, payload: object, created_at}` |
+| `INVITATION_ITEM` | `{id, home_id, kind, member_id?, member_name?, status, expires_at, created_by?, created_at}` (nunca `code` ni `code_hash`) |
+| `INVITATION_CREATED` | `INVITATION_ITEM` + `code` (32 hex; solo en la respuesta de crear) |
+| `INVITATION_ACCEPTED` | `{home_id, membership_id, member_id, role: "member", kind}` |
 | `SUCCESS` | `{"success":true}` |
 
 ## Glosario
@@ -280,23 +284,58 @@ Auditoría del hogar (solo acciones `home.%`).
 - **Usecase / RPC:** `handleHomeAudit` (`homes.ts:209`) -> `get_home_audit` (`0021:76`).
 - **Casos:** PA1-PA7.
 
-## Invitaciones (diseñado, no implementado; 1.15)
+## Invitaciones (1.15)
 
-**Estado: no vigente.** Ninguna de estas rutas existe en la Edge (`grep home/invitation supabase/functions` vacío) ni hay tabla `home_invitation`. Contrato de diseño tomado de `.dorch/archive/fase-0-auditorias/diseno-home.md` (§5.2 y §7, líneas 435-461 y 400). Se implementa en 1.15 (`HOMITA_FUNDATIONS.md:221`) con la migración `0022_home_invitations.sql`, que solo crea `home_invitation` (ver glosario sobre `membership_permission`).
+**Estado: vigente** desde 1.15 (migración `0022_home_invitations.sql`; diseño `.dorch/archive/fase-0-auditorias/diseno-home.md` §5.2). Tabla `home_invitation` con RLS activada y **sin policies** (D-014): solo se accede por las 4 RPC `security definer` (`get_home_invitations`, `create_home_invitation`, `accept_home_invitation`, `revoke_home_invitation`, solo `authenticated`); `anon` y `authenticated` no tienen privilegios de tabla ni de secuencia.
 
-| Ruta | Permiso | Descripción |
+- **Estados:** `pending`, `accepted`, `revoked`. `expired` no se guarda: se calcula con `expires_at <= now()` (UTC). Caducidad de 7 días, sin job.
+- **Código:** 32 caracteres hex (128 bits CSPRNG, `extensions.gen_random_bytes`), un solo uso. La base guarda solo su `sha256` hex (`code_hash`). El código en claro sale **una vez**, en la respuesta de crear; ni el listado, ni revocar, ni aceptar, ni la auditoría lo devuelven. La Edge no lo registra en logs (en Postgres viaja como parámetro de la RPC de aceptar: el gate de producción comprueba la configuración de logs). Se comparte copiándolo (D14, sin email).
+- **`kind`:** `adult`, `child`, `relative` o `guest` (nunca `pet`). Con `member_id`, el `kind` es el del miembro (si llega otro distinto: `Invalid member`) y al aceptar se usa su `kind` **actual** (A-2).
+- **Solo admin invita `adult` (D-017):** un `member` con `home.invite` puede invitar con `child`, `relative` o `guest`; con `adult` (directo o vía un miembro `adult`) recibe `403 Not Allowed`. Si el miembro de una invitación no-`adult` pasa a `adult` antes de aceptarse, aceptar responde `400 Invalid member` (sin consumir).
+- **Auditoría:** `home.invitation.create`, `home.invitation.accept` y `home.invitation.revoke` en `audit_log` (visibles en `GET /home/audit`), con `invitation_id`, `kind`, `member_id` y `membership_id`; nunca código ni hash.
+
+| Ruta | Permiso | Éxito |
 |---|---|---|
-| `GET /home/invitation` | `home.invite` | Invitaciones pendientes. |
-| `POST /home/invitation/create` | `home.invite` | Crea una invitación (`kind`, `member_id` opcional). Devuelve el código una sola vez (D14: copiable, sin email). |
-| `POST /home/invitation/accept` | sesión | Acepta por código: `{code}`. |
-| `POST /home/invitation/revoke` | `home.invite` | Revoca una invitación `pending`. |
+| `GET /home/invitation` | `home.invite` | `200 [INVITATION_ITEM]` |
+| `POST /home/invitation/create` | `home.invite` (+ `admin` para `adult`) | `201 INVITATION_CREATED` |
+| `POST /home/invitation/accept` | sesión | `200 INVITATION_ACCEPTED` |
+| `POST /home/invitation/revoke` | `home.invite` | `200 INVITATION_ITEM` (`status: "revoked"`) |
 
-- **Estados:** `pending`, `accepted`, `revoked`. `expired` se calcula al leer (`expires_at <= now()`); la caducidad es de 7 días y no hay job.
-- **Código:** 32 caracteres hex (128 bits CSPRNG), un solo uso; la base guarda solo su hash SHA-256.
-- **Errores previstos:**
-  - Crear: `400 Invalid member` (`member_id` de otro hogar, `pet`, no activo o ya vinculado; sin `member_id` el `kind` no puede ser `pet`).
-  - Aceptar: `404 Not Found` (código inexistente, usado, revocado o caducado; no distingue la causa, sin oráculo); `400 Already member` (ya existe membresía en ese hogar; la invitación no se consume); `400 Invalid member` (`member_id` incompatible al aceptar).
-  - Revocar: `404 Not Found` si la invitación no está `pending`.
-- **Requisito para 1.15:** `Already member` no está en `RPC_STATUS` (`errors.ts:10-35`); sin añadirlo saldría `500`. `Invalid member` y `Not Found` ya están mapeados.
-- Los códigos HTTP de éxito y las formas de respuesta no los fija el diseño; 1.15 los define y añade sus plantillas a `contract_check.py`.
-- `add_calendar_user`/`add_task_list_user` con email de un no miembro siguen devolviendo `403 Not Allowed` (Q3); la vía para sumar externos es la invitación.
+### GET /home/invitation
+
+- **Query:** `home_id` (requerido).
+- **Éxito:** `200 [INVITATION_ITEM]`: solo las `pending` no caducadas del hogar, `id` desc (A-4: una caducada no se lista).
+- **Errores:** `400 Home ID is required`; `404 Not Found` (no miembro, o cabecera de otro hogar); `403 Not Allowed` (sin `home.invite`).
+- **Usecase / RPC:** `handleHomeInvitationIndex` (`homes.ts`) -> `get_home_invitations` (`0022`).
+- **Casos:** IH (401, `Invalid home`), IL1-IL7, IA19.
+
+### POST /home/invitation/create
+
+- **Body:** `home_id` (requerido), `kind` (opcional), `member_id` (opcional; `home_member` sin cuenta del mismo hogar). Hace falta al menos uno de los dos. `kind` presente que no sea string, o `member_id` presente que no sea entero: `400 Invalid member` sin llamar a la RPC.
+- **Éxito:** `201 INVITATION_CREATED` con `expires_at` = ahora + 7 días.
+- **Errores (orden):** `400 Home ID is required`; `400 Invalid member` (`kind` fuera de `adult/child/relative/guest`, incluido `pet`, o sin `kind` ni `member_id`); `404 Not Found` (hogar inexistente o archivado, cabecera de otro hogar, no miembro); `403 Not Allowed` (sin `home.invite`); `400 Invalid member` (`member_id` inexistente o de otro hogar, con el mismo mensaje; `pet`; `inactive`; ya vinculado; `kind` distinto del del miembro); `403 Not Allowed` (`adult` sin ser admin, D-017).
+- **Usecase / RPC:** `handleHomeInvitationCreate` (`homes.ts`) -> `create_home_invitation` (`0022`).
+- **Casos:** IH, IC1-IC19, IA5, IA13, IA17, IR1.
+
+### POST /home/invitation/accept
+
+Une la cuenta al hogar del código: crea la membresía `member` con el snapshot de permisos del `kind` y, sin `member_id`, un `home_member` (nombre de la cuenta, color `#6923E2`) con su `person` 1:1; con `member_id`, vincula ese miembro. Todo en una transacción con el hogar bloqueado (`FOR UPDATE`): dos aceptaciones del mismo código se serializan y la segunda recibe `404`.
+
+- **Body:** `code` (requerido), **solo en el body JSON**: a diferencia del resto de rutas, el query string no se lee (un `?code=` acabaría en logs de URL; con el código solo en la query la respuesta es `400 Invitation code is required`). Se normaliza con trim y minúsculas.
+- **Cabecera:** ver la excepción de `X-Home-Id` (D-015). Los clientes no la envían (iOS: `homeHeaderExcludedPaths`).
+- **Éxito:** `200 INVITATION_ACCEPTED`.
+- **Errores (orden):** `400 Invitation code is required` (ausente, no string o vacío; no dice nada de ningún código); `404 Not Found` (mal formado, inexistente, usado, revocado, caducado u hogar archivado: el mismo cuerpo, sin oráculo; un código mal formado se corta en la Edge sin llamar a la RPC, A-5); `400 Already member` (ya hay membresía en ese hogar; la invitación **no** se consume); `400 Invalid member` (el miembro ya no es válido: vinculado, `inactive`, `pet`, o pasó a `adult` con una invitación no-`adult`; no se consume).
+- **Usecase / RPC:** `handleHomeInvitationAccept` (`homes.ts`) -> `accept_home_invitation` (`0022`).
+- **Casos:** IH, IA1-IA18, IR3.
+
+### POST /home/invitation/revoke
+
+- **Body:** `home_id`, `id` (requeridos).
+- **Éxito:** `200 INVITATION_ITEM` con `status: "revoked"`.
+- **Errores (orden):** `400 Home ID is required`; `400 Invitation ID is required`; `404 Not Found` (guarda de hogar: no miembro, cabecera ajena, archivado); `403 Not Allowed` (sin `home.invite`); `404 Not Found` (de otro hogar, inexistente, ya aceptada o revocada, o caducada).
+- **Usecase / RPC:** `handleHomeInvitationRevoke` (`homes.ts`) -> `revoke_home_invitation` (`0022`).
+- **Casos:** IH, IR1-IR11.
+
+### Relación con `/calendar/user` y `/task-list/user`
+
+`add_calendar_user`/`add_task_list_user` con email de una cuenta que no es miembro del hogar del recurso siguen devolviendo `403 Not Allowed` (Q2 a, Q3; casos IQ1-IQ2). La vía para sumar a alguien de fuera es una invitación; una vez miembro, se le puede compartir el recurso.

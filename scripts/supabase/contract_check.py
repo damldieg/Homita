@@ -9,9 +9,10 @@ segundo lado con el que comparar. Este script fija el comportamiento documentado
 
 * Cobertura: las 43 rutas del contrato (tabla ROUTES de `supabase/functions/api/index.ts`),
   incluidas `GET /config` y `PATCH /user/update` (no cubiertas por el antiguo oráculo), más las
-  15 rutas `/home/*` de 1.4/1.5/1.6/1.9 (`HOME_ROUTES`, contrato nuevo sin oráculo PHP; las 3 de
-  1.9: `GET /home/permission`, `PATCH /home/permission`, `GET /home/audit`). El
-  resumen final exige 43/43 legacy, 15/15 home y exit 0 solo si todos los casos pasan.
+  19 rutas `/home/*` de 1.4/1.5/1.6/1.9/1.15 (`HOME_ROUTES`, contrato nuevo sin oráculo PHP; las
+  3 de 1.9: `GET /home/permission`, `PATCH /home/permission`, `GET /home/audit`; las 4 de 1.15:
+  `GET /home/invitation`, `POST /home/invitation/create|accept|revoke`). El resumen final exige
+  43/43 legacy, 19/19 home y exit 0 solo si todos los casos pasan.
 * Forma: plantillas con claves EXACTAS — `"<ts>"` (`Y-m-d H:i:s`), `"<token>"` (string no vacío),
   `"<id>"`/`"<int>"`, `"<str>"`, `"<bool>"`, `"<01>"` (entero 0/1 del contrato), sufijo `?` =
   nullable (`"<int?>"`), `[t]` = todo elemento cumple `t`, literal = igualdad exacta. El sufijo de
@@ -42,6 +43,13 @@ segundo lado con el que comparar. Este script fija el comportamiento documentado
   `PATCH /home/member/update` con `status` no string → 400 `Invalid member` y `GET /home` con
   `X-Home-Id` vacía → 200 (A9). El total esperado pasa de 351 a 385 y el resumen imprime los casos
   por ruta home; el exit code falla si alguna ruta home tiene menos de 3 casos (`MIN_HOME_CASES`).
+* Bloque 1.15 (invitaciones, 69 casos = 3 + 8 + 19 + 7 + 19 + 11 + 2; `docs/CONTRATOS_HOME.md`
+  §Invitaciones): altas cc-inv/cc-inv2/cc-inv3, 401/400 de las 4 rutas nuevas, create (código de
+  32 hex mostrado una vez, sha256 en BD calculado en Python sin enviar el código a psql, +7 días,
+  reglas de member_id, D-017: solo admin crea adult), listado sin código, accept (genérico, con
+  miembro, Already member sin consumir, 404 sin oráculo, cabecera ignorada, hogar archived),
+  revoke y el 403 de `/calendar/user` y `/task-list/user` con email externo (Q2 a). Los códigos
+  nunca se imprimen.
 * `SUPABASE_SERVICE_ROLE_KEY` (reset de restos CC-%, R1-01): del entorno, de `.demo/functions.env`
   o de `supabase status -o env`; toda fuente con indicios de producción (`supabase.co`) se rechaza.
 * `PSQL` (membresía del bloque viewer): comando psql completo contra la BD local; para el stack
@@ -193,7 +201,11 @@ CASES_BASE = 351    # 312 de 1.5/1.6/1.7/1.8 (207 + 59 M/C2 + 6 permisos kind + 
 CASES_110 = 15 + 15 + 4  # bloque 1.10: 15 sin Bearer → 401, 15 X-Home-Id abc → 400 Invalid home
                          # y 4 específicos (detail 403, default 400, member/update status no
                          # string 400, GET /home con X-Home-Id vacía 200)
-EXPECTED_CASES = CASES_BASE + CASES_110  # 385
+CASES_115 = 3 + 8 + 19 + 7 + 19 + 11 + 2  # bloque 1.15 de invitaciones: IX1–IX3 altas, IH1–IH8
+                                          # 401/400 de las 4 rutas, IC1–IC19 create (+ IR7),
+                                          # IL1–IL7 listado, IA1–IA19 accept, IR1–IR11 revoke
+                                          # (IR7 va con create) e IQ1–IQ2 email externo 403
+EXPECTED_CASES = CASES_BASE + CASES_110 + CASES_115  # 351 + 34 + 69 = 454
 
 
 def record(route, name, ok, detail=""):
@@ -295,6 +307,14 @@ TRANSFER_STATE = {"from_membership_id": "<id>", "to_membership_id": "<id>"}
 # Contrato nuevo de 1.5 (§6.1): miembros del hogar (sin app_user_id ni email, §3.3)
 HOME_MEMBER = {"id": "<id>", "home_id": "<id>", "kind": "<str>", "name": "<str>", "color": "<str>",
                "status": "<str>", "linked": "<bool>", "created_at": "<ts>", "updated_at": "<ts>"}
+# Contrato nuevo de 1.15 (diseño §5.2): invitaciones. INVITATION_ITEM nunca lleva code ni
+# code_hash; el código en claro solo sale en INVITATION_CREATED (una vez).
+INVITATION_ITEM = {"id": "<id>", "home_id": "<id>", "kind": "<str>", "member_id": "<int?>",
+                   "member_name": "<str?>", "status": "<str>", "expires_at": "<ts>",
+                   "created_by": "<int?>", "created_at": "<ts>"}
+INVITATION_CREATED = dict(INVITATION_ITEM, code="<str>")
+INVITATION_ACCEPTED = {"home_id": "<id>", "membership_id": "<id>", "member_id": "<id>",
+                       "role": "member", "kind": "<str>"}
 SUCCESS = {"success": True}
 CONFIG = {"allow_registration": "<bool>"}
 ERR_INVALID_CREDS = '{"error":"Invalid credentials"}'
@@ -318,6 +338,10 @@ ERR_INVALID_MEMBERSHIP = '{"error":"Invalid membership"}'
 ERR_MEMBERSHIP_ID_REQUIRED = '{"error":"Membership ID is required"}'
 # 1.9 (/home/permission, §4.3): código fuera del catálogo o shape de permissions inválido
 ERR_INVALID_PERMISSION = '{"error":"Invalid permission"}'
+# 1.15 (/home/invitation/*): membresía existente (sin consumir) y entrada vacía
+ERR_ALREADY_MEMBER = '{"error":"Already member"}'
+ERR_INVITATION_CODE_REQUIRED = '{"error":"Invitation code is required"}'
+ERR_INVITATION_ID_REQUIRED = '{"error":"Invitation ID is required"}'
 ERR_UNAUTHORIZED = '{"error":"Unauthorized"}'
 # TypeError del motor, mensaje exacto del contrato (sufijo de traza normalizado a fichero+línea)
 ERR_CAL_NO_COLOR = (r'App\Models\Calendar::create(): Argument #2 ($color) must be of '
@@ -339,15 +363,17 @@ ROUTES = [
 ]
 
 # Rutas nuevas /home/* (1.4 §2 R1–R6; 1.5 §6.1 añade /home/member/*; 1.6 §4 añade
-# /home/membership/*; 1.9 §4.1 añade /home/permission GET/PATCH y /home/audit). ROUTES se
-# mantiene en 43: "43/43" sigue siendo la métrica legacy (invariante D-008); la cobertura home
-# se reporta aparte (15/15).
+# /home/membership/*; 1.9 §4.1 añade /home/permission GET/PATCH y /home/audit; 1.15 añade
+# /home/invitation*). ROUTES se mantiene en 43: "43/43" sigue siendo la métrica legacy
+# (invariante D-008); la cobertura home se reporta aparte (19/19).
 HOME_ROUTES = [
     "GET /home", "POST /home/create", "GET /home/detail", "PATCH /home/update",
     "PATCH /home/default", "GET /home/membership",
     "PATCH /home/membership/role", "POST /home/membership/transfer", "DELETE /home/membership",
     "GET /home/member", "POST /home/member/create", "PATCH /home/member/update",
     "GET /home/permission", "PATCH /home/permission", "GET /home/audit",
+    "GET /home/invitation", "POST /home/invitation/create", "POST /home/invitation/accept",
+    "POST /home/invitation/revoke",
 ]
 
 
@@ -527,6 +553,34 @@ delete from home
 delete from auth.users
     where id = (select auth_uid from app_user where email = '{mem}');
 delete from auth.users where email like 'cc-perm-%';
+-- Bloque 1.15 (cc-inv*): membresías, person/home_member de sus hogares (personales) y cuentas.
+-- Sus filas en hogares CC-% del demo (CC-Membresias, CC-Inv-Arch) caen con los deletes de arriba;
+-- home_invitation cae en cascada con el hogar (y con el home_member al que apunte).
+delete from home_invitation
+    where home_id in (select id from home
+                      where created_by in (select id from app_user where email like 'cc-inv%'));
+delete from membership_permission where home_membership_id in (
+    select hm.id from home_membership hm
+    where hm.app_user_id in (select id from app_user where email like 'cc-inv%')
+       or hm.home_id in (select id from home
+                         where created_by in (select id from app_user where email like 'cc-inv%')));
+delete from home_membership
+    where app_user_id in (select id from app_user where email like 'cc-inv%')
+       or home_id in (select id from home
+                      where created_by in (select id from app_user where email like 'cc-inv%'));
+delete from person
+    where user_id in (select id from app_user where email like 'cc-inv%')
+       or home_id in (select id from home
+                      where created_by in (select id from app_user where email like 'cc-inv%'));
+delete from home_member
+    where home_id in (select id from home
+                      where created_by in (select id from app_user where email like 'cc-inv%'));
+delete from audit_log
+    where home_id in (select id from home
+                      where created_by in (select id from app_user where email like 'cc-inv%'));
+delete from home
+    where created_by in (select id from app_user where email like 'cc-inv%');
+delete from auth.users where email like 'cc-inv%';
 update app_user u set default_home_id = coalesce(
     (select min(h.id) from home h where h.is_personal and h.created_by = u.id),
     (select min(hm.home_id) from home_membership hm where hm.app_user_id = u.id))
@@ -2166,7 +2220,270 @@ def scenario_home_110(hM, mem_m):
 scenario_home_110(hM, mem_m)
 
 
-# ── Resumen: cobertura de las 43 rutas legacy + 15 rutas home y rutas con regresión ──
+# ── Bloque 1.15 (invitaciones, diseño §5.2; plan 1.15 §Pruebas): 69 casos ──
+# Hogar CC-Membresias (hM, admin demo) y cc-mem (member adult sin home.invite). Usuarios propios
+# cc-inv/cc-inv2/cc-inv3 (los borra reset_leftovers). Los miembros fixture (CC-Inv-*) se crean por
+# psql con su person 1:1 (I5). El código en claro nunca se imprime ni viaja a psql: el sha256 se
+# calcula en Python y se compara con code_hash. D-017: solo un admin crea invitaciones adult.
+
+INV_PWD = "ccinv12345"
+INV_EMAILS = ["cc-inv@homita.example", "cc-inv2@homita.example", "cc-inv3@homita.example"]
+
+
+def inv_member(home, kind, name, status="active", linked=None):
+    """home_member + person 1:1 por psql (fixture; sin grants externos)."""
+    hm = int(psql("insert into home_member (home_id, kind, name, color, status, app_user_id, created_by) "
+                  "values (%d, '%s', '%s', '#123456', '%s', %s, %d) returning id"
+                  % (home, kind, name, status, "null" if linked is None else linked, aid)))
+    psql("insert into person (user_id, home_id, home_member_id, name, color) "
+         "values (%d, %d, %d, '%s', '#123456')" % (linked or aid, home, hm, name))
+    return hm
+
+
+def scenario_invitations(hM, mem_m, mid):
+    import hashlib
+    # IX1–IX3: altas (registro abierto en la demo) + login sin contar
+    toks, ids = [], []
+    for i, email in enumerate(INV_EMAILS, 1):
+        check("POST /user/create", f"IX{i} POST /user/create {email.split('@')[0]} → 201 USER_CREATE",
+              request("POST", "/user/create", {"name": f"CC-Inv-{i}", "email": email,
+                                               "password": INV_PWD}), 201, USER_CREATE)
+        a = request("POST", "/user/auth", {"email": email, "password": INV_PWD})
+        if a[0] != 200:
+            sys.exit(f"no se pudo autenticar {email} (¿ALLOW_REGISTRATION=true en la Edge?)")
+        toks.append(parse(a[1])["token"])
+        ids.append(parse(a[1])["id"])
+    itok, itok2, itok3 = toks
+    iid, iid2, iid3 = ids
+    mauth = request("POST", "/user/auth", {"email": MEM_EMAIL, "password": MEM_PASSWORD})
+    mtok = parse(mauth[1]).get("token") if mauth[0] == 200 else None
+    if mtok is None:
+        sys.exit("no se pudo reautenticar cc-mem para el bloque 1.15")
+    psql(f"select fn_seed_kind_permissions({mem_m}, 'adult')")  # adult: sin home.invite
+    demo_home = int(psql("select default_home_id from app_user where id = %d" % aid))
+    # Fixtures: miembros de hM (relative, pet, vinculado, inactivo, adult) y uno de otro hogar
+    abuela = inv_member(hM, "relative", "CC-Inv-Abuela")
+    pet = inv_member(hM, "pet", "CC-Inv-Mascota")
+    inactive = inv_member(hM, "child", "CC-Inv-Inactivo", status="inactive")
+    adult = inv_member(hM, "adult", "CC-Inv-Adulto")
+    linked = int(psql("select id from home_member where home_id = %d and app_user_id = %d" % (hM, mid))
+                 or 0) or inv_member(hM, "adult", "CC-Inv-Vinculado", linked=mid)
+    other = inv_member(demo_home, "adult", "CC-Inv-Otro")
+
+    # IH1–IH8: las 4 rutas sin Bearer → 401 y con X-Home-Id: abc → 400 (dispatcher)
+    calls = [("GET", "/home/invitation"), ("POST", "/home/invitation/create"),
+             ("POST", "/home/invitation/accept"), ("POST", "/home/invitation/revoke")]
+    for method, path in calls:
+        body = {} if method != "GET" else None
+        check(f"{method} {path}", f"IH {method} {path} sin Bearer → 401 Unauthorized",
+              request(method, path, body), 401, ERR_UNAUTHORIZED)
+    for method, path in calls:
+        body = {} if method != "GET" else None
+        check(f"{method} {path}", f"IH {method} {path} con X-Home-Id: abc → 400 Invalid home",
+              request(method, path, body, tok, home="abc"), 400, ERR_INVALID_HOME)
+
+    # ── Fase 1: create (IC1–IC19), IR7 y listado (IL1–IL7) ──
+    C, R, A, L = ("POST /home/invitation/create", "POST /home/invitation/revoke",
+                  "POST /home/invitation/accept", "GET /home/invitation")
+    b = check(C, "IC1 admin crea guest → 201 INVITATION_CREATED",
+              request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest"}, tok),
+              201, INVITATION_CREATED)
+    k1, id1 = (b.get("code"), b.get("id")) if isinstance(b, dict) else (None, None)
+    row = psql("select code_hash || '|' || extract(epoch from (expires_at - created_at))::bigint "
+               "|| '|' || row_to_json(i)::text from home_invitation i where id = %d" % (id1 or 0))
+    parts = row.split("|", 2) if row else ["", "", ""]
+    value(C, "IC2 código 32 hex, code_hash = sha256(código), +7 días y sin el código en claro en BD",
+          isinstance(k1, str) and re.match(r"^[0-9a-f]{32}$", k1) is not None
+          and parts[0] == hashlib.sha256(k1.encode()).hexdigest() and parts[1] == str(7 * 86400)
+          and k1 not in parts[2], "fila de home_invitation no cumple (código no impreso)")
+    for n, name, body in (
+            ("IC3", "kind pet sin miembro", {"home_id": hM, "kind": "pet"}),
+            ("IC4", "sin kind ni member_id", {"home_id": hM}),
+            ("IC5", "kind 'boss'", {"home_id": hM, "kind": "boss"}),
+            ("IC6", "miembro pet", {"home_id": hM, "member_id": pet}),
+            ("IC7", "miembro vinculado", {"home_id": hM, "member_id": linked}),
+            ("IC8", "miembro inactivo", {"home_id": hM, "member_id": inactive}),
+            ("IC9", "miembro de otro hogar", {"home_id": hM, "member_id": other})):
+        check(C, f"{n} {name} → 400 Invalid member",
+              request("POST", "/home/invitation/create", body, tok), 400, ERR_INVALID_MEMBER)
+    b = check(C, "IC10 miembro relative sin vincular (CC-Inv-Abuela) → 201 kind relative",
+              request("POST", "/home/invitation/create", {"home_id": hM, "member_id": abuela}, tok),
+              201, dict(INVITATION_CREATED, kind="relative", member_id=abuela,
+                        member_name="CC-Inv-Abuela"))
+    k10 = b.get("code") if isinstance(b, dict) else None
+    check(C, "IC11 miembro + kind distinto → 400 Invalid member",
+          request("POST", "/home/invitation/create", {"home_id": hM, "member_id": abuela,
+                                                      "kind": "guest"}, tok), 400, ERR_INVALID_MEMBER)
+    check(C, "IC12 cc-mem sin home.invite → 403 Not Allowed",
+          request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest"}, mtok),
+          403, ERR_NOT_ALLOWED)
+    check(C, "IC13 cc-inv no miembro → 404 Not Found",
+          request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest"}, itok),
+          404, ERR_NOT_FOUND)
+    check(C, "IC14 cabecera de otro hogar del admin → 404 Not Found",
+          request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest"}, tok,
+                  home=demo_home), 404, ERR_NOT_FOUND)
+    check(C, "IC15 sin home_id → 400 Home ID is required",
+          request("POST", "/home/invitation/create", {"kind": "guest"}, tok), 400, ERR_HOME_ID_REQUIRED)
+    check(C, "IC16 member_id 'x' → 400 Invalid member",
+          request("POST", "/home/invitation/create", {"home_id": hM, "member_id": "x"}, tok),
+          400, ERR_INVALID_MEMBER)
+    psql("insert into membership_permission (home_membership_id, permission_code) "
+         "values (%d, 'home.invite') on conflict do nothing" % mem_m)
+    b = check(C, "IC17 cc-mem con home.invite (psql) crea guest → 201",
+              request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest"}, mtok),
+              201, INVITATION_CREATED)
+    id17 = b.get("id") if isinstance(b, dict) else 0
+    check(C, "IC18 D-017: cc-mem (no admin) con home.invite crea adult → 403 Not Allowed",
+          request("POST", "/home/invitation/create", {"home_id": hM, "kind": "adult"}, mtok),
+          403, ERR_NOT_ALLOWED)
+    check(C, "IC19 D-017: cc-mem (no admin) invita a un miembro adult → 403 Not Allowed",
+          request("POST", "/home/invitation/create", {"home_id": hM, "member_id": adult}, mtok),
+          403, ERR_NOT_ALLOWED)
+    psql("delete from membership_permission where home_membership_id = %d "
+         "and permission_code = 'home.invite'" % mem_m)
+    check(R, "IR7 cc-inv no miembro revoca → 404 Not Found",
+          request("POST", "/home/invitation/revoke", {"home_id": hM, "id": id1}, itok), 404, ERR_NOT_FOUND)
+    b = check(L, "IL1 admin GET /home/invitation → 200 [INVITATION_ITEM] con IC1 e IC10",
+              request("GET", f"/home/invitation?home_id={hM}", None, tok), 200, [INVITATION_ITEM])
+    listed = [x.get("id") for x in b if isinstance(x, dict)] if isinstance(b, list) else []
+    value(L, "IL2 ningún item lleva code ni code_hash (y están IC1 e IC10, id desc)",
+          isinstance(b, list) and all("code" not in x and "code_hash" not in x for x in b)
+          and id1 in listed and listed == sorted(listed, reverse=True), repr(listed)[:200])
+    psql("update home_invitation set expires_at = (now() at time zone 'UTC') - interval '1 minute' "
+         "where id = %d" % id17)
+    b = request("GET", f"/home/invitation?home_id={hM}", None, tok)
+    value(L, "IL3 una invitación caducada (psql) no aparece en el listado",
+          b[0] == 200 and id17 not in [x.get("id") for x in parse(b[1])], b[1][:200])
+    check(L, "IL4 cc-mem sin home.invite → 403 Not Allowed",
+          request("GET", f"/home/invitation?home_id={hM}", None, mtok), 403, ERR_NOT_ALLOWED)
+    check(L, "IL5 cc-inv no miembro → 404 Not Found",
+          request("GET", f"/home/invitation?home_id={hM}", None, itok), 404, ERR_NOT_FOUND)
+    check(L, "IL6 sin home_id → 400 Home ID is required",
+          request("GET", "/home/invitation", None, tok), 400, ERR_HOME_ID_REQUIRED)
+    check(L, "IL7 cabecera ajena → 404 Not Found",
+          request("GET", f"/home/invitation?home_id={hM}", None, tok, home=demo_home), 404, ERR_NOT_FOUND)
+
+    # ── Fase 2: accept (IA1–IA19), revoke (IR1–IR6, IR8–IR11) y email externo (IQ1–IQ2) ──
+    b = check(A, "IA1 cc-inv acepta IC1 → 200 INVITATION_ACCEPTED (member, guest)",
+              request("POST", "/home/invitation/accept", {"code": k1}, itok), 200,
+              dict(INVITATION_ACCEPTED, kind="guest"))
+    hm1 = b.get("member_id") if isinstance(b, dict) else 0
+    homes = parse(request("GET", "/home", None, itok)[1])
+    mships = parse(request("GET", f"/home/membership?id={hM}", None, tok)[1])
+    perms = next((x.get("permissions") for x in mships if isinstance(x, dict)
+                  and x.get("app_user_id") == iid), None) if isinstance(mships, list) else None
+    value(A, "IA2 GET /home de cc-inv incluye hM como member y su snapshot es el de guest (3)",
+          isinstance(homes, list) and any(h.get("home_id") == hM and h.get("role") == "member"
+                                          for h in homes)
+          and perms == ["calendar.view", "task.complete", "task.view"], repr(perms)[:200])
+    row = psql("select hm.kind || '|' || hm.app_user_id || '|' || (select count(*) from person p "
+               "where p.home_member_id = hm.id and p.home_id = hm.home_id) || '|' || i.status || '|' "
+               "|| i.accepted_by from home_member hm, home_invitation i "
+               "where hm.id = %d and i.id = %d" % (hm1 or 0, id1 or 0))
+    value(A, "IA3 psql: home_member guest vinculado + person 1:1 e invitación accepted/accepted_by",
+          row == f"guest|{iid}|1|accepted|{iid}", repr(row))
+    check(A, "IA4 cc-inv2 reutiliza el código de IC1 → 404 Not Found",
+          request("POST", "/home/invitation/accept", {"code": k1}, itok2), 404, ERR_NOT_FOUND)
+    b = check(C, "IA5 admin crea K2 (guest) → 201",
+              request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest"}, tok),
+              201, INVITATION_CREATED)
+    k2, id2 = (b.get("code"), b.get("id")) if isinstance(b, dict) else (None, 0)
+    check(A, "IA6 cc-inv (ya miembro) acepta K2 → 400 Already member",
+          request("POST", "/home/invitation/accept", {"code": k2}, itok), 400, ERR_ALREADY_MEMBER)
+    value(A, "IA7 psql: K2 sigue pending (Already member no consume)",
+          psql("select status from home_invitation where id = %d" % id2) == "pending")
+    b = check(A, "IA8 cc-inv2 acepta IC10 → 200 con member_id de CC-Inv-Abuela (relative)",
+              request("POST", "/home/invitation/accept", {"code": k10}, itok2), 200,
+              dict(INVITATION_ACCEPTED, member_id=abuela, kind="relative"))
+    members = parse(request("GET", f"/home/member?home_id={hM}", None, tok)[1])
+    mships = parse(request("GET", f"/home/membership?id={hM}", None, tok)[1])
+    perms2 = next((x.get("permissions") for x in mships if isinstance(x, dict)
+                   and x.get("app_user_id") == iid2), None) if isinstance(mships, list) else None
+    value(A, "IA9 GET /home/member: CC-Inv-Abuela linked = true y cc-inv2 con permisos de relative (10)",
+          isinstance(members, list) and any(m.get("id") == abuela and m.get("linked") is True
+                                            for m in members)
+          and isinstance(perms2, list) and len(perms2) == 10, repr(perms2)[:200])
+    check(A, "IA10 código inexistente de 32 hex → 404 Not Found",
+          request("POST", "/home/invitation/accept", {"code": "0123456789abcdef" * 2}, itok3),
+          404, ERR_NOT_FOUND)
+    check(A, "IA11 código 'xyz' → 404 con el mismo cuerpo",
+          request("POST", "/home/invitation/accept", {"code": "xyz"}, itok3), 404, ERR_NOT_FOUND)
+    # IA12 (+ R1-01 review): sin code en el body → 400; el query string se ignora (un `?code=` no
+    # se acepta: acabaría en logs de URL). Si la Edge leyera la query respondería 404, no 400.
+    check(A, "IA12 sin body y con ?code= (32 hex) → 400 Invitation code is required (query ignorada)",
+          request("POST", "/home/invitation/accept?code=" + "fedcba9876543210" * 2, None, itok3),
+          400, ERR_INVITATION_CODE_REQUIRED)
+    b = check(C, "IA13 admin crea K-exp (guest) → 201",
+              request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest"}, tok),
+              201, INVITATION_CREATED)
+    kexp, idexp = (b.get("code"), b.get("id")) if isinstance(b, dict) else (None, 0)
+    psql("update home_invitation set expires_at = (now() at time zone 'UTC') - interval '1 minute' "
+         "where id = %d" % idexp)
+    check(A, "IA14 K-exp caducada (psql) → 404 Not Found",
+          request("POST", "/home/invitation/accept", {"code": kexp}, itok3), 404, ERR_NOT_FOUND)
+    check(A, "IA15 cc-inv3 acepta K2 con X-Home-Id de hM (aún no miembro) → 200 (D-015)",
+          request("POST", "/home/invitation/accept", {"code": k2}, itok3, home=hM), 200,
+          dict(INVITATION_ACCEPTED, kind="guest"))
+    b = check("POST /home/create", "IA16 admin POST /home/create CC-Inv-Arch → 201",
+              request("POST", "/home/create", {"name": "CC-Inv-Arch"}, tok), 201, HOME_DETAIL)
+    harch = b.get("id") if isinstance(b, dict) else 0
+    b = check(C, "IA17 invitación en CC-Inv-Arch → 201",
+              request("POST", "/home/invitation/create", {"home_id": harch, "kind": "guest"}, tok),
+              201, INVITATION_CREATED)
+    karch = b.get("code") if isinstance(b, dict) else None
+    psql("update home set status = 'archived' where id = %d" % harch)
+    check(A, "IA18 hogar archivado (psql) → accept 404 Not Found",
+          request("POST", "/home/invitation/accept", {"code": karch}, itok), 404, ERR_NOT_FOUND)
+    b = request("GET", f"/home/invitation?home_id={hM}", None, tok)
+    listed = [x.get("id") for x in parse(b[1])] if b[0] == 200 else None
+    value(L, "IA19 GET /home/invitation: sin IC1 ni K2 (aceptadas) y sin code",
+          listed is not None and id1 not in listed and id2 not in listed and '"code"' not in b[1],
+          repr(listed)[:200])
+    b = check(C, "IR1 admin crea K3 → 201",
+              request("POST", "/home/invitation/create", {"home_id": hM, "kind": "child"}, tok),
+              201, INVITATION_CREATED)
+    k3, id3 = (b.get("code"), b.get("id")) if isinstance(b, dict) else (None, 0)
+    check(R, "IR2 revoke K3 → 200 INVITATION_ITEM con status revoked",
+          request("POST", "/home/invitation/revoke", {"home_id": hM, "id": id3}, tok), 200,
+          dict(INVITATION_ITEM, status="revoked"))
+    check(A, "IR3 cc-inv (ya miembro) acepta K3 revocada → 404 (paso 1 antes que el 2)",
+          request("POST", "/home/invitation/accept", {"code": k3}, itok), 404, ERR_NOT_FOUND)
+    check(R, "IR4 revoke repetido → 404 Not Found",
+          request("POST", "/home/invitation/revoke", {"home_id": hM, "id": id3}, tok), 404, ERR_NOT_FOUND)
+    check(R, "IR5 revoke de IC1 aceptada → 404 Not Found",
+          request("POST", "/home/invitation/revoke", {"home_id": hM, "id": id1}, tok), 404, ERR_NOT_FOUND)
+    check(R, "IR6 cc-mem sin home.invite → 403 Not Allowed",
+          request("POST", "/home/invitation/revoke", {"home_id": hM, "id": id3}, mtok), 403, ERR_NOT_ALLOWED)
+    check(R, "IR8 id inexistente → 404 Not Found",
+          request("POST", "/home/invitation/revoke", {"home_id": hM, "id": 999999999}, tok), 404, ERR_NOT_FOUND)
+    check(R, "IR9 sin id → 400 Invitation ID is required",
+          request("POST", "/home/invitation/revoke", {"home_id": hM}, tok), 400, ERR_INVITATION_ID_REQUIRED)
+    check(R, "IR10 sin home_id → 400 Home ID is required",
+          request("POST", "/home/invitation/revoke", {"id": id3}, tok), 400, ERR_HOME_ID_REQUIRED)
+    check(R, "IR11 revoke de K-exp caducada → 404 Not Found",
+          request("POST", "/home/invitation/revoke", {"home_id": hM, "id": idexp}, tok), 404, ERR_NOT_FOUND)
+    # IQ1–IQ2 (Q2 a): email de cc-inv3 (miembro de hM, NO del hogar del recurso) → 403 y 0 filas
+    cal = int(psql("select c.id from calendar c join calendar_user cu on cu.calendar_id = c.id "
+                   "where cu.user_id = %d and cu.role = 'owner' and c.home_id = %d order by c.id limit 1"
+                   % (aid, demo_home)) or 0)
+    lst = int(psql("select t.id from task_list t join task_list_user tu on tu.task_list_id = t.id "
+                   "where tu.user_id = %d and tu.role = 'owner' and t.home_id = %d order by t.id limit 1"
+                   % (aid, demo_home)) or 0)
+    r = request("POST", "/calendar/user", {"calendar_id": cal, "email": INV_EMAILS[2]}, tok)
+    n = psql("select count(*) from calendar_user where calendar_id = %d and user_id = %d" % (cal, iid3))
+    value("POST /calendar/user", "IQ1 email externo al hogar del calendario → 403 Not Allowed y 0 filas ACL",
+          r == (403, ERR_NOT_ALLOWED) and n == "0", repr(r)[:200] + f" filas={n}")
+    r = request("POST", "/task-list/user", {"task_list_id": lst, "email": INV_EMAILS[2]}, tok)
+    n = psql("select count(*) from task_list_user where task_list_id = %d and user_id = %d" % (lst, iid3))
+    value("POST /task-list/user", "IQ2 email externo al hogar de la lista → 403 Not Allowed y 0 filas ACL",
+          r == (403, ERR_NOT_ALLOWED) and n == "0", repr(r)[:200] + f" filas={n}")
+
+
+scenario_invitations(hM, mem_m, mid)
+
+
+# ── Resumen: cobertura de las 43 rutas legacy + 19 rutas home y rutas con regresión ──
 
 missing = [r for r in ROUTES + HOME_ROUTES if r not in covered]
 fails = results.count(False)
@@ -2186,5 +2503,6 @@ if len(results) != EXPECTED_CASES:
     print(f"conteo de casos: {len(results)} (esperado {EXPECTED_CASES}: 207 de 1.5 + 59 del bloque "
           f"M/C2 de 1.6 + 6 del bloque de permisos por kind de 1.7 + 40 del bloque matriz §3.4.1 "
           f"de 1.8 + 39 del bloque 1.9 de configuración de permisos (3+8+15+7+6) + 34 del bloque "
-          f"1.10 de contratos home (15+15+4))")
+          f"1.10 de contratos home (15+15+4) + 69 del bloque 1.15 de invitaciones "
+          f"(3+8+19+7+19+11+2))")
 sys.exit(1 if fails or missing or thin or len(results) != EXPECTED_CASES else 0)

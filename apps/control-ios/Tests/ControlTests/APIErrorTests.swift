@@ -27,4 +27,16 @@ final class APIErrorTests: XCTestCase {
         XCTAssertTrue(m.contains("al menos un administrador"))
         XCTAssertEqual(APIError.http(status: 400, message: "X").membershipActionMessage, "X")
     }
+
+    func testInvitationMessage() {
+        XCTAssertEqual(APIError.http(status: 404, message: "Not Found").invitationMessage,
+                       "El código no es válido, ya se usó o ha caducado")
+        XCTAssertEqual(APIError.http(status: 400, message: "Already member").invitationMessage,
+                       "Ya eres miembro de ese hogar")
+        XCTAssertEqual(APIError.http(status: 400, message: "Invitation code is required").invitationMessage,
+                       "Introduce el código de invitación")
+        XCTAssertEqual(APIError.http(status: 400, message: "Invalid member").invitationMessage,
+                       "La invitación ya no es válida para ese miembro")
+        XCTAssertEqual(APIError.network("x").invitationMessage, APIError.network("x").userMessage)
+    }
 }

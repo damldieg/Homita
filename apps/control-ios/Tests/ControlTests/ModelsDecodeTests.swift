@@ -4,6 +4,11 @@ import XCTest
 /// Decodificación de los modelos con fixtures JSON en los shapes del contrato
 /// (`supabase/migrations/0005_read_rpcs.sql`; sin datos personales: demo).
 final class ModelsDecodeTests: XCTestCase {
+    func testInvitationAccepted() throws {
+        XCTAssertEqual(try decodeFixture(InvitationAccepted.self, ContractFixtures.invitationAccepted),
+                       InvitationAccepted(homeId: 2, membershipId: 40, memberId: 41, role: "member", kind: "guest"))
+    }
+
     func testConfigResponse() throws {
         XCTAssertFalse(try decodeFixture(ConfigResponse.self, #"{"allow_registration":false}"#).allowRegistration)
         XCTAssertTrue(try decodeFixture(ConfigResponse.self, #"{"allow_registration":true}"#).allowRegistration)

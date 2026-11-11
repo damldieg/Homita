@@ -28,10 +28,11 @@ public struct APIRequest: Equatable, Sendable {
 }
 
 public enum RequestBuilder {
-    /// Rutas `home/*` que NO llevan `X-Home-Id`: `home/create` (no opera sobre un hogar existente)
-    /// y `home/default` (el contrato responde 404 si la cabecera difiere del `home_id` pedido).
-    /// `GET home` (path `home`) tampoco la lleva porque no empieza por `home/`.
-    static let homeHeaderExcludedPaths: Set<String> = ["home/create", "home/default"]
+    /// Rutas `home/*` que NO llevan `X-Home-Id`: `home/create` (no opera sobre un hogar existente),
+    /// `home/default` (el contrato responde 404 si la cabecera difiere del `home_id` pedido) y
+    /// `home/invitation/accept` (1.15, D-015: quien acepta aún no es miembro; el hogar lo fija el
+    /// código). `GET home` (path `home`) tampoco la lleva porque no empieza por `home/`.
+    static let homeHeaderExcludedPaths: Set<String> = ["home/create", "home/default", "home/invitation/accept"]
 
     /// Regla de envío de `X-Home-Id`: ruta autenticada bajo `home/` y fuera de las excluidas.
     static func sendsHomeHeader(for apiRequest: APIRequest) -> Bool {

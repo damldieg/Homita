@@ -32,6 +32,8 @@ const RPC_STATUS: Record<string, number> = {
     "Invalid membership": 400,
     // 1.9: código fuera del catálogo o shape de permissions inválido (0021; plan §4.3)
     "Invalid permission": 400,
+    // 1.15: aceptar una invitación de un hogar del que ya se es miembro (0022; sin consumirla)
+    "Already member": 400,
 };
 
 // Router::error de PHP: InvalidArgumentException → 400; el resto → 500 con el mensaje
@@ -82,6 +84,11 @@ export const errInvalidRole = (): Response => error("Invalid role", 400);
 // home/permission (1.9 §4.2): permissions ausente, no array o con elemento no string, y códigos
 // fuera del catálogo (rechazo en la Edge sin llamar a la RPC; la RPC repite la barrera)
 export const errInvalidPermission = (): Response => error("Invalid permission", 400);
+
+// home/invitation (1.15): code ausente/vacío en accept e id de invitación en revoke. Un código
+// presente pero mal formado NO usa estos errores: responde el mismo 404 que la RPC (sin oráculo)
+export const errInvitationCodeRequired = (): Response => error("Invitation code is required", 400);
+export const errInvitationIdRequired = (): Response => error("Invitation ID is required", 400);
 
 // user/create (UserCreate.php)
 export const errUserFieldsRequired = (): Response => error("Name, email and password are required", 400);

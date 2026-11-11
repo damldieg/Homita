@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Perfil: datos de cuenta (`PATCH user/update`: nombre, email y contraseña opcional), acceso a
-/// Personas y cierre de sesión (local: no hay endpoint de revocación).
+/// Personas, unirse a un hogar con un código de invitación (1.15) y cierre de sesión (local: no
+/// hay endpoint de revocación).
 public struct ProfileView: View {
     let services: AppServices
 
@@ -43,6 +44,14 @@ public struct ProfileView: View {
                         PersonsView(store: personStore)
                     } label: {
                         Label("Personas", systemImage: "person.2")
+                    }
+                }
+                // 1.15 (D-016): fuera del `if case .ready`, visible también sin hogar activo.
+                Section("Invitaciones") {
+                    NavigationLink {
+                        AcceptInvitationView(services: services)
+                    } label: {
+                        Label("Unirse a un hogar con un código", systemImage: "person.badge.plus")
                     }
                 }
                 if case .ready(let home) = services.homeContext.state {

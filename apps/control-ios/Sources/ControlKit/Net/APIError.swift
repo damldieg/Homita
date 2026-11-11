@@ -40,6 +40,21 @@ public enum APIError: Error, Equatable {
         return userMessage
     }
 
+    /// Mensaje para aceptar una invitación (1.15). El servidor responde el mismo 404 para un código
+    /// inexistente, usado, revocado o caducado (sin oráculo), así que el texto los agrupa.
+    public var invitationMessage: String {
+        if case .http(let status, let message) = self {
+            switch (status, message) {
+            case (404, "Not Found"): return "El código no es válido, ya se usó o ha caducado"
+            case (400, "Already member"): return "Ya eres miembro de ese hogar"
+            case (400, "Invitation code is required"): return "Introduce el código de invitación"
+            case (400, "Invalid member"): return "La invitación ya no es válida para ese miembro"
+            default: break
+            }
+        }
+        return userMessage
+    }
+
     /// Mensaje en español para la UI.
     public var userMessage: String {
         switch self {

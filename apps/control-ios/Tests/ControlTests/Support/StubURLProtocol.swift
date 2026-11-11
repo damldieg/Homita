@@ -159,6 +159,8 @@ enum ContractFixtures {
     static let homeList = "[\(homeItem1),\(homeItem2)]"
     static let homeListEmpty = "[]"
     static let homeDetail = #"{"id":3,"name":"Nuevo","timezone":"UTC","is_personal":false,"extra":"ignorado"}"#
+    /// `INVITATION_ACCEPTED` (1.15): unión al hogar 2 (`Familia` en `homeList`).
+    static let invitationAccepted = #"{"home_id":2,"membership_id":40,"member_id":41,"role":"member","kind":"guest"}"#
     static let homeDetailFull = #"{"id":2,"name":"Familia","timezone":"Europe/Madrid","is_personal":false,"created_at":"2026-11-01 10:00:00","updated_at":"2026-11-02 11:00:00"}"#
     static let membershipItem = #"{"membership_id":7,"app_user_id":1,"name":"Ana","email":"ana@homita.example","role":"admin","permissions":["calendar.read","calendar.write"]}"#
     static let membershipItem2 = #"{"membership_id":8,"app_user_id":9,"name":"Beto","email":"beto@homita.example","role":"member","permissions":["calendar.read"]}"#
@@ -223,6 +225,8 @@ enum ContractFixtures {
             json = permissionState
         case ("GET", "home/audit"):
             json = auditList
+        case ("POST", "home/invitation/accept"):
+            json = invitationAccepted
         case ("GET", "calendar"):
             json = "[]"
         case (_, "calendar/detail"), (_, "calendar/create"), (_, "calendar/update"):
