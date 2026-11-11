@@ -22,46 +22,64 @@ struct RoutineListView: View {
 
     var body: some View {
         List {
-            Section("Rutinas") {
+            Section {
                 ForEach(store.routines, id: \.id) { routine in
-                    RoutineRow(routine: routine, next: store.nextSession(for: routine))
-                        .contentShape(Rectangle())
-                        .onTapGesture { routineToEdit = routine }
-                        .accessibilityAction(named: "Editar") { routineToEdit = routine }
+                    RoutineRow(routine: routine, next: store.nextSession(for: routine)) {
+                        routineToEdit = routine
+                    }
+                    .homitaRow()
                 }
                 .onDelete { indexSet in
                     let removed = indexSet.map { store.routines[$0] }
                     Task { for routine in removed { await store.delete(routine) } }
                 }
+            } header: {
+                HomitaSectionHeader(title: "Rutinas", count: store.routines.count, systemImage: "repeat")
             }
             if !upcomingSessions.isEmpty {
-                Section("Próximas sesiones (solo lectura)") {
+                Section {
                     ForEach(upcomingSessions, id: \.id) { session in
-                        HStack {
-                            Circle()
-                                .fill(Color(hex: session.calendar_color ?? "#6923E2"))
-                                .frame(width: 12, height: 12)
-                            VStack(alignment: .leading) {
-                                Text(session.title)
-                                Text(DateDisplay.dateTime(session.date_at))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                        HomitaCard {
+                            HStack(spacing: 12) {
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(Color(hex: session.calendar_color ?? Palette.fallbackItem))
+                                    .frame(width: 5)
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(DateDisplay.dateTime(session.date_at).uppercased())
+                                        .font(HomitaFont.geist(12, weight: .semibold, relativeTo: .caption))
+                                        .foregroundStyle(Palette.inkSoft)
+                                    Text(session.title)
+                                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                                        .foregroundStyle(Palette.ink)
+                                }
+                                Spacer()
                             }
                         }
+                        .homitaRow()
                     }
+                } header: {
+                    HomitaSectionHeader(title: "Próximas sesiones", count: upcomingSessions.count, systemImage: "calendar.badge.clock", tint: Palette.inkSoft)
                 }
             }
             if store.routines.isEmpty && !store.isLoading {
-                Text("Sin rutinas")
-                    .foregroundStyle(.secondary)
+                HomitaCard {
+                    Text("Sin rutinas")
+                        .font(HomitaFont.geist(16, relativeTo: .body))
+                        .foregroundStyle(Palette.inkSoft)
+                        .frame(maxWidth: .infinity)
+                }
+                .homitaRow()
             }
         }
+        .homitaList()
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     showCreate = true
                 } label: {
-                    Label("Nueva rutina", systemImage: "plus")
+                    Image(systemName: "plus")
+                        .foregroundStyle(Palette.ink)
+                        .accessibilityLabel("Nueva rutina")
                 }
             }
         }
@@ -82,28 +100,41 @@ struct RoutineListView: View {
     }
 }
 
-/// Fila de rutina: calendario, título, próxima sesión y estado activa/pausada.
+/// Fila de rutina como tarjeta: barra del calendario, título, próxima sesión y estado.
 struct RoutineRow: View {
     let routine: RoutineEntry
     let next: EventEntry?
+    let onEdit: () -> Void
 
     var body: some View {
-        HStack {
-            Circle()
-                .fill(Color(hex: routine.calendar_color ?? "#6923E2"))
-                .frame(width: 12, height: 12)
-            VStack(alignment: .leading) {
-                Text(routine.title)
-                if let next {
-                    Text("Próxima: \(DateDisplay.dateTime(next.date_at))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        Button(action: onEdit) {
+            rowContent
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var rowContent: some View {
+        HomitaCard {
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color(hex: routine.calendar_color ?? Palette.fallbackItem))
+                    .frame(width: 5)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(routine.title)
+                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                        .foregroundStyle(Palette.ink)
+                    if let next {
+                        Text("PRÓXIMA · \(DateDisplay.dateTime(next.date_at).uppercased())")
+                            .font(HomitaFont.geist(12, weight: .semibold, relativeTo: .caption))
+                            .foregroundStyle(Palette.inkSoft)
+                    }
                 }
+                Spacer()
+                HomitaBadge(
+                    title: routine.isActive ? "Activa" : "Pausada",
+                    tintHex: routine.isActive ? Palette.onlineHex : "#A6998A"
+                )
             }
-            Spacer()
-            Text(routine.isActive ? "Activa" : "Pausada")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
 }

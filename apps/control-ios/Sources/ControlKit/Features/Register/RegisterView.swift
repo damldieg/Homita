@@ -16,27 +16,32 @@ public struct RegisterView: View {
     }
 
     public var body: some View {
-        Form {
-            Section("Cuenta") {
-                TextField("Nombre", text: $name)
-                EmailTextField(prompt: "Email", text: $email)
-                SecureField("Contraseña (mínimo 8)", text: $password)
-            }
-            Section {
-                Button {
-                    Task { await register() }
-                } label: {
-                    if isWorking {
-                        ProgressView()
-                    } else {
-                        Text("Crear cuenta")
+        ScrollView {
+            VStack(spacing: 16) {
+                HomitaCard {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HomitaSectionHeader(title: "Cuenta", systemImage: "person.badge.plus")
+                        HomitaField(placeholder: "Nombre", text: $name)
+                        HomitaField(placeholder: "Email", text: $email, isEmail: true)
+                        HomitaField(placeholder: "Contraseña (mínimo 8)", text: $password, isSecure: true)
                     }
                 }
-                .disabled(!isValid || isWorking)
+                HomitaPrimaryButton(title: "Crear cuenta", isEnabled: isValid, isLoading: isWorking) {
+                    Task { await register() }
+                }
+            }
+            .padding(20)
+        }
+        .background(Palette.background.ignoresSafeArea())
+        .navigationTitle("Registrarse")
+        .homitaNavigationBar()
+        .errorAlert($errorMessage)
+        .overlay {
+            if isWorking {
+                HomitaLoadingOverlay(message: "Creando cuenta…")
             }
         }
-        .navigationTitle("Registrarse")
-        .errorAlert($errorMessage)
+        .disabled(isWorking)
     }
 
     private var isValid: Bool {

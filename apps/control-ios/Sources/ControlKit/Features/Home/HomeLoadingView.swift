@@ -1,9 +1,24 @@
 import SwiftUI
+#if canImport(ComponentsKit)
+import ComponentsKit
+#endif
 
 /// Carga del hogar activo.
 struct HomeLoadingView: View {
     var body: some View {
-        ProgressView("Cargando hogar…")
+        HomitaCard {
+            HStack(spacing: 12) {
+                #if canImport(ComponentsKit)
+                SULoading(model: LoadingVM { $0.color = ComponentColor(main: uc(Palette.accentHex), contrast: uc("#FFFFFF")) })
+                #else
+                ProgressView()
+                #endif
+                Text("Cargando hogar…")
+                    .font(HomitaFont.geist(16, relativeTo: .body))
+                    .foregroundStyle(Palette.inkSoft)
+            }
+            .frame(maxWidth: .infinity)
+        }
     }
 }
 
@@ -13,16 +28,11 @@ struct HomeErrorView: View {
     let retry: () -> Void
 
     var body: some View {
-        VStack(spacing: 12) {
-            Text("No se pudo cargar tu hogar")
-                .font(.headline)
+        HomitaPanel("No se pudo cargar tu hogar", systemImage: "exclamationmark.triangle", tint: Palette.accent) {
             Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Button("Reintentar", action: retry)
-                .buttonStyle(.borderedProminent)
+                .font(HomitaFont.geist(15, relativeTo: .body))
+                .foregroundStyle(Palette.inkSoft)
+            HomitaButton(title: "Reintentar", action: retry)
         }
-        .padding()
     }
 }

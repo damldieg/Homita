@@ -31,28 +31,34 @@ struct TaskListDetailView: View {
     var body: some View {
         List {
             Section {
-                HStack {
-                    TextField("Nueva tarea", text: $newTaskTitle)
-                    Button {
-                        let title = newTaskTitle
-                        newTaskTitle = ""
-                        Task { await store.createTask(title: title, listId: current.id) }
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
+                HomitaCard {
+                    HStack(spacing: 10) {
+                        HomitaField(placeholder: "Nueva tarea", text: $newTaskTitle)
+                        Button {
+                            let title = newTaskTitle
+                            newTaskTitle = ""
+                            Task { await store.createTask(title: title, listId: current.id) }
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(Palette.ink)
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(newTaskTitle.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
-                    .buttonStyle(.borderless)
-                    .disabled(newTaskTitle.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
+                .homitaRow()
             }
 
             if !pending.isEmpty {
-                Section("Pendientes (\(pending.count))") {
+                Section {
                     ForEach(pending, id: \.id) { task in
                         TaskRow(task: task, showListName: false) {
                             Task { await store.toggleComplete(task) }
                         } onEdit: {
                             taskToEdit = task
                         }
+                        .homitaRow()
                     }
                     .onDelete { indexSet in
                         let removed = indexSet.map { pending[$0] }
@@ -63,28 +69,38 @@ struct TaskListDetailView: View {
                         let task = pending[from]
                         Task { await store.movePendingTask(id: task.id, to: destination) }
                     }
+                } header: {
+                    HomitaSectionHeader(title: "Pendientes", count: pending.count, systemImage: "checklist")
                 }
             }
 
             if !completed.isEmpty {
-                Section("Completadas (\(completed.count))") {
+                Section {
                     ForEach(completed, id: \.id) { task in
                         TaskRow(task: task, showListName: false) {
                             Task { await store.toggleComplete(task) }
                         } onEdit: {
                             taskToEdit = task
                         }
+                        .homitaRow()
                     }
                     .onDelete { indexSet in
                         let removed = indexSet.map { completed[$0] }
                         Task { for task in removed { await store.deleteTask(task) } }
                     }
+                } header: {
+                    HomitaSectionHeader(title: "Completadas", count: completed.count, systemImage: "checkmark.circle", tint: Palette.online)
                 }
             }
 
             if listTasks.isEmpty {
-                Text("Sin tareas")
-                    .foregroundStyle(.secondary)
+                HomitaCard {
+                    Text("Sin tareas")
+                        .font(HomitaFont.geist(16, relativeTo: .body))
+                        .foregroundStyle(Palette.inkSoft)
+                        .frame(maxWidth: .infinity)
+                }
+                .homitaRow()
             }
 
             MembersSection(
@@ -97,14 +113,18 @@ struct TaskListDetailView: View {
                     Task { await store.removeMember(listId: current.id, userId: userId) }
                 }
             )
+            .homitaRow()
         }
+        .homitaList()
         .navigationTitle(current.name)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .homitaNavigationBar()
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Editar lista") { showEditList = true }
+                    .foregroundStyle(Palette.ink)
             }
             #if os(iOS)
             if canReorder {
@@ -112,6 +132,7 @@ struct TaskListDetailView: View {
                     Button(editMode == .active ? "OK" : "Reordenar") {
                         editMode = editMode == .active ? .inactive : .active
                     }
+                    .foregroundStyle(Palette.ink)
                 }
             }
             #endif

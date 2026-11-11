@@ -16,54 +16,49 @@ struct TaskListEditorView: View {
     @State private var isWorking = false
 
     private static let sortOptions = [
-        ("updated_at", "Fecha de actualización"),
-        ("title", "Título"),
-        ("custom", "Personalizado")
+        (id: "updated_at", title: "Fecha de actualización"),
+        (id: "title", title: "Título"),
+        (id: "custom", title: "Personalizado")
     ]
 
     init(store: TasksStore, editing: TaskListEntry?) {
         self.store = store
         self.editing = editing
         _name = State(initialValue: editing?.name ?? "")
-        _color = State(initialValue: Color(hex: editing?.color ?? "#6923E2"))
+        _color = State(initialValue: Color(hex: editing?.color ?? Palette.fallbackItem))
         _sort = State(initialValue: editing?.sort ?? "updated_at")
         _widget = State(initialValue: editing?.showsInWidget ?? true)
         _dashboard = State(initialValue: editing?.showsInDashboard ?? true)
     }
 
     var body: some View {
-        Form {
-            Section("Lista") {
-                TextField("Nombre", text: $name)
+        HomitaForm {
+            HomitaPanel("Lista", systemImage: "list.bullet") {
+                HomitaField(placeholder: "Nombre", text: $name)
                 ColorPicker("Color", selection: $color, supportsOpacity: false)
+                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                    .foregroundStyle(Palette.ink)
             }
-            Section("Orden de las tareas") {
-                Picker("Orden", selection: $sort) {
-                    ForEach(Self.sortOptions, id: \.0) { value, label in
-                        Text(label).tag(value)
-                    }
-                }
+            HomitaPanel("Orden de las tareas", systemImage: "arrow.up.arrow.down") {
+                HomitaRadioGroup(selection: Binding(get: { sort }, set: { sort = $0 ?? sort }), items: Self.sortOptions)
                 if sort == "custom" {
-                    Text("Podrás reordenar las tareas con el botón Editar.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HomitaFootnote(text: "Podrás reordenar las tareas con el botón Editar.")
                 }
             }
-            Section("Visible en") {
-                Toggle("Widget", isOn: $widget)
-                Toggle("Dashboard", isOn: $dashboard)
+            HomitaPanel("Visible en", systemImage: "eye") {
+                HomitaToggle(title: "Widget", isOn: $widget)
+                HomitaToggle(title: "Dashboard", isOn: $dashboard)
             }
-            Section {
-                Button(editing == nil ? "Crear lista" : "Guardar") {
-                    Task { await save() }
-                }
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isWorking)
+            HomitaButton(
+                title: editing == nil ? "Crear lista" : "Guardar",
+                isEnabled: !name.trimmingCharacters(in: .whitespaces).isEmpty && !isWorking,
+                isLoading: isWorking
+            ) {
+                Task { await save() }
             }
             if editing != nil {
-                Section {
-                    Button("Eliminar lista", role: .destructive) {
-                        showDeleteConfirm = true
-                    }
+                HomitaButton(title: "Eliminar lista", kind: .secondary) {
+                    showDeleteConfirm = true
                 }
             }
         }
@@ -71,16 +66,11 @@ struct TaskListEditorView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancelar") { dismiss() }
+                    .foregroundStyle(Palette.ink)
             }
         }
-        .confirmationDialog(
-            "Se eliminará la lista y todas sus tareas.",
-            isPresented: $showDeleteConfirm, titleVisibility: .visible
-        ) {
-            Button("Eliminar lista", role: .destructive) {
-                Task { await delete() }
-            }
-            Button("Cancelar", role: .cancel) {}
+        .homitaConfirm("Se eliminará la lista y todas sus tareas.", isPresented: $showDeleteConfirm, confirmTitle: "Eliminar lista") {
+            Task { await delete() }
         }
         .errorAlert($store.errorMessage)
     }

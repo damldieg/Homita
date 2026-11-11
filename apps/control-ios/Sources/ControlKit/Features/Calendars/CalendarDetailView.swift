@@ -20,26 +20,29 @@ struct CalendarDetailView: View {
         self.store = store
         self.calendar = calendar
         _name = State(initialValue: calendar?.name ?? "")
-        _color = State(initialValue: Color(hex: calendar?.color ?? "#6923E2"))
+        _color = State(initialValue: Color(hex: calendar?.color ?? Palette.fallbackItem))
         _widget = State(initialValue: calendar?.showsInWidget ?? true)
         _dashboard = State(initialValue: calendar?.showsInDashboard ?? true)
     }
 
     var body: some View {
-        Form {
-            Section("Calendario") {
-                TextField("Nombre", text: $name)
+        HomitaForm {
+            HomitaPanel("Calendario", systemImage: "calendar") {
+                HomitaField(placeholder: "Nombre", text: $name)
                 ColorPicker("Color", selection: $color, supportsOpacity: false)
+                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                    .foregroundStyle(Palette.ink)
             }
-            Section("Visible en") {
-                Toggle("Widget", isOn: $widget)
-                Toggle("Dashboard", isOn: $dashboard)
+            HomitaPanel("Visible en", systemImage: "eye") {
+                HomitaToggle(title: "Widget", isOn: $widget)
+                HomitaToggle(title: "Dashboard", isOn: $dashboard)
             }
-            Section {
-                Button(calendar == nil ? "Crear calendario" : "Guardar") {
-                    Task { await save() }
-                }
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isWorking)
+            HomitaButton(
+                title: calendar == nil ? "Crear calendario" : "Guardar",
+                isEnabled: !name.trimmingCharacters(in: .whitespaces).isEmpty && !isWorking,
+                isLoading: isWorking
+            ) {
+                Task { await save() }
             }
             if calendar != nil {
                 MembersSection(
@@ -52,10 +55,8 @@ struct CalendarDetailView: View {
                         Task { await store.removeMember(calendarId: calendar?.id ?? 0, userId: userId) }
                     }
                 )
-                Section {
-                    Button("Eliminar calendario", role: .destructive) {
-                        showDeleteConfirm = true
-                    }
+                HomitaButton(title: "Eliminar calendario", kind: .secondary) {
+                    showDeleteConfirm = true
                 }
             }
         }
@@ -63,6 +64,7 @@ struct CalendarDetailView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancelar") { dismiss() }
+                    .foregroundStyle(Palette.ink)
             }
         }
         .task {
@@ -70,14 +72,8 @@ struct CalendarDetailView: View {
                 await store.loadMembers(calendarId: calendar.id)
             }
         }
-        .confirmationDialog(
-            "Se eliminará el calendario con sus eventos.",
-            isPresented: $showDeleteConfirm, titleVisibility: .visible
-        ) {
-            Button("Eliminar calendario", role: .destructive) {
-                Task { await delete() }
-            }
-            Button("Cancelar", role: .cancel) {}
+        .homitaConfirm("Se eliminará el calendario con sus eventos.", isPresented: $showDeleteConfirm, confirmTitle: "Eliminar calendario") {
+            Task { await delete() }
         }
         .errorAlert($store.errorMessage)
     }

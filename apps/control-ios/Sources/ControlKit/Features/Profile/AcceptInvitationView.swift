@@ -13,47 +13,30 @@ struct AcceptInvitationView: View {
     @State private var joinedHomeName: String?
 
     var body: some View {
-        Form {
-            Section {
-                codeField
-            } header: {
-                Text("Código de invitación")
-            } footer: {
-                Text("Pídeselo a un administrador del hogar. Solo sirve una vez y caduca a los 7 días.")
+        HomitaForm {
+            HomitaPanel("Código de invitación", systemImage: "ticket") {
+                HomitaField(placeholder: "32 caracteres", text: $code, isCode: true)
+                HomitaFootnote(text: "Pídeselo a un administrador del hogar. Solo sirve una vez y caduca a los 7 días.")
             }
-            Section {
-                Button {
-                    Task { await accept() }
-                } label: {
-                    if isWorking {
-                        ProgressView()
-                    } else {
-                        Text("Unirse")
-                    }
-                }
-                .disabled(!InvitationCode.isValid(code) || isWorking)
+            HomitaPrimaryButton(title: "Unirse", isEnabled: InvitationCode.isValid(code) && !isWorking, isLoading: isWorking) {
+                Task { await accept() }
             }
             if let joinedHomeName {
-                Section {
-                    Label("Te has unido a \(joinedHomeName)", systemImage: "checkmark.circle")
+                HomitaPanel("Listo", systemImage: "checkmark.circle", tint: Palette.online) {
+                    Text("Te has unido a \(joinedHomeName)")
+                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                        .foregroundStyle(Palette.ink)
                 }
             }
         }
         .navigationTitle("Unirse a un hogar")
         .errorAlert($errorMessage)
-    }
-
-    @ViewBuilder
-    private var codeField: some View {
-        #if os(iOS)
-        TextField("32 caracteres", text: $code)
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled()
-            .font(.body.monospaced())
-        #else
-        TextField("32 caracteres", text: $code)
-            .font(.body.monospaced())
-        #endif
+        .overlay {
+            if isWorking {
+                HomitaLoadingOverlay(message: "Uniéndote…")
+            }
+        }
+        .disabled(isWorking)
     }
 
     private func accept() async {

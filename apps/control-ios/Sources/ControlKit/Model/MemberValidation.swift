@@ -3,7 +3,7 @@ import Foundation
 /// Validación de cliente de miembros del hogar (paridad con la Edge: nombre 1-50 codepoints,
 /// color `#RRGGBB`). Puro y sin red.
 public enum MemberValidation {
-    public static let defaultColor = "#6923E2"
+    public static let defaultColor = Palette.fallbackItem
     public static let maxNameLength = 50
 
     /// Nombre recortado; el mismo texto que se envía.
