@@ -305,20 +305,26 @@ public struct DeleteTaskListUserRequest: Encodable, Equatable {
 public struct CreateTaskRequest: Encodable, Equatable {
     public let task_list_id: Int
     public let title: String
+    /// Personas asignadas (0025). nil = no enviar; [] = ninguna.
+    public let person_ids: [Int]?
 
-    public init(task_list_id: Int, title: String) {
+    public init(task_list_id: Int, title: String, person_ids: [Int]? = nil) {
         self.task_list_id = task_list_id
         self.title = title
+        self.person_ids = person_ids
     }
 }
 
 public struct UpdateTaskRequest: Encodable, Equatable {
     public let id: Int
     public let title: String
+    /// Personas asignadas (0025). nil = no tocar las actuales; [] = quitar todas.
+    public let person_ids: [Int]?
 
-    public init(id: Int, title: String) {
+    public init(id: Int, title: String, person_ids: [Int]? = nil) {
         self.id = id
         self.title = title
+        self.person_ids = person_ids
     }
 }
 

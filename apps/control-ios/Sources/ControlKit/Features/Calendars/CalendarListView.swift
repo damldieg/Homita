@@ -8,6 +8,21 @@ struct CalendarListView: View {
 
     var body: some View {
         List {
+            if !store.hasLoaded || (store.isLoading && store.calendars.isEmpty) {
+                HomitaLoadingCard(message: "Cargando calendarios…").homitaRow()
+            }
+            if store.hasLoaded && store.calendars.isEmpty && !store.isLoading {
+                HomitaEmptyState(
+                    illustration: .calendars,
+                    title: "Sin calendarios",
+                    message: "Los calendarios agrupan eventos y rutinas por color, como Trabajo o Familia.",
+                    actionTitle: "Nuevo calendario"
+                ) {
+                    showCreate = true
+                }
+                .homitaRow()
+            }
+            if !store.calendars.isEmpty {
             Section {
                 ForEach(store.calendars, id: \.id) { calendar in
                     NavigationLink {
@@ -45,6 +60,7 @@ struct CalendarListView: View {
                 }
                 .buttonStyle(.plain)
                 .homitaRow()
+            }
             }
         }
         .homitaList()

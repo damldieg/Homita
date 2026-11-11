@@ -1,6 +1,6 @@
 // Validaciones de dominio PHP (mensajes exactos de Routine.php / Person.php) — puras salvo
 // personIdsOf, que consulta get_persons para la visibilidad (Person::validateIds).
-import { getInput, type PhpInput } from "./contract.ts";
+import { getInput, type ContractInput } from "./contract.ts";
 import {
     errAlarmInvalid, errPersonIdsIds, errPersonIdsList, errPersonInvalid,
     errRoutineActive, errRoutineDate, errRoutineDateRange, errRoutineDaysRange, errRoutineDaysRequired,
@@ -37,7 +37,7 @@ export type RoutineValues = {
 // Routine::validate (Routine.php:50-82). `current` = frequency/interval actuales (solo update:
 // los defaults vienen de ahí, como validate($data, $current) de PHP).
 export const validateRoutine = (
-    input: PhpInput,
+    input: ContractInput,
     current: { frequency: string; interval: number } | null,
 ): { values: RoutineValues } | { err: Response } => {
     const rawTitle = getInput(input, "title");
@@ -97,7 +97,7 @@ export const validateRoutine = (
 // Person::validateIds (Person.php:60-70): null si no se envía (no se toca la asignación), lista de
 // ids únicos ≥1 visibles para el usuario, o el error exacto. `visible` = ids de get_persons.
 export const validatePersonIdsWith = (
-    input: PhpInput,
+    input: ContractInput,
     visible: number[],
 ): number[] | null | Response => {
     const ids = getInput(input, "person_ids");
@@ -120,7 +120,7 @@ export const validatePersonIdsWith = (
 // miembro ya desactivado pero asignado (histórico, K11); la barrera de inactivos nuevos es el
 // trigger/RPC (mismo mensaje 'Invalid person').
 export const personIdsOf = async (
-    input: PhpInput,
+    input: ContractInput,
     token: string,
 ): Promise<number[] | null | Response> => {
     const ids = getInput(input, "person_ids");

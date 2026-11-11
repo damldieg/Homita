@@ -6,14 +6,16 @@ public struct CalendarsRootView: View {
     let services: AppServices
     @State private var calendarStore: CalendarStore
     @State private var eventStore: EventStore
+    @State private var calendarAgenda: CalendarAgendaStore
     @State private var routineStore: RoutineStore
     @State private var personStore: PersonStore
     @State private var segment = 0
 
     public init(services: AppServices) {
         self.services = services
-        _calendarStore = State(initialValue: CalendarStore(repo: services.calendars))
+        _calendarStore = State(initialValue: CalendarStore(repo: services.calendars, events: services.events, routines: services.routines))
         _eventStore = State(initialValue: EventStore(repo: services.events))
+        _calendarAgenda = State(initialValue: CalendarAgendaStore(repo: services.events))
         _routineStore = State(initialValue: RoutineStore(repo: services.routines, events: services.events))
         _personStore = State(initialValue: PersonStore(repo: services.persons))
     }
@@ -28,7 +30,7 @@ public struct CalendarsRootView: View {
 
                 switch segment {
                 case 0:
-                    EventListView(store: eventStore, calendars: calendarStore, persons: personStore)
+                    CalendarEventsView(eventStore: eventStore, calendarStore: calendarAgenda, calendars: calendarStore, persons: personStore)
                 case 1:
                     RoutineListView(store: routineStore, calendars: calendarStore, persons: personStore)
                 default:

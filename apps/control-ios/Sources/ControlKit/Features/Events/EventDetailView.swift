@@ -18,13 +18,13 @@ struct EventDetailView: View {
     @State private var showDeleteConfirm = false
     @State private var isWorking = false
 
-    init(store: EventStore, calendars: CalendarStore, persons: PersonStore, event: EventEntry?) {
+    init(store: EventStore, calendars: CalendarStore, persons: PersonStore, event: EventEntry?, defaultDate: Date? = nil) {
         self.store = store
         self.calendars = calendars
         self.persons = persons
         self.event = event
         _title = State(initialValue: event?.title ?? "")
-        _date = State(initialValue: event.flatMap { PHPDateTime.parse($0.date_at) } ?? Date())
+        _date = State(initialValue: event.flatMap { PHPDateTime.parse($0.date_at) } ?? defaultDate ?? Date())
         _calendarId = State(initialValue: event?.calendar_id ?? calendars.calendars.first?.id ?? 0)
         _alarm = State(initialValue: event?.alarm)
         _personIds = State(initialValue: event?.persons?.map(\.id) ?? [])
@@ -35,14 +35,21 @@ struct EventDetailView: View {
             HomitaPanel("Evento", systemImage: "calendar") {
                 HomitaField(placeholder: "Título", text: $title)
                 HomitaDatePicker(title: "Fecha y hora", selection: $date, components: [.date, .hourAndMinute])
-                if event == nil {
+                Group {
                     Text("Calendario")
                         .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .footnote))
                         .foregroundStyle(Palette.inkSoft)
-                    HomitaRadioGroup(
-                        selection: Binding(get: { calendarId }, set: { calendarId = $0 ?? calendarId }),
-                        items: calendars.calendars.map { (id: $0.id, title: $0.name) }
-                    )
+                    if event == nil {
+                        HomitaRadioGroup(
+                            selection: Binding(get: { calendarId }, set: { calendarId = $0 ?? calendarId }),
+                            items: calendars.calendars.map { (id: $0.id, title: $0.name) }
+                        )
+                    } else {
+                        // Editar: el calendario del evento se muestra, no se cambia (R1-05 / CA-4).
+                        Text(event?.calendar_name ?? "Calendario")
+                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .foregroundStyle(Palette.ink)
+                    }
                 }
             }
             AlarmField(alarm: $alarm)
@@ -67,7 +74,7 @@ struct EventDetailView: View {
                     .foregroundStyle(Palette.ink)
             }
         }
-        .homitaConfirm("Se eliminará el evento.", isPresented: $showDeleteConfirm, confirmTitle: "Eliminar evento") {
+        .homitaConfirm(event?.routine_id != nil ? "Solo se cancelará esta sesión de la rutina." : "Se eliminará el evento.", isPresented: $showDeleteConfirm, confirmTitle: "Eliminar evento") {
             Task { await delete() }
         }
         .errorAlert($store.errorMessage)

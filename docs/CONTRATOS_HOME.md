@@ -107,7 +107,7 @@ Se documentan tal como están hoy. No se renombra ni se corrige nada (D-008, adi
 ### `Not Found` (R-5, R-6)
 
 - En `/home/*` es `404` en todos los casos: no miembro, cabecera distinta del id, recurso ajeno (`rpcPassHome`, `errors.ts:55`; `errRouteHomeNotFound`, `index.ts:171`).
-- En las rutas legacy el mismo texto es `500` por herencia del contrato PHP (`errPhpNotFound`, `errors.ts:64`).
+- En las rutas legacy el mismo texto es `500` por herencia del contrato PHP (`errNotFound500`, `errors.ts:64`).
 - La ruta inexistente también es `404 {"error":"Not Found"}` (`errors.ts:63`): el cuerpo no distingue "ruta inexistente" de "hogar no visible".
 - `Name is required` (nombre de hogar, `errors.ts:96`) y `Name is required (max 50 characters)` (nombre de miembro, `errors.ts:105`) son mensajes distintos.
 

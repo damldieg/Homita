@@ -8,6 +8,8 @@ public final class RoutineStore {
     public private(set) var routines: [RoutineEntry] = []
     public private(set) var sessions: [EventEntry] = []
     public private(set) var isLoading = false
+    /// Primera carga completada (loader hasta entonces).
+    public private(set) var hasLoaded = false
     public var errorMessage: String?
 
     private let repo: RoutineRepository
@@ -24,7 +26,7 @@ public final class RoutineStore {
 
     public func load() async {
         isLoading = true
-        defer { isLoading = false }
+        defer { isLoading = false; hasLoaded = true }
         do {
             routines = try await repo.index(timezone: timezone)
         } catch {
@@ -36,6 +38,20 @@ public final class RoutineStore {
         } catch {
             report(error)
         }
+    }
+
+    /// Rutinas por próxima ocurrencia (A3): las que tienen sesión futura primero, la más cercana antes;
+    /// las que no tienen próxima al final, en su orden original.
+    public var routinesByNextOccurrence: [RoutineEntry] {
+        let indexed = routines.enumerated().map { (index: $0.offset, routine: $0.element, next: nextSession(for: $0.element)?.date_at) }
+        return indexed.sorted { lhs, rhs in
+            switch (lhs.next, rhs.next) {
+            case let (l?, r?): return l == r ? lhs.index < rhs.index : l < r
+            case (_?, nil): return true
+            case (nil, _?): return false
+            case (nil, nil): return lhs.index < rhs.index
+            }
+        }.map(\.routine)
     }
 
     /// Próxima sesión futura de una rutina (a partir de las sesiones ya materializadas).
