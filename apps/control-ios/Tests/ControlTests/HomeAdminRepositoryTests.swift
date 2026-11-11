@@ -168,4 +168,48 @@ final class HomeAdminRepositoryTests: XCTestCase {
             }
         }
     }
+
+    // MARK: Invitaciones (1.15b)
+
+    func testInvitationsList() async throws {
+        let items = try await makeRepo().invitations(homeId: 2)
+        let r = try last()
+        XCTAssertEqual(r.httpMethod, "GET")
+        XCTAssertTrue(r.url?.path.hasSuffix("/api/home/invitation") == true)
+        XCTAssertEqual(query(r), ["home_id=2"])
+        XCTAssertEqual(r.value(forHTTPHeaderField: "X-Home-Id"), "2")
+        XCTAssertEqual(items.map(\.id), [6, 5])
+    }
+
+    func testCreateInvitationBodyHeaderAndCode() async throws {
+        let repo = makeRepo()
+        let created = try await repo.createInvitation(CreateInvitationBody(homeId: 2, kind: "child", memberId: 3))
+        var r = try last()
+        XCTAssertEqual(r.httpMethod, "POST")
+        XCTAssertTrue(r.url?.path.hasSuffix("/api/home/invitation/create") == true)
+        XCTAssertEqual(try body(r), #"{"home_id":2,"kind":"child","member_id":3}"#)
+        XCTAssertEqual(r.value(forHTTPHeaderField: "X-Home-Id"), "2")
+        XCTAssertEqual(created.code, ContractFixtures.invitationCode)
+        XCTAssertEqual(created.item.id, 5)
+        _ = try await repo.createInvitation(CreateInvitationBody(homeId: 2, kind: "guest", memberId: nil))
+        r = try last()
+        XCTAssertEqual(try body(r), #"{"home_id":2,"kind":"guest"}"#)
+        _ = try await repo.createInvitation(CreateInvitationBody(homeId: 2, kind: nil, memberId: 3))
+        XCTAssertEqual(try body(try last()), #"{"home_id":2,"member_id":3}"#)
+    }
+
+    func testRevokeInvitationBodyAndHeader() async throws {
+        let item = try await makeRepo().revokeInvitation(homeId: 2, id: 5)
+        let r = try last()
+        XCTAssertEqual(r.httpMethod, "POST")
+        XCTAssertTrue(r.url?.path.hasSuffix("/api/home/invitation/revoke") == true)
+        XCTAssertEqual(try body(r), #"{"home_id":2,"id":5}"#)
+        XCTAssertEqual(r.value(forHTTPHeaderField: "X-Home-Id"), "2")
+        XCTAssertEqual(item.status, "revoked")
+    }
+
+    func testAcceptStillCarriesNoHomeHeader() async throws {
+        _ = try await makeRepo().acceptInvitation(code: ContractFixtures.invitationCode)
+        XCTAssertNil(try last().value(forHTTPHeaderField: "X-Home-Id"))
+    }
 }

@@ -21,6 +21,10 @@ public enum HomeAdminAccess {
     public static func canManageRoles(role: String) -> Bool { isAdmin(role: role) }
     /// Alta y edición de miembros: solo admin (la lista la ve cualquiera).
     public static func canManageMembers(role: String) -> Bool { isAdmin(role: role) }
+    /// Invitaciones: admin (tiene todos los permisos) o miembro con `home.invite` en su propia fila.
+    public static func canInvite(role: String, permissions: [String]) -> Bool {
+        isAdmin(role: role) || permissions.contains("home.invite")
+    }
 
     /// Acciones sobre `row`. `callerAppUserId` es el `UserSession.id` (== `app_user_id`, T1).
     /// Hogar personal: sin `.transfer` ni `.remove` (decisión aprobada); renombrar lo decide el servidor.
@@ -189,8 +193,9 @@ public struct HomeAdminScreenModel: Equatable, Sendable {
     public let showMembers: Bool
     public let canCreateMembers: Bool
     public let canEditMembers: Bool
+    public let showInvitations: Bool
 
-    public init(role: String) {
+    public init(role: String, permissions: [String] = []) {
         let admin = HomeAdminAccess.isAdmin(role: role)
         showSettings = true
         showAdministrators = true
@@ -200,6 +205,7 @@ public struct HomeAdminScreenModel: Equatable, Sendable {
         showMembers = true
         canCreateMembers = HomeAdminAccess.canManageMembers(role: role)
         canEditMembers = canCreateMembers
+        showInvitations = HomeAdminAccess.canInvite(role: role, permissions: permissions)
     }
 }
 

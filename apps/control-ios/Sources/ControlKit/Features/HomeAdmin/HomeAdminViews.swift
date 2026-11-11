@@ -9,8 +9,11 @@ struct HomeAdminView: View {
     let services: AppServices
     let home: HomeItem
 
+    /// `home.invite` de la fila propia de `home/membership`; vacío hasta cargar o si falla (A1).
+    @State private var ownPermissions: [String] = []
+
     var body: some View {
-        let model = HomeAdminScreenModel(role: home.role)
+        let model = HomeAdminScreenModel(role: home.role, permissions: ownPermissions)
         List {
             if model.showSettings {
                 NavigationLink {
@@ -33,6 +36,13 @@ struct HomeAdminView: View {
                     Label("Miembros", systemImage: "person.2")
                 }
             }
+            if model.showInvitations {
+                NavigationLink {
+                    HomeInvitationsView(services: services, home: home)
+                } label: {
+                    Label("Invitaciones", systemImage: "envelope.badge")
+                }
+            }
             if model.showPermissions {
                 NavigationLink {
                     MemberPermissionsView(services: services, home: home)
@@ -49,6 +59,14 @@ struct HomeAdminView: View {
             }
         }
         .navigationTitle(home.name)
+        .task { await loadOwnPermissions() }
+    }
+
+    /// Permisos propios para decidir "Invitaciones". Un admin no lo necesita (tiene todos).
+    private func loadOwnPermissions() async {
+        guard !HomeAdminAccess.isAdmin(role: home.role), let callerId = services.session.session?.id else { return }
+        let rows = try? await services.homes.memberships(homeId: home.homeId)
+        ownPermissions = rows?.first { $0.appUserId == callerId }?.permissions ?? []
     }
 }
 
@@ -675,5 +693,187 @@ struct MemberEditorView: View {
             ok = await store.create(kind: kind ?? .adult, name: name, color: color.hexString)
         }
         if ok { dismiss() }
+    }
+}
+
+extension InvitationItem: Identifiable {}
+
+/// Invitaciones pendientes del hogar: crear (código visible una sola vez, copiable) y revocar.
+struct HomeInvitationsView: View {
+    let services: AppServices
+    let home: HomeItem
+
+    @State private var store: InvitationStore
+    @State private var showCreate = false
+    @State private var toRevoke: InvitationItem?
+
+    init(services: AppServices, home: HomeItem) {
+        self.services = services
+        self.home = home
+        let homeContext = services.homeContext
+        _store = State(initialValue: InvitationStore(
+            repo: services.homes, homeId: home.homeId,
+            activeHomeId: { homeContext.activeHomeId }
+        ))
+    }
+
+    var body: some View {
+        List {
+            switch store.state {
+            case .idle, .loading:
+                HomeLoadingView()
+            case .failed(let message):
+                HomeErrorView(message: message) { Task { await store.load() } }
+            case .loaded:
+                ForEach(store.items) { item in
+                    row(item)
+                }
+                if store.items.isEmpty {
+                    Text("Sin invitaciones pendientes").foregroundStyle(.secondary)
+                }
+            }
+        }
+        .navigationTitle("Invitaciones")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showCreate = true } label: { Label("Crear", systemImage: "plus") }
+            }
+        }
+        .refreshable { await store.load() }
+        .errorAlert($store.errorMessage)
+        .sheet(isPresented: $showCreate) {
+            NavigationStack { InvitationCreateView(store: store, callerRole: home.role) }
+        }
+        .confirmationDialog(
+            "¿Revocar la invitación?",
+            isPresented: Binding(get: { toRevoke != nil }, set: { if !$0 { toRevoke = nil } }),
+            titleVisibility: .visible
+        ) {
+            if let item = toRevoke {
+                Button("Revocar", role: .destructive) { Task { await store.revoke(item) } }
+            }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("El código dejará de funcionar.")
+        }
+        .task { await store.load() }
+        .onDisappear { store.clearCode() }
+    }
+
+    private func row(_ item: InvitationItem) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.memberName ?? MemberRules.kindLabel(item.kind))
+                Text("\(MemberRules.kindLabel(item.kind)) · caduca \(item.expiresAt)")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button("Revocar", role: .destructive) { toRevoke = item }
+                .buttonStyle(.borderless)
+        }
+    }
+}
+
+/// Hoja de creación: tipo (según rol) y miembro sin cuenta opcional.
+struct InvitationCreateView: View {
+    let store: InvitationStore
+    let callerRole: String
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var kind: MemberKind
+    @State private var memberId: Int?
+    @State private var isWorking = false
+
+    init(store: InvitationStore, callerRole: String) {
+        self.store = store
+        self.callerRole = callerRole
+        _kind = State(initialValue: InvitationRules.allowedKinds(callerRole: callerRole).first ?? .guest)
+    }
+
+    private var selectable: [HomeMember] {
+        InvitationRules.selectableMembers(store.members, callerRole: callerRole)
+    }
+
+    var body: some View {
+        Group {
+            if let code = store.createdCode {
+                codeForm(code)
+            } else {
+                form
+            }
+        }
+        .navigationTitle(store.createdCode == nil ? "Nueva invitación" : "Invitación creada")
+        .errorAlert(Binding(get: { store.errorMessage }, set: { store.errorMessage = $0 }))
+        .task { await store.loadMembers() }
+        // El código sobrevive hasta que el usuario cierra la hoja; aquí se borra.
+        .onDisappear { store.clearCode() }
+        .onChange(of: selectable.map(\.id)) { _, ids in
+            if let id = memberId, !ids.contains(id) { memberId = nil }
+        }
+    }
+
+    private func codeForm(_ code: String) -> some View {
+        Form {
+            Section {
+                Text(code).font(.body.monospaced()).textSelection(.enabled)
+                Button("Copiar") { copy(code) }
+            } footer: {
+                Text("Solo se muestra una vez. Compártelo con la persona invitada; caduca en 7 días.")
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Listo") { store.clearCode(); dismiss() }
+            }
+        }
+    }
+
+    private func copy(_ text: String?) {
+        guard let text else { return }
+        #if canImport(UIKit)
+        UIPasteboard.general.string = text
+        #elseif canImport(AppKit)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        #endif
+    }
+
+    private var form: some View {
+        Form {
+            Section("Tipo") {
+                Picker("Tipo", selection: $kind) {
+                    ForEach(InvitationRules.allowedKinds(callerRole: callerRole), id: \.self) { k in
+                        Text(MemberRules.kindLabel(k.rawValue)).tag(k)
+                    }
+                }
+                .disabled(memberId != nil)
+            }
+            Section {
+                Picker("Miembro", selection: $memberId) {
+                    Text("Ninguno").tag(Int?.none)
+                    ForEach(selectable) { m in
+                        Text("\(m.name) · \(MemberRules.kindLabel(m.kind))").tag(Int?.some(m.id))
+                    }
+                }
+            } header: {
+                Text("Vincular a un miembro (opcional)")
+            } footer: {
+                Text("Solo miembros sin cuenta. Al aceptar, la cuenta queda vinculada a ese miembro.")
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Crear") { Task { await create() } }.disabled(isWorking)
+            }
+        }
+    }
+
+    private func create() async {
+        isWorking = true
+        defer { isWorking = false }
+        let ok = await store.create(kind: memberId == nil ? kind : nil, memberId: memberId, callerRole: callerRole)
+        // Miembro ya no invitable (400 o lista recargada): se reelige, nunca se manda genérico.
+        if !ok, let id = memberId, !selectable.contains(where: { $0.id == id }) { memberId = nil }
     }
 }

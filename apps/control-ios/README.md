@@ -26,6 +26,8 @@ swift test     # 154 tests XCTest: Flex, fechas PHP, reloj local, modelos, red/a
 
 **Miembros del hogar (1.13).** En Administración del hogar, «Miembros» lista las personas del hogar (color, tipo, estado, «Vinculada»/«Sin cuenta»); la ve cualquier rol y solo un admin puede agregar y editar (nombre, color, tipo, activar/desactivar). `pet` no se ofrece para miembros vinculados y cambiar el tipo de un vinculado pide confirmación (restablece sus permisos). La recarga de `homeContext` por editar la propia fila queda cableada pero inactiva hasta 1.15 (el payload no identifica al caller). UI sin verificar en simulador.
 
+**Invitar desde la app (1.15b).** En Administración del hogar, «Invitaciones» (visible para admin o para quien tenga `home.invite` en su fila de `home/membership`) lista las pendientes, crea una (tipo y, opcional, miembro sin cuenta) y revoca con confirmación. `adult` solo lo ofrece a un admin (D-017) y `pet` nunca. El código se muestra una sola vez con «Copiar»; vive solo en memoria, no se persiste ni se loguea y se borra al cerrar. `create`, `list` y `revoke` llevan `X-Home-Id`; `accept` no. UI sin verificar en simulador.
+
 Con el proyecto Xcode creado: `xcodebuild -scheme ControlApp -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build` y `xcodebuild test` en un simulador iOS 17+.
 
 ## Instalar en el iPhone (firma gratuita)

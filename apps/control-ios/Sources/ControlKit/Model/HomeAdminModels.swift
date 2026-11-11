@@ -412,3 +412,100 @@ public struct AuditItem: Codable, Equatable, Sendable {
         case createdAt = "created_at"
     }
 }
+
+// MARK: - Invitaciones (1.15b): crear, listar y revocar desde iOS
+
+/// `INVITATION_ITEM` (`GET home/invitation`, `POST home/invitation/revoke`). Nunca lleva el código.
+public struct InvitationItem: Codable, Equatable, Sendable {
+    public let id: Int
+    public let homeId: Int
+    public let kind: String
+    public let memberId: Int?
+    public let memberName: String?
+    public let status: String
+    public let expiresAt: String
+    public let createdBy: Int?
+    public let createdAt: String
+
+    public init(id: Int, homeId: Int, kind: String, memberId: Int? = nil, memberName: String? = nil,
+                status: String = "pending", expiresAt: String, createdBy: Int? = nil, createdAt: String) {
+        self.id = id
+        self.homeId = homeId
+        self.kind = kind
+        self.memberId = memberId
+        self.memberName = memberName
+        self.status = status
+        self.expiresAt = expiresAt
+        self.createdBy = createdBy
+        self.createdAt = createdAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case homeId = "home_id"
+        case kind
+        case memberId = "member_id"
+        case memberName = "member_name"
+        case status
+        case expiresAt = "expires_at"
+        case createdBy = "created_by"
+        case createdAt = "created_at"
+    }
+}
+
+/// `INVITATION_CREATED` (`POST home/invitation/create`, 201): el item más el `code`, que solo
+/// viaja en esta respuesta. `description` y `debugDescription` lo redactan (nunca a logs).
+public struct InvitationCreated: Decodable, Equatable, Sendable, CustomStringConvertible, CustomDebugStringConvertible {
+    public let item: InvitationItem
+    public let code: String
+
+    public init(item: InvitationItem, code: String) {
+        self.item = item
+        self.code = code
+    }
+
+    private enum CodeKey: String, CodingKey { case code }
+
+    public init(from decoder: Decoder) throws {
+        item = try InvitationItem(from: decoder)
+        code = try decoder.container(keyedBy: CodeKey.self).decode(String.self, forKey: .code)
+    }
+
+    public var description: String { "InvitationCreated(id: \(item.id), code: <redacted>)" }
+    public var debugDescription: String { description }
+}
+
+/// Body de `POST home/invitation/create`. `kind` y `member_id` nil se omiten (hace falta al menos uno).
+public struct CreateInvitationBody: Codable, Equatable, Sendable {
+    public let homeId: Int
+    public let kind: String?
+    public let memberId: Int?
+
+    public init(homeId: Int, kind: String?, memberId: Int?) {
+        self.homeId = homeId
+        self.kind = kind
+        self.memberId = memberId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case homeId = "home_id"
+        case kind
+        case memberId = "member_id"
+    }
+}
+
+/// Body de `POST home/invitation/revoke`.
+public struct RevokeInvitationBody: Codable, Equatable, Sendable {
+    public let homeId: Int
+    public let id: Int
+
+    public init(homeId: Int, id: Int) {
+        self.homeId = homeId
+        self.id = id
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case homeId = "home_id"
+        case id
+    }
+}

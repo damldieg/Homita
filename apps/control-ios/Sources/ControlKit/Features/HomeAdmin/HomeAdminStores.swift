@@ -384,3 +384,101 @@ public final class AuditStore {
         }
     }
 }
+
+/// Invitaciones del hogar (1.15b): pendientes, crear y revocar. El código de una invitación nueva
+/// vive solo en `createdCode` (memoria): no entra en `items`, ni en logs ni en errores, y se
+/// borra con `clearCode()` al cerrar la vista.
+@Observable
+public final class InvitationStore {
+    public private(set) var items: [InvitationItem] = []
+    public private(set) var state: HomeAdminLoadState = .idle
+    public var errorMessage: String?
+    public private(set) var createdCode: String?
+    /// Miembros invitables (selector de `member_id`); se rellena con `loadMembers`.
+    public private(set) var members: [HomeMember] = []
+
+    private let repo: HomeRepository
+    public let homeId: Int
+    private let activeHomeId: () -> String?
+
+    public init(repo: HomeRepository, homeId: Int, activeHomeId: @escaping () -> String?) {
+        self.repo = repo
+        self.homeId = homeId
+        self.activeHomeId = activeHomeId
+    }
+
+    private var isActive: Bool { activeHomeId() == String(homeId) }
+
+    public func load() async {
+        state = .loading
+        do {
+            let result = try await repo.invitations(homeId: homeId)
+            guard isActive else { return }
+            items = InvitationRules.visible(result)
+            state = .loaded
+        } catch {
+            guard isActive else { return }
+            state = .failed(invitationError(error))
+        }
+    }
+
+    public func loadMembers() async {
+        guard isActive else { return }
+        if let result = try? await repo.members(homeId: homeId), isActive {
+            members = result
+        }
+    }
+
+    /// Variante por `memberId` elegido en la UI. Si ese miembro ya no es invitable (p. ej. tras un 400
+    /// `Invalid member` y recarga) no se envía nada: nunca cae a una invitación genérica sin confirmación.
+    @discardableResult
+    public func create(kind: MemberKind?, memberId: Int?, callerRole: String) async -> Bool {
+        guard let memberId else { return await create(kind: kind, member: nil, callerRole: callerRole) }
+        guard let member = InvitationRules.selectableMembers(members, callerRole: callerRole)
+            .first(where: { $0.id == memberId }) else {
+            errorMessage = "Ese miembro ya no se puede invitar; elígelo de nuevo"
+            return false
+        }
+        return await create(kind: nil, member: member, callerRole: callerRole)
+    }
+
+    /// Crea la invitación y guarda el código en `createdCode`. `false` si no se envió o falló.
+    @discardableResult
+    public func create(kind: MemberKind?, member: HomeMember?, callerRole: String) async -> Bool {
+        guard isActive else { return false }
+        guard let body = InvitationRules.makeBody(homeId: homeId, kind: kind, member: member, callerRole: callerRole) else {
+            errorMessage = "Elige un tipo de invitación válido"
+            return false
+        }
+        do {
+            let created = try await repo.createInvitation(body)
+            guard isActive else { return false }
+            createdCode = created.code
+            await load()
+            return true
+        } catch {
+            if (error as? APIError).map({ $0 == .http(status: 400, message: "Invalid member") }) == true {
+                await loadMembers()
+            }
+            errorMessage = invitationError(error)
+            return false
+        }
+    }
+
+    public func revoke(_ item: InvitationItem) async {
+        guard isActive else { return }
+        do {
+            _ = try await repo.revokeInvitation(homeId: homeId, id: item.id)
+            if isActive { await load() }
+        } catch {
+            errorMessage = invitationError(error)
+            if isActive, (error as? APIError)?.isNotFound == true { await load() }
+        }
+    }
+
+    public func clearCode() { createdCode = nil }
+
+    private func invitationError(_ error: Error) -> String {
+        (error as? APIError)?.invitationAdminMessage ?? error.localizedDescription
+    }
+}

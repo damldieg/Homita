@@ -40,6 +40,19 @@ public enum APIError: Error, Equatable {
         return userMessage
     }
 
+    /// Mensaje para crear, listar y revocar invitaciones (1.15b).
+    public var invitationAdminMessage: String {
+        if case .http(let status, let message) = self {
+            switch (status, message) {
+            case (403, "Not Allowed"): return "No tienes permiso para crear esta invitación"
+            case (400, "Invalid member"): return "Ese miembro ya no se puede invitar; la lista se ha actualizado"
+            case (404, "Not Found"): return "La invitación ya no existe: se usó, se revocó o caducó"
+            default: break
+            }
+        }
+        return userMessage
+    }
+
     /// Mensaje para aceptar una invitación (1.15). El servidor responde el mismo 404 para un código
     /// inexistente, usado, revocado o caducado (sin oráculo), así que el texto los agrupa.
     public var invitationMessage: String {

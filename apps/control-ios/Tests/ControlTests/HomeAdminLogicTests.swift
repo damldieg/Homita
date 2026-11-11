@@ -145,6 +145,70 @@ final class HomeAdminAccessTests: XCTestCase {
     }
 }
 
+final class InvitationRulesTests: XCTestCase {
+    private func member(_ id: Int, _ kind: String, linked: Bool = false, status: String = "active") -> HomeMember {
+        HomeMember(id: id, homeId: 2, kind: kind, name: "M\(id)", status: status, linked: linked)
+    }
+
+    func testCanInviteAdminAndPermission() {
+        XCTAssertTrue(HomeAdminAccess.canInvite(role: "admin", permissions: []))
+        XCTAssertTrue(HomeAdminAccess.canInvite(role: "member", permissions: ["home.invite"]))
+        XCTAssertFalse(HomeAdminAccess.canInvite(role: "member", permissions: ["calendar.read"]))
+        XCTAssertFalse(HomeAdminAccess.canInvite(role: "member", permissions: []))
+    }
+
+    func testScreenModelShowInvitations() {
+        XCTAssertTrue(HomeAdminScreenModel(role: "admin").showInvitations)
+        XCTAssertTrue(HomeAdminScreenModel(role: "member", permissions: ["home.invite"]).showInvitations)
+        XCTAssertFalse(HomeAdminScreenModel(role: "member", permissions: ["x"]).showInvitations)
+        XCTAssertFalse(HomeAdminScreenModel(role: "member").showInvitations)
+    }
+
+    func testRevokeRequiresConfirmation() {
+        XCTAssertTrue(InvitationAction.revoke.requiresConfirmation)
+    }
+
+    func testAllowedKindsByRole() {
+        XCTAssertEqual(InvitationRules.allowedKinds(callerRole: "admin"), [.adult, .child, .relative, .guest])
+        XCTAssertEqual(InvitationRules.allowedKinds(callerRole: "member"), [.child, .relative, .guest])
+    }
+
+    func testSelectableMembers() {
+        let all = [member(1, "adult"), member(2, "child"), member(3, "pet"), member(4, "guest", linked: true),
+                   member(5, "relative", status: "inactive"), member(6, "guest")]
+        XCTAssertEqual(InvitationRules.selectableMembers(all, callerRole: "admin").map(\.id), [1, 2, 6])
+        XCTAssertEqual(InvitationRules.selectableMembers(all, callerRole: "member").map(\.id), [2, 6])
+    }
+
+    func testMakeBody() {
+        XCTAssertEqual(InvitationRules.makeBody(homeId: 2, kind: .guest, member: nil, callerRole: "member"),
+                       CreateInvitationBody(homeId: 2, kind: "guest", memberId: nil))
+        XCTAssertEqual(InvitationRules.makeBody(homeId: 2, kind: nil, member: member(2, "child"), callerRole: "member"),
+                       CreateInvitationBody(homeId: 2, kind: "child", memberId: 2))
+        XCTAssertEqual(InvitationRules.makeBody(homeId: 2, kind: .child, member: member(2, "child"), callerRole: "member"),
+                       CreateInvitationBody(homeId: 2, kind: "child", memberId: 2))
+        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: nil, member: nil, callerRole: "admin"))
+        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: .pet, member: nil, callerRole: "admin"))
+        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: .adult, member: nil, callerRole: "member"))
+        XCTAssertNotNil(InvitationRules.makeBody(homeId: 2, kind: .adult, member: nil, callerRole: "admin"))
+        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: nil, member: member(1, "adult"), callerRole: "member"))
+        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: nil, member: member(3, "pet"), callerRole: "admin"))
+        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: .guest, member: member(2, "child"), callerRole: "admin"))
+    }
+
+    func testExpiryFilter() {
+        let now = PHPDateTime.parse("2026-11-11 12:00:00")!
+        func item(_ id: Int, _ expires: String, _ status: String = "pending") -> InvitationItem {
+            InvitationItem(id: id, homeId: 2, kind: "guest", status: status, expiresAt: expires, createdAt: "2026-11-10 10:00:00")
+        }
+        let items = [item(1, "2026-11-11 11:59:59"), item(2, "2026-11-12 00:00:00"), item(3, "raro"),
+                     item(4, "2026-11-12 00:00:00", "revoked")]
+        XCTAssertTrue(InvitationRules.isExpired(items[0], now: now))
+        XCTAssertFalse(InvitationRules.isExpired(items[2], now: now))
+        XCTAssertEqual(InvitationRules.visible(items, now: now).map(\.id), [2, 3])
+    }
+}
+
 final class PermissionDraftTests: XCTestCase {
     func testToggleAndDirty() {
         var d = PermissionDraft(permissions: ["b", "a"])
