@@ -8,6 +8,7 @@ public struct RegisterView: View {
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
+    @State private var invitationCode = ""
     @State private var errorMessage: String?
     @State private var isWorking = false
 
@@ -24,6 +25,13 @@ public struct RegisterView: View {
                         HomitaField(placeholder: "Nombre", text: $name)
                         HomitaField(placeholder: "Email", text: $email, isEmail: true)
                         HomitaField(placeholder: "Contraseña (mínimo 8)", text: $password, isSecure: true)
+                    }
+                }
+                HomitaCard {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HomitaSectionHeader(title: "Código de invitación", systemImage: "ticket")
+                        HomitaField(placeholder: "Código (opcional)", text: $invitationCode, isCode: true)
+                        HomitaFootnote(text: "Si te invitaron a un hogar, usa el email de la invitación. Sin código, se crea una cuenta nueva.")
                     }
                 }
                 HomitaPrimaryButton(title: "Crear cuenta", isEnabled: isValid, isLoading: isWorking) {
@@ -48,19 +56,43 @@ public struct RegisterView: View {
         name.codepointCount >= 3 && name.codepointCount <= 50
             && !email.trimmingCharacters(in: .whitespaces).isEmpty
             && password.codepointCount >= 8
+            && (invitationCode.trimmingCharacters(in: .whitespaces).isEmpty || InvitationCode.isValid(invitationCode))
     }
 
     private func register() async {
         isWorking = true
         defer { isWorking = false }
+        let code = invitationCode.trimmingCharacters(in: .whitespaces).isEmpty
+            ? nil
+            : InvitationCode.normalize(invitationCode)
         do {
             try await services.auth.register(
                 name: name.trimmingCharacters(in: .whitespaces),
                 email: email.trimmingCharacters(in: .whitespaces),
-                password: password
+                password: password,
+                invitationCode: code
             )
+            // La cuenta ya existe y tiene sesión: la invitación queda pendiente hasta aceptarla en la app.
+            services.homeContext.pendingInvitationCode = code
         } catch {
-            errorMessage = (error as? APIError)?.userMessage ?? error.localizedDescription
+            errorMessage = Self.registerMessage(for: error)
         }
+    }
+
+    /// Mensajes de registro con código (0023). El resto usa el mensaje genérico de `APIError`.
+    static func registerMessage(for error: Error) -> String {
+        if let api = error as? APIError {
+            switch api {
+            case .http(status: 404, message: "Invitation code is not valid"):
+                return "El código de invitación no es válido, ya se usó o ha caducado"
+            case .http(status: 403, message: "The invitation was sent to another email address"):
+                return "La invitación se envió a otro email. Usa el email de la invitación"
+            case .http(status: 400, message: "Email already exists"):
+                return "Ya tienes cuenta: inicia sesión y acepta la invitación desde Perfil"
+            default:
+                return api.userMessage
+            }
+        }
+        return error.localizedDescription
     }
 }

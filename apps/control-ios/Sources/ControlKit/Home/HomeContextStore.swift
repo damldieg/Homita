@@ -27,6 +27,9 @@ public final class HomeContextStore {
     public private(set) var state: HomeContextState = .unresolved
     /// Hogares del último `GET home` (para el selector de Perfil, 1.15c).
     public private(set) var homes: [HomeItem] = []
+    /// Código de invitación con el que la persona acaba de registrarse (0023). Vive solo en memoria:
+    /// `NoHomeView` ofrece aceptarlo; se borra al aceptar o al descartarlo. Nunca se persiste.
+    public var pendingInvitationCode: String?
     /// Error legible si no se pudo persistir `active_home_id` (p. ej. Keychain sin firma): la
     /// selección sigue activa en memoria pero no sobrevivirá a relanzar la app. nil si todo bien.
     public private(set) var persistenceError: String?

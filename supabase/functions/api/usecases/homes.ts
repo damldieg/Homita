@@ -7,7 +7,7 @@ import { getInput, inputInt, inputString, inputTimezone, contractEmpty, contract
 import {
     error, errHomeIdRequired, errHomeMemberIdRequired, errHomeMembershipIdRequired,
     errInvalidPermission, errInvalidRole, errInvalidTimezone, errInvitationCodeRequired,
-    errInvitationIdRequired, errNameRequired, errPersonColorInvalid, errPersonNameRequired,
+    errInvalidEmail, errInvitationIdRequired, errNameRequired, errPersonColorInvalid, errPersonNameRequired,
     errRouteHomeNotFound, rpcPassHome,
 } from "../_shared/errors.ts";
 import { rpc } from "../_shared/supabase.ts";
@@ -243,8 +243,11 @@ export const handleHomeInvitationCreate = async (req: Request, token: string): P
         memberId = inputInt(input, "member_id");
         if (memberId === null) return errInvalidMember();
     }
+    // 0026: el email del invitado es obligatorio (se guarda en la invitación y se exige al aceptar).
+    const email = (inputString(input, "email") ?? "").trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return errInvalidEmail();
     return rpcPassHome(await rpc("create_home_invitation", {
-        p_home_id: homeId, p_kind: kind, p_member_id: memberId,
+        p_home_id: homeId, p_kind: kind, p_member_id: memberId, p_email: email,
     }, token), 201);
 };
 

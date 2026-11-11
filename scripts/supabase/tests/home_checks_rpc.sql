@@ -1,6 +1,8 @@
 -- home_checks_rpc.sql — RPC nuevas y redefinidas de 0016 (fase 1.4, T3; plan §7.3, R1-01, R1-02).
 -- Se ejecuta con psql tras aplicar 0016 sobre 0001–0015 (sin dependencias de la Edge):
 --   psql -v ON_ERROR_STOP=1 -f home_checks_rpc.sql
+-- La aserción de create_home con home_member vinculado REQUIERE 0023_create_home_admin_member.sql
+-- (dc/tareas-asignar) aplicada antes.
 -- Cada bloque DO emite 'ok …' o aborta con 'home_checks_rpc: …'. Impersonación vía
 -- set_config('request.jwt.claim.sub', …, true) (auth.uid()); cabecera vía
 -- set_config('request.headers', '{"x-home-id":"…"}', true) (fn_active_home_id).
@@ -131,7 +133,16 @@ begin
                               where home_id = v_id and app_user_id = 993001 and role = 'admin') then
         raise exception 'home_checks_rpc: create_home sin una única membresía admin (%)', v_n;
     end if;
-    raise notice 'ok create_home → HOME_DETAIL, is_personal=false, timezone Europe/Madrid, 1 membresía admin';
+    -- (0023_create_home_admin_member): el creador es el primer miembro (adult activo vinculado a su cuenta, con su person).
+    if (select count(*) from home_member where home_id = v_id) <> 1
+       or not exists (select 1 from home_member hm
+                       where hm.home_id = v_id and hm.app_user_id = 993001
+                         and hm.kind = 'adult' and hm.status = 'active')
+       or not exists (select 1 from person p join home_member hm on hm.id = p.home_member_id
+                       where p.home_id = v_id and hm.app_user_id = 993001) then
+        raise exception 'home_checks_rpc: create_home sin home_member adult activo vinculado al creador';
+    end if;
+    raise notice 'ok create_home → HOME_DETAIL, is_personal=false, timezone Europe/Madrid, 1 membresía admin y 1 miembro vinculado';
     begin
         perform create_home('   ', null);
         raise exception 'home_checks_rpc: create_home con name en blanco no falló';
@@ -352,7 +363,9 @@ begin
     delete from home_membership where home_id in (993001, 993002, 993003)
         or app_user_id in (993001, 993002, 993003, 993004)
         or home_id in (select id from home where name = 'RPC-Nueva');
-    delete from home_member where home_id in (993001, 993002, 993003);
+    delete from person where home_id in (select id from home where name = 'RPC-Nueva');
+    delete from home_member where home_id in (993001, 993002, 993003)
+        or home_id in (select id from home where name = 'RPC-Nueva');
     delete from audit_log where home_id in (993001, 993002, 993003);
     delete from home where id in (993001, 993002, 993003) or name = 'RPC-Nueva';
     delete from app_user where id in (993001, 993002, 993003, 993004);

@@ -181,19 +181,19 @@ final class InvitationRulesTests: XCTestCase {
     }
 
     func testMakeBody() {
-        XCTAssertEqual(InvitationRules.makeBody(homeId: 2, kind: .guest, member: nil, callerRole: "member"),
-                       CreateInvitationBody(homeId: 2, kind: "guest", memberId: nil))
-        XCTAssertEqual(InvitationRules.makeBody(homeId: 2, kind: nil, member: member(2, "child"), callerRole: "member"),
-                       CreateInvitationBody(homeId: 2, kind: "child", memberId: 2))
-        XCTAssertEqual(InvitationRules.makeBody(homeId: 2, kind: .child, member: member(2, "child"), callerRole: "member"),
-                       CreateInvitationBody(homeId: 2, kind: "child", memberId: 2))
-        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: nil, member: nil, callerRole: "admin"))
-        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: .pet, member: nil, callerRole: "admin"))
-        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: .adult, member: nil, callerRole: "member"))
-        XCTAssertNotNil(InvitationRules.makeBody(homeId: 2, kind: .adult, member: nil, callerRole: "admin"))
-        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: nil, member: member(1, "adult"), callerRole: "member"))
-        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: nil, member: member(3, "pet"), callerRole: "admin"))
-        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: .guest, member: member(2, "child"), callerRole: "admin"))
+        XCTAssertEqual(InvitationRules.makeBody(homeId: 2, kind: .guest, member: nil, callerRole: "member", email: "ana@ejemplo.com"),
+                       CreateInvitationBody(homeId: 2, kind: "guest", memberId: nil, email: "ana@ejemplo.com"))
+        XCTAssertEqual(InvitationRules.makeBody(homeId: 2, kind: nil, member: member(2, "child"), callerRole: "member", email: "ana@ejemplo.com"),
+                       CreateInvitationBody(homeId: 2, kind: "child", memberId: 2, email: "ana@ejemplo.com"))
+        XCTAssertEqual(InvitationRules.makeBody(homeId: 2, kind: .child, member: member(2, "child"), callerRole: "member", email: "ana@ejemplo.com"),
+                       CreateInvitationBody(homeId: 2, kind: "child", memberId: 2, email: "ana@ejemplo.com"))
+        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: nil, member: nil, callerRole: "admin", email: "ana@ejemplo.com"))
+        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: .pet, member: nil, callerRole: "admin", email: "ana@ejemplo.com"))
+        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: .adult, member: nil, callerRole: "member", email: "ana@ejemplo.com"))
+        XCTAssertNotNil(InvitationRules.makeBody(homeId: 2, kind: .adult, member: nil, callerRole: "admin", email: "ana@ejemplo.com"))
+        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: nil, member: member(1, "adult"), callerRole: "member", email: "ana@ejemplo.com"))
+        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: nil, member: member(3, "pet"), callerRole: "admin", email: "ana@ejemplo.com"))
+        XCTAssertNil(InvitationRules.makeBody(homeId: 2, kind: .guest, member: member(2, "child"), callerRole: "admin", email: "ana@ejemplo.com"))
     }
 
     func testExpiryFilter() {

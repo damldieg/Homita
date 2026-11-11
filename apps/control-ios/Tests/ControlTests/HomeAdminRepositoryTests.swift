@@ -183,19 +183,19 @@ final class HomeAdminRepositoryTests: XCTestCase {
 
     func testCreateInvitationBodyHeaderAndCode() async throws {
         let repo = makeRepo()
-        let created = try await repo.createInvitation(CreateInvitationBody(homeId: 2, kind: "child", memberId: 3))
+        let created = try await repo.createInvitation(CreateInvitationBody(homeId: 2, kind: "child", memberId: 3, email: "ana@ejemplo.com"))
         var r = try last()
         XCTAssertEqual(r.httpMethod, "POST")
         XCTAssertTrue(r.url?.path.hasSuffix("/api/home/invitation/create") == true)
-        XCTAssertEqual(try body(r), #"{"home_id":2,"kind":"child","member_id":3}"#)
+        XCTAssertEqual(try body(r), #"{"email":"ana@ejemplo.com","home_id":2,"kind":"child","member_id":3}"#)
         XCTAssertEqual(r.value(forHTTPHeaderField: "X-Home-Id"), "2")
         XCTAssertEqual(created.code, ContractFixtures.invitationCode)
         XCTAssertEqual(created.item.id, 5)
-        _ = try await repo.createInvitation(CreateInvitationBody(homeId: 2, kind: "guest", memberId: nil))
+        _ = try await repo.createInvitation(CreateInvitationBody(homeId: 2, kind: "guest", memberId: nil, email: "ana@ejemplo.com"))
         r = try last()
-        XCTAssertEqual(try body(r), #"{"home_id":2,"kind":"guest"}"#)
-        _ = try await repo.createInvitation(CreateInvitationBody(homeId: 2, kind: nil, memberId: 3))
-        XCTAssertEqual(try body(try last()), #"{"home_id":2,"member_id":3}"#)
+        XCTAssertEqual(try body(r), #"{"email":"ana@ejemplo.com","home_id":2,"kind":"guest"}"#)
+        _ = try await repo.createInvitation(CreateInvitationBody(homeId: 2, kind: nil, memberId: 3, email: "ana@ejemplo.com"))
+        XCTAssertEqual(try body(try last()), #"{"email":"ana@ejemplo.com","home_id":2,"member_id":3}"#)
     }
 
     func testRevokeInvitationBodyAndHeader() async throws {
