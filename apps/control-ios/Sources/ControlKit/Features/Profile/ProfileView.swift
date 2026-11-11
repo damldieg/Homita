@@ -13,6 +13,7 @@ public struct ProfileView: View {
     @State private var password = ""
     @State private var errorMessage: String?
     @State private var isWorking = false
+    @State private var showSignOutConfirm = false
 
     public init(services: AppServices) {
         self.services = services
@@ -39,7 +40,7 @@ public struct ProfileView: View {
                         homeAdminCard(home: home)
                     }
                     HomitaButton(title: "Cerrar sesión", kind: .secondary) {
-                        services.signOut()
+                        showSignOutConfirm = true
                     }
                     Text("Con firma gratuita la app caduca a los 7 días; reinstálala y vuelve a iniciar sesión.")
                         .font(HomitaFont.geist(13, relativeTo: .footnote))
@@ -51,6 +52,9 @@ public struct ProfileView: View {
             .background(Palette.background.ignoresSafeArea())
             .homitaNavigationBar()
             .errorAlert($errorMessage)
+            .homitaConfirm("¿Cerrar sesión en este iPhone?", isPresented: $showSignOutConfirm, confirmTitle: "Cerrar sesión") {
+                services.signOut()
+            }
             .overlay {
                 if isWorking {
                     HomitaLoadingOverlay(message: "Guardando…")

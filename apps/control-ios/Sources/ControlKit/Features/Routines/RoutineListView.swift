@@ -24,14 +24,14 @@ struct RoutineListView: View {
         List {
             if !store.routines.isEmpty {
             Section {
-                ForEach(store.routines, id: \.id) { routine in
+                ForEach(store.routinesByNextOccurrence, id: \.id) { routine in
                     RoutineRow(routine: routine, next: store.nextSession(for: routine)) {
                         routineToEdit = routine
                     }
                     .homitaRow()
                 }
                 .onDelete { indexSet in
-                    let removed = indexSet.map { store.routines[$0] }
+                    let removed = indexSet.map { store.routinesByNextOccurrence[$0] }
                     Task { for routine in removed { await store.delete(routine) } }
                 }
             } header: {
@@ -131,6 +131,7 @@ struct RoutineRow: View {
                     Text(routine.title)
                         .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
                         .foregroundStyle(Palette.ink)
+                    AssignedPersonsLine(persons: routine.persons)
                     if let next {
                         Text("PRÓXIMA · \(DateDisplay.dateTime(next.date_at).uppercased())")
                             .font(HomitaFont.geist(12, weight: .semibold, relativeTo: .caption))

@@ -26,6 +26,7 @@ public struct CalendarGrid: Sendable {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
         calendar.firstWeekday = 2
+        calendar.locale = DeviceLocale.current
         self.calendar = calendar
         self.timeZone = timeZone
     }

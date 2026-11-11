@@ -40,6 +40,20 @@ public final class RoutineStore {
         }
     }
 
+    /// Rutinas por próxima ocurrencia (A3): las que tienen sesión futura primero, la más cercana antes;
+    /// las que no tienen próxima al final, en su orden original.
+    public var routinesByNextOccurrence: [RoutineEntry] {
+        let indexed = routines.enumerated().map { (index: $0.offset, routine: $0.element, next: nextSession(for: $0.element)?.date_at) }
+        return indexed.sorted { lhs, rhs in
+            switch (lhs.next, rhs.next) {
+            case let (l?, r?): return l == r ? lhs.index < rhs.index : l < r
+            case (_?, nil): return true
+            case (nil, _?): return false
+            case (nil, nil): return lhs.index < rhs.index
+            }
+        }.map(\.routine)
+    }
+
     /// Próxima sesión futura de una rutina (a partir de las sesiones ya materializadas).
     public func nextSession(for routine: RoutineEntry) -> EventEntry? {
         let now = PHPDateTime.format(clock().now)
