@@ -6,6 +6,8 @@ public final class CalendarStore {
     public private(set) var calendars: [CalendarEntry] = []
     public private(set) var members: [MemberEntry] = []
     public private(set) var isLoading = false
+    /// Primera carga completada (loader hasta entonces).
+    public private(set) var hasLoaded = false
     public var errorMessage: String?
 
     private let repo: CalendarRepository
@@ -16,7 +18,7 @@ public final class CalendarStore {
 
     public func load() async {
         isLoading = true
-        defer { isLoading = false }
+        defer { isLoading = false; hasLoaded = true }
         do {
             calendars = try await repo.index()
         } catch {

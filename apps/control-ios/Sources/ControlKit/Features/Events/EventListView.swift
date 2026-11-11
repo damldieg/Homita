@@ -77,12 +77,17 @@ struct EventListView: View {
                     HomitaSectionHeader(title: "Pasados", count: store.past.count, systemImage: "clock.arrow.circlepath", tint: Palette.inkSoft)
                 }
             }
-            if store.upcoming.isEmpty && store.past.isEmpty && !store.isLoading {
-                HomitaCard {
-                    Text("Sin eventos")
-                        .font(HomitaFont.geist(16, relativeTo: .body))
-                        .foregroundStyle(Palette.inkSoft)
-                        .frame(maxWidth: .infinity)
+            if !store.hasLoaded || (store.isLoading && store.upcoming.isEmpty && store.past.isEmpty) {
+                HomitaLoadingCard(message: "Cargando eventos…").homitaRow()
+            }
+            if store.hasLoaded && store.upcoming.isEmpty && store.past.isEmpty && !store.isLoading {
+                HomitaEmptyState(
+                    illustration: .events,
+                    title: "Sin eventos",
+                    message: "Añade un evento con fecha y hora para verlo aquí.",
+                    actionTitle: "Nuevo evento"
+                ) {
+                    showCreate = true
                 }
                 .homitaRow()
             }

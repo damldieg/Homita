@@ -237,7 +237,10 @@ struct HomitaField: View {
     @ViewBuilder
     private var field: some View {
         #if canImport(ComponentsKit)
+        // Sin borde de la librería: el color principal del campo es el texto escrito (tinta), y el
+        // borde suave se dibuja aparte. Así el texto no se confunde con el fondo.
         SUInputField(text: $text, isFocused: $isFocused, model: fieldModel)
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Palette.line, lineWidth: 1.5))
         #else
         Group {
             if isSecure {
@@ -260,9 +263,9 @@ struct HomitaField: View {
             $0.autocapitalization = (isEmail || isCode) ? .never : .sentences
             $0.keyboardType = isEmail ? .emailAddress : .default
             $0.cornerRadius = .large
-            $0.style = .bordered
+            $0.style = .light
             $0.tintColor = uc("#221D18")
-            $0.color = ComponentColor(main: uc("#D9CBB6"), contrast: uc("#221D18"), background: uc("#F7EEE2"))
+            $0.color = ComponentColor(main: uc("#221D18"), contrast: uc("#221D18"), background: uc("#F7EEE2"))
         }
     }
     #endif
@@ -548,5 +551,57 @@ struct HomitaLinkRow: View {
                     .foregroundStyle(Palette.inkMuted)
             }
         }
+    }
+}
+
+/// Estado vacío de Homita: ilustración propia, título, explicación y botón para crear desde ahí.
+struct HomitaEmptyState: View {
+    let illustration: HomitaIllustrationKind
+    let title: String
+    let message: String
+    let actionTitle: String
+    let action: () -> Void
+
+    var body: some View {
+        HomitaCard {
+            VStack(spacing: 14) {
+                HomitaIllustration(kind: illustration)
+                Text(title)
+                    .font(HomitaFont.geist(20, weight: .bold, relativeTo: .title3))
+                    .foregroundStyle(Palette.ink)
+                    .multilineTextAlignment(.center)
+                Text(message)
+                    .font(HomitaFont.geist(15, relativeTo: .body))
+                    .foregroundStyle(Palette.inkSoft)
+                    .multilineTextAlignment(.center)
+                HomitaButton(title: actionTitle, action: action)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+/// Loader de Homita para listas y secciones: tarjeta con el cargador de la librería y un texto.
+struct HomitaLoadingCard: View {
+    var message: String = "Cargando…"
+
+    var body: some View {
+        HomitaCard {
+            HStack(spacing: 12) {
+                #if canImport(ComponentsKit)
+                SULoading(model: LoadingVM { $0.color = ComponentColor(main: uc(Palette.accentHex), contrast: uc("#FFFFFF")) })
+                #else
+                ProgressView()
+                #endif
+                Text(message)
+                    .font(HomitaFont.geist(16, relativeTo: .body))
+                    .foregroundStyle(Palette.inkSoft)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+        }
+        .accessibilityElement(children: .combine)
     }
 }

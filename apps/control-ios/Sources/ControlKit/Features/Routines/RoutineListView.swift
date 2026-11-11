@@ -22,6 +22,7 @@ struct RoutineListView: View {
 
     var body: some View {
         List {
+            if !store.routines.isEmpty {
             Section {
                 ForEach(store.routines, id: \.id) { routine in
                     RoutineRow(routine: routine, next: store.nextSession(for: routine)) {
@@ -35,6 +36,7 @@ struct RoutineListView: View {
                 }
             } header: {
                 HomitaSectionHeader(title: "Rutinas", count: store.routines.count, systemImage: "repeat")
+            }
             }
             if !upcomingSessions.isEmpty {
                 Section {
@@ -61,12 +63,17 @@ struct RoutineListView: View {
                     HomitaSectionHeader(title: "Próximas sesiones", count: upcomingSessions.count, systemImage: "calendar.badge.clock", tint: Palette.inkSoft)
                 }
             }
-            if store.routines.isEmpty && !store.isLoading {
-                HomitaCard {
-                    Text("Sin rutinas")
-                        .font(HomitaFont.geist(16, relativeTo: .body))
-                        .foregroundStyle(Palette.inkSoft)
-                        .frame(maxWidth: .infinity)
+            if !store.hasLoaded || (store.isLoading && store.routines.isEmpty) {
+                HomitaLoadingCard(message: "Cargando rutinas…").homitaRow()
+            }
+            if store.hasLoaded && store.routines.isEmpty && !store.isLoading {
+                HomitaEmptyState(
+                    illustration: .routines,
+                    title: "Sin rutinas",
+                    message: "Las rutinas repiten eventos cada día, semana o mes sin que las vuelvas a escribir.",
+                    actionTitle: "Nueva rutina"
+                ) {
+                    showCreate = true
                 }
                 .homitaRow()
             }
