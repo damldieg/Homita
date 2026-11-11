@@ -13,7 +13,7 @@ public struct CalendarsRootView: View {
 
     public init(services: AppServices) {
         self.services = services
-        _calendarStore = State(initialValue: CalendarStore(repo: services.calendars))
+        _calendarStore = State(initialValue: CalendarStore(repo: services.calendars, events: services.events, routines: services.routines))
         _eventStore = State(initialValue: EventStore(repo: services.events))
         _calendarAgenda = State(initialValue: CalendarAgendaStore(repo: services.events))
         _routineStore = State(initialValue: RoutineStore(repo: services.routines, events: services.events))

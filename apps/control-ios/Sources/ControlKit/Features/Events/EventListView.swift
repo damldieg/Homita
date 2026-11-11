@@ -166,6 +166,7 @@ struct EventRow: View {
                     Text(event.title)
                         .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
                         .foregroundStyle(Palette.ink)
+                    AssignedPersonsLine(persons: event.persons)
                 }
                 Spacer()
                 HStack(spacing: 8) {

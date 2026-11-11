@@ -120,13 +120,13 @@ struct CalendarEventsView: View {
         let anchor = calendarStore.anchor
         switch calendarStore.mode {
         case .month:
-            return Self.format("LLLL yyyy", anchor, grid).capitalized
+            return Self.format("LLLLy", anchor, grid).capitalized
         case .week:
             let days = calendarStore.visibleDays
             guard let first = days.first, let last = days.last else { return "" }
-            return "\(Self.format("d MMM", first, grid)) – \(Self.format("d MMM", last, grid))"
+            return "\(Self.format("dMMM", first, grid)) – \(Self.format("dMMM", last, grid))"
         case .day, .agenda:
-            return Self.format("EEEE d 'de' MMMM", anchor, grid).capitalized
+            return Self.format("EEEEdMMMM", anchor, grid).capitalized
         }
     }
 
@@ -136,7 +136,7 @@ struct CalendarEventsView: View {
         let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
         return VStack(spacing: 8) {
             HStack(spacing: 4) {
-                ForEach(["L", "M", "X", "J", "V", "S", "D"], id: \.self) { letter in
+                ForEach(Array(Self.weekdayLetters(grid).enumerated()), id: \.offset) { _, letter in
                     Text(letter)
                         .font(HomitaFont.geist(12, weight: .semibold, relativeTo: .caption))
                         .foregroundStyle(Palette.inkSoft)
@@ -188,7 +188,7 @@ struct CalendarEventsView: View {
         let items = calendarStore.events(on: calendarStore.anchor)
         return VStack(alignment: .leading, spacing: 10) {
             HomitaSectionHeader(
-                title: Self.format("EEEE d 'de' MMMM", calendarStore.anchor, grid).capitalized,
+                title: Self.format("EEEEdMMMM", calendarStore.anchor, grid).capitalized,
                 count: items.count,
                 systemImage: "calendar"
             )
@@ -209,9 +209,18 @@ struct CalendarEventsView: View {
         let formatter = DateFormatter()
         formatter.calendar = grid.calendar
         formatter.timeZone = grid.timeZone
-        formatter.locale = Locale(identifier: "es_ES")
-        formatter.dateFormat = template
+        formatter.locale = grid.calendar.locale
+        // Plantilla de esqueleto: el sistema localiza el orden y las palabras (A6).
+        formatter.setLocalizedDateFormatFromTemplate(template)
         return formatter.string(from: date)
+    }
+
+    /// Letras de los días en el idioma del dispositivo, empezando por el lunes (A6).
+    static func weekdayLetters(_ grid: CalendarGrid) -> [String] {
+        let symbols = grid.calendar.veryShortStandaloneWeekdaySymbols
+        guard symbols.count == 7 else { return ["L", "M", "X", "J", "V", "S", "D"] }
+        // veryShort… empieza en domingo (índice 0); se rota para que la semana empiece en lunes.
+        return Array(symbols[1...]) + [symbols[0]]
     }
 
     private static func uniqueColors(_ events: [EventEntry]) -> [String] {
@@ -224,7 +233,7 @@ struct CalendarEventsView: View {
     }
 
     private static func accessibilityLabel(day: Date, count: Int, grid: CalendarGrid) -> String {
-        let date = format("d 'de' MMMM", day, grid)
+        let date = format("dMMMM", day, grid)
         return count == 0 ? date : "\(date), \(count) \(count == 1 ? "evento" : "eventos")"
     }
 }
@@ -248,6 +257,7 @@ struct CalendarEventRow: View {
                         Text(event.title)
                             .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
+                        AssignedPersonsLine(persons: event.persons)
                         if event.routine_id != nil {
                             Text("Sesión de rutina")
                                 .font(HomitaFont.geist(12, relativeTo: .caption))
