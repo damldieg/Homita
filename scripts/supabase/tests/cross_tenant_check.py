@@ -49,6 +49,19 @@ Not Found/Not Allowed si la mutación de membresía commitea antes). Fixtures §
 XT-Conc con admins A y B (sin owner único: XT-C1 con owners A y B) y hogar personal en los tres
 usuarios (sin 403 de último hogar).
 
+Invitaciones (1.15, plan §Pruebas, bloques INV e INV_RACE): fixture propia 9982xx (H1 998200 con
+admin A y miembro adult sin vincular M 998210; H2 998201 con admin B, M2 998211 y C member). INV1–INV10:
+B sobre H1 por RPC directa → Not Found (crear, listar, revocar en H1 y con su hogar H2), member_id
+de otro hogar e inexistente → el mismo Invalid member, anon sin EXECUTE en accept, SELECT/INSERT
+directo en home_invitation denegados, y accept por RPC directa con X-Home-Id de H2 → ok en H1 (la
+RPC ignora la cabecera, D-015). INV_RACE (INV_ITERS carreras con rendezvous y orden alterno, como
+F1/F2): mismo código B ∥ C (1 ok + 1 Not Found, 1 membresía, accepted_by = ganador), dos códigos
+del mismo usuario (1 ok + 1 Already member, la otra sigue pending), accept con miembro ∥ baja del
+miembro, accept ∥ revoke, accept ∥ remove_home_membership de otro miembro, accept de C en H1 ∥ C
+sale de H2 (lock de app_user), y la espera en el lock de hogar del segundo accept (p19_race). Todo
+con 0×40P01. INV25: 0 filas 9982xx y 0 home_invitation en hogares de xt tras la limpieza. Los
+códigos solo viajan como parámetro de la RPC (nunca se imprimen).
+
 Setup/limpieza: usuarios xt-a/xt-b vía user/create (requiere ALLOW_REGISTRATION=true en la Edge o
 usuarios preexistentes) y `clean_xt()` completo (filas XT-%, membresías y hogares de xt — personales
 y no personales (R1-04) — y sus cuentas auth: se recrean en cada pasada: sin hogar, `create_calendar` fallaría con `Home header
@@ -192,6 +205,9 @@ delete from person
     where name like 'XT-%'
        or home_id in (select id from home
                       where created_by in (select id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}', '{C_EMAIL}')));
+delete from home_invitation
+    where home_id in (select id from home
+                      where created_by in (select id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}', '{C_EMAIL}')));
 delete from home_member
     where home_id in (select id from home
                       where created_by in (select id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}', '{C_EMAIL}')));
@@ -226,6 +242,8 @@ XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") i
 A12_ITERS = int(os.environ.get("A12_ITERS", "20"))
 # F1_ITERS: carreras de solape real por bloque F1/F2 (R1-06; el solape expone el 40P01 de 0020)
 F1_ITERS = int(os.environ.get("F1_ITERS", "10"))
+# INV_ITERS: carreras por par de los bloques INV_RACE (1.15; el builder usa 3, el verifier 10)
+INV_ITERS = int(os.environ.get("INV_ITERS", "10"))
 results = []
 counts = {}
 XT_BLOCK = "BASE"  # bloque actual para el selector (cada bloque nuevo lo fija al entrar)
@@ -1565,6 +1583,279 @@ XT_BLOCK = "BASE"
 # limpieza no quedan filas 9981xx; clean_xt() de más abajo verifica además 0 filas XT-% y 0
 # membresías/hogares de xt, y aborta el script si queda algún residuo.
 psql(P19_Q)
+
+# ── 1.15 (plan §Pruebas): invitaciones — INV1–INV10, INV_RACE (INV11–INV24) e INV25 ──
+# Fixture 9982xx (inv_reset): H1 998200 'XT-INV-H1' (A admin 998220; M 998210 adult sin vincular)
+# y H2 998201 'XT-INV-H2' (B admin 998221, C member 998223; M2 998211). Variante b_in_h1: B
+# member de H1 (998222) para INV22. Persons 1:1 (I5). Borrado con replica SOLO para limpiar.
+
+INV_Q = """
+set session_replication_role = replica;
+begin;
+delete from home_invitation where home_id in (998200, 998201);
+delete from audit_log where home_id in (998200, 998201);
+delete from membership_permission where home_membership_id in (
+    select id from home_membership where home_id in (998200, 998201));
+delete from home_membership where home_id in (998200, 998201);
+delete from person where home_id in (998200, 998201);
+delete from home_member where home_id in (998200, 998201);
+delete from home where id in (998200, 998201);
+commit;
+set session_replication_role = default;
+"""
+
+
+def inv_reset(b_in_h1=False):
+    extra = f", (998222, 998200, {b_id}, 'member')" if b_in_h1 else ""
+    seed_b = "select fn_seed_kind_permissions(998222, 'guest');" if b_in_h1 else ""
+    psql(INV_Q + f"""
+begin;
+insert into home (id, name, status, is_personal, created_by) values
+    (998200, 'XT-INV-H1', 'active', false, {a_id}), (998201, 'XT-INV-H2', 'active', false, {b_id});
+insert into home_membership (id, home_id, app_user_id, role) values
+    (998220, 998200, {a_id}, 'admin'), (998221, 998201, {b_id}, 'admin'),
+    (998223, 998201, {c_id}, 'member'){extra};
+insert into home_member (id, home_id, kind, name, color, created_by) values
+    (998210, 998200, 'adult', 'XT-INV-M', '#123456', {a_id}),
+    (998211, 998201, 'adult', 'XT-INV-M2', '#654321', {b_id});
+insert into person (user_id, home_id, home_member_id, name, color) values
+    ({a_id}, 998200, 998210, 'XT-INV-M', '#123456'), ({b_id}, 998201, 998211, 'XT-INV-M2', '#654321');
+commit;
+select fn_seed_kind_permissions(998223, 'guest');
+{seed_b}
+""")
+
+
+def inv_code(home=998200, kind="'guest'", member="null", sub=None):
+    """Crea una invitación por psql impersonando al admin (A en H1, B en H2) → (id, código).
+    El código solo vive en memoria del script."""
+    out = psql(f"begin;\nselect set_config('request.jwt.claim.sub', '{sub or a_uid}', true);\n"
+               f"select create_home_invitation({home}, {kind}, {member});\ncommit;")
+    body = out_json(out)
+    if not isinstance(body, dict) or "code" not in body:
+        sys.exit("inv_code: create_home_invitation no devolvió código (salida omitida)")
+    return body["id"], body["code"]
+
+
+def inv_outcome(out):
+    if "40P01" in out or "deadlock" in out.lower():
+        return "deadlock"
+    if "ERROR" not in out:
+        return "ok"
+    for msg in ("Not Found", "Not Allowed", "Already member", "Invalid member"):
+        if msg in out:
+            return msg
+    return "otro"
+
+
+def inv_pair(sql_a, sub_a, sql_b, sub_b, i):
+    """Dos sesiones psql que despiertan a la vez (rendezvous de block_f1); orden de lanzamiento
+    alterno por iteración. → (out_a, out_b)."""
+    until = (datetime.datetime.now(datetime.timezone.utc)
+             + datetime.timedelta(seconds=1)).strftime("%Y-%m-%d %H:%M:%S.%f+00")
+    rendezvous = ("select pg_sleep(greatest(0::double precision, "
+                  f"extract(epoch from (timestamptz '{until}' - now()))::double precision));")
+    sa = (f"begin;\nselect set_config('request.jwt.claim.sub', '{sub_a}', true);\n"
+          f"{rendezvous}\n{sql_a};\ncommit;\n")
+    sb = (f"begin;\nselect set_config('request.jwt.claim.sub', '{sub_b}', true);\n"
+          f"{rendezvous}\n{sql_b};\ncommit;\n")
+    if i % 2 == 0:
+        pa = psql_async(sa); time.sleep(0.1); pb = psql_async(sb)
+    else:
+        pb = psql_async(sb); time.sleep(0.1); pa = psql_async(sa)
+    out_a, _ = pa.communicate(timeout=120)
+    out_b, _ = pb.communicate(timeout=120)
+    return out_a, out_b
+
+
+def pg_code(res):
+    """SQLSTATE del cuerpo de error de PostgREST (o None)."""
+    body = parse(res[1])
+    return body.get("code") if isinstance(body, dict) else None
+
+
+def accept_sql(code):
+    return f"select accept_home_invitation('{code}')"
+
+
+XT_BLOCK = "INV"
+if xt_on("INV"):
+    inv_reset()
+    inv1, k1 = inv_code()
+    expect_err("INV1 B create_home_invitation(H1) por RPC directa → Not Found",
+               rpc_direct("create_home_invitation", {"p_home_id": 998200, "p_kind": "guest",
+                                                     "p_member_id": None}, b_tok), "Not Found")
+    expect_err("INV2 B get_home_invitations(H1) → Not Found",
+               rpc_direct("get_home_invitations", {"p_home_id": 998200}, b_tok), "Not Found")
+    expect_err("INV3 B revoke_home_invitation(H1, inv_H1) → Not Found",
+               rpc_direct("revoke_home_invitation", {"p_home_id": 998200, "p_id": inv1}, b_tok),
+               "Not Found")
+    res = rpc_direct("revoke_home_invitation", {"p_home_id": 998201, "p_id": inv1}, b_tok)
+    st = psql(f"select status from home_invitation where id = {inv1}")
+    check("INV4 B revoke_home_invitation(H2, inv_H1) → Not Found y la invitación sigue pending",
+          parse(res[1]).get("message") == "Not Found" and st == "pending", f"{res!r} status={st}")
+    r5 = rpc_direct("create_home_invitation", {"p_home_id": 998200, "p_kind": None,
+                                               "p_member_id": 998211}, a_tok)
+    expect_err("INV5 A crea en H1 con member_id de H2 → Invalid member", r5, "Invalid member")
+    r6 = rpc_direct("create_home_invitation", {"p_home_id": 998200, "p_kind": None,
+                                               "p_member_id": 998299}, a_tok)
+    check("INV6 A crea con member_id inexistente → el mismo error que INV5 (sin oráculo de ids)",
+          r6 == r5 and parse(r6[1]).get("message") == "Invalid member", f"{r6!r} vs {r5!r}")
+    r7 = request(URL, "POST", "/rest/v1/rpc/accept_home_invitation", {"p_code": k1}, None, apikey=ANON)
+    # 'permission denied' (sin EXECUTE) y no el 'Not Allowed' del cuerpo (fn_my_user_id() null):
+    # con EXECUTE concedido a anon el SQLSTATE sería el mismo 42501 (mutante M4)
+    m7 = parse(r7[1]).get("message", "") if isinstance(parse(r7[1]), dict) else ""
+    check("INV7 anon rpc/accept_home_invitation → sin EXECUTE (401/403, 42501 permission denied)",
+          r7[0] in (401, 403) and pg_code(r7) == "42501" and m7.startswith("permission denied"),
+          f"status={r7[0]} code={pg_code(r7)} message={m7[:60]!r}")
+    r8 = request(URL, "GET", "/rest/v1/home_invitation?select=id,code_hash", None, b_tok, apikey=ANON)
+    check("INV8 authenticated GET /rest/v1/home_invitation → denegado (42501)",
+          r8[0] in (401, 403) and pg_code(r8) == "42501", f"status={r8[0]} code={pg_code(r8)}")
+    r9 = request(URL, "POST", "/rest/v1/home_invitation",
+                 {"home_id": 998200, "kind": "guest", "code_hash": "0" * 64,
+                  "expires_at": "2099-01-01 00:00:00"}, b_tok, apikey=ANON)
+    n9 = psql("select count(*) from home_invitation where home_id = 998200")
+    check("INV9 authenticated POST /rest/v1/home_invitation → denegado (42501) y sin filas nuevas",
+          r9[0] in (401, 403) and pg_code(r9) == "42501" and n9 == "1",
+          f"status={r9[0]} code={pg_code(r9)} filas={n9}")
+    r10 = request(URL, "POST", "/rest/v1/rpc/accept_home_invitation", {"p_code": k1}, b_tok,
+                  apikey=ANON, home=998201)
+    mb = psql(f"select count(*) from home_membership where home_id = 998200 and app_user_id = {b_id}")
+    check("INV10 B acepta el código de H1 por RPC directa con X-Home-Id de H2 → ok y membresía en H1",
+          r10[0] == 200 and parse(r10[1]).get("home_id") == 998200 and mb == "1",
+          f"status={r10[0]} membresias={mb}")
+
+XT_BLOCK = "INV_RACE"
+if xt_on("INV_RACE"):
+    # INV11–INV13: B ∥ C con el mismo código
+    bad, bad_state, dl = [], [], []
+    for i in range(INV_ITERS):
+        inv_reset()
+        iid, code = inv_code()
+        ob, oc = inv_pair(accept_sql(code), b_uid, accept_sql(code), c_uid, i)
+        if "40P01" in ob + oc or "deadlock" in (ob + oc).lower():
+            dl.append(i)
+        o = sorted([inv_outcome(ob), inv_outcome(oc)])
+        if o != ["Not Found", "ok"]:
+            bad.append(f"iter{i}:{o}")
+        winner = b_id if inv_outcome(ob) == "ok" else c_id
+        st = psql(f"select (select count(*) from home_membership where home_id = 998200 "
+                  f"and app_user_id in ({b_id}, {c_id})) || '|' || "
+                  f"(select accepted_by from home_invitation where id = {iid})")
+        if st != f"1|{winner}":
+            bad_state.append(f"iter{i}:{st}")
+    check(f"INV11 mismo código B ∥ C ({INV_ITERS}×): exactamente 1 ok + 1 Not Found", not bad,
+          "; ".join(bad)[:200])
+    check("INV12 una sola membresía nueva y accepted_by = ganador", not bad_state,
+          "; ".join(bad_state)[:200])
+    check("INV13 0×40P01 (mismo código)", not dl, f"deadlocks en iters {dl}")
+    # INV14–INV16: B con dos códigos distintos del mismo hogar
+    bad, bad_mem, bad_inv = [], [], []
+    for i in range(INV_ITERS):
+        inv_reset()
+        ia, ka = inv_code()
+        ib, kb = inv_code()
+        oa, ob = inv_pair(accept_sql(ka), b_uid, accept_sql(kb), b_uid, i)
+        o = sorted([inv_outcome(oa), inv_outcome(ob)])
+        if o != ["Already member", "ok"]:
+            bad.append(f"iter{i}:{o}")
+        n = psql(f"select count(*) from home_membership where home_id = 998200 and app_user_id = {b_id}")
+        if n != "1":
+            bad_mem.append(f"iter{i}:{n}")
+        st = psql(f"select string_agg(status, ',' order by status) from home_invitation "
+                  f"where id in ({ia}, {ib})")
+        if st != "accepted,pending":
+            bad_inv.append(f"iter{i}:{st}")
+    check(f"INV14 dos códigos del mismo usuario ({INV_ITERS}×): 1 ok + 1 Already member, sin 40P01",
+          not bad, "; ".join(bad)[:200])
+    check("INV15 el usuario queda con 1 sola membresía en H1", not bad_mem, "; ".join(bad_mem)[:200])
+    check("INV16 la segunda invitación sigue pending (Already member no consume)", not bad_inv,
+          "; ".join(bad_inv)[:200])
+    # INV17–INV18: accept con member_id M ∥ baja de M (update_home_member status inactive)
+    bad, dl = [], []
+    for i in range(INV_ITERS):
+        inv_reset()
+        _, code = inv_code(kind="null", member="998210")
+        oc, oa = inv_pair(accept_sql(code), c_uid,
+                          "select update_home_member(998210, null, null, null, 'inactive')", a_uid, i)
+        if "40P01" in oc + oa or "deadlock" in (oc + oa).lower():
+            dl.append(i)
+        o = (inv_outcome(oc), inv_outcome(oa))
+        st = psql("select coalesce(app_user_id::text, 'null') || '|' || status from home_member "
+                  "where id = 998210")
+        if not ((o == ("ok", "ok") and st == f"{c_id}|inactive")
+                or (o == ("Invalid member", "ok") and st == "null|inactive")):
+            bad.append(f"iter{i}:{o} {st}")
+    check(f"INV17 accept con miembro ∥ baja del miembro ({INV_ITERS}×): (ok, ok) vinculado e "
+          "inactivo o (Invalid member, ok) sin vincular", not bad, "; ".join(bad)[:200])
+    check("INV18 0×40P01 (accept con miembro ∥ update_home_member)", not dl, f"deadlocks en iters {dl}")
+    # INV19–INV21: accept ∥ revoke de la misma invitación
+    bad, bad_state, dl = [], [], []
+    for i in range(INV_ITERS):
+        inv_reset()
+        iid, code = inv_code()
+        oc, oa = inv_pair(accept_sql(code), c_uid, f"select revoke_home_invitation(998200, {iid})",
+                          a_uid, i)
+        if "40P01" in oc + oa or "deadlock" in (oc + oa).lower():
+            dl.append(i)
+        o = sorted([inv_outcome(oc), inv_outcome(oa)])
+        if o != ["Not Found", "ok"]:
+            bad.append(f"iter{i}:{o}")
+        st = psql(f"select (select status from home_invitation where id = {iid}) || '|' || "
+                  f"(select count(*) from home_membership where home_id = 998200 and app_user_id = {c_id})")
+        if st not in ("accepted|1", "revoked|0"):
+            bad_state.append(f"iter{i}:{st}")
+    check(f"INV19 accept ∥ revoke ({INV_ITERS}×): exactamente una ok", not bad, "; ".join(bad)[:200])
+    check("INV20 status accepted ⇔ hay membresía (revoked ⇔ sin membresía)", not bad_state,
+          "; ".join(bad_state)[:200])
+    check("INV21 0×40P01 (accept ∥ revoke)", not dl, f"deadlocks en iters {dl}")
+    # INV22: accept en H1 ∥ remove_home_membership de otro miembro de H1 (A expulsa a B)
+    bad = []
+    for i in range(INV_ITERS):
+        inv_reset(b_in_h1=True)
+        _, code = inv_code()
+        oc, oa = inv_pair(accept_sql(code), c_uid, "select remove_home_membership(998200, 998222)",
+                          a_uid, i)
+        if (inv_outcome(oc), inv_outcome(oa)) != ("ok", "ok"):
+            bad.append(f"iter{i}:{inv_outcome(oc)}/{inv_outcome(oa)}")
+    check(f"INV22 accept ∥ remove_home_membership de otro miembro ({INV_ITERS}×): ok/ok, 0×40P01",
+          not bad, "; ".join(bad)[:200])
+    # INV23: C acepta en H1 ∥ C sale de H2 (remove_home_membership toma el lock de app_user de C)
+    bad = []
+    for i in range(INV_ITERS):
+        inv_reset()
+        _, code = inv_code()
+        oc, oc2 = inv_pair(accept_sql(code), c_uid, "select remove_home_membership(998201, 998223)",
+                           c_uid, i)
+        st = psql(f"select (select count(*) from home_membership where home_id = 998200 "
+                  f"and app_user_id = {c_id}) || '|' || (select count(*) from home_membership "
+                  f"where id = 998223)")
+        if (inv_outcome(oc), inv_outcome(oc2)) != ("ok", "ok") or st != "1|0":
+            bad.append(f"iter{i}:{inv_outcome(oc)}/{inv_outcome(oc2)} {st}")
+    check(f"INV23 C acepta en H1 ∥ C sale de H2 ({INV_ITERS}×): ok/ok, 0×40P01", not bad,
+          "; ".join(bad)[:200])
+    # INV24: S1 acepta y retiene la transacción; S2 (mismo código) espera el lock de hogar → Not Found
+    inv_reset()
+    _, code = inv_code()
+    out1, out2, blocked = p19_race(accept_sql(code), b_uid, accept_sql(code), c_uid,
+                                   "accept_home_invitation")
+    check("INV24 S2 espera el lock de hogar (pg_stat_activity) y tras el commit de S1 → Not Found",
+          blocked is True and inv_outcome(out1) == "ok" and inv_outcome(out2) == "Not Found",
+          f"blocked={blocked} S1={inv_outcome(out1)} S2={inv_outcome(out2)}")
+
+XT_BLOCK = "INV"
+if xt_on("INV") or xt_on("INV_RACE"):
+    psql(INV_Q)
+if xt_on("INV"):
+    left = psql("select (select count(*) from home where id between 998200 and 998299) + "
+                "(select count(*) from home_member where id between 998200 and 998299) + "
+                "(select count(*) from home_membership where id between 998200 and 998299) + "
+                "(select count(*) from home_invitation where home_id between 998200 and 998299) + "
+                "(select count(*) from home_invitation i join home h on h.id = i.home_id "
+                f"where h.created_by in ({a_id}, {b_id}, {c_id}))")
+    check("INV25 0 filas residuales 9982xx y 0 home_invitation en hogares de xt", left == "0",
+          f"residuos={left}")
+XT_BLOCK = "BASE"
 
 # ── K21 (1.5, plan §8.2) y §8.3: cascada app_user → person → home_member (trigger 0014c, I5) ──
 # Usuario scratch 995999 sin home_membership (sin admin de ningún hogar): borrar su app_user borra

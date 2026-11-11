@@ -1,6 +1,7 @@
 // Edge Function `api` — contrato (a) PHP-compat de las 43 rutas legacy del backend (D-008;
-// inventario: .dorch/archive/control-api/contract-inventory.md) + las 9 rutas /home/* de 1.4/1.5
-// (diseño §5.2, flag `home: true` en ROUTES; 1.5 añade /home/member/*).
+// inventario: .dorch/archive/control-api/contract-inventory.md) + las 19 rutas /home/* de
+// 1.4–1.15 (diseño §5.2, flag `home: true` en ROUTES; 1.5 añade /home/member/*, 1.6
+// /home/membership/*, 1.9 /home/permission y /home/audit, 1.15 /home/invitation*).
 // Auth manual (deploy --no-verify-jwt), como middlewareAuth. user/auth, user/create y config son
 // públicas; el resto exige Bearer (token inválido → 401, desviación documentada).
 //
@@ -12,7 +13,9 @@
 // Contexto de hogar (X-Home-Id, §2.2): en rutas autenticadas la cabecera opcional se valida
 // (400 Invalid home), se comprueba la membresía (500 Not Found en legacy / 404 en /home/*) y se
 // fija en un AsyncLocalStorage para que el transporte la propague a PostgREST (S10). Sin cabecera,
-// cero coste y respuestas idénticas a las de antes de 1.4.
+// cero coste y respuestas idénticas a las de antes de 1.4. Excepción (1.15, D-015):
+// POST /home/invitation/accept (`homeContext: false`) valida el formato de la cabecera, pero no
+// comprueba la membresía ni la propaga: quien acepta aún no es miembro y el hogar lo fija el código.
 //
 // p_user_id se deriva server-side del JWT verificado (sub/auth_uid → app_user.id), nunca de los
 // parámetros del request (R1-03). Lecturas con el JWT del usuario (RLS activa) y service_role solo
@@ -59,13 +62,16 @@ import {
     handleHomeMemberIndex, handleHomeMemberUpdate, handleHomeMembership, handleHomeMembershipRemove,
     handleHomeMembershipRole, handleHomeMembershipTransfer, handleHomeUpdate,
     handleHomePermissionIndex, handleHomePermissionUpdate, handleHomeAudit,
+    handleHomeInvitationAccept, handleHomeInvitationCreate, handleHomeInvitationIndex,
+    handleHomeInvitationRevoke,
 } from "./usecases/homes.ts";
 
 type Handler = (req: Request, token: string, uid: string) => Promise<Response> | Response;
 
 // `home: true` (rutas /home/*, 1.4): el "no miembro" del contexto X-Home-Id se mapea a 404
-// (D16) en vez del 500 legacy (errPhpNotFound).
-const ROUTES: Record<string, { auth: boolean; home?: boolean; handler: Handler }> = {
+// (D16) en vez del 500 legacy (errPhpNotFound). `homeContext: false` (1.15, D-015): la ruta
+// ignora el contexto de hogar (sin comprobar membresía ni propagar la cabecera a PostgREST).
+const ROUTES: Record<string, { auth: boolean; home?: boolean; homeContext?: boolean; handler: Handler }> = {
     "GET /config": { auth: false, handler: () => handleConfig() },
     "POST /user/create": { auth: false, handler: (req) => handleUserCreate(req) },
     "POST /user/auth": { auth: false, handler: (req) => handleUserAuth(req) },
@@ -131,6 +137,10 @@ const ROUTES: Record<string, { auth: boolean; home?: boolean; handler: Handler }
     "GET /home/permission": { auth: true, home: true, handler: (req, t) => handleHomePermissionIndex(req, t) },
     "PATCH /home/permission": { auth: true, home: true, handler: (req, t) => handleHomePermissionUpdate(req, t) },
     "GET /home/audit": { auth: true, home: true, handler: (req, t) => handleHomeAudit(req, t) },
+    "GET /home/invitation": { auth: true, home: true, handler: (req, t) => handleHomeInvitationIndex(req, t) },
+    "POST /home/invitation/create": { auth: true, home: true, handler: (req, t) => handleHomeInvitationCreate(req, t) },
+    "POST /home/invitation/accept": { auth: true, homeContext: false, handler: (req, t) => handleHomeInvitationAccept(req, t) },
+    "POST /home/invitation/revoke": { auth: true, home: true, handler: (req, t) => handleHomeInvitationRevoke(req, t) },
 };
 
 // Ruta lógica sin el prefijo de montaje (…/functions/v1/api/… o …/api/…) — sin endsWith
@@ -166,7 +176,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (route.auth) {
             const hp = parseHomeHeader(req);
             if (hp === "INVALID") return errInvalidHome();
-            if (hp.present) {
+            if (hp.present && route.homeContext !== false) {
                 if (!(await checkHomeMember(hp.id, token))) {
                     return route.home ? errRouteHomeNotFound() : errPhpNotFound();
                 }

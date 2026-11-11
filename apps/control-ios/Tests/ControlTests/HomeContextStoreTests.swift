@@ -163,4 +163,59 @@ final class HomeContextStoreTests: XCTestCase {
         XCTAssertNil(store.activeHomeId)
         XCTAssertNil(try tokens.get(key))
     }
+
+    func testAcceptInvitationActivatesJoinedHome() async throws {
+        let (store, tokens, repo) = try makeSUT(persisted: "1")
+        var joined = false
+        StubURLProtocol.reset { request in
+            let path = request.url?.path ?? ""
+            if request.httpMethod == "POST", path.hasSuffix("/home/invitation/accept") {
+                joined = true
+                return StubURLProtocol.Stub(json: ContractFixtures.invitationAccepted)
+            }
+            return StubURLProtocol.Stub(json: joined ? ContractFixtures.homeList : "[\(ContractFixtures.homeItem1)]")
+        }
+        await store.load(using: repo)
+        XCTAssertEqual(store.activeHomeId, "1")
+        let error = await store.acceptInvitation(code: " 0123456789ABCDEF0123456789abcdef ", using: repo)
+        XCTAssertNil(error)
+        XCTAssertEqual(store.activeHomeId, "2")
+        XCTAssertEqual(try tokens.get(key), "2")
+        let accept = try XCTUnwrap(StubURLProtocol.requests.first { $0.httpMethod == "POST" })
+        XCTAssertNil(accept.value(forHTTPHeaderField: "X-Home-Id"))
+        XCTAssertEqual(String(data: try XCTUnwrap(accept.capturedBody), encoding: .utf8),
+                       #"{"code":"0123456789abcdef0123456789abcdef"}"#)
+    }
+
+    func testAcceptInvitationNotFoundKeepsState() async throws {
+        let (store, _, repo) = try makeSUT()
+        StubURLProtocol.reset { request in
+            request.httpMethod == "POST"
+                ? StubURLProtocol.Stub(status: 404, json: #"{"error":"Not Found"}"#)
+                : StubURLProtocol.Stub(json: "[]")
+        }
+        await store.load(using: repo)
+        XCTAssertEqual(store.state, .noHome)
+        let error = await store.acceptInvitation(code: "ffffffffffffffffffffffffffffffff", using: repo)
+        XCTAssertEqual(error, "El código no es válido, ya se usó o ha caducado")
+        XCTAssertEqual(store.state, .noHome)
+        XCTAssertEqual(StubURLProtocol.requests.filter { $0.httpMethod == "GET" }.count, 1)
+    }
+
+    func testAcceptInvitationFromNoHomeActivatesHome() async throws {
+        let (store, _, repo) = try makeSUT()
+        var joined = false
+        StubURLProtocol.reset { request in
+            if request.httpMethod == "POST" {
+                joined = true
+                return StubURLProtocol.Stub(json: ContractFixtures.invitationAccepted)
+            }
+            return StubURLProtocol.Stub(json: joined ? "[\(ContractFixtures.homeItem2)]" : "[]")
+        }
+        await store.load(using: repo)
+        XCTAssertEqual(store.state, .noHome)
+        let error = await store.acceptInvitation(code: "0123456789abcdef0123456789abcdef", using: repo)
+        XCTAssertNil(error)
+        XCTAssertEqual(store.activeHomeId, "2")
+    }
 }

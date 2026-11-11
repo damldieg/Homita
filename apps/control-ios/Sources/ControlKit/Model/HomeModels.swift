@@ -71,3 +71,38 @@ public struct SetDefaultHomeBody: Codable, Equatable, Sendable {
         case homeId = "home_id"
     }
 }
+
+/// Body de `POST home/invitation/accept` (1.15). El código ya normalizado (`InvitationCode`).
+public struct AcceptInvitationBody: Codable, Equatable, Sendable {
+    public let code: String
+
+    public init(code: String) {
+        self.code = code
+    }
+}
+
+/// `INVITATION_ACCEPTED` (respuesta de `POST home/invitation/accept`): hogar al que se une la
+/// cuenta, su membresía (siempre `member`), el miembro vinculado o creado y su tipo.
+public struct InvitationAccepted: Codable, Equatable, Sendable {
+    public let homeId: Int
+    public let membershipId: Int
+    public let memberId: Int
+    public let role: String
+    public let kind: String
+
+    public init(homeId: Int, membershipId: Int, memberId: Int, role: String, kind: String) {
+        self.homeId = homeId
+        self.membershipId = membershipId
+        self.memberId = memberId
+        self.role = role
+        self.kind = kind
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case homeId = "home_id"
+        case membershipId = "membership_id"
+        case memberId = "member_id"
+        case role
+        case kind
+    }
+}

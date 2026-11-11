@@ -30,6 +30,16 @@ public struct HomeRepository {
         )
     }
 
+    /// `POST home/invitation/accept` body `{code}` → `INVITATION_ACCEPTED` (1.15). Sin `X-Home-Id`
+    /// (D-015): quien acepta aún no es miembro y el hogar lo fija el código.
+    public func acceptInvitation(code: String) async throws -> InvitationAccepted {
+        try await client.send(
+            APIRequest(method: .post, path: "home/invitation/accept",
+                       body: try client.encode(AcceptInvitationBody(code: code))),
+            as: InvitationAccepted.self
+        )
+    }
+
     // MARK: - Administración del hogar (1.12). Todas llevan `X-Home-Id` (ver `RequestBuilder`).
 
     /// `GET home/detail?id=` → `HOME_DETAIL`.

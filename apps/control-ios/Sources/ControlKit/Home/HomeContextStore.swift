@@ -86,6 +86,36 @@ public final class HomeContextStore {
         return nil
     }
 
+    /// `POST home/invitation/accept` (1.15); el hogar al que se une pasa a ser el activo (se re-lista
+    /// para tener el `HomeItem` completo). Funciona desde cualquier estado (`.noHome`, `.failed`,
+    /// `.ready`). Si el POST falla devuelve el mensaje (`invitationMessage`) y el estado no cambia.
+    /// Si el POST sale bien pero el `list()` posterior falla, la membresía ya existe: el estado pasa
+    /// a `.failed` (como `create`).
+    @discardableResult
+    public func acceptInvitation(code: String, using repository: HomeRepository) async -> String? {
+        let token = generation
+        let accepted: InvitationAccepted
+        do {
+            accepted = try await repository.acceptInvitation(code: InvitationCode.normalize(code))
+        } catch {
+            return (error as? APIError)?.invitationMessage ?? error.localizedDescription
+        }
+        guard token == generation else { return nil }
+        do {
+            let homes = try await repository.list()
+            guard token == generation else { return nil }
+            if let joined = homes.first(where: { $0.homeId == accepted.homeId }) {
+                activate(joined)
+            } else {
+                resolve(homes)
+            }
+        } catch {
+            guard token == generation else { return nil }
+            state = .failed(Self.message(error))
+        }
+        return nil
+    }
+
     /// Borra la clave persistida y el estado; invalida cargas en vuelo.
     public func clear() {
         generation += 1

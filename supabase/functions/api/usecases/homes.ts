@@ -6,8 +6,9 @@
 import { getInput, inputInt, inputString, inputTimezone, phpEmpty, phpInput, type PhpInput } from "../_shared/contract.ts";
 import {
     error, errHomeIdRequired, errHomeMemberIdRequired, errHomeMembershipIdRequired,
-    errInvalidPermission, errInvalidRole, errInvalidTimezone, errNameRequired,
-    errPersonColorInvalid, errPersonNameRequired, rpcPassHome,
+    errInvalidPermission, errInvalidRole, errInvalidTimezone, errInvitationCodeRequired,
+    errInvitationIdRequired, errNameRequired, errPersonColorInvalid, errPersonNameRequired,
+    errRouteHomeNotFound, rpcPassHome,
 } from "../_shared/errors.ts";
 import { rpc } from "../_shared/supabase.ts";
 
@@ -215,4 +216,68 @@ export const handleHomeAudit = async (req: Request, token: string): Promise<Resp
     return rpcPassHome(await rpc("get_home_audit", {
         p_home_id: homeId, p_limit: limit, p_before_id: beforeId,
     }, token));
+};
+
+// I1 (1.15, diseño §5.2): GET /home/invitation?home_id= — invitaciones pendientes no caducadas
+// (home.invite; cabecera ≠ home_id o no miembro → 404). Nunca devuelve el código ni su hash.
+export const handleHomeInvitationIndex = async (req: Request, token: string): Promise<Response> => {
+    const input = await phpInput(req);
+    const homeId = inputInt(input, "home_id");
+    if (phpEmpty(homeId)) return errHomeIdRequired();
+    return rpcPassHome(await rpc("get_home_invitations", { p_home_id: homeId }, token));
+};
+
+// I2: POST /home/invitation/create {home_id, kind?, member_id?} → 201 INVITATION_CREATED (el
+// código en claro sale solo aquí, una vez). kind/member_id ausentes o null → null; kind no
+// string o member_id no entero → 'Invalid member' sin llamar a la RPC (la RPC valida el resto:
+// pet, ambos nulos, miembro ajeno/vinculado/inactivo; D-017: adult solo admin → 403).
+export const handleHomeInvitationCreate = async (req: Request, token: string): Promise<Response> => {
+    const input = await phpInput(req);
+    const homeId = inputInt(input, "home_id");
+    if (phpEmpty(homeId)) return errHomeIdRequired();
+    const kind = optStr(input, "kind", errInvalidMember);
+    if (kind instanceof Response) return kind;
+    const memberRaw = getInput(input, "member_id");
+    let memberId: number | null = null;
+    if (memberRaw !== null && memberRaw !== undefined) {
+        memberId = inputInt(input, "member_id");
+        if (memberId === null) return errInvalidMember();
+    }
+    return rpcPassHome(await rpc("create_home_invitation", {
+        p_home_id: homeId, p_kind: kind, p_member_id: memberId,
+    }, token), 201);
+};
+
+// I3: POST /home/invitation/accept {code} → 200 INVITATION_ACCEPTED. Ruta sin contexto de hogar
+// (D-015, `homeContext: false` en index.ts): el usuario aún no es miembro y el hogar lo indica el
+// código. code ausente, no string o vacío → 400; presente pero mal formado → el mismo 404 que la
+// RPC (sin oráculo y sin llamarla). El código nunca se registra en logs.
+// R1-01 (review 1.15): `code` SOLO del body JSON. No se usa phpInput (mezcla el query string): un
+// `?code=` acabaría en logs de URL (proxy, plataforma). Con el código solo en la query → 400.
+export const handleHomeInvitationAccept = async (req: Request, token: string): Promise<Response> => {
+    const rawBody = await req.text().catch(() => "");
+    let body: unknown = null;
+    try {
+        body = rawBody ? JSON.parse(rawBody) : null;
+    } catch {
+        body = null;
+    }
+    const raw = body !== null && typeof body === "object" && !Array.isArray(body)
+        ? (body as Record<string, unknown>).code
+        : undefined;
+    if (typeof raw !== "string" || raw.trim() === "") return errInvitationCodeRequired();
+    const code = raw.trim().toLowerCase();
+    if (!/^[0-9a-f]{32}$/.test(code)) return errRouteHomeNotFound();
+    return rpcPassHome(await rpc("accept_home_invitation", { p_code: code }, token));
+};
+
+// I4: POST /home/invitation/revoke {home_id, id} → 200 INVITATION_ITEM (status revoked); otro
+// hogar, ya no pendiente o caducada → 404; sin home.invite → 403.
+export const handleHomeInvitationRevoke = async (req: Request, token: string): Promise<Response> => {
+    const input = await phpInput(req);
+    const homeId = inputInt(input, "home_id");
+    if (phpEmpty(homeId)) return errHomeIdRequired();
+    const id = inputInt(input, "id");
+    if (phpEmpty(id)) return errInvitationIdRequired();
+    return rpcPassHome(await rpc("revoke_home_invitation", { p_home_id: homeId, p_id: id }, token));
 };

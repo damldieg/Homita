@@ -22,6 +22,16 @@ final class RequestBuilderTests: XCTestCase {
         XCTAssertNil(try header(APIRequest(method: .patch, path: "home/default", body: Data("{}".utf8))))
     }
 
+    func testInvitationAcceptCarriesNoHeaderEvenWithActiveHome() throws {
+        // D-015: quien acepta aún no es miembro; el hogar lo fija el código
+        XCTAssertNil(try header(APIRequest(method: .post, path: "home/invitation/accept", body: Data("{}".utf8))))
+    }
+
+    func testInvitationListCarriesHeader() throws {
+        XCTAssertEqual(try header(APIRequest(method: .get, path: "home/invitation")), "7")
+        XCTAssertEqual(try header(APIRequest(method: .post, path: "home/invitation/create", body: Data("{}".utf8))), "7")
+    }
+
     func testPublicAndLegacyRoutesCarryNoHeader() throws {
         XCTAssertNil(try header(APIRequest(method: .get, path: "home/detail", isPublic: true)))
         XCTAssertNil(try header(APIRequest(method: .get, path: "task")))
