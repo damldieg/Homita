@@ -63,4 +63,26 @@ final class HomeAdminModelsTests: XCTestCase {
         let item = try decodeFixture(AuditItem.self, #"{"id":1,"action":"x","target_type":"t","payload":"texto","created_at":"c"}"#)
         XCTAssertTrue(item.payload.values.isEmpty)
     }
+
+    func testHomeMemberToleratesNullColorUnlinkedPetAndUnknownKind() throws {
+        let raw = ##"[{"id":3,"home_id":2,"kind":"pet","name":"Rex","color":null,"status":"inactive","linked":false},{"id":4,"home_id":2,"kind":"robot","name":"R2","status":"active","linked":false}]"##
+        let list = try decodeFixture([HomeMember].self, raw)
+        XCTAssertNil(list[0].color)
+        XCTAssertFalse(list[0].linked)
+        XCTAssertEqual(list[0].kind, "pet")
+        XCTAssertNil(list[0].createdAt)
+        XCTAssertEqual(list[1].kind, "robot")
+        XCTAssertNil(MemberKind(rawValue: list[1].kind))
+    }
+
+    func testMemberBodiesOmitNil() throws {
+        let enc = JSONEncoder()
+        let update = try enc.encode(UpdateMemberBody(id: 1, kind: .guest))
+        let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: update) as? [String: Any])
+        XCTAssertEqual(Set(obj.keys), ["id", "kind"])
+        XCTAssertTrue(UpdateMemberBody(id: 1).isEmpty)
+        let create = try enc.encode(CreateMemberBody(homeId: 2, kind: .adult, name: "A", color: "#000000"))
+        let cobj = try XCTUnwrap(JSONSerialization.jsonObject(with: create) as? [String: Any])
+        XCTAssertEqual(Set(cobj.keys), ["home_id", "kind", "name", "color"])
+    }
 }

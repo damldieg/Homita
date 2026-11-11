@@ -24,6 +24,8 @@ swift test     # 154 tests XCTest: Flex, fechas PHP, reloj local, modelos, red/a
 
 **Administración del hogar (1.12).** Perfil > Hogar (solo con hogar activo) abre Configuración (nombre y zona IANA; edita solo admin), Administradores (rol, transferir, quitar, salir con confirmación), Accesos (permisos por miembro, solo admin) y Auditoría (solo admin, «Cargar más» por `before_id`). Un miembro ve configuración y administradores sin acciones. El cliente solo oculta; el servidor decide (403 con mensaje de administrador). Tras salir, transferir o cambiar el propio rol se recarga `homeContext`. Hogar personal: se puede renombrar; transferir, quitar y salir no se ofrecen. UI sin verificar en simulador (no hay `.xcodeproj`).
 
+**Miembros del hogar (1.13).** En Administración del hogar, «Miembros» lista las personas del hogar (color, tipo, estado, «Vinculada»/«Sin cuenta»); la ve cualquier rol y solo un admin puede agregar y editar (nombre, color, tipo, activar/desactivar). `pet` no se ofrece para miembros vinculados y cambiar el tipo de un vinculado pide confirmación (restablece sus permisos). La recarga de `homeContext` por editar la propia fila queda cableada pero inactiva hasta 1.15 (el payload no identifica al caller). UI sin verificar en simulador.
+
 Con el proyecto Xcode creado: `xcodebuild -scheme ControlApp -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build` y `xcodebuild test` en un simulador iOS 17+.
 
 ## Instalar en el iPhone (firma gratuita)

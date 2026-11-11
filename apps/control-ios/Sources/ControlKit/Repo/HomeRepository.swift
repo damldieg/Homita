@@ -84,11 +84,28 @@ public struct HomeRepository {
         )
     }
 
-    /// `GET home/member?home_id=` → `[HOME_MEMBER]` (sin pantalla hasta 1.13).
+    /// `GET home/member?home_id=` → `[HOME_MEMBER]` (1.13).
     public func members(homeId: Int) async throws -> [HomeMember] {
         try await client.send(
             APIRequest(method: .get, path: "home/member", query: [URLQueryItem(name: "home_id", value: String(homeId))]),
             as: [HomeMember].self
+        )
+    }
+
+    /// `POST home/member/create` body `{home_id,kind,name,color}` → 201 `HOME_MEMBER`.
+    public func createMember(homeId: Int, kind: MemberKind, name: String, color: String) async throws -> HomeMember {
+        try await client.send(
+            APIRequest(method: .post, path: "home/member/create",
+                       body: try client.encode(CreateMemberBody(homeId: homeId, kind: kind, name: name, color: color))),
+            as: HomeMember.self
+        )
+    }
+
+    /// `PATCH home/member/update` body `{id,kind?,status?,name?,color?}` (sin `home_id`) → `HOME_MEMBER`.
+    public func updateMember(_ body: UpdateMemberBody) async throws -> HomeMember {
+        try await client.send(
+            APIRequest(method: .patch, path: "home/member/update", body: try client.encode(body)),
+            as: HomeMember.self
         )
     }
 

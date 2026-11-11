@@ -26,6 +26,13 @@ struct HomeAdminView: View {
                     Label("Administradores", systemImage: "person.badge.key")
                 }
             }
+            if model.showMembers {
+                NavigationLink {
+                    HomeMembersView(services: services, home: home)
+                } label: {
+                    Label("Miembros", systemImage: "person.2")
+                }
+            }
             if model.showPermissions {
                 NavigationLink {
                     MemberPermissionsView(services: services, home: home)
@@ -438,5 +445,177 @@ struct HomeAuditView: View {
         .refreshable { await store.load() }
         .errorAlert($store.errorMessage)
         .task { if HomeAdminAccess.canViewAudit(role: home.role) { await store.load() } }
+    }
+}
+
+extension HomeMember: Identifiable {}
+
+/// Miembros del hogar. Solo lectura salvo para admin (alta y edición).
+struct HomeMembersView: View {
+    let services: AppServices
+    let home: HomeItem
+
+    @State private var store: HomeMembersStore
+    @State private var showCreate = false
+    @State private var memberToEdit: HomeMember?
+
+    init(services: AppServices, home: HomeItem) {
+        self.services = services
+        self.home = home
+        let homeContext = services.homeContext
+        // Deuda 1.15: el payload no identifica la fila del caller; `isOwnRow` nunca dispara la recarga.
+        _store = State(initialValue: HomeMembersStore(
+            repo: services.homes, homeId: home.homeId,
+            activeHomeId: { homeContext.activeHomeId },
+            isOwnRow: { _ in false },
+            onOwnRowChanged: reload(services)
+        ))
+    }
+
+    private var model: HomeAdminScreenModel { HomeAdminScreenModel(role: home.role) }
+
+    var body: some View {
+        List {
+            switch store.state {
+            case .idle, .loading:
+                HomeLoadingView()
+            case .failed(let message):
+                HomeErrorView(message: message) { Task { await store.load() } }
+            case .loaded:
+                ForEach(store.items) { member in
+                    if model.canEditMembers {
+                        Button { memberToEdit = member } label: { row(member) }
+                            .buttonStyle(.plain)
+                    } else {
+                        row(member)
+                    }
+                }
+                if store.items.isEmpty {
+                    Text("Sin miembros").foregroundStyle(.secondary)
+                }
+            }
+        }
+        .navigationTitle("Miembros")
+        .toolbar {
+            if model.canCreateMembers {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showCreate = true } label: { Label("Agregar", systemImage: "plus") }
+                }
+            }
+        }
+        .refreshable { await store.load() }
+        .errorAlert($store.errorMessage)
+        .sheet(isPresented: $showCreate) {
+            NavigationStack { MemberEditorView(store: store, editing: nil) }
+        }
+        .sheet(item: $memberToEdit) { member in
+            NavigationStack { MemberEditorView(store: store, editing: member) }
+        }
+        .task { await store.load() }
+    }
+
+    private func row(_ member: HomeMember) -> some View {
+        HStack {
+            Circle()
+                .fill(Color(hex: member.color ?? MemberValidation.defaultColor))
+                .frame(width: 12, height: 12)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(member.name)
+                Text("\(MemberRules.kindLabel(member.kind)) · \(MemberRules.statusLabel(member.status)) · \(MemberRules.linkStatusLabel(linked: member.linked))")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .opacity(member.status == MemberStatus.inactive.rawValue ? 0.6 : 1)
+        .contentShape(Rectangle())
+    }
+}
+
+/// Editor de miembro (alta si `editing == nil`). Cambiar el tipo de un vinculado pide confirmación.
+struct MemberEditorView: View {
+    let store: HomeMembersStore
+    let editing: HomeMember?
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    @State private var color: Color
+    /// nil = valor original desconocido del servidor sin elegir: no se envía.
+    @State private var kind: MemberKind?
+    @State private var status: MemberStatus?
+    @State private var colorTouched = false
+    @State private var isWorking = false
+    @State private var confirmReset = false
+
+    init(store: HomeMembersStore, editing: HomeMember?) {
+        self.store = store
+        self.editing = editing
+        _name = State(initialValue: editing?.name ?? "")
+        _color = State(initialValue: Color(hex: editing?.color ?? MemberValidation.defaultColor))
+        _kind = State(initialValue: editing.map { MemberKind(rawValue: $0.kind) } ?? .adult)
+        _status = State(initialValue: editing.map { MemberStatus(rawValue: $0.status) } ?? .active)
+    }
+
+    private var linked: Bool { editing?.linked ?? false }
+
+    var body: some View {
+        Form {
+            Section("Miembro") {
+                TextField("Nombre (1-50)", text: $name)
+                ColorPicker("Color", selection: $color, supportsOpacity: false)
+                    .onChange(of: color) { colorTouched = true }
+                Picker("Tipo", selection: $kind) {
+                    if kind == nil { Text(editing.map { "\($0.kind) (sin cambiar)" } ?? "Elegir").tag(MemberKind?.none) }
+                    ForEach(MemberRules.availableKinds(linked: linked), id: \.self) {
+                        Text(MemberRules.kindLabel($0.rawValue)).tag(MemberKind?.some($0))
+                    }
+                }
+                if let editing {
+                    Picker("Estado", selection: $status) {
+                        if status == nil { Text("\(editing.status) (sin cambiar)").tag(MemberStatus?.none) }
+                        ForEach(MemberStatus.allCases, id: \.self) {
+                            Text(MemberRules.statusLabel($0.rawValue)).tag(MemberStatus?.some($0))
+                        }
+                    }
+                    LabeledContent("Cuenta", value: MemberRules.linkStatusLabel(linked: linked))
+                }
+            }
+            Section {
+                Button(editing == nil ? "Agregar" : "Guardar") { saveTapped() }
+                    .disabled(MemberValidation.trimmedName(name).isEmpty || isWorking)
+            }
+        }
+        .navigationTitle(editing == nil ? "Nuevo miembro" : "Editar miembro")
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
+        }
+        .confirmationDialog(
+            "Cambiar el tipo restablece los permisos de esta persona a los valores del nuevo tipo",
+            isPresented: $confirmReset, titleVisibility: .visible
+        ) {
+            Button("Cambiar tipo", role: .destructive) { Task { await save() } }
+            Button("Cancelar", role: .cancel) {}
+        }
+        .errorAlert(Binding(get: { store.errorMessage }, set: { store.errorMessage = $0 }))
+    }
+
+    private func saveTapped() {
+        if let editing, MemberRules.needsPermissionResetWarning(member: editing, newKind: kind) {
+            confirmReset = true
+        } else {
+            Task { await save() }
+        }
+    }
+
+    private func save() async {
+        isWorking = true
+        defer { isWorking = false }
+        let ok: Bool
+        if let editing {
+            ok = await store.update(editing, kind: kind, status: status, name: name,
+                                    color: colorTouched ? color.hexString : nil)
+        } else {
+            ok = await store.create(kind: kind ?? .adult, name: name, color: color.hexString)
+        }
+        if ok { dismiss() }
     }
 }

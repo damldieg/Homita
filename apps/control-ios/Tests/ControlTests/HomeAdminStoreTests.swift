@@ -232,4 +232,104 @@ final class HomeAdminStoreTests: XCTestCase {
         await store.load()
         XCTAssertFalse(store.hasMore)
     }
+
+    // MARK: Members
+
+    private func ana(linked: Bool = true, kind: String = "adult") -> HomeMember {
+        HomeMember(id: 1, homeId: 2, kind: kind, name: "Ana", color: "#FF0000", status: "active", linked: linked)
+    }
+
+    func testMembersLoad() async {
+        let box = Box()
+        let store = HomeMembersStore(repo: repo(), homeId: 2, activeHomeId: { box.active })
+        XCTAssertEqual(store.state, .idle)
+        await store.load()
+        XCTAssertEqual(store.state, .loaded)
+        XCTAssertEqual(store.items.count, 1)
+    }
+
+    func testMembersLoadError() async {
+        let box = Box()
+        let store = HomeMembersStore(repo: repo(forbidden), homeId: 2, activeHomeId: { box.active })
+        await store.load()
+        XCTAssertEqual(store.state, .failed("Solo un administrador puede realizar esta acción"))
+    }
+
+    func testMembersInactiveHomeIgnoresResult() async {
+        let box = Box()
+        box.active = nil
+        let store = HomeMembersStore(repo: repo(), homeId: 2, activeHomeId: { box.active })
+        await store.load()
+        XCTAssertTrue(store.items.isEmpty)
+        let ok = await store.create(kind: .adult, name: "Luz", color: "#000000")
+        XCTAssertFalse(ok)
+        XCTAssertFalse(method("POST", in: StubURLProtocol.requests))
+    }
+
+    func testMembersCreateReloadsList() async {
+        let box = Box()
+        let store = HomeMembersStore(repo: repo(), homeId: 2, activeHomeId: { box.active })
+        let ok = await store.create(kind: .child, name: " Luz ", color: "#00FF00")
+        XCTAssertTrue(ok)
+        XCTAssertEqual(StubURLProtocol.requests.map { $0.httpMethod ?? "" }, ["POST", "GET"])
+        XCTAssertEqual(store.state, .loaded)
+    }
+
+    func testMembersCreateInvalidDoesNotCallServer() async {
+        let box = Box()
+        let store = HomeMembersStore(repo: repo(), homeId: 2, activeHomeId: { box.active })
+        let ok = await store.create(kind: .child, name: "  ", color: "#00FF00")
+        XCTAssertFalse(ok)
+        XCTAssertNotNil(store.errorMessage)
+        XCTAssertTrue(StubURLProtocol.requests.isEmpty)
+    }
+
+    func testMembersUpdateReloadsAndReloadsHomeOnlyForOwnRow() async {
+        let box = Box()
+        let other = HomeMembersStore(repo: repo(), homeId: 2, activeHomeId: { box.active },
+                                     isOwnRow: { _ in false }, onOwnRowChanged: { box.reloads += 1 })
+        var ok = await other.update(ana(), kind: .child, status: .active, name: "Ana", color: "#FF0000")
+        XCTAssertTrue(ok)
+        XCTAssertEqual(StubURLProtocol.requests.map { $0.httpMethod ?? "" }, ["PATCH", "GET"])
+        XCTAssertEqual(box.reloads, 0)
+        let own = HomeMembersStore(repo: repo(), homeId: 2, activeHomeId: { box.active },
+                                   isOwnRow: { _ in true }, onOwnRowChanged: { box.reloads += 1 })
+        ok = await own.update(ana(), kind: .child, status: .active, name: "Ana", color: "#FF0000")
+        XCTAssertTrue(ok)
+        XCTAssertEqual(box.reloads, 1)
+        // sin cambio de kind (solo estado) no recarga el contexto
+        _ = await own.update(ana(), kind: .adult, status: .inactive, name: "Ana", color: "#FF0000")
+        XCTAssertEqual(box.reloads, 1)
+    }
+
+    func testMembersUpdateNoChangesSendsNothingAndPetLinkedBlocked() async {
+        let box = Box()
+        let store = HomeMembersStore(repo: repo(), homeId: 2, activeHomeId: { box.active })
+        let same = await store.update(ana(), kind: .adult, status: .active, name: "Ana", color: "#FF0000")
+        XCTAssertTrue(same)
+        XCTAssertTrue(StubURLProtocol.requests.isEmpty)
+        let pet = await store.update(ana(linked: true), kind: .pet, status: .active, name: "Ana", color: "#FF0000")
+        XCTAssertFalse(pet)
+        XCTAssertNotNil(store.errorMessage)
+        XCTAssertTrue(StubURLProtocol.requests.isEmpty)
+    }
+
+    func testMembersUpdate403ShowsMessage() async {
+        let box = Box()
+        let store = HomeMembersStore(repo: repo(forbidden), homeId: 2, activeHomeId: { box.active })
+        let ok = await store.update(ana(), kind: .child, status: .active, name: "Ana", color: "#FF0000")
+        XCTAssertFalse(ok)
+        XCTAssertEqual(store.errorMessage, "Solo un administrador puede realizar esta acción")
+    }
+
+    func testMembersUpdateNameOnlyKeepsUnknownKindStatusAndNilColor() async throws {
+        let box = Box()
+        let store = HomeMembersStore(repo: repo(), homeId: 2, activeHomeId: { box.active })
+        let m = HomeMember(id: 1, homeId: 2, kind: "robot", name: "Ana", color: nil, status: "paused", linked: false)
+        let ok = await store.update(m, kind: nil, status: nil, name: "Bea", color: nil)
+        XCTAssertTrue(ok)
+        let sent = try XCTUnwrap(StubURLProtocol.requests.first)
+        let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(sent.capturedBody)) as? [String: Any])
+        XCTAssertEqual(Set(obj.keys), ["id", "name"])
+    }
 }
