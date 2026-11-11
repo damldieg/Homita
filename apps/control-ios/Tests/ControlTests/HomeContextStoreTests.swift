@@ -223,7 +223,7 @@ final class HomeContextStoreTests: XCTestCase {
 final class HomeSwitcherTests: XCTestCase {
     private let key = "active_home_id"
 
-    private func makeSUT(tokens: InMemoryTokenStore = InMemoryTokenStore()) -> (HomeContextStore, InMemoryTokenStore, HomeRepository) {
+    private func makeSUT(tokens: TokenStore = InMemoryTokenStore()) -> (HomeContextStore, TokenStore, HomeRepository) {
         let store = HomeContextStore(store: tokens)
         let client = APIClient(
             baseURL: URL(string: "https://test.supabase.co/functions/v1/api")!,
@@ -258,12 +258,14 @@ final class HomeSwitcherTests: XCTestCase {
         XCTAssertEqual(try tokens.get(key), "1")
         XCTAssertFalse(store.select(homeId: 99))
         XCTAssertEqual(store.activeHomeId, "1")
+        // Sin PATCH home/default ni otras escrituras durante load + select (requests reales, antes de resetear).
+        let beforeSend = StubURLProtocol.requests
+        XCTAssertEqual(beforeSend.count, 1)
+        XCTAssertTrue(beforeSend.allSatisfy { $0.httpMethod == "GET" })
+        XCTAssertFalse(beforeSend.contains { $0.url?.path.hasSuffix("/home/default") == true })
         StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: ContractFixtures.homeDetail) }
         _ = try await repo.client.send(APIRequest(method: .get, path: "home/detail"), as: HomeDetail.self)
         XCTAssertEqual(StubURLProtocol.requests.last?.value(forHTTPHeaderField: "X-Home-Id"), "1")
-        // Sin PATCH home/default ni otras escrituras durante la selección.
-        XCTAssertTrue(StubURLProtocol.requests.allSatisfy { $0.httpMethod == "GET" })
-        XCTAssertFalse(StubURLProtocol.requests.contains { $0.url?.path.hasSuffix("/home/default") == true })
     }
 
     // Acceptance 4 (todo el flujo load + select)
@@ -272,7 +274,43 @@ final class HomeSwitcherTests: XCTestCase {
         StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: ContractFixtures.homeList) }
         await store.load(using: repo)
         store.select(homeId: 1)
+        XCTAssertEqual(StubURLProtocol.requests.count, 1)
         XCTAssertFalse(StubURLProtocol.requests.contains { $0.httpMethod == "PATCH" })
+    }
+
+    // R1-02: select con un load en vuelo; el load no pisa la elección.
+    func testSelectDuringInFlightLoadIsNotOverwritten() async throws {
+        let (store, tokens, repo) = makeSUT()
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: ContractFixtures.homeList) }
+        await store.load(using: repo)
+        XCTAssertEqual(store.activeHomeId, "2")
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: ContractFixtures.homeList, delay: 0.3) }
+        let task = Task { await store.load(using: repo) }
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertTrue(store.select(homeId: 1))
+        await task.value
+        XCTAssertEqual(store.activeHomeId, "1")
+        XCTAssertEqual(try tokens.get(key), "1")
+        XCTAssertEqual(StubURLProtocol.requests.count, 1)
+        XCTAssertTrue(StubURLProtocol.requests.allSatisfy { $0.httpMethod == "GET" })
+    }
+
+    // R1-01: set que lanza; la selección sigue activa tras load y el error queda expuesto.
+    func testPersistenceFailureKeepsSelectionAndExposesError() async throws {
+        let tokens = FailingSetTokenStore()
+        let (store, _, repo) = makeSUT(tokens: tokens)
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: ContractFixtures.homeList) }
+        await store.load(using: repo)
+        XCTAssertNotNil(store.persistenceError) // el set del load ya falló
+        XCTAssertTrue(store.select(homeId: 1))
+        XCTAssertEqual(store.activeHomeId, "1")
+        let message = try XCTUnwrap(store.persistenceError)
+        XCTAssertTrue(message.contains("No se pudo guardar el hogar activo"))
+        await store.load(using: repo)
+        XCTAssertEqual(store.activeHomeId, "1", "un load posterior revirtió la elección")
+        XCTAssertNotNil(store.persistenceError)
+        store.clear()
+        XCTAssertNil(store.persistenceError)
     }
 
     // Acceptance 3
@@ -333,4 +371,11 @@ final class HomeActivePersistenceTests: XCTestCase {
         }
         try await assertSelectionSurvivesRelaunch(tokens)
     }
+}
+
+/// TokenStore cuyo `set` siempre lanza (Keychain sin firma).
+private final class FailingSetTokenStore: TokenStore {
+    func set(_ value: String, forKey key: String) throws { throw TokenStoreError.status(-34018) }
+    func get(_ key: String) throws -> String? { nil }
+    func remove(_ key: String) throws {}
 }
