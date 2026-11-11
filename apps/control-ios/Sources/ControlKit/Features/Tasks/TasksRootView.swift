@@ -112,7 +112,10 @@ struct TasksView: View {
                 }
             }
 
-            if store.pendingTasks.isEmpty && store.completedTasks.isEmpty && !store.isLoading {
+            if !store.hasLoadedTasks || (store.isLoading && store.pendingTasks.isEmpty && store.completedTasks.isEmpty) {
+                HomitaLoadingCard(message: "Cargando tareas…").homitaRow()
+            }
+            if store.hasLoadedTasks && store.pendingTasks.isEmpty && store.completedTasks.isEmpty && !store.isLoading {
                 HomitaEmptyState(
                     illustration: .tasks,
                     title: "Sin tareas",
@@ -190,7 +193,10 @@ struct TaskListsView: View {
 
     var body: some View {
         List {
-            if store.taskLists.isEmpty && !store.isLoading {
+            if !store.hasLoadedLists || (store.isLoading && store.taskLists.isEmpty) {
+                HomitaLoadingCard(message: "Cargando listas…").homitaRow()
+            }
+            if store.hasLoadedLists && store.taskLists.isEmpty && !store.isLoading {
                 HomitaEmptyState(
                     illustration: .lists,
                     title: "Sin listas",

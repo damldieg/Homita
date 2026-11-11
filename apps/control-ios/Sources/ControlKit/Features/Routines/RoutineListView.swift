@@ -63,7 +63,10 @@ struct RoutineListView: View {
                     HomitaSectionHeader(title: "Próximas sesiones", count: upcomingSessions.count, systemImage: "calendar.badge.clock", tint: Palette.inkSoft)
                 }
             }
-            if store.routines.isEmpty && !store.isLoading {
+            if !store.hasLoaded || (store.isLoading && store.routines.isEmpty) {
+                HomitaLoadingCard(message: "Cargando rutinas…").homitaRow()
+            }
+            if store.hasLoaded && store.routines.isEmpty && !store.isLoading {
                 HomitaEmptyState(
                     illustration: .routines,
                     title: "Sin rutinas",

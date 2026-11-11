@@ -8,7 +8,10 @@ struct CalendarListView: View {
 
     var body: some View {
         List {
-            if store.calendars.isEmpty && !store.isLoading {
+            if !store.hasLoaded || (store.isLoading && store.calendars.isEmpty) {
+                HomitaLoadingCard(message: "Cargando calendarios…").homitaRow()
+            }
+            if store.hasLoaded && store.calendars.isEmpty && !store.isLoading {
                 HomitaEmptyState(
                     illustration: .calendars,
                     title: "Sin calendarios",

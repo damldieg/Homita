@@ -579,3 +579,26 @@ struct HomitaEmptyState: View {
         .accessibilityElement(children: .contain)
     }
 }
+
+/// Loader de Homita para listas y secciones: tarjeta con el cargador de la librería y un texto.
+struct HomitaLoadingCard: View {
+    var message: String = "Cargando…"
+
+    var body: some View {
+        HomitaCard {
+            HStack(spacing: 12) {
+                #if canImport(ComponentsKit)
+                SULoading(model: LoadingVM { $0.color = ComponentColor(main: uc(Palette.accentHex), contrast: uc("#FFFFFF")) })
+                #else
+                ProgressView()
+                #endif
+                Text(message)
+                    .font(HomitaFont.geist(16, relativeTo: .body))
+                    .foregroundStyle(Palette.inkSoft)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}

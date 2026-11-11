@@ -8,6 +8,8 @@ public final class RoutineStore {
     public private(set) var routines: [RoutineEntry] = []
     public private(set) var sessions: [EventEntry] = []
     public private(set) var isLoading = false
+    /// Primera carga completada (loader hasta entonces).
+    public private(set) var hasLoaded = false
     public var errorMessage: String?
 
     private let repo: RoutineRepository
@@ -24,7 +26,7 @@ public final class RoutineStore {
 
     public func load() async {
         isLoading = true
-        defer { isLoading = false }
+        defer { isLoading = false; hasLoaded = true }
         do {
             routines = try await repo.index(timezone: timezone)
         } catch {

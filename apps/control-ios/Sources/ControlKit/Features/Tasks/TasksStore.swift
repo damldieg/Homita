@@ -9,6 +9,9 @@ public final class TasksStore {
     public private(set) var tasks: [TaskEntry] = []
     public private(set) var members: [MemberEntry] = []
     public private(set) var isLoading = false
+    /// Primera carga de listas y de tareas completada (loader hasta entonces).
+    public private(set) var hasLoadedLists = false
+    public private(set) var hasLoadedTasks = false
     public var errorMessage: String?
     /// Filtro global por lista (nil = todas); dentro de una lista el filtro es la propia lista.
     public var listFilterId: Int?
@@ -29,7 +32,7 @@ public final class TasksStore {
 
     public func loadLists() async {
         isLoading = true
-        defer { isLoading = false }
+        defer { isLoading = false; hasLoadedLists = true }
         do {
             taskLists = try await taskListsRepo.index()
         } catch {
@@ -39,7 +42,7 @@ public final class TasksStore {
 
     public func loadTasks() async {
         isLoading = true
-        defer { isLoading = false }
+        defer { isLoading = false; hasLoadedTasks = true }
         do {
             tasks = try await tasksRepo.index(taskListId: listFilterId)
         } catch {
