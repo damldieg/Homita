@@ -1,8 +1,8 @@
 // routine (Routine*.php). Orden PHP literal por ruta (ver contract-inventory.md):
 // index: tz → materializa; detail/create/update/alarm/delete: id/M → … → validaciones.
-import { getInput, inputInt, phpInput, inputTimezone } from "../_shared/contract.ts";
+import { getInput, inputInt, contractInput, inputTimezone } from "../_shared/contract.ts";
 import {
-    errInvalidTimezone, errPhpNotFound, errRoutineCalendarRequired, errRoutineIdRequired,
+    errInvalidTimezone, errNotFound500, errRoutineCalendarRequired, errRoutineIdRequired,
     rpcError, rpcPass,
 } from "../_shared/errors.ts";
 import { appUserRow, materializeRoutines, rpc } from "../_shared/supabase.ts";
@@ -10,7 +10,7 @@ import { personIdsOf, validateAlarm, validateRoutine } from "../_shared/validate
 
 const materialize = async (uid: string, token: string, tz: string): Promise<Response | null> => {
     const me = await appUserRow(uid, token);
-    if (me === null) return errPhpNotFound();
+    if (me === null) return errNotFound500();
     const mat = await materializeRoutines(me.id, tz);
     if (!mat.ok) return rpcError(await mat.json().catch(() => null));
     return null;
@@ -18,7 +18,7 @@ const materialize = async (uid: string, token: string, tz: string): Promise<Resp
 
 // GET /routine (RoutineIndex.php → findByUser materializa)
 export const handleRoutineIndex = async (req: Request, token: string, uid: string): Promise<Response> => {
-    const input = await phpInput(req);
+    const input = await contractInput(req);
     const tz = inputTimezone(input);
     if (tz === "INVALID") return errInvalidTimezone();
     const fail = await materialize(uid, token, tz);
@@ -29,7 +29,7 @@ export const handleRoutineIndex = async (req: Request, token: string, uid: strin
 // GET /routine/detail (RoutineDetail.php): id → M → tz → materializa; devuelve la fila previa a la
 // materialización (como PHP, que captura $routine antes)
 export const handleRoutineDetail = async (req: Request, token: string, uid: string): Promise<Response> => {
-    const input = await phpInput(req);
+    const input = await contractInput(req);
     const id = inputInt(input, "id");
     if (!id) return errRoutineIdRequired();
     const detail = await rpc("get_routine_detail", { p_id: id }, token);
@@ -44,7 +44,7 @@ export const handleRoutineDetail = async (req: Request, token: string, uid: stri
 
 // POST /routine/create (RoutineCreate.php): calendar_id → person_ids → tz → validate → alarm → M
 export const handleRoutineCreate = async (req: Request, token: string): Promise<Response> => {
-    const input = await phpInput(req);
+    const input = await contractInput(req);
     const calendarId = inputInt(input, "calendar_id");
     if (!calendarId) return errRoutineCalendarRequired();
     const personIds = await personIdsOf(input, token);
@@ -74,7 +74,7 @@ export const handleRoutineCreate = async (req: Request, token: string): Promise<
 // PATCH /routine/update (RoutineUpdate.php): id → M → person_ids → tz → validate(current) →
 // reconcile interno en la RPC
 export const handleRoutineUpdate = async (req: Request, token: string): Promise<Response> => {
-    const input = await phpInput(req);
+    const input = await contractInput(req);
     const id = inputInt(input, "id");
     if (!id) return errRoutineIdRequired();
     const detail = await rpc("get_routine_detail", { p_id: id }, token); // M → 500 Not Found
@@ -103,7 +103,7 @@ export const handleRoutineUpdate = async (req: Request, token: string): Promise<
 
 // PATCH /routine/alarm (RoutineAlarm.php): id → M → alarm (strict) → tz → setAlarm + syncAlarms
 export const handleRoutineAlarm = async (req: Request, token: string): Promise<Response> => {
-    const input = await phpInput(req);
+    const input = await contractInput(req);
     const id = inputInt(input, "id");
     if (!id) return errRoutineIdRequired();
     const detail = await rpc("get_routine_detail", { p_id: id }, token); // M
@@ -117,7 +117,7 @@ export const handleRoutineAlarm = async (req: Request, token: string): Promise<R
 
 // DELETE /routine/delete (RoutineDelete.php): id → M → tz → delete (con cascadas de PHP)
 export const handleRoutineDelete = async (req: Request, token: string): Promise<Response> => {
-    const input = await phpInput(req);
+    const input = await contractInput(req);
     const id = inputInt(input, "id");
     if (!id) return errRoutineIdRequired();
     const detail = await rpc("get_routine_detail", { p_id: id }, token); // M
