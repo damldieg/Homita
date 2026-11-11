@@ -161,6 +161,8 @@ public struct TaskEntry: Codable, Equatable, Identifiable {
     public let order: FlexInt?
     public let task_list_color: String?
     public let task_list_name: String?
+    /// Personas asignadas (`GET task`, migración 0024). Ausente en respuestas antiguas → nil.
+    public let persons: [PersonEntry]?
 
     public var isCompleted: Bool { completed_at != nil }
     public var orderValue: Int { order?.value ?? 0 }

@@ -283,6 +283,7 @@ struct TaskRow: View {
                         .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
                         .foregroundStyle(task.isCompleted ? Palette.inkMuted : Palette.ink)
                         .strikethrough(task.isCompleted)
+                    AssignedPersonsLine(persons: task.persons)
                     if showListName, let name = task.task_list_name {
                         HomitaBadge(title: name, tintHex: task.task_list_color ?? Palette.accentHex)
                             .padding(.top, 2)
