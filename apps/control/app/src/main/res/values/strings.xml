@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Planify</string>
+    <string name="app_name">Homita Control</string>
     <string name="welcome_login">Iniciar sesión</string>
     <string name="welcome_register">Registrarse</string>
     <string name="welcome_subtitle">Tu día, tus listas, tus calendarios. Todo en un mismo lugar.</string>
