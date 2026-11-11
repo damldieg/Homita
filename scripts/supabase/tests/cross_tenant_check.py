@@ -1626,11 +1626,13 @@ select fn_seed_kind_permissions(998223, 'guest');
 """)
 
 
-def inv_code(home=998200, kind="'guest'", member="null", sub=None):
+def inv_code(home=998200, kind="'guest'", member="null", sub=None, email=None):
     """Crea una invitación por psql impersonando al admin (A en H1, B en H2) → (id, código).
-    El código solo vive en memoria del script."""
+    El email de la invitación (0026) es el de quien la acepta: B por defecto, C_EMAIL en las
+    carreras donde acepta C. El código solo vive en memoria del script."""
+    email = email or B_EMAIL
     out = psql(f"begin;\nselect set_config('request.jwt.claim.sub', '{sub or a_uid}', true);\n"
-               f"select create_home_invitation({home}, {kind}, {member});\ncommit;")
+               f"select create_home_invitation({home}, {kind}, {member}, '{email}');\ncommit;")
     body = out_json(out)
     if not isinstance(body, dict) or "code" not in body:
         sys.exit("inv_code: create_home_invitation no devolvió código (salida omitida)")
@@ -1684,7 +1686,8 @@ if xt_on("INV"):
     inv1, k1 = inv_code()
     expect_err("INV1 B create_home_invitation(H1) por RPC directa → Not Found",
                rpc_direct("create_home_invitation", {"p_home_id": 998200, "p_kind": "guest",
-                                                     "p_member_id": None}, b_tok), "Not Found")
+                                                     "p_member_id": None,
+                                                     "p_email": "xt-nuevo@homita.example"}, b_tok), "Not Found")
     expect_err("INV2 B get_home_invitations(H1) → Not Found",
                rpc_direct("get_home_invitations", {"p_home_id": 998200}, b_tok), "Not Found")
     expect_err("INV3 B revoke_home_invitation(H1, inv_H1) → Not Found",
@@ -1695,10 +1698,12 @@ if xt_on("INV"):
     check("INV4 B revoke_home_invitation(H2, inv_H1) → Not Found y la invitación sigue pending",
           parse(res[1]).get("message") == "Not Found" and st == "pending", f"{res!r} status={st}")
     r5 = rpc_direct("create_home_invitation", {"p_home_id": 998200, "p_kind": None,
-                                               "p_member_id": 998211}, a_tok)
+                                               "p_member_id": 998211,
+                                               "p_email": "xt-nuevo@homita.example"}, a_tok)
     expect_err("INV5 A crea en H1 con member_id de H2 → Invalid member", r5, "Invalid member")
     r6 = rpc_direct("create_home_invitation", {"p_home_id": 998200, "p_kind": None,
-                                               "p_member_id": 998299}, a_tok)
+                                               "p_member_id": 998299,
+                                               "p_email": "xt-nuevo@homita.example"}, a_tok)
     check("INV6 A crea con member_id inexistente → el mismo error que INV5 (sin oráculo de ids)",
           r6 == r5 and parse(r6[1]).get("message") == "Invalid member", f"{r6!r} vs {r5!r}")
     r7 = request(URL, "POST", "/rest/v1/rpc/accept_home_invitation", {"p_code": k1}, None, apikey=ANON)
@@ -1727,24 +1732,25 @@ if xt_on("INV"):
 
 XT_BLOCK = "INV_RACE"
 if xt_on("INV_RACE"):
-    # INV11–INV13: B ∥ C con el mismo código
+    # INV11–INV13: B ∥ C con el mismo código. Desde 0026 el código va ligado al email de C: C
+    # siempre gana; B recibe Not Found (si C ya consumió) o Not Allowed (email distinto, sin consumir).
     bad, bad_state, dl = [], [], []
     for i in range(INV_ITERS):
         inv_reset()
-        iid, code = inv_code()
+        iid, code = inv_code(email=C_EMAIL)
         ob, oc = inv_pair(accept_sql(code), b_uid, accept_sql(code), c_uid, i)
         if "40P01" in ob + oc or "deadlock" in (ob + oc).lower():
             dl.append(i)
-        o = sorted([inv_outcome(ob), inv_outcome(oc)])
-        if o != ["Not Found", "ok"]:
+        o = [inv_outcome(ob), inv_outcome(oc)]
+        if o[1] != "ok" or o[0] not in ("Not Found", "Not Allowed"):
             bad.append(f"iter{i}:{o}")
-        winner = b_id if inv_outcome(ob) == "ok" else c_id
+        winner = c_id
         st = psql(f"select (select count(*) from home_membership where home_id = 998200 "
                   f"and app_user_id in ({b_id}, {c_id})) || '|' || "
                   f"(select accepted_by from home_invitation where id = {iid})")
         if st != f"1|{winner}":
             bad_state.append(f"iter{i}:{st}")
-    check(f"INV11 mismo código B ∥ C ({INV_ITERS}×): exactamente 1 ok + 1 Not Found", not bad,
+    check(f"INV11 mismo código B ∥ C ({INV_ITERS}×): C (email de la invitación) ok + B Not Found/Not Allowed", not bad,
           "; ".join(bad)[:200])
     check("INV12 una sola membresía nueva y accepted_by = ganador", not bad_state,
           "; ".join(bad_state)[:200])
@@ -1775,7 +1781,7 @@ if xt_on("INV_RACE"):
     bad, dl = [], []
     for i in range(INV_ITERS):
         inv_reset()
-        _, code = inv_code(kind="null", member="998210")
+        _, code = inv_code(kind="null", member="998210", email=C_EMAIL)
         oc, oa = inv_pair(accept_sql(code), c_uid,
                           "select update_home_member(998210, null, null, null, 'inactive')", a_uid, i)
         if "40P01" in oc + oa or "deadlock" in (oc + oa).lower():
@@ -1793,7 +1799,7 @@ if xt_on("INV_RACE"):
     bad, bad_state, dl = [], [], []
     for i in range(INV_ITERS):
         inv_reset()
-        iid, code = inv_code()
+        iid, code = inv_code(email=C_EMAIL)
         oc, oa = inv_pair(accept_sql(code), c_uid, f"select revoke_home_invitation(998200, {iid})",
                           a_uid, i)
         if "40P01" in oc + oa or "deadlock" in (oc + oa).lower():
@@ -1813,7 +1819,7 @@ if xt_on("INV_RACE"):
     bad = []
     for i in range(INV_ITERS):
         inv_reset(b_in_h1=True)
-        _, code = inv_code()
+        _, code = inv_code(email=C_EMAIL)
         oc, oa = inv_pair(accept_sql(code), c_uid, "select remove_home_membership(998200, 998222)",
                           a_uid, i)
         if (inv_outcome(oc), inv_outcome(oa)) != ("ok", "ok"):
@@ -1824,7 +1830,7 @@ if xt_on("INV_RACE"):
     bad = []
     for i in range(INV_ITERS):
         inv_reset()
-        _, code = inv_code()
+        _, code = inv_code(email=C_EMAIL)
         oc, oc2 = inv_pair(accept_sql(code), c_uid, "select remove_home_membership(998201, 998223)",
                            c_uid, i)
         st = psql(f"select (select count(*) from home_membership where home_id = 998200 "
@@ -1836,8 +1842,8 @@ if xt_on("INV_RACE"):
           "; ".join(bad)[:200])
     # INV24: S1 acepta y retiene la transacción; S2 (mismo código) espera el lock de hogar → Not Found
     inv_reset()
-    _, code = inv_code()
-    out1, out2, blocked = p19_race(accept_sql(code), b_uid, accept_sql(code), c_uid,
+    _, code = inv_code(email=C_EMAIL)
+    out1, out2, blocked = p19_race(accept_sql(code), c_uid, accept_sql(code), b_uid,
                                    "accept_home_invitation")
     check("INV24 S2 espera el lock de hogar (pg_stat_activity) y tras el commit de S1 → Not Found",
           blocked is True and inv_outcome(out1) == "ok" and inv_outcome(out2) == "Not Found",

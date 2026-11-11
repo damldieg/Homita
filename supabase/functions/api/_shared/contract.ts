@@ -54,7 +54,7 @@ export const phpInput = async (req: Request): Promise<PhpInput> => {
     } catch {
         body = null;
     }
-    const b: PhpInput = body !== null && typeof body === "object" && !Array.isArray(body) ? body : {};
+    const b: PhpInput = body !== null && typeof body === "object" && !Array.isArray(body) ? (body as PhpInput) : {};
     return { ...q, ...b };
 };
 

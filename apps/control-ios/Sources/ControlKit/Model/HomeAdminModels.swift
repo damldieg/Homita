@@ -422,18 +422,22 @@ public struct InvitationItem: Codable, Equatable, Sendable {
     public let kind: String
     public let memberId: Int?
     public let memberName: String?
+    /// Email al que va ligada la invitación (0023). Nil en invitaciones anteriores.
+    public let email: String?
     public let status: String
     public let expiresAt: String
     public let createdBy: Int?
     public let createdAt: String
 
     public init(id: Int, homeId: Int, kind: String, memberId: Int? = nil, memberName: String? = nil,
-                status: String = "pending", expiresAt: String, createdBy: Int? = nil, createdAt: String) {
+                email: String? = nil, status: String = "pending", expiresAt: String, createdBy: Int? = nil,
+                createdAt: String) {
         self.id = id
         self.homeId = homeId
         self.kind = kind
         self.memberId = memberId
         self.memberName = memberName
+        self.email = email
         self.status = status
         self.expiresAt = expiresAt
         self.createdBy = createdBy
@@ -446,6 +450,7 @@ public struct InvitationItem: Codable, Equatable, Sendable {
         case kind
         case memberId = "member_id"
         case memberName = "member_name"
+        case email
         case status
         case expiresAt = "expires_at"
         case createdBy = "created_by"
@@ -480,16 +485,20 @@ public struct CreateInvitationBody: Codable, Equatable, Sendable {
     public let homeId: Int
     public let kind: String?
     public let memberId: Int?
+    /// Email del invitado (0023, obligatorio). Se normaliza a minúsculas sin espacios.
+    public let email: String
 
-    public init(homeId: Int, kind: String?, memberId: Int?) {
+    public init(homeId: Int, kind: String?, memberId: Int?, email: String) {
         self.homeId = homeId
         self.kind = kind
         self.memberId = memberId
+        self.email = email
     }
 
     enum CodingKeys: String, CodingKey {
         case homeId = "home_id"
         case kind
+        case email
         case memberId = "member_id"
     }
 }

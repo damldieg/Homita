@@ -77,6 +77,16 @@ export const rpc = async (name: string, args: Record<string, unknown>, token: st
     });
 };
 
+// RPC pública (sin sesión, rol anon): solo para funciones con GRANT a anon (0026, registro con
+// código). No envía cabeceras de hogar.
+export const rpcAnon = async (name: string, args: Record<string, unknown>): Promise<Response> => {
+    return await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+        method: "POST",
+        headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify(args),
+    });
+};
+
 // service_role solo para materialize_routines_for (como PHP escribe durante la lectura)
 export const materializeRoutines = async (userId: unknown, timezone: string): Promise<Response> => {
     return await fetch(`${SUPABASE_URL}/rest/v1/rpc/materialize_routines_for`, {

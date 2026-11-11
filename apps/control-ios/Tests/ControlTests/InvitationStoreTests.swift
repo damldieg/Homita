@@ -22,7 +22,7 @@ final class InvitationStoreTests: XCTestCase {
     func testCreateKeepsCodeOnlyInCreatedCodeAndClears() async {
         let box = Box()
         let store = InvitationStore(repo: repo(), homeId: 2, activeHomeId: { box.active })
-        let ok = await store.create(kind: .guest, member: nil, callerRole: "admin")
+        let ok = await store.create(kind: .guest, member: nil, callerRole: "admin", email: "ana@ejemplo.com")
         XCTAssertTrue(ok)
         XCTAssertEqual(store.createdCode, ContractFixtures.invitationCode)
         XCTAssertEqual(StubURLProtocol.requests.map { $0.httpMethod ?? "" }, ["POST", "GET"])
@@ -35,16 +35,16 @@ final class InvitationStoreTests: XCTestCase {
     func testCreateWithMemberSendsMemberKind() async throws {
         let box = Box()
         let store = InvitationStore(repo: repo(), homeId: 2, activeHomeId: { box.active })
-        let ok = await store.create(kind: nil, member: luz(), callerRole: "member")
+        let ok = await store.create(kind: nil, member: luz(), callerRole: "member", email: "ana@ejemplo.com")
         XCTAssertTrue(ok)
         let sent = try XCTUnwrap(StubURLProtocol.requests.first)
-        XCTAssertEqual(String(data: try XCTUnwrap(sent.capturedBody), encoding: .utf8), #"{"home_id":2,"kind":"child","member_id":3}"#)
+        XCTAssertEqual(String(data: try XCTUnwrap(sent.capturedBody), encoding: .utf8), #"{"email":"ana@ejemplo.com","home_id":2,"kind":"child","member_id":3}"#)
     }
 
     func testCreateAdultByNonAdminNeverCallsServer() async {
         let box = Box()
         let store = InvitationStore(repo: repo(), homeId: 2, activeHomeId: { box.active })
-        let ok = await store.create(kind: .adult, member: nil, callerRole: "member")
+        let ok = await store.create(kind: .adult, member: nil, callerRole: "member", email: "ana@ejemplo.com")
         XCTAssertFalse(ok)
         XCTAssertNotNil(store.errorMessage)
         XCTAssertNil(store.createdCode)
@@ -54,7 +54,7 @@ final class InvitationStoreTests: XCTestCase {
     func testCreate403ShowsMessageAndNoCode() async {
         let box = Box()
         let store = InvitationStore(repo: repo(status(403, "Not Allowed")), homeId: 2, activeHomeId: { box.active })
-        let ok = await store.create(kind: .guest, member: nil, callerRole: "member")
+        let ok = await store.create(kind: .guest, member: nil, callerRole: "member", email: "ana@ejemplo.com")
         XCTAssertFalse(ok)
         XCTAssertEqual(store.errorMessage, "No tienes permiso para crear esta invitación")
         XCTAssertNil(store.createdCode)
@@ -63,7 +63,7 @@ final class InvitationStoreTests: XCTestCase {
     func testCreateInvalidMemberReloadsMembers() async {
         let box = Box()
         let store = InvitationStore(repo: repo(status(400, "Invalid member")), homeId: 2, activeHomeId: { box.active })
-        let ok = await store.create(kind: nil, member: luz(), callerRole: "admin")
+        let ok = await store.create(kind: nil, member: luz(), callerRole: "admin", email: "ana@ejemplo.com")
         XCTAssertFalse(ok)
         XCTAssertTrue(StubURLProtocol.requests.contains { $0.url?.path.hasSuffix("/home/member") == true })
         XCTAssertNotNil(store.errorMessage)
@@ -75,7 +75,7 @@ final class InvitationStoreTests: XCTestCase {
         let store = InvitationStore(repo: repo(), homeId: 2, activeHomeId: { box.active })
         await store.load()
         XCTAssertTrue(store.items.isEmpty)
-        let ok = await store.create(kind: .guest, member: nil, callerRole: "admin")
+        let ok = await store.create(kind: .guest, member: nil, callerRole: "admin", email: "ana@ejemplo.com")
         XCTAssertFalse(ok)
         await store.revoke(InvitationItem(id: 5, homeId: 2, kind: "guest", expiresAt: "2999-01-01 00:00:00", createdAt: "x"))
         XCTAssertTrue(StubURLProtocol.requests.filter { $0.httpMethod == "POST" }.isEmpty)
@@ -116,7 +116,7 @@ final class InvitationStoreTests: XCTestCase {
     func testCodeSurvivesReloadsUntilExplicitClear() async {
         let box = Box()
         let store = InvitationStore(repo: repo(), homeId: 2, activeHomeId: { box.active })
-        _ = await store.create(kind: .guest, member: nil, callerRole: "admin")
+        _ = await store.create(kind: .guest, member: nil, callerRole: "admin", email: "ana@ejemplo.com")
         await store.load()
         await store.loadMembers()
         await store.revoke(InvitationItem(id: 5, homeId: 2, kind: "guest", expiresAt: "2999-01-01 00:00:00", createdAt: "x"))
@@ -141,11 +141,11 @@ final class InvitationStoreTests: XCTestCase {
             return ContractFixtures.response(for: request)
         }, homeId: 2, activeHomeId: { box.active })
         await store.loadMembers()
-        var ok = await store.create(kind: .adult, memberId: 3, callerRole: "admin")
+        var ok = await store.create(kind: .adult, memberId: 3, callerRole: "admin", email: "ana@ejemplo.com")
         XCTAssertFalse(ok)
         let posts = StubURLProtocol.requests.filter { $0.httpMethod == "POST" }.count
         XCTAssertEqual(posts, 1)
-        ok = await store.create(kind: .adult, memberId: 3, callerRole: "admin")
+        ok = await store.create(kind: .adult, memberId: 3, callerRole: "admin", email: "ana@ejemplo.com")
         XCTAssertFalse(ok)
         XCTAssertEqual(StubURLProtocol.requests.filter { $0.httpMethod == "POST" }.count, 1)
         XCTAssertNotNil(store.errorMessage)

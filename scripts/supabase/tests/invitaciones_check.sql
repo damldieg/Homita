@@ -1,9 +1,9 @@
 -- invitaciones_check.sql — Invitaciones y vinculación (fase 1.15, migración 0022).
--- Se ejecuta con psql DESPUÉS del reset 0001–0022 y la seed:
+-- Se ejecuta con psql DESPUÉS del reset 0001–0026 y la seed:
 --   psql -v ON_ERROR_STOP=1 -f invitaciones_check.sql
 -- Cada bloque DO emite 'ok Nx: …' o aborta con 'invitaciones Nx: …'.
 --
--- N1 columnas/tipos/NOT NULL; N2 constraints (UNIQUE, 4 CHECK, 4 FK con su on delete); N3
+-- N1 columnas/tipos/NOT NULL; N2 constraints (UNIQUE, 5 CHECK, 4 FK con su on delete); N3
 -- índices; N4 RLS on, 0 policies en home_invitation, pg_policies global = baseline 0021, sin
 -- privilegios de tabla ni secuencia para anon/authenticated; N5 proacl (4 RPC solo
 -- authenticated, helper sin grants, anon sin EXECUTE real); N6 create (32 hex, hash = sha256,
@@ -158,7 +158,7 @@ begin
      where table_schema = 'public' and table_name = 'home_invitation';
     if v is distinct from 'id:int8:NO,home_id:int8:NO,kind:member_kind:NO,member_id:int8:YES,'
         'code_hash:text:NO,status:text:NO,expires_at:timestamp:NO,created_by:int8:YES,'
-        'accepted_by:int8:YES,accepted_at:timestamp:YES,created_at:timestamp:NO,updated_at:timestamp:NO' then
+        'accepted_by:int8:YES,accepted_at:timestamp:YES,created_at:timestamp:NO,updated_at:timestamp:NO,email:text:YES' then
         raise exception 'invitaciones N1: columnas %', v;
     end if;
     if (select column_default from information_schema.columns
@@ -166,10 +166,10 @@ begin
        <> '''pending''::text' then
         raise exception 'invitaciones N1: default de status';
     end if;
-    raise notice 'ok N1: 12 columnas con tipos y NOT NULL del plan §1';
+    raise notice 'ok N1: 13 columnas con tipos y NOT NULL del plan §1';
 end $$;
 
--- ── N2: constraints (UNIQUE, 4 CHECK, 4 FK con su on delete) ──
+-- ── N2: constraints (UNIQUE, 5 CHECK, 4 FK con su on delete) ──
 
 do $$
 declare v text;
@@ -180,7 +180,8 @@ begin
       into v from pg_constraint where conrelid = 'public.home_invitation'::regclass;
     if v is distinct from 'home_invitation_accepted_by_fkey:f:n,home_invitation_accepted_check:c,'
         'home_invitation_code_hash_format:c,home_invitation_code_hash_key:u,'
-        'home_invitation_created_by_fkey:f:n,home_invitation_home_id_fkey:f:c,'
+        'home_invitation_created_by_fkey:f:n,home_invitation_email_format:c,'
+        'home_invitation_home_id_fkey:f:c,'
         'home_invitation_member_fk:f:c,home_invitation_no_pet:c,home_invitation_pkey:p,'
         'home_invitation_status_check:c' then
         raise exception 'invitaciones N2: constraints %', v;
@@ -189,7 +190,7 @@ begin
        <> 'FOREIGN KEY (member_id, home_id) REFERENCES home_member(id, home_id) ON DELETE CASCADE' then
         raise exception 'invitaciones N2: FK compuesta';
     end if;
-    raise notice 'ok N2: UNIQUE code_hash, 4 CHECK y 4 FK (cascade/set null) del plan §1';
+    raise notice 'ok N2: UNIQUE code_hash, 5 CHECK y 4 FK (cascade/set null) del plan §1';
 end $$;
 
 -- ── N3: índices ──
@@ -248,7 +249,7 @@ declare
     f text;
     v_acl text;
 begin
-    foreach f in array array['get_home_invitations(bigint)', 'create_home_invitation(bigint,text,bigint)',
+    foreach f in array array['get_home_invitations(bigint)', 'create_home_invitation(bigint,text,bigint,text)',
                              'accept_home_invitation(text)', 'revoke_home_invitation(bigint,bigint)'] loop
         select coalesce(proacl::text, '') into v_acl from pg_proc where oid = to_regprocedure(f);
         if not has_function_privilege('authenticated', f, 'execute')
@@ -289,7 +290,7 @@ declare
     r home_invitation%rowtype;
 begin
     perform pg_temp.as_user(1);
-    v := create_home_invitation(997101, 'guest', null)::jsonb;
+    v := create_home_invitation(997101, 'guest', null, 'in-nuevo@check.homita.example')::jsonb;
     v_code := v->>'code';
     if v_code !~ '^[0-9a-f]{32}$' then
         raise exception 'invitaciones N6: código no es 32 hex';
@@ -308,9 +309,12 @@ begin
         raise exception 'invitaciones N6: el código en claro está en alguna columna';
     end if;
     if (select array_agg(k order by k) from jsonb_object_keys(v) k)
-       <> array['code', 'created_at', 'created_by', 'expires_at', 'home_id', 'id', 'kind',
+       <> array['code', 'created_at', 'created_by', 'email', 'expires_at', 'home_id', 'id', 'kind',
                 'member_id', 'member_name', 'status'] then
         raise exception 'invitaciones N6: claves de INVITATION_CREATED';
+    end if;
+    if r.email is distinct from 'in-nuevo@check.homita.example' or v->>'email' <> r.email then
+        raise exception 'invitaciones N6: email no guardado/expuesto';
     end if;
     raise notice 'ok N6: create → código 32 hex, hash sha256, +7 días, pending, sin código en BD';
 end $$;
@@ -328,15 +332,15 @@ begin
     select count(*) into v_n0 from home_invitation;
     select count(*) into v_a0 from audit_log where home_id = 997101;
     foreach s in array array[
-        'select create_home_invitation(997101, ''pet'', null)',
-        'select create_home_invitation(997101, null, null)',
-        'select create_home_invitation(997101, ''boss'', null)',
-        'select create_home_invitation(997101, null, 997113)',
-        'select create_home_invitation(997101, null, 997115)',
-        'select create_home_invitation(997101, null, 997114)',
-        'select create_home_invitation(997101, null, 997118)',
-        'select create_home_invitation(997101, null, 997199)',
-        'select create_home_invitation(997101, ''guest'', 997112)'] loop
+        'select create_home_invitation(997101, ''pet'', null, ''in-nuevo@check.homita.example'')',
+        'select create_home_invitation(997101, null, null, ''in-nuevo@check.homita.example'')',
+        'select create_home_invitation(997101, ''boss'', null, ''in-nuevo@check.homita.example'')',
+        'select create_home_invitation(997101, null, 997113, ''in-nuevo@check.homita.example'')',
+        'select create_home_invitation(997101, null, 997115, ''in-nuevo@check.homita.example'')',
+        'select create_home_invitation(997101, null, 997114, ''in-nuevo@check.homita.example'')',
+        'select create_home_invitation(997101, null, 997118, ''in-nuevo@check.homita.example'')',
+        'select create_home_invitation(997101, null, 997199, ''in-nuevo@check.homita.example'')',
+        'select create_home_invitation(997101, ''guest'', 997112, ''in-nuevo@check.homita.example'')'] loop
         v_out := pg_temp.try(s);
         if v_out <> 'Invalid member|P0001' then
             raise exception 'invitaciones N7: % → %', s, v_out;
@@ -355,29 +359,29 @@ do $$
 declare v_out text;
 begin
     perform pg_temp.as_user(2);   -- M sin home.invite
-    v_out := pg_temp.try('select create_home_invitation(997101, ''guest'', null)');
+    v_out := pg_temp.try('select create_home_invitation(997101, ''guest'', null, ''in-nuevo@check.homita.example'')');
     if v_out <> 'Not Allowed|42501' then raise exception 'invitaciones N8: member sin home.invite → %', v_out; end if;
     perform pg_temp.as_user(4);   -- U no miembro
-    v_out := pg_temp.try('select create_home_invitation(997101, ''guest'', null)');
+    v_out := pg_temp.try('select create_home_invitation(997101, ''guest'', null, ''in-nuevo@check.homita.example'')');
     if v_out <> 'Not Found|P0002' then raise exception 'invitaciones N8: no miembro → %', v_out; end if;
     perform pg_temp.as_user(1, 997102);   -- A con cabecera ajena
-    v_out := pg_temp.try('select create_home_invitation(997101, ''guest'', null)');
+    v_out := pg_temp.try('select create_home_invitation(997101, ''guest'', null, ''in-nuevo@check.homita.example'')');
     if v_out <> 'Not Found|P0002' then raise exception 'invitaciones N8: cabecera ajena → %', v_out; end if;
     perform pg_temp.as_user(1);
-    v_out := pg_temp.try('select create_home_invitation(997103, ''guest'', null)');
+    v_out := pg_temp.try('select create_home_invitation(997103, ''guest'', null, ''in-nuevo@check.homita.example'')');
     if v_out <> 'Not Found|P0002' then raise exception 'invitaciones N8: archived → %', v_out; end if;
-    v_out := pg_temp.try('select create_home_invitation(null, ''guest'', null)');
+    v_out := pg_temp.try('select create_home_invitation(null, ''guest'', null, ''in-nuevo@check.homita.example'')');
     if v_out <> 'Not Found|P0002' then raise exception 'invitaciones N8: home null → %', v_out; end if;
-    v_out := pg_temp.try('select create_home_invitation(997101, ''adult'', null)');
+    v_out := pg_temp.try('select create_home_invitation(997101, ''adult'', null, ''in-nuevo@check.homita.example'')');
     if v_out <> 'ok' then raise exception 'invitaciones N8: admin crea adult → %', v_out; end if;
     perform pg_temp.as_user(3);   -- I: member con home.invite, no admin
-    v_out := pg_temp.try('select create_home_invitation(997101, ''guest'', null)');
+    v_out := pg_temp.try('select create_home_invitation(997101, ''guest'', null, ''in-nuevo@check.homita.example'')');
     if v_out <> 'ok' then raise exception 'invitaciones N8: con home.invite → %', v_out; end if;
-    v_out := pg_temp.try('select create_home_invitation(997101, null, 997112)');
+    v_out := pg_temp.try('select create_home_invitation(997101, null, 997112, ''in-nuevo@check.homita.example'')');
     if v_out <> 'ok' then raise exception 'invitaciones N8: con home.invite + relative → %', v_out; end if;
-    v_out := pg_temp.try('select create_home_invitation(997101, ''adult'', null)');
+    v_out := pg_temp.try('select create_home_invitation(997101, ''adult'', null, ''in-nuevo@check.homita.example'')');
     if v_out <> 'Not Allowed|42501' then raise exception 'invitaciones N8: D-017 adult genérica → %', v_out; end if;
-    v_out := pg_temp.try('select create_home_invitation(997101, null, 997111)');
+    v_out := pg_temp.try('select create_home_invitation(997101, null, 997111, ''in-nuevo@check.homita.example'')');
     if v_out <> 'Not Allowed|42501' then raise exception 'invitaciones N8: D-017 miembro adult → %', v_out; end if;
     raise notice 'ok N8: sin home.invite 403, no miembro/cabecera/archived/null 404, home.invite ok, D-017 adult solo admin';
 end $$;
@@ -395,7 +399,7 @@ declare
     v_def text;
 begin
     perform pg_temp.as_user(1);
-    v := create_home_invitation(997101, 'child', null)::jsonb;
+    v := create_home_invitation(997101, 'child', null, 'in-u@check.homita.example')::jsonb;
     v_code := v->>'code';
     v_inv := (v->>'id')::bigint;
     perform pg_temp.as_user(4);   -- U
@@ -445,7 +449,7 @@ declare
     v_def text;
 begin
     perform pg_temp.as_user(1);
-    v := create_home_invitation(997101, null, 997117)::jsonb;   -- child
+    v := create_home_invitation(997101, null, 997117, 'in-v@check.homita.example')::jsonb;   -- child
     v_code := v->>'code';
     if v->>'kind' <> 'child' or (v->>'member_id')::bigint <> 997117 or v->>'member_name' <> 'IN-Cambia' then
         raise exception 'invitaciones N10: create con miembro %', v - 'code';
@@ -483,7 +487,7 @@ declare
     v_out text;
 begin
     perform pg_temp.as_user(1);
-    v := create_home_invitation(997101, 'guest', null)::jsonb;
+    v := create_home_invitation(997101, 'guest', null, 'in-nuevo@check.homita.example')::jsonb;
     v_code := v->>'code';
     select (select count(*) from home_membership) || '/' || (select count(*) from home_member) || '/'
            || (select count(*) from person) || '/' || (select count(*) from membership_permission) || '/'
@@ -522,14 +526,14 @@ declare
 begin
     perform pg_temp.as_user(1);
     select code into v_used from pg_temp.n_codes where k = 'N9';   -- consumido de verdad en N9
-    v := create_home_invitation(997101, 'guest', null)::jsonb;
+    v := create_home_invitation(997101, 'guest', null, 'in-nuevo@check.homita.example')::jsonb;
     v_rev := v->>'code';
     perform revoke_home_invitation(997101, (v->>'id')::bigint);
-    v := create_home_invitation(997101, 'guest', null)::jsonb;
+    v := create_home_invitation(997101, 'guest', null, 'in-nuevo@check.homita.example')::jsonb;
     v_exp := v->>'code';
     update home_invitation set expires_at = (now() at time zone 'UTC') - interval '1 minute'
      where id = (v->>'id')::bigint;
-    v := create_home_invitation(997101, 'guest', null)::jsonb;
+    v := create_home_invitation(997101, 'guest', null, 'in-nuevo@check.homita.example')::jsonb;
     v_edge := v->>'code';
     update home_invitation set expires_at = (now() at time zone 'UTC') where id = (v->>'id')::bigint;
     insert into home_invitation (home_id, kind, code_hash, expires_at, created_by)
@@ -570,7 +574,7 @@ declare
     v_n0 bigint;
 begin
     perform pg_temp.as_user(1);
-    v := create_home_invitation(997101, null, 997116)::jsonb;   -- guest
+    v := create_home_invitation(997101, null, 997116, 'in-x@check.homita.example')::jsonb;   -- guest
     v_code := v->>'code';
     v_id := (v->>'id')::bigint;
     select count(*) into v_n0 from home_membership;
@@ -613,8 +617,8 @@ declare
     v_out text;
 begin
     perform pg_temp.as_user(1);
-    v_id := (create_home_invitation(997101, 'guest', null)::jsonb->>'id')::bigint;
-    v_exp := (create_home_invitation(997101, 'guest', null)::jsonb->>'id')::bigint;
+    v_id := (create_home_invitation(997101, 'guest', null, 'in-nuevo@check.homita.example')::jsonb->>'id')::bigint;
+    v_exp := (create_home_invitation(997101, 'guest', null, 'in-nuevo@check.homita.example')::jsonb->>'id')::bigint;
     update home_invitation set expires_at = (now() at time zone 'UTC') - interval '1 second' where id = v_exp;
     select id into v_acc from home_invitation where home_id = 997101 and status = 'accepted' limit 1;
     perform pg_temp.as_user(2);   -- M sin home.invite
@@ -643,7 +647,7 @@ begin
         if v_out <> 'Not Found|P0002' then raise exception 'invitaciones N14: repetida/aceptada/caducada/inexistente → %', v_out; end if;
     end loop;
     perform pg_temp.as_user(3);   -- I con home.invite revoca una pendiente
-    v_id := (create_home_invitation(997101, 'guest', null)::jsonb->>'id')::bigint;
+    v_id := (create_home_invitation(997101, 'guest', null, 'in-nuevo@check.homita.example')::jsonb->>'id')::bigint;
     v_out := pg_temp.try(format('select revoke_home_invitation(997101, %s)', v_id));
     if v_out <> 'ok' then raise exception 'invitaciones N14: home.invite revoca → %', v_out; end if;
     raise notice 'ok N14: revoke pending → revoked; repetida, aceptada, caducada, inexistente, otro hogar → Not Found; permisos';
@@ -659,7 +663,7 @@ declare
     v_out text;
 begin
     perform pg_temp.as_user(6);   -- una pendiente en B (no debe aparecer en H)
-    perform create_home_invitation(997102, 'guest', null);
+    perform create_home_invitation(997102, 'guest', null, 'in-nuevo@check.homita.example');
     perform pg_temp.as_user(1);
     v := get_home_invitations(997101)::jsonb;
     select array_agg((e->>'id')::bigint order by ord) into v_ids
@@ -742,7 +746,7 @@ declare
     v_code text;
 begin
     perform pg_temp.as_user(1);
-    v_code := create_home_invitation(997101, 'guest', null)::jsonb->>'code';
+    v_code := create_home_invitation(997101, 'guest', null, 'in-x@check.homita.example')::jsonb->>'code';
     perform pg_temp.as_user(6, 997102);   -- X con la cabecera de su hogar B
     v := accept_home_invitation(v_code)::jsonb;
     if (v->>'home_id')::bigint <> 997101
@@ -760,7 +764,7 @@ declare
     v_code text;
 begin
     perform pg_temp.as_user(6);   -- X invita en B
-    v_code := create_home_invitation(997102, 'relative', null)::jsonb->>'code';
+    v_code := create_home_invitation(997102, 'relative', null, 'in-a@check.homita.example')::jsonb->>'code';
     perform pg_temp.as_user(1);   -- A acepta en B
     v := accept_home_invitation('  ' || upper(v_code) || E'\n')::jsonb;
     if (v->>'home_id')::bigint <> 997102 or v->>'kind' <> 'relative' then

@@ -63,8 +63,11 @@ public final class AuthService: TokenRefreshing {
     }
 
     /// `POST user/create` → 201 `{id,name,email,token,…}` (sin `refresh_token`).
-    public func register(name: String, email: String, password: String) async throws {
-        let body = try client.encode(RegisterRequest(name: name, email: email, password: password))
+    /// `POST user/create`. Con `invitationCode` (0023) la Edge valida código y email antes de crear
+    /// la cuenta; no crea hogar. La aceptación se hace después, en la app.
+    public func register(name: String, email: String, password: String, invitationCode: String? = nil) async throws {
+        let body = try client.encode(RegisterRequest(name: name, email: email, password: password,
+                                                     invitationCode: invitationCode))
         let request = APIRequest(method: .post, path: "user/create", body: body, isPublic: true)
         let user = try await client.send(request, as: UserResponse.self)
         try store(user: user)

@@ -3,8 +3,9 @@ import { fmt, inputEmail, inputString, json, phpEmpty, phpInput } from "../_shar
 import {
     errAuthFieldsRequired, errEmailExists, errInvalidCredentials, errNameLength, errNotAllowed,
     errPasswordLength, errPhpNotFound, errProfileFieldsRequired, errUserFieldsRequired, error, rpcPass,
+    errInvitationEmailMismatch, errInvitationNotValidForSignup,
 } from "../_shared/errors.ts";
-import { appUserRow, passwordGrant, rpc, signup, updateAuthUser } from "../_shared/supabase.ts";
+import { appUserRow, passwordGrant, rpc, rpcAnon, signup, updateAuthUser } from "../_shared/supabase.ts";
 
 // Config::key('public','allow_registration') → env ALLOW_REGISTRATION (default false, Q3)
 export const allowRegistration = (): boolean =>
@@ -55,6 +56,22 @@ export const handleUserCreate = async (req: Request): Promise<Response> => {
     if (phpEmpty(name) || phpEmpty(email) || phpEmpty(password)) return errUserFieldsRequired();
     if (mbLen(name as string) < 3 || mbLen(name as string) > 50) return errNameLength();
     if (mbLen(password as string) < 8) return errPasswordLength();
+
+    // 0026: registro con código de invitación. Se valida ANTES de crear la cuenta: código y email
+    // deben corresponder a la misma invitación. No crea hogar: la persona lo acepta después en la app.
+    const invitationCode = inputString(input, "invitation_code");
+    if (invitationCode !== null && invitationCode.trim() !== "") {
+        const check = await rpcAnon("check_home_invitation_for_signup", {
+            p_code: invitationCode.trim().toLowerCase(), p_email: (email as string).toLowerCase(),
+        });
+        if (!check.ok) {
+            const body = await check.json().catch(() => null) as { message?: string } | null;
+            const msg = String(body?.message ?? "");
+            if (msg === "Not Allowed") return errInvitationEmailMismatch();
+            if (msg === "Not Found") return errInvitationNotValidForSignup();
+            return error("Internal error", 500);
+        }
+    }
 
     const res = await signup(name as string, email as string, password as string);
     if (!res.ok) {
