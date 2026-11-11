@@ -27,6 +27,12 @@ public final class HomeContextStore {
     public private(set) var state: HomeContextState = .unresolved
     /// Hogares del último `GET home` (para el selector de Perfil, 1.15c).
     public private(set) var homes: [HomeItem] = []
+    /// Error legible si no se pudo persistir `active_home_id` (p. ej. Keychain sin firma): la
+    /// selección sigue activa en memoria pero no sobrevivirá a relanzar la app. nil si todo bien.
+    public private(set) var persistenceError: String?
+    /// Hogar elegido explícitamente en esta sesión (select/create/accept): un `load` posterior
+    /// no lo revierte aunque la persistencia haya fallado.
+    private var sessionChoice: Int?
 
     private let store: TokenStore
     /// Se incrementa en `clear()`: un `load`/`create` en vuelo que termina después descarta su resultado.
@@ -78,7 +84,7 @@ public final class HomeContextStore {
             guard token == generation else { return nil }
             self.homes = homes
             if let created = homes.first(where: { $0.homeId == detail.id }) {
-                activate(created)
+                activate(created, explicit: true)
             } else {
                 resolve(homes)
             }
@@ -109,7 +115,7 @@ public final class HomeContextStore {
             guard token == generation else { return nil }
             self.homes = homes
             if let joined = homes.first(where: { $0.homeId == accepted.homeId }) {
-                activate(joined)
+                activate(joined, explicit: true)
             } else {
                 resolve(homes)
             }
@@ -125,6 +131,8 @@ public final class HomeContextStore {
         generation += 1
         try? store.remove(Self.key)
         homes = []
+        sessionChoice = nil
+        persistenceError = nil
         state = .unresolved
     }
 
@@ -133,7 +141,7 @@ public final class HomeContextStore {
     @discardableResult
     public func select(homeId: Int) -> Bool {
         guard let home = homes.first(where: { $0.homeId == homeId }) else { return false }
-        activate(home)
+        activate(home, explicit: true)
         return true
     }
 
@@ -145,14 +153,22 @@ public final class HomeContextStore {
             return
         }
         let persisted = (try? store.get(Self.key)) ?? nil
-        let chosen = persisted.flatMap { id in homes.first { String($0.homeId) == id } }
+        let chosen = sessionChoice.flatMap { id in homes.first { $0.homeId == id } }
+            ?? persisted.flatMap { id in homes.first { String($0.homeId) == id } }
             ?? homes.first(where: \.isDefault)
             ?? homes[0]
         activate(chosen)
     }
 
-    private func activate(_ home: HomeItem) {
-        try? store.set(String(home.homeId), forKey: Self.key)
+    private func activate(_ home: HomeItem, explicit: Bool = false) {
+        if explicit { sessionChoice = home.homeId }
+        do {
+            try store.set(String(home.homeId), forKey: Self.key)
+            persistenceError = nil
+        } catch {
+            persistenceError = "No se pudo guardar el hogar activo: seguirá activo en esta sesión, "
+                + "pero al reabrir la app volverá el predeterminado."
+        }
         state = .ready(home)
     }
 

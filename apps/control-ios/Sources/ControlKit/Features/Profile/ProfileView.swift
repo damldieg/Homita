@@ -55,7 +55,7 @@ public struct ProfileView: View {
                     }
                 }
                 if !services.homeContext.homes.isEmpty {
-                    Section("Mis hogares") {
+                    Section {
                         ForEach(HomeSwitcher.rows(homes: services.homeContext.homes,
                                                   activeHomeId: services.homeContext.activeHomeId)) { row in
                             Button {
@@ -73,6 +73,12 @@ public struct ProfileView: View {
                                 }
                             }
                             .accessibilityAddTraits(row.isActive ? .isSelected : [])
+                        }
+                    } header: {
+                        Text("Mis hogares")
+                    } footer: {
+                        if let error = services.homeContext.persistenceError {
+                            Text(error).foregroundStyle(.red)
                         }
                     }
                 }
