@@ -28,10 +28,14 @@ public final class EventStore {
     public private(set) var isLoadingMore = false
     /// Filas de «Pasados» ya cargadas: `offset` de la siguiente página.
     private var pastOffset = 0
+    /// Generación de la lista: cada `load()` la incrementa. Una página de «Cargar más» pedida antes
+    /// de un cambio de filtro o búsqueda se descarta al llegar, para no mezclar filas ni offsets.
+    private var generation = 0
 
     public func load() async {
         isLoading = true
         defer { isLoading = false }
+        generation &+= 1
         let localNow = clock().localNowEpoch
         let search = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         var filters = EventFilters(
@@ -63,8 +67,11 @@ public final class EventStore {
         guard hasMorePast, !isLoadingMore else { return }
         isLoadingMore = true
         defer { isLoadingMore = false }
+        let requested = generation
         do {
             let page = try await repo.index(pastFilters(localNow: clock().localNowEpoch, offset: pastOffset))
+            // Respuesta de una lista anterior (filtro o búsqueda cambiados mientras cargaba): se descarta.
+            guard requested == generation else { return }
             past.append(contentsOf: page)
             pastOffset += page.count
             hasMorePast = page.count == Self.pageSize
