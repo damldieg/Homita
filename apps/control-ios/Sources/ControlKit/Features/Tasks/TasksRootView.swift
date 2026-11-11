@@ -234,5 +234,6 @@ struct TaskRow: View {
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: onEdit)
+        .accessibilityAction(named: "Editar", onEdit)
     }
 }

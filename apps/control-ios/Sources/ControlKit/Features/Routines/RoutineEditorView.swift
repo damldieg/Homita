@@ -26,7 +26,11 @@ struct RoutineEditorView: View {
     @State private var showDeleteConfirm = false
     @State private var isWorking = false
 
-    private static let weekdayLabels = [(1, "L"), (2, "M"), (3, "X"), (4, "J"), (5, "V"), (6, "S"), (7, "D")]
+    /// ISO 8601 (1 = lunes), letra visible y nombre completo para VoiceOver (I5).
+    private static let weekdayLabels = [
+        (1, "L", "lunes"), (2, "M", "martes"), (3, "X", "miércoles"), (4, "J", "jueves"),
+        (5, "V", "viernes"), (6, "S", "sábado"), (7, "D", "domingo"),
+    ]
 
     init(store: RoutineStore, calendars: CalendarStore, persons: PersonStore, routine: RoutineEntry?) {
         self.store = store
@@ -68,10 +72,11 @@ struct RoutineEditorView: View {
                 Stepper("Cada \(interval) \(unitLabel)", value: $interval, in: 1...99)
                 if frequency == "weekly" {
                     HStack {
-                        ForEach(Self.weekdayLabels, id: \.0) { iso, label in
+                        ForEach(Self.weekdayLabels, id: \.0) { iso, label, name in
                             Button(label) {
                                 if days.contains(iso) { days.remove(iso) } else { days.insert(iso) }
                             }
+                            .accessibilityLabel(name)
                             .buttonStyle(.bordered)
                             .foregroundStyle(days.contains(iso) ? Color.white : Color.primary)
                             .background(days.contains(iso) ? Color.accentColor : Color.clear)

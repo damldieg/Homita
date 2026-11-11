@@ -32,6 +32,7 @@ struct EventListView: View {
                         EventRow(event: event)
                             .contentShape(Rectangle())
                             .onTapGesture { eventToEdit = event }
+                            .accessibilityAction(named: "Editar") { eventToEdit = event }
                     }
                     .onDelete { indexSet in
                         let removed = indexSet.map { store.upcoming[$0] }
@@ -45,10 +46,17 @@ struct EventListView: View {
                         EventRow(event: event)
                             .contentShape(Rectangle())
                             .onTapGesture { eventToEdit = event }
+                            .accessibilityAction(named: "Editar") { eventToEdit = event }
                     }
                     .onDelete { indexSet in
                         let removed = indexSet.map { store.past[$0] }
                         Task { for event in removed { await store.delete(event) } }
+                    }
+                    if store.hasMorePast {
+                        Button("Cargar más") {
+                            Task { await store.loadMorePast() }
+                        }
+                        .disabled(store.isLoadingMore)
                     }
                 }
             }
@@ -110,7 +118,7 @@ struct EventRow: View {
                 .frame(width: 12, height: 12)
             VStack(alignment: .leading) {
                 Text(event.title)
-                Text(event.date_at)
+                Text(DateDisplay.dateTime(event.date_at))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

@@ -27,6 +27,7 @@ struct RoutineListView: View {
                     RoutineRow(routine: routine, next: store.nextSession(for: routine))
                         .contentShape(Rectangle())
                         .onTapGesture { routineToEdit = routine }
+                        .accessibilityAction(named: "Editar") { routineToEdit = routine }
                 }
                 .onDelete { indexSet in
                     let removed = indexSet.map { store.routines[$0] }
@@ -42,7 +43,7 @@ struct RoutineListView: View {
                                 .frame(width: 12, height: 12)
                             VStack(alignment: .leading) {
                                 Text(session.title)
-                                Text(session.date_at)
+                                Text(DateDisplay.dateTime(session.date_at))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -94,7 +95,7 @@ struct RoutineRow: View {
             VStack(alignment: .leading) {
                 Text(routine.title)
                 if let next {
-                    Text("Próxima: \(next.date_at)")
+                    Text("Próxima: \(DateDisplay.dateTime(next.date_at))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

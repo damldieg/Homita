@@ -20,7 +20,7 @@ struct AlarmField: View {
                 Text(AlarmOption.label(minutes)).tag(Int?.some(minutes))
             }
         }
-        Text("La alarma se guarda en el servidor; el iPhone no avisará en v1.")
+        Text("La alarma se guarda en el servidor. El aviso en este iPhone llegará con las notificaciones (fase 3).")
             .font(.caption)
             .foregroundStyle(.secondary)
     }

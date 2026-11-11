@@ -124,6 +124,8 @@ struct TaskListDetailView: View {
             await store.loadTasks()
             await store.loadMembers(listId: current.id)
         }
+        // U5: el filtro de lista es de esta pantalla; al salir, el segmento Tareas vuelve a «Todas».
+        .onDisappear { store.listFilterId = nil }
         .sheet(isPresented: $showEditList) {
             NavigationStack {
                 TaskListEditorView(store: store, editing: current)
