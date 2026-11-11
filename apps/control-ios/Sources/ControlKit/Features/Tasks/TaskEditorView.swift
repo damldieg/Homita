@@ -26,8 +26,13 @@ struct TaskEditorView: View {
         _listId = State(initialValue: task?.task_list_id ?? taskLists.first?.id ?? 0)
     }
 
+    /// Sin listas no hay dónde crear la tarea: en alta hace falta al menos una lista.
+    private var hasTarget: Bool {
+        task != nil || !taskLists.isEmpty
+    }
+
     private var canSave: Bool {
-        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && hasTarget
     }
 
     var body: some View {
@@ -35,13 +40,17 @@ struct TaskEditorView: View {
             HomitaPanel("Tarea", systemImage: "checklist") {
                 HomitaField(placeholder: "Título", text: $title)
                 if task == nil {
-                    Text("Lista")
-                        .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .footnote))
-                        .foregroundStyle(Palette.inkSoft)
-                    HomitaRadioGroup(
-                        selection: Binding(get: { listId }, set: { listId = $0 ?? listId }),
-                        items: taskLists.map { (id: $0.id, title: $0.name) }
-                    )
+                    if taskLists.isEmpty {
+                        HomitaFootnote(text: "Todavía no tienes listas. Crea una en la pestaña Listas para añadir tareas.")
+                    } else {
+                        Text("Lista")
+                            .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .footnote))
+                            .foregroundStyle(Palette.inkSoft)
+                        HomitaRadioGroup(
+                            selection: Binding(get: { listId }, set: { listId = $0 ?? listId }),
+                            items: taskLists.map { (id: $0.id, title: $0.name) }
+                        )
+                    }
                 }
             }
             HomitaButton(title: task == nil ? "Crear tarea" : "Guardar", isEnabled: canSave) {
