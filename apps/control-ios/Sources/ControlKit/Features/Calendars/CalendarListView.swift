@@ -19,6 +19,7 @@ struct CalendarListView: View {
                 }
                 .homitaRow()
             }
+            if !store.calendars.isEmpty {
             Section {
                 ForEach(store.calendars, id: \.id) { calendar in
                     NavigationLink {
@@ -56,6 +57,7 @@ struct CalendarListView: View {
                 }
                 .buttonStyle(.plain)
                 .homitaRow()
+            }
             }
         }
         .homitaList()

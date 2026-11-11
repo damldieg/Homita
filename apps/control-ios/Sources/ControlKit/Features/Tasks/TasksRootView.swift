@@ -201,6 +201,7 @@ struct TaskListsView: View {
                 }
                 .homitaRow()
             }
+            if !store.taskLists.isEmpty {
             Section {
                 ForEach(store.taskLists, id: \.id) { list in
                     NavigationLink {
@@ -237,6 +238,7 @@ struct TaskListsView: View {
                 }
                 .buttonStyle(.plain)
                 .homitaRow()
+            }
             }
         }
         .homitaList()

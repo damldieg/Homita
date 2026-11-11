@@ -22,6 +22,7 @@ struct RoutineListView: View {
 
     var body: some View {
         List {
+            if !store.routines.isEmpty {
             Section {
                 ForEach(store.routines, id: \.id) { routine in
                     RoutineRow(routine: routine, next: store.nextSession(for: routine)) {
@@ -35,6 +36,7 @@ struct RoutineListView: View {
                 }
             } header: {
                 HomitaSectionHeader(title: "Rutinas", count: store.routines.count, systemImage: "repeat")
+            }
             }
             if !upcomingSessions.isEmpty {
                 Section {
