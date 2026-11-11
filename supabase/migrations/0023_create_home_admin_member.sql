@@ -1,7 +1,7 @@
 -- 0023_create_home_admin_member.sql — El creador de un hogar figura como primer miembro (B068nfHn).
 -- create_home (0016) insertaba home_membership (admin) pero no home_member, así que la lista de
 -- miembros no mostraba al creador. Aditiva: redefine solo create_home; el resto de la función queda
--- igual. Mismo patrón que create_person/0014 (home_member kind adult, active, created_by = creador).
+-- igual. También crea la fila person 1:1 vinculada al home_member. Mismo patrón que create_person/0014 (home_member kind adult, active, created_by = creador).
 --
 -- Rollback: volver a aplicar la definición de create_home de 0016_home_rpcs_hogar.sql.
 
@@ -11,6 +11,7 @@ declare
     v_me bigint := fn_my_user_id();
     v_id bigint;
     v_name text;
+    v_hm bigint;
 begin
     if v_me is null then
         raise exception 'Not Allowed' using errcode = '42501';
@@ -25,7 +26,11 @@ begin
     -- Primer miembro: el propio admin (B068nfHn).
     select u.name into v_name from app_user u where u.id = v_me;
     insert into home_member (home_id, kind, name, status, app_user_id, created_by)
-    values (v_id, 'adult', coalesce(nullif(btrim(v_name), ''), 'Admin'), 'active', v_me, v_me);
+    values (v_id, 'adult', coalesce(nullif(btrim(v_name), ''), 'Admin'), 'active', v_me, v_me)
+    returning id into v_hm;
+    -- Fila person 1:1 con el home_member (mismo patrón que accept_home_invitation).
+    insert into person (user_id, home_id, home_member_id, name, color)
+    values (v_me, v_id, v_hm, coalesce(nullif(btrim(v_name), ''), 'Admin'), '#6923E2');
     return (
         select json_build_object(
             'id', h.id, 'name', h.name, 'timezone', h.timezone, 'is_personal', h.is_personal,
