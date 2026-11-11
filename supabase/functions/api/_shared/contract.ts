@@ -54,7 +54,7 @@ export const contractInput = async (req: Request): Promise<ContractInput> => {
     } catch {
         body = null;
     }
-    const b: ContractInput = body !== null && typeof body === "object" && !Array.isArray(body) ? body : {};
+    const b: ContractInput = body !== null && typeof body === "object" && !Array.isArray(body) ? (body as ContractInput) : {};
     return { ...q, ...b };
 };
 
