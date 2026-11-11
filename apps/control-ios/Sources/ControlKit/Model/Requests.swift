@@ -20,11 +20,19 @@ public struct RegisterRequest: Encodable, Equatable {
     public let name: String
     public let email: String
     public let password: String
+    /// Código de invitación (0023). Nil → registro con creación; se omite del JSON.
+    public let invitationCode: String?
 
-    public init(name: String, email: String, password: String) {
+    public init(name: String, email: String, password: String, invitationCode: String? = nil) {
         self.name = name
         self.email = email
         self.password = password
+        self.invitationCode = invitationCode
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name, email, password
+        case invitationCode = "invitation_code"
     }
 }
 

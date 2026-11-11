@@ -18,15 +18,24 @@ public enum InvitationRules {
     /// Body de create. Con `member` envía el `kind` del miembro; `nil` si no hay ni tipo ni miembro,
     /// si el tipo no está permitido o si no coincide con el del miembro.
     public static func makeBody(homeId: Int, kind: MemberKind?, member: HomeMember?,
-                                callerRole: String) -> CreateInvitationBody? {
+                                callerRole: String, email: String) -> CreateInvitationBody? {
         let allowed = allowedKinds(callerRole: callerRole)
+        guard let normalized = normalizedEmail(email) else { return nil }
         if let member {
             guard let memberKind = MemberKind(rawValue: member.kind), allowed.contains(memberKind) else { return nil }
             if let kind, kind != memberKind { return nil }
-            return CreateInvitationBody(homeId: homeId, kind: memberKind.rawValue, memberId: member.id)
+            return CreateInvitationBody(homeId: homeId, kind: memberKind.rawValue, memberId: member.id, email: normalized)
         }
         guard let kind, allowed.contains(kind) else { return nil }
-        return CreateInvitationBody(homeId: homeId, kind: kind.rawValue, memberId: nil)
+        return CreateInvitationBody(homeId: homeId, kind: kind.rawValue, memberId: nil, email: normalized)
+    }
+
+    /// Email normalizado (sin espacios, minúsculas) o nil si no tiene forma `a@b.c` (mismo criterio
+    /// que la Edge y la RPC de 0023).
+    public static func normalizedEmail(_ raw: String) -> String? {
+        let value = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let pattern = #"^[^@\s]+@[^@\s]+\.[^@\s]+$"#
+        return value.range(of: pattern, options: .regularExpression) != nil ? value : nil
     }
 
     /// Caducada si `expires_at` se parsea y ya pasó. Un formato desconocido no se considera caducada (A2).

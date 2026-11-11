@@ -11,6 +11,9 @@ struct NoHomeView: View {
 
     var body: some View {
         HomitaForm {
+            if let code = services.homeContext.pendingInvitationCode {
+                pendingInvitationPanel(code)
+            }
             HomitaPanel("No tienes ningún hogar", systemImage: "house") {
                 HomitaFootnote(text: "Crea uno para empezar a usar tareas y calendarios.")
                 HomitaField(placeholder: "Nombre del hogar", text: $name)
@@ -24,5 +27,28 @@ struct NoHomeView: View {
             }
         }
         .errorAlert($errorMessage)
+    }
+
+    /// Invitación con la que se acaba de registrar (0023): en espera hasta que la acepta aquí.
+    private func pendingInvitationPanel(_ code: String) -> some View {
+        HomitaPanel("Tienes una invitación", systemImage: "envelope.badge") {
+            HomitaFootnote(text: "Aceptarla te une al hogar. Hasta que la aceptes, la invitación queda en espera.")
+            HomitaPrimaryButton(title: "Aceptar invitación", isEnabled: !isWorking, isLoading: isWorking) {
+                Task { await acceptPending(code) }
+            }
+            HomitaButton(title: "Ahora no", kind: .secondary) {
+                services.homeContext.pendingInvitationCode = nil
+            }
+        }
+    }
+
+    private func acceptPending(_ code: String) async {
+        isWorking = true
+        defer { isWorking = false }
+        if let message = await services.homeContext.acceptInvitation(code: code, using: services.homes) {
+            errorMessage = message
+            return
+        }
+        services.homeContext.pendingInvitationCode = nil
     }
 }

@@ -34,6 +34,8 @@ const RPC_STATUS: Record<string, number> = {
     "Invalid permission": 400,
     // 1.15: aceptar una invitación de un hogar del que ya se es miembro (0022; sin consumirla)
     "Already member": 400,
+    // 1.15 + 0026: email de invitación ausente o mal formado (create)
+    "Invalid email": 400,
 };
 
 // Router::error de PHP: InvalidArgumentException → 400; el resto → 500 con el mensaje
@@ -89,6 +91,13 @@ export const errInvalidPermission = (): Response => error("Invalid permission", 
 // presente pero mal formado NO usa estos errores: responde el mismo 404 que la RPC (sin oráculo)
 export const errInvitationCodeRequired = (): Response => error("Invitation code is required", 400);
 export const errInvitationIdRequired = (): Response => error("Invitation ID is required", 400);
+// 0026: el admin indica el email del invitado (obligatorio y con formato válido).
+export const errInvalidEmail = (): Response => error("Invalid email", 400);
+// 0026: registro con código. Código no válido (inexistente, caducado, usado, revocado, hogar
+// archivado o sin email en la invitación) → 404; email distinto al de la invitación → 403.
+export const errInvitationNotValidForSignup = (): Response => error("Invitation code is not valid", 404);
+export const errInvitationEmailMismatch = (): Response =>
+    error("The invitation was sent to another email address", 403);
 
 // user/create (UserCreate.php)
 export const errUserFieldsRequired = (): Response => error("Name, email and password are required", 400);

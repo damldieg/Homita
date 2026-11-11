@@ -808,13 +808,20 @@ struct HomeInvitationsView: View {
         .onDisappear { store.clearCode() }
     }
 
+    /// Email (0023) + tipo + caducidad. Sin email (invitación anterior) no se muestra.
+    static func rowDetail(_ item: InvitationItem) -> String {
+        let base = "\(MemberRules.kindLabel(item.kind)) · caduca \(item.expiresAt)"
+        guard let email = item.email else { return base }
+        return "\(email) · \(base)"
+    }
+
     private func row(_ item: InvitationItem) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.memberName ?? MemberRules.kindLabel(item.kind))
                     .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
-                Text("\(MemberRules.kindLabel(item.kind)) · caduca \(item.expiresAt)")
+                Text(Self.rowDetail(item))
                     .font(HomitaFont.geist(13, relativeTo: .footnote))
                     .foregroundStyle(Palette.inkSoft)
             }
@@ -834,6 +841,7 @@ struct InvitationCreateView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var kind: MemberKind
     @State private var memberId: Int?
+    @State private var email = ""
     @State private var isWorking = false
 
     init(store: InvitationStore, callerRole: String, homeName: String) {
@@ -964,7 +972,11 @@ struct InvitationCreateView: View {
                 )
                 HomitaFootnote(text: "Solo miembros sin cuenta. Al aceptar, la cuenta queda vinculada a ese miembro.")
             }
-            HomitaButton(title: "Crear", isEnabled: !isWorking, isLoading: isWorking) {
+            HomitaPanel("Email del invitado", systemImage: "envelope") {
+                HomitaField(placeholder: "email@ejemplo.com", text: $email, isEmail: true)
+                HomitaFootnote(text: "La invitación solo se puede aceptar con esta cuenta de email. Si la persona ya tiene cuenta, debe iniciar sesión con ese email.")
+            }
+            HomitaButton(title: "Crear", isEnabled: !isWorking && InvitationRules.normalizedEmail(email) != nil, isLoading: isWorking) {
                 Task { await create() }
             }
         }
@@ -982,7 +994,8 @@ struct InvitationCreateView: View {
     private func create() async {
         isWorking = true
         defer { isWorking = false }
-        let ok = await store.create(kind: memberId == nil ? kind : nil, memberId: memberId, callerRole: callerRole)
+        let ok = await store.create(kind: memberId == nil ? kind : nil, memberId: memberId,
+                                    callerRole: callerRole, email: email)
         // Miembro ya no invitable (400 o lista recargada): se reelige, nunca se manda genérico.
         if !ok, let id = memberId, !selectable.contains(where: { $0.id == id }) { memberId = nil }
     }

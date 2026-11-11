@@ -432,22 +432,26 @@ public final class InvitationStore {
     /// Variante por `memberId` elegido en la UI. Si ese miembro ya no es invitable (p. ej. tras un 400
     /// `Invalid member` y recarga) no se envía nada: nunca cae a una invitación genérica sin confirmación.
     @discardableResult
-    public func create(kind: MemberKind?, memberId: Int?, callerRole: String) async -> Bool {
-        guard let memberId else { return await create(kind: kind, member: nil, callerRole: callerRole) }
+    public func create(kind: MemberKind?, memberId: Int?, callerRole: String, email: String) async -> Bool {
+        guard let memberId else {
+            return await create(kind: kind, member: nil, callerRole: callerRole, email: email)
+        }
         guard let member = InvitationRules.selectableMembers(members, callerRole: callerRole)
             .first(where: { $0.id == memberId }) else {
             errorMessage = "Ese miembro ya no se puede invitar; elígelo de nuevo"
             return false
         }
-        return await create(kind: nil, member: member, callerRole: callerRole)
+        return await create(kind: nil, member: member, callerRole: callerRole, email: email)
     }
 
-    /// Crea la invitación y guarda el código en `createdCode`. `false` si no se envió o falló.
+    /// Crea la invitación (ligada a `email`) y guarda el código en `createdCode`. `false` si no se
+    /// envió o falló.
     @discardableResult
-    public func create(kind: MemberKind?, member: HomeMember?, callerRole: String) async -> Bool {
+    public func create(kind: MemberKind?, member: HomeMember?, callerRole: String, email: String) async -> Bool {
         guard isActive else { return false }
-        guard let body = InvitationRules.makeBody(homeId: homeId, kind: kind, member: member, callerRole: callerRole) else {
-            errorMessage = "Elige un tipo de invitación válido"
+        guard let body = InvitationRules.makeBody(homeId: homeId, kind: kind, member: member,
+                                                  callerRole: callerRole, email: email) else {
+            errorMessage = "Revisa el email y el tipo de invitación"
             return false
         }
         do {
