@@ -1,8 +1,8 @@
 // calendar + calendar/user (Calendar*.php). Matriz §3 owner/viewer en las RPC (0006/0008).
-import { fmt, inputBool, inputEmail, inputInt, inputString, json, phpEmpty, phpInput } from "../_shared/contract.ts";
+import { fmt, inputBool, inputEmail, inputInt, inputString, json, contractEmpty, contractInput } from "../_shared/contract.ts";
 import {
     errCalendarIdRequired, errCalendarUpdateRequired, errCalendarUserCreateRequired,
-    errCalendarUserIdRequired, errCalendarUserDeleteRequired, errNameRequired, errPhpNotFound,
+    errCalendarUserIdRequired, errCalendarUserDeleteRequired, errNameRequired, errNotFound500,
     error, rpcPass,
 } from "../_shared/errors.ts";
 import { rpc, selectRows } from "../_shared/supabase.ts";
@@ -15,7 +15,7 @@ const CAL_COLS = "id,name,color,token,created_at,updated_at,home_id";
 // aplica). Mensaje = TypeError del motor con su sufijo de traza, replicado byte a byte salvo la
 // ruta del sufijo: PHP imprime la absoluta de su despliegue y la Edge la canónica del repo
 // (desviación documentada en contract-inventory.md / ARCHITECTURE.md).
-const PHP_COLOR_TYPE_ERROR =
+const COLOR_TYPE_ERROR_MESSAGE =
     "App\\Models\\Calendar::create(): Argument #2 ($color) must be of type string, null given, " +
     "called in api/src/Controllers/CalendarCreate.php on line 21";
 
@@ -33,24 +33,24 @@ export const handleCalendarIndex = async (_req: Request, token: string): Promise
 // Con X-Home-Id el recurso debe ser del hogar activo (§2.2/D-2): filtro home_id=eq (sin
 // cabecera, sin filtro).
 export const handleCalendarDetail = async (req: Request, token: string): Promise<Response> => {
-    const input = await phpInput(req);
+    const input = await contractInput(req);
     const id = inputInt(input, "id");
-    if (phpEmpty(id)) return errCalendarIdRequired();
+    if (contractEmpty(id)) return errCalendarIdRequired();
     const homeFilter = currentHome() === null ? "" : `&home_id=eq.${currentHome()}`;
     const rows = await selectRows("calendar", `id=eq.${id}&select=${CAL_COLS}&limit=1${homeFilter}`, token);
-    if (rows.length === 0) return errPhpNotFound();
+    if (rows.length === 0) return errNotFound500();
     return json(calRow(rows[0]));
 };
 
 // POST /calendar/create (CalendarCreate.php): creador = owner; respuesta 201 con Calendar::findById
 export const handleCalendarCreate = async (req: Request, token: string): Promise<Response> => {
-    const input = await phpInput(req);
+    const input = await contractInput(req);
     const name = inputString(input, "name");
     const color = inputString(input, "color");
     const widget = inputBool(input, "widget", true);
     const dashboard = inputBool(input, "dashboard", true);
-    if (phpEmpty(name)) return errNameRequired();
-    if (color === null) return error(PHP_COLOR_TYPE_ERROR, 500);
+    if (contractEmpty(name)) return errNameRequired();
+    if (color === null) return error(COLOR_TYPE_ERROR_MESSAGE, 500);
     return rpcPass(
         await rpc("create_calendar",
             { p_name: name, p_color: color, p_widget: widget, p_dashboard: dashboard }, token),
@@ -61,13 +61,13 @@ export const handleCalendarCreate = async (req: Request, token: string): Promise
 // PATCH /calendar/update (CalendarUpdate.php): name/color compartidos → owner (403 si viewer y
 // cambian); widget/dashboard → self-row (matriz §3)
 export const handleCalendarUpdate = async (req: Request, token: string): Promise<Response> => {
-    const input = await phpInput(req);
+    const input = await contractInput(req);
     const id = inputInt(input, "id");
     const name = inputString(input, "name");
     const color = inputString(input, "color");
     const widget = inputBool(input, "widget", true);
     const dashboard = inputBool(input, "dashboard", true);
-    if (phpEmpty(id) || phpEmpty(name) || phpEmpty(color)) return errCalendarUpdateRequired();
+    if (contractEmpty(id) || contractEmpty(name) || contractEmpty(color)) return errCalendarUpdateRequired();
     return rpcPass(
         await rpc("update_calendar",
             { p_id: id, p_name: name, p_color: color, p_widget: widget, p_dashboard: dashboard }, token),
@@ -76,16 +76,16 @@ export const handleCalendarUpdate = async (req: Request, token: string): Promise
 
 // DELETE /calendar/delete (CalendarDelete.php): M + owner (desviación Q5)
 export const handleCalendarDelete = async (req: Request, token: string): Promise<Response> => {
-    const input = await phpInput(req);
+    const input = await contractInput(req);
     const id = inputInt(input, "id");
-    if (phpEmpty(id)) return errCalendarIdRequired();
+    if (contractEmpty(id)) return errCalendarIdRequired();
     return rpcPass(await rpc("delete_calendar", { p_id: id }, token));
 };
 
 // GET /calendar/user (CalendarUserIndex.php): quirk PHP `=== 0` — id ausente llega al check de
 // membresía → 500 Not Found (como PHP)
 export const handleCalendarUserIndex = async (req: Request, token: string): Promise<Response> => {
-    const input = await phpInput(req);
+    const input = await contractInput(req);
     const calendarId = inputInt(input, "calendar_id");
     if (calendarId === 0) return errCalendarUserIdRequired();
     return rpcPass(await rpc("get_calendar_users", { p_calendar_id: calendarId }, token));
@@ -93,16 +93,16 @@ export const handleCalendarUserIndex = async (req: Request, token: string): Prom
 
 // POST /calendar/user (CalendarUserCreate.php): M + owner; User::findByEmail → 500 Not Found (Q6)
 export const handleCalendarUserCreate = async (req: Request, token: string): Promise<Response> => {
-    const input = await phpInput(req);
+    const input = await contractInput(req);
     const calendarId = inputInt(input, "calendar_id");
     const email = inputEmail(input, "email");
-    if (phpEmpty(calendarId) || phpEmpty(email)) return errCalendarUserCreateRequired();
+    if (contractEmpty(calendarId) || contractEmpty(email)) return errCalendarUserCreateRequired();
     return rpcPass(await rpc("add_calendar_user", { p_calendar_id: calendarId, p_email: email }, token));
 };
 
 // DELETE /calendar/user (CalendarUserDelete.php): quirk `=== 0` + M → S (400) → O (403) en la RPC
 export const handleCalendarUserDelete = async (req: Request, token: string): Promise<Response> => {
-    const input = await phpInput(req);
+    const input = await contractInput(req);
     const calendarId = inputInt(input, "calendar_id");
     const userId = inputInt(input, "user_id");
     if (calendarId === 0 || userId === 0) return errCalendarUserDeleteRequired();

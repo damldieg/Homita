@@ -123,7 +123,7 @@ verificado y nunca del request (R1-03).
 | `usecases/events.ts` | `GET /event` (dashboard/gestora), `event/*` CRUD; el camino `text` (Gemini) responde 400 (diferido, Q2) |
 | `usecases/tasks.ts` | `GET /task`, `task/*` CRUD + `task/order` |
 | `_shared/supabase.ts` | Clientes/env (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`): `passwordGrant`, `verifyUser`, `appUserRow`, `rpc`, `materializeRoutines`, `hasTaskListAccess` |
-| `_shared/contract.ts` | Adaptadores puros del contrato: `json`, `fmt`, `phpBool`/`phpInt`/`phpStr`/`phpTimestamp` |
+| `_shared/contract.ts` | Adaptadores puros del contrato: `json`, `fmt`, `contractBool`/`contractInt`/`contractStr`/`contractTimestamp` |
 | `_shared/errors.ts` | Errores PHP: `error`, `rpcError` + constructores con los strings exactos |
 | `_shared/validate.ts` | Parsers de body PHP (`0/1` booleans, `timezone`, epoch 10 dígitos) |
 
