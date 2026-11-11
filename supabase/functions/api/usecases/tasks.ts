@@ -5,6 +5,7 @@ import {
     errTaskOrderNegative, errTaskOrderRequired, errTaskUpdateRequired, rpcError, rpcPass,
 } from "../_shared/errors.ts";
 import { hasTaskListAccess, rpc } from "../_shared/supabase.ts";
+import { personIdsOf } from "../_shared/validate.ts";
 
 // GET /task (TaskIndex.php): task_list_id de body+query con precedencia del body
 // (ControllerAbstract.php:31) — si llega → check estricto de pertenencia (TaskListUser::check →
@@ -54,7 +55,10 @@ export const handleTaskCreate = async (req: Request, token: string): Promise<Res
     const taskListId = inputInt(input, "task_list_id");
     const title = inputString(input, "title");
     if (contractEmpty(taskListId) || contractEmpty(title)) return errTaskCreateRequired();
-    return rpcPass(await rpc("create_task", { p_task_list_id: taskListId, p_title: title }, token), 201);
+    // person_ids opcional (tareas con personas, 0025): null = sin asignar.
+    const personIds = await personIdsOf(input, token);
+    if (personIds instanceof Response) return personIds;
+    return rpcPass(await rpc("create_task", { p_task_list_id: taskListId, p_title: title, p_person_ids: personIds }, token), 201);
 };
 
 // PATCH /task/update (TaskUpdate.php): update + reorderByList
@@ -63,7 +67,10 @@ export const handleTaskUpdate = async (req: Request, token: string): Promise<Res
     const id = inputInt(input, "id");
     const title = inputString(input, "title");
     if (contractEmpty(id) || contractEmpty(title)) return errTaskUpdateRequired();
-    return rpcPass(await rpc("update_task", { p_id: id, p_title: title }, token));
+    // Sin person_ids no se tocan las personas; con array se sincronizan (0025).
+    const personIds = await personIdsOf(input, token);
+    if (personIds instanceof Response) return personIds;
+    return rpcPass(await rpc("update_task", { p_id: id, p_title: title, p_person_ids: personIds }, token));
 };
 
 // PATCH /task/complete (TaskComplete.php): completed bool requerido (getInputBool sin default)

@@ -4,26 +4,31 @@ import SwiftUI
 /// (mover de lista no existe en el contrato v1). El guard de título duplicado lo hace el store.
 struct TaskEditorView: View {
     let taskLists: [TaskListEntry]
+    let persons: [PersonEntry]
     let task: TaskEntry?
-    let onSave: (String, Int) -> Void
+    let onSave: (String, Int, [Int]) -> Void
     let onDelete: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @State private var title: String
     @State private var listId: Int
+    @State private var personIds: [Int]
 
     init(
         taskLists: [TaskListEntry],
+        persons: [PersonEntry] = [],
         task: TaskEntry?,
-        onSave: @escaping (String, Int) -> Void,
+        onSave: @escaping (String, Int, [Int]) -> Void,
         onDelete: (() -> Void)? = nil
     ) {
         self.taskLists = taskLists
+        self.persons = persons
         self.task = task
         self.onSave = onSave
         self.onDelete = onDelete
         _title = State(initialValue: task?.title ?? "")
         _listId = State(initialValue: task?.task_list_id ?? taskLists.first?.id ?? 0)
+        _personIds = State(initialValue: task?.persons?.map(\.id) ?? [])
     }
 
     /// Sin listas no hay dónde crear la tarea: en alta hace falta al menos una lista.
@@ -53,8 +58,9 @@ struct TaskEditorView: View {
                     }
                 }
             }
+            PersonSelector(persons: persons, selected: $personIds)
             HomitaButton(title: task == nil ? "Crear tarea" : "Guardar", isEnabled: canSave) {
-                onSave(title.trimmingCharacters(in: .whitespacesAndNewlines), listId)
+                onSave(title.trimmingCharacters(in: .whitespacesAndNewlines), listId, personIds)
                 dismiss()
             }
             if let onDelete {
