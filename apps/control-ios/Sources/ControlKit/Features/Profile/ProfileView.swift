@@ -54,6 +54,28 @@ public struct ProfileView: View {
                         Label("Unirse a un hogar con un código", systemImage: "person.badge.plus")
                     }
                 }
+                if !services.homeContext.homes.isEmpty {
+                    Section("Mis hogares") {
+                        ForEach(HomeSwitcher.rows(homes: services.homeContext.homes,
+                                                  activeHomeId: services.homeContext.activeHomeId)) { row in
+                            Button {
+                                services.homeContext.select(homeId: row.id)
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading) {
+                                        Text(row.name).foregroundStyle(.primary)
+                                        Text(row.roleLabel).font(.caption).foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    if row.isActive {
+                                        Image(systemName: "checkmark").foregroundStyle(.tint)
+                                    }
+                                }
+                            }
+                            .accessibilityAddTraits(row.isActive ? .isSelected : [])
+                        }
+                    }
+                }
                 if case .ready(let home) = services.homeContext.state {
                     Section("Hogar") {
                         NavigationLink {

@@ -36,14 +36,18 @@ struct MainTabView: View {
 
     var body: some View {
         let state = services.homeContext.state
+        // 1.15c: al cambiar de hogar las pestañas se reconstruyen (stores y datos del hogar anterior fuera).
+        let homeKey = services.homeContext.activeHomeId ?? ""
         TabView {
             HomeGate(services: services, state: state) {
                 TasksRootView(services: services)
             }
+            .id(homeKey)
             .tabItem { Label("Tareas", systemImage: "checklist") }
             HomeGate(services: services, state: state) {
                 CalendarsRootView(services: services)
             }
+            .id(homeKey)
             .tabItem { Label("Calendario", systemImage: "calendar") }
             ProfileView(services: services)
                 .tabItem { Label("Perfil", systemImage: "person.crop.circle") }
