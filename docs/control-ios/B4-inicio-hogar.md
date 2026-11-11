@@ -4,7 +4,7 @@ Tarjeta Trello: https://trello.com/c/rygPcyhT · Doc de rediseño: `.dorch/chang
 
 **Diseño visual (canvas):** https://claude.ai/artifact/QECVsJ4WStW5qGnUsWhRgr — dos artboards de 390×844 (Inicio versión mínima y Hogar).
 
-Es diseño en papel: no implementa código. La adopción espera a que Homita Foundation cierre (rutas `/home/*`, migración DP-1).
+Documento de diseño; la implementación se hizo en el mismo cambio (ver «Estado de implementación» al final).
 
 ## Lenguaje visual
 
@@ -30,7 +30,7 @@ Opción A recomendada (§4.1, DP-4 sin cerrar hasta Fase C): tab bar de 5 pesta�
 
 Orden de secciones, de arriba abajo:
 1. Saludo y fecha: «Hola, [NOMBRE]» con la fecha del día.
-2. **Hoy · Eventos**: eventos del día y de varios días que tocan hoy, ordenados por hora. Fuente: `GET event` por ventana de fechas (contrato actual).
+2. **Hoy · Eventos**: eventos cuyo día de inicio es hoy (limitación: ver al final), ordenados por hora. Fuente: `GET event` por ventana de fechas (contrato actual).
 3. **Tareas pendientes**: pendientes destacadas. Fuente: contrato actual de tareas.
 4. **Rutinas de hoy**: cálculo en cliente con `RoutineRule.occurs(on:)`.
 5. **Accesos rápidos**: «+ Tarea» (acento) y «+ Evento».
@@ -44,7 +44,7 @@ Orden de secciones:
 2. **Miembros**: cada uno con inicial, nombre, indicador «tú» si corresponde, permisos del catálogo y **tipo**: adulto, niño, familiar, invitado o mascota (D-010).
 3. **Invitar**: código copiable de invitación, con la lista de tipos (D-010: invitación por código, no por email).
 
-El rol y los permisos se muestran como texto del catálogo; no se diseña un editor de permisos en esta versión.
+El rol y los permisos se muestran como texto del catálogo (en la fila, los 3 primeros en el orden del backend; «Ver más» abre un sheet con el catálogo completo del miembro); no se diseña un editor de permisos en esta versión.
 
 ## Criterios de aceptación (tarjeta)
 
@@ -67,7 +67,21 @@ El rol y los permisos se muestran como texto del catálogo; no se diseña un edi
 
 ## Fuera de alcance
 
-- Implementación de vistas SwiftUI, stores o rutas.
 - Branding (DP-3).
 - Evolucionar `MembersSection` más allá de lo actual (obsoleto con D-010).
 - Sincronización con Apple Calendar (DP-7).
+
+## Estado de implementación
+
+Estado: **implementado** (SwiftUI en `apps/control-ios`, sin cambios de backend ni dependencias nuevas).
+
+- Navegación: tab bar de 5 pestañas (Inicio · Tareas · Calendario · Hogar · Perfil). Inicio y Hogar pasan por `HomeGate` y se recrean al cambiar de hogar. Perfil pierde «Mis hogares» y «Administración del hogar», que pasan a Hogar; mantiene cuenta, Personas e «Unirse a un hogar con un código» (visible sin hogar activo).
+- Inicio: `InicioView` + `InicioStore`; solo llama `event`, `task` y `routine` (ninguna ruta `/home/*`). Un fallo en una sección no oculta las demás. La casilla de tarea completa/reabre igual que en Tareas. «+ Tarea» y «+ Evento» abren los editores existentes. Rutinas de hoy: cálculo en cliente con `RoutineRule.occurs`.
+- Hogar: `HogarView` + `HogarStore`; miembros con `GET home/member` + `GET home/permission` (cuentas con rol, tipo y permisos del catálogo, «tú»; miembros sin cuenta con su tipo). Invitar visible solo con `HomeAdminAccess.canInvite`.
+- Verificación: tests unitarios con `swift test`; la UI no se ha verificado en simulador.
+
+### Limitaciones
+
+- **Eventos de varios días:** `EventEntry` no trae fin (solo `date_at`), así que Inicio muestra un evento solo en su día de inicio; no aparece los días siguientes. Resolverlo requiere un campo de fin en el contrato (backend, fuera de alcance).
+- **Código de invitación:** solo existe en la respuesta de `POST /home/invitation/create`; no hay ruta para releerlo. El código copiable se muestra una sola vez al crear la invitación; las invitaciones pendientes se listan sin código.
+- Los miembros vinculados (`linked`) se omiten de la lista de miembros porque ya salen como cuenta (no hay id común entre `home/member` y `home/permission`).

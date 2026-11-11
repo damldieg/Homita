@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Raíz de la app: sin sesión → Welcome → Login/Register; con sesión → 3 pestañas
-/// (Tareas, Calendario, Perfil). Es el único punto público del módulo: el proyecto Xcode del
+/// Raíz de la app: sin sesión → Welcome → Login/Register; con sesión → 5 pestañas
+/// (Inicio, Tareas, Calendario, Hogar, Perfil). Es el único punto público del módulo: el proyecto Xcode del
 /// usuario hace `WindowGroup { RootView() }` (ver README.md).
 public struct RootView: View {
     @State private var session: SessionStore
@@ -36,7 +36,7 @@ public struct RootView: View {
 
 struct MainTabView: View {
     let services: AppServices
-    @State private var selectedTab = 0
+    @State private var selectedTab = 0 // 0 Inicio, 1 Tareas, 2 Calendario, 3 Hogar, 4 Perfil
 
     var body: some View {
         let state = services.homeContext.state
@@ -44,20 +44,34 @@ struct MainTabView: View {
         let homeKey = services.homeContext.activeHomeId ?? ""
         TabView(selection: $selectedTab) {
             HomeGate(services: services, state: state) {
+                InicioView(services: services)
+            }
+            .id(homeKey)
+            .tabItem { Label("Inicio", systemImage: "house") }
+            .tag(0)
+            HomeGate(services: services, state: state) {
                 TasksRootView(services: services)
             }
             .id(homeKey)
             .tabItem { Label("Tareas", systemImage: "checklist") }
-            .tag(0)
+            .tag(1)
             HomeGate(services: services, state: state) {
                 CalendarsRootView(services: services)
             }
             .id(homeKey)
             .tabItem { Label("Calendario", systemImage: "calendar") }
-            .tag(1)
+            .tag(2)
+            HomeGate(services: services, state: state) {
+                if case .ready(let home) = state {
+                    HogarView(services: services, home: home)
+                }
+            }
+            .id(homeKey)
+            .tabItem { Label("Hogar", systemImage: "person.2") }
+            .tag(3)
             ProfileView(services: services)
                 .tabItem { Label("Perfil", systemImage: "person.crop.circle") }
-                .tag(2)
+                .tag(4)
         }
         .tint(Palette.accent)
     }
