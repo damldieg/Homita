@@ -187,7 +187,7 @@ final class HomeAdminStoreTests: XCTestCase {
         let item = try XCTUnwrap(store.response?.memberships.last)
         var draft = PermissionDraft(permissions: item.permissions)
         draft.toggle("task.read")
-        let ok = await store.save(item: item, draft: draft)
+        let ok = await store.save(item: item, draft: draft, callerRole: "admin")
         XCTAssertTrue(ok)
         let patch = try XCTUnwrap(StubURLProtocol.requests.first { $0.httpMethod == "PATCH" })
         XCTAssertEqual(String(data: try XCTUnwrap(patch.capturedBody), encoding: .utf8),
@@ -199,10 +199,108 @@ final class HomeAdminStoreTests: XCTestCase {
         let store = PermissionStore(repo: repo(), homeId: 2, activeHomeId: { box.active })
         await store.load()
         let admin = try XCTUnwrap(store.response?.memberships.first)
-        let ok = await store.save(item: admin, draft: PermissionDraft(permissions: admin.permissions))
+        let ok = await store.save(item: admin, draft: PermissionDraft(permissions: admin.permissions), callerRole: "admin")
         XCTAssertFalse(ok)
-        XCTAssertNotNil(store.errorMessage)
+        XCTAssertEqual(store.errorMessage, "Administrador: todos los accesos")
         XCTAssertFalse(method("PATCH", in: StubURLProtocol.requests))
+    }
+
+    func testPermissionStoreRefusesNonEditableMemberCaller() async throws {
+        let box = Box()
+        let store = PermissionStore(repo: repo(), homeId: 2, activeHomeId: { box.active })
+        await store.load()
+        let beto = try XCTUnwrap(store.response?.memberships.last)
+        let locked = PermissionItem(membershipId: beto.membershipId, appUserId: beto.appUserId, name: beto.name,
+                                    email: beto.email, role: "member", kind: nil, editable: false,
+                                    permissions: beto.permissions)
+        let ok = await store.save(item: locked, draft: PermissionDraft(permissions: []), callerRole: "member")
+        XCTAssertFalse(ok)
+        XCTAssertEqual(store.errorMessage, "Solo un administrador puede editar accesos")
+        XCTAssertFalse(method("PATCH", in: StubURLProtocol.requests))
+    }
+
+    func testPermissionStoreSaveRefusedForMemberCallerOnEditableRow() async throws {
+        let box = Box()
+        let store = PermissionStore(repo: repo(), homeId: 2, activeHomeId: { box.active })
+        await store.load()
+        let beto = try XCTUnwrap(store.response?.memberships.last)
+        XCTAssertTrue(beto.editable)
+        let requestsBefore = StubURLProtocol.requests.count
+        let ok = await store.save(item: beto, draft: PermissionDraft(permissions: []), callerRole: "member")
+        XCTAssertFalse(ok)
+        XCTAssertEqual(store.errorMessage, "Solo un administrador puede editar accesos")
+        XCTAssertFalse(method("PATCH", in: StubURLProtocol.requests))
+        XCTAssertEqual(StubURLProtocol.requests.count, requestsBefore)
+    }
+
+    // MARK: Permissions reset
+
+    private func withKindHandler(patch: @escaping (URLRequest) -> StubURLProtocol.Stub = ContractFixtures.response)
+        -> (URLRequest) -> StubURLProtocol.Stub {
+        { request in
+            if request.httpMethod == "GET", request.url?.path.hasSuffix("home/permission") == true {
+                return StubURLProtocol.Stub(status: 200, json: ContractFixtures.permissionGetWithKind)
+            }
+            return patch(request)
+        }
+    }
+
+    func testPermissionStoreResetSendsDefaultsFullSet() async throws {
+        let box = Box()
+        let store = PermissionStore(repo: repo(withKindHandler()), homeId: 2, activeHomeId: { box.active })
+        await store.load()
+        let beto = try XCTUnwrap(store.response?.memberships.first { $0.membershipId == 8 })
+        let ok = await store.reset(item: beto, callerRole: "admin")
+        XCTAssertTrue(ok)
+        let patch = try XCTUnwrap(StubURLProtocol.requests.first { $0.httpMethod == "PATCH" })
+        XCTAssertEqual(String(data: try XCTUnwrap(patch.capturedBody), encoding: .utf8),
+                       #"{"home_id":2,"membership_id":8,"permissions":["calendar.read","task.read"]}"#)
+        XCTAssertEqual(StubURLProtocol.requests.filter { $0.httpMethod == "GET" }.count, 2)
+    }
+
+    func testPermissionStoreResetRefusedWithoutDefaults() async throws {
+        let box = Box()
+        let store = PermissionStore(repo: repo(withKindHandler()), homeId: 2, activeHomeId: { box.active })
+        await store.load()
+        let items = try XCTUnwrap(store.response?.memberships)
+        let cris = try XCTUnwrap(items.first { $0.membershipId == 10 }) // sin kind
+        let beto = try XCTUnwrap(items.first { $0.membershipId == 8 })
+        let ana = try XCTUnwrap(items.first { $0.membershipId == 7 })
+        let gets = StubURLProtocol.requests.count
+        let r278 = await store.reset(item: cris, callerRole: "admin")
+        XCTAssertFalse(r278)
+        XCTAssertNotNil(store.errorMessage)
+        store.errorMessage = nil
+        let r438 = await store.reset(item: beto, callerRole: "member")
+        XCTAssertFalse(r438)
+        XCTAssertEqual(store.errorMessage, "Solo un administrador puede editar accesos")
+        let r391 = await store.reset(item: ana, callerRole: "admin")
+        XCTAssertFalse(r391)
+        XCTAssertEqual(StubURLProtocol.requests.count, gets)
+    }
+
+    func testPermissionStoreReset403() async throws {
+        let box = Box()
+        let store = PermissionStore(repo: repo(withKindHandler(patch: forbidden)), homeId: 2,
+                                    activeHomeId: { box.active })
+        await store.load()
+        let beto = try XCTUnwrap(store.response?.memberships.first { $0.membershipId == 8 })
+        let ok = await store.reset(item: beto, callerRole: "admin")
+        XCTAssertFalse(ok)
+        XCTAssertEqual(store.errorMessage, "Solo un administrador puede realizar esta acción")
+    }
+
+    func testPermissionStore400InvalidPermission() async throws {
+        let box = Box()
+        let bad: (URLRequest) -> StubURLProtocol.Stub = { _ in
+            StubURLProtocol.Stub(status: 400, json: #"{"error":"Invalid permission"}"#)
+        }
+        let store = PermissionStore(repo: repo(withKindHandler(patch: bad)), homeId: 2, activeHomeId: { box.active })
+        await store.load()
+        let beto = try XCTUnwrap(store.response?.memberships.first { $0.membershipId == 8 })
+        let ok = await store.save(item: beto, draft: PermissionDraft(permissions: ["x.unknown"]), callerRole: "admin")
+        XCTAssertFalse(ok)
+        XCTAssertEqual(store.errorMessage, "Invalid permission")
     }
 
     func testPermissionStore403() async {

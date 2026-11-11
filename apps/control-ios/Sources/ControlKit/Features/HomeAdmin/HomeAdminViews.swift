@@ -274,7 +274,7 @@ struct HomeAdministratorsView: View {
         case .demote: await store.changeRole(item, to: "member")
         case .transfer: await store.transfer(to: item)
         case .remove, .leave: await store.remove(item)
-        case .editPermissions: break
+        case .editPermissions, .resetPermissions: break
         }
     }
 
@@ -330,6 +330,10 @@ struct MemberPermissionsView: View {
                             Text(item.name)
                             Text(item.role == "admin" ? "Administrador: todos los accesos" : "\(item.permissions.count) accesos")
                                 .font(.caption).foregroundStyle(.secondary)
+                            if let reason = PermissionRules.lockReason(callerRole: home.role, item: item),
+                               item.role != "admin" {
+                                Text(reason).font(.caption2).foregroundStyle(.secondary)
+                            }
                         }
                         Spacer()
                         if item.editable && item.role == "member" && HomeAdminAccess.isAdmin(role: home.role) {
@@ -337,18 +341,41 @@ struct MemberPermissionsView: View {
                         }
                     }
                 }
+                kindSummarySection
             }
         }
         .navigationTitle("Accesos")
         .refreshable { await store.load() }
-        .errorAlert($store.errorMessage)
+        .errorAlert(Binding(get: { editing == nil ? store.errorMessage : nil },
+                            set: { store.errorMessage = $0 }))
         .sheet(item: Binding(get: { editing.map { IdentifiedPermission(item: $0) } },
                              set: { editing = $0?.item })) { wrapper in
             NavigationStack {
-                PermissionEditorView(store: store, item: wrapper.item)
+                PermissionEditorView(store: store, item: wrapper.item, callerRole: home.role)
             }
         }
         .task { await store.load() }
+    }
+}
+
+extension MemberPermissionsView {
+    /// Resumen solo lectura de qué cubre cada tipo; oculto sin defaults.
+    @ViewBuilder
+    fileprivate var kindSummarySection: some View {
+        let summary = PermissionRules.kindSummary(defaults: store.response?.defaults ?? [],
+                                                  catalog: store.response?.catalog ?? [])
+        if !summary.isEmpty {
+            Section("Qué cubre cada tipo") {
+                ForEach(summary, id: \.kind) { entry in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(MemberRules.kindLabel(entry.kind))
+                        Text(entry.domains.map { "\($0.domain): \($0.codes.joined(separator: ", "))" }
+                            .joined(separator: " · "))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -360,19 +387,34 @@ struct IdentifiedPermission: Identifiable {
 struct PermissionEditorView: View {
     let store: PermissionStore
     let item: PermissionItem
+    let callerRole: String
 
     @Environment(\.dismiss) private var dismiss
     @State private var draft: PermissionDraft
+    @State private var confirmingReset = false
 
-    init(store: PermissionStore, item: PermissionItem) {
+    init(store: PermissionStore, item: PermissionItem, callerRole: String) {
         self.store = store
         self.item = item
+        self.callerRole = callerRole
         _draft = State(initialValue: PermissionDraft(permissions: item.permissions))
     }
 
     var body: some View {
+        let catalog = store.response?.catalog ?? []
+        let unknown = PermissionRules.unknownCodes(item: item, catalog: catalog)
+        let canReset = PermissionRules.canReset(callerRole: callerRole, item: item,
+                                                defaults: store.response?.defaults ?? [], catalog: catalog)
         Form {
-            ForEach(groupedCatalog(store.response?.catalog ?? []), id: \.domain) { group in
+            if !unknown.isEmpty {
+                Section {
+                    EmptyView()
+                } footer: {
+                    Text("Este miembro tiene accesos no reconocidos (\(unknown.joined(separator: ", "))). Guardar puede fallar.")
+                        .foregroundStyle(.orange)
+                }
+            }
+            ForEach(groupedCatalog(catalog), id: \.domain) { group in
                 Section(group.domain) {
                     ForEach(group.entries, id: \.code) { entry in
                         Toggle(isOn: Binding(get: { draft.isOn(entry.code) }, set: { _ in draft.toggle(entry.code) })) {
@@ -384,13 +426,29 @@ struct PermissionEditorView: View {
                     }
                 }
             }
+            if canReset {
+                Section {
+                    Button("Restablecer a tipo", role: .destructive) { confirmingReset = true }
+                }
+            }
         }
         .navigationTitle(item.name)
+        .errorAlert(Binding(get: { store.errorMessage }, set: { store.errorMessage = $0 }))
+        .confirmationDialog(
+            "Se sobrescribirán los accesos personalizados de \(item.name) con los de su tipo.",
+            isPresented: $confirmingReset,
+            titleVisibility: .visible
+        ) {
+            Button("Restablecer", role: .destructive) {
+                Task { if await store.reset(item: item, callerRole: callerRole) { dismiss() } }
+            }
+            Button("Cancelar", role: .cancel) {}
+        }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Guardar") {
-                    Task { if await store.save(item: item, draft: draft) { dismiss() } }
+                    Task { if await store.save(item: item, draft: draft, callerRole: callerRole) { dismiss() } }
                 }
                 .disabled(!draft.isDirty)
             }
