@@ -122,4 +122,23 @@ final class ModelsDecodeTests: XCTestCase {
         XCTAssertTrue(try decodeFixture(OkResponse.self, #"{"success":true}"#).success?.value == true)
         XCTAssertEqual(try decodeFixture(OkResponse.self, #"{"status":"ok"}"#).status, "ok")
     }
+
+    func testInvitationFixturesDecode() throws {
+        let list = try decodeFixture([InvitationItem].self, ContractFixtures.invitationList)
+        XCTAssertEqual(list.count, 2)
+        XCTAssertEqual(list[0].memberId, 3)
+        XCTAssertEqual(list[0].memberName, "Luz")
+        XCTAssertNil(list[1].memberId)
+        let created = try decodeFixture(InvitationCreated.self, ContractFixtures.invitationCreated)
+        XCTAssertEqual(created.code.count, 32)
+        XCTAssertEqual(created.item.kind, "guest")
+        XCTAssertEqual(try decodeFixture(InvitationItem.self, ContractFixtures.invitationRevoked).status, "revoked")
+    }
+
+    func testInvitationCreatedRedactsCode() throws {
+        let created = try decodeFixture(InvitationCreated.self, ContractFixtures.invitationCreated)
+        for text in [created.description, created.debugDescription, "\(created)", String(reflecting: created)] {
+            XCTAssertFalse(text.contains(ContractFixtures.invitationCode), text)
+        }
+    }
 }

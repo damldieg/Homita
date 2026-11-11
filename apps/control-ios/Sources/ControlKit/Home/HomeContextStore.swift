@@ -25,6 +25,8 @@ public enum HomeContextState: Equatable, Sendable {
 @Observable
 public final class HomeContextStore {
     public private(set) var state: HomeContextState = .unresolved
+    /// Hogares del último `GET home` (para el selector de Perfil, 1.15c).
+    public private(set) var homes: [HomeItem] = []
 
     private let store: TokenStore
     /// Se incrementa en `clear()`: un `load`/`create` en vuelo que termina después descarta su resultado.
@@ -74,6 +76,7 @@ public final class HomeContextStore {
         do {
             let homes = try await repository.list()
             guard token == generation else { return nil }
+            self.homes = homes
             if let created = homes.first(where: { $0.homeId == detail.id }) {
                 activate(created)
             } else {
@@ -104,6 +107,7 @@ public final class HomeContextStore {
         do {
             let homes = try await repository.list()
             guard token == generation else { return nil }
+            self.homes = homes
             if let joined = homes.first(where: { $0.homeId == accepted.homeId }) {
                 activate(joined)
             } else {
@@ -120,10 +124,21 @@ public final class HomeContextStore {
     public func clear() {
         generation += 1
         try? store.remove(Self.key)
+        homes = []
         state = .unresolved
     }
 
+    /// Activa un hogar de `homes` (selector de Perfil, 1.15c). Sin escrituras en la API: no cambia
+    /// el predeterminado. Devuelve false si el id no está en la última lista (no cambia nada).
+    @discardableResult
+    public func select(homeId: Int) -> Bool {
+        guard let home = homes.first(where: { $0.homeId == homeId }) else { return false }
+        activate(home)
+        return true
+    }
+
     private func resolve(_ homes: [HomeItem]) {
+        self.homes = homes
         guard !homes.isEmpty else {
             try? store.remove(Self.key)
             state = .noHome

@@ -219,3 +219,118 @@ final class HomeContextStoreTests: XCTestCase {
         XCTAssertEqual(store.activeHomeId, "2")
     }
 }
+
+final class HomeSwitcherTests: XCTestCase {
+    private let key = "active_home_id"
+
+    private func makeSUT(tokens: InMemoryTokenStore = InMemoryTokenStore()) -> (HomeContextStore, InMemoryTokenStore, HomeRepository) {
+        let store = HomeContextStore(store: tokens)
+        let client = APIClient(
+            baseURL: URL(string: "https://test.supabase.co/functions/v1/api")!,
+            session: StubURLProtocol.session(),
+            tokenProvider: { "tok" },
+            homeIdProvider: { [weak store] in store?.activeHomeId }
+        )
+        return (store, tokens, HomeRepository(client: client))
+    }
+
+    // Acceptance 1
+    func testRowsListAllHomesWithRoleAndActiveMark() async throws {
+        let (store, _, repo) = makeSUT()
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: ContractFixtures.homeList) }
+        await store.load(using: repo)
+        let rows = HomeSwitcher.rows(homes: store.homes, activeHomeId: store.activeHomeId)
+        XCTAssertEqual(rows.count, store.homes.count)
+        XCTAssertEqual(rows.map(\.id), store.homes.map(\.homeId))
+        XCTAssertEqual(rows.filter(\.isActive).map(\.id), [2])
+        XCTAssertEqual(rows.map(\.roleLabel), store.homes.map { $0.role == "admin" ? "Administrador" : "Miembro" })
+        XCTAssertEqual(HomeSwitcher.rows(homes: [], activeHomeId: nil), [])
+    }
+
+    // Acceptance 2 + 4
+    func testSelectChangesActiveHomeAndHeaderWithoutWrites() async throws {
+        let (store, tokens, repo) = makeSUT()
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: ContractFixtures.homeList) }
+        await store.load(using: repo)
+        XCTAssertEqual(store.activeHomeId, "2")
+        XCTAssertTrue(store.select(homeId: 1))
+        XCTAssertEqual(store.activeHomeId, "1")
+        XCTAssertEqual(try tokens.get(key), "1")
+        XCTAssertFalse(store.select(homeId: 99))
+        XCTAssertEqual(store.activeHomeId, "1")
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: ContractFixtures.homeDetail) }
+        _ = try await repo.client.send(APIRequest(method: .get, path: "home/detail"), as: HomeDetail.self)
+        XCTAssertEqual(StubURLProtocol.requests.last?.value(forHTTPHeaderField: "X-Home-Id"), "1")
+        // Sin PATCH home/default ni otras escrituras durante la selección.
+        XCTAssertTrue(StubURLProtocol.requests.allSatisfy { $0.httpMethod == "GET" })
+        XCTAssertFalse(StubURLProtocol.requests.contains { $0.url?.path.hasSuffix("/home/default") == true })
+    }
+
+    // Acceptance 4 (todo el flujo load + select)
+    func testNoDefaultPatchDuringLoadAndSelect() async throws {
+        let (store, _, repo) = makeSUT()
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: ContractFixtures.homeList) }
+        await store.load(using: repo)
+        store.select(homeId: 1)
+        XCTAssertFalse(StubURLProtocol.requests.contains { $0.httpMethod == "PATCH" })
+    }
+
+    // Acceptance 3
+    func testActiveHomeRestoredFromPersistenceOnRebuild() async throws {
+        let tokens = InMemoryTokenStore()
+        let (first, _, repo1) = makeSUT(tokens: tokens)
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: ContractFixtures.homeList) }
+        await first.load(using: repo1)
+        first.select(homeId: 1)
+        let (second, _, repo2) = makeSUT(tokens: tokens)
+        await second.load(using: repo2)
+        XCTAssertEqual(second.activeHomeId, "1")
+    }
+
+    func testClearEmptiesHomes() async throws {
+        let (store, _, repo) = makeSUT()
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: ContractFixtures.homeList) }
+        await store.load(using: repo)
+        store.clear()
+        XCTAssertTrue(store.homes.isEmpty)
+        XCTAssertFalse(store.select(homeId: 1))
+    }
+}
+
+/// Diagnóstico 1.15c: la selección sobrevive a reconstruir el store (relanzar la app).
+final class HomeActivePersistenceTests: XCTestCase {
+    private func makeRepo(_ store: HomeContextStore) -> HomeRepository {
+        HomeRepository(client: APIClient(
+            baseURL: URL(string: "https://test.supabase.co/functions/v1/api")!,
+            session: StubURLProtocol.session(),
+            tokenProvider: { "tok" },
+            homeIdProvider: { [weak store] in store?.activeHomeId }
+        ))
+    }
+
+    private func assertSelectionSurvivesRelaunch(_ tokens: TokenStore, file: StaticString = #filePath, line: UInt = #line) async throws {
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: ContractFixtures.homeList) }
+        let first = HomeContextStore(store: tokens)
+        await first.load(using: makeRepo(first))
+        XCTAssertEqual(first.activeHomeId, "2", file: file, line: line) // predeterminado
+        XCTAssertTrue(first.select(homeId: 1), file: file, line: line)
+        // Lectura directa: el valor debe estar realmente en el store.
+        XCTAssertEqual(try tokens.get("active_home_id"), "1", file: file, line: line)
+        let second = HomeContextStore(store: tokens)
+        await second.load(using: makeRepo(second))
+        XCTAssertEqual(second.activeHomeId, "1", "el hogar elegido se perdió al reconstruir", file: file, line: line)
+    }
+
+    func testSelectionSurvivesRelaunchInMemory() async throws {
+        try await assertSelectionSurvivesRelaunch(InMemoryTokenStore())
+    }
+
+    func testSelectionSurvivesRelaunchRealKeychain() async throws {
+        let tokens = KeychainTokenStore(service: "com.lito.planify.control.ios.tests.\(UUID().uuidString)")
+        defer { try? tokens.remove("active_home_id") }
+        do { try tokens.set("probe", forKey: "active_home_id") } catch {
+            throw XCTSkip("Keychain no disponible en este host de tests: \(error)")
+        }
+        try await assertSelectionSurvivesRelaunch(tokens)
+    }
+}

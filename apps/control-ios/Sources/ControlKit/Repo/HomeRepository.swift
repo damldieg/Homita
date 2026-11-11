@@ -143,4 +143,31 @@ public struct HomeRepository {
         if let beforeId { query.append(URLQueryItem(name: "before_id", value: String(beforeId))) }
         return try await client.send(APIRequest(method: .get, path: "home/audit", query: query), as: [AuditItem].self)
     }
+
+    // MARK: - Invitaciones (1.15b). Todas salvo accept llevan `X-Home-Id` (ver `RequestBuilder`).
+
+    /// `GET home/invitation?home_id=` → `[INVITATION_ITEM]` (pendientes no caducadas).
+    public func invitations(homeId: Int) async throws -> [InvitationItem] {
+        try await client.send(
+            APIRequest(method: .get, path: "home/invitation", query: [URLQueryItem(name: "home_id", value: String(homeId))]),
+            as: [InvitationItem].self
+        )
+    }
+
+    /// `POST home/invitation/create` → 201 `INVITATION_CREATED` (el `code` solo viaja aquí).
+    public func createInvitation(_ body: CreateInvitationBody) async throws -> InvitationCreated {
+        try await client.send(
+            APIRequest(method: .post, path: "home/invitation/create", body: try client.encode(body)),
+            as: InvitationCreated.self
+        )
+    }
+
+    /// `POST home/invitation/revoke` body `{home_id,id}` → `INVITATION_ITEM` con `status: "revoked"`.
+    public func revokeInvitation(homeId: Int, id: Int) async throws -> InvitationItem {
+        try await client.send(
+            APIRequest(method: .post, path: "home/invitation/revoke",
+                       body: try client.encode(RevokeInvitationBody(homeId: homeId, id: id))),
+            as: InvitationItem.self
+        )
+    }
 }
