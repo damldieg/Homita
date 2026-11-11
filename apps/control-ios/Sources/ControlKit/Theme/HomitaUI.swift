@@ -237,7 +237,10 @@ struct HomitaField: View {
     @ViewBuilder
     private var field: some View {
         #if canImport(ComponentsKit)
+        // Sin borde de la librería: el color principal del campo es el texto escrito (tinta), y el
+        // borde suave se dibuja aparte. Así el texto no se confunde con el fondo.
         SUInputField(text: $text, isFocused: $isFocused, model: fieldModel)
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Palette.line, lineWidth: 1.5))
         #else
         Group {
             if isSecure {
@@ -260,9 +263,9 @@ struct HomitaField: View {
             $0.autocapitalization = (isEmail || isCode) ? .never : .sentences
             $0.keyboardType = isEmail ? .emailAddress : .default
             $0.cornerRadius = .large
-            $0.style = .bordered
+            $0.style = .light
             $0.tintColor = uc("#221D18")
-            $0.color = ComponentColor(main: uc("#D9CBB6"), contrast: uc("#221D18"), background: uc("#F7EEE2"))
+            $0.color = ComponentColor(main: uc("#221D18"), contrast: uc("#221D18"), background: uc("#F7EEE2"))
         }
     }
     #endif
