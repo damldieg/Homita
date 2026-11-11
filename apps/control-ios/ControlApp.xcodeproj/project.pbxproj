@@ -299,6 +299,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				INFOPLIST_KEY_CFBundleDisplayName = "Homita Control";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lito.planify.control.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -327,6 +328,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				INFOPLIST_KEY_CFBundleDisplayName = "Homita Control";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lito.planify.control.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
