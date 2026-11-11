@@ -114,7 +114,7 @@ struct TasksView: View {
 
             if store.pendingTasks.isEmpty && store.completedTasks.isEmpty && !store.isLoading {
                 HomitaEmptyState(
-                    systemImage: "checklist",
+                    illustration: .tasks,
                     title: "Sin tareas",
                     message: store.listFilterId == nil
                         ? "Crea tu primera tarea y ponle una lista para tenerla a mano."
@@ -192,7 +192,7 @@ struct TaskListsView: View {
         List {
             if store.taskLists.isEmpty && !store.isLoading {
                 HomitaEmptyState(
-                    systemImage: "list.bullet",
+                    illustration: .lists,
                     title: "Sin listas",
                     message: "Las listas agrupan tus tareas: compra, casa, trabajo…",
                     actionTitle: "Nueva lista"

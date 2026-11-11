@@ -79,7 +79,7 @@ struct EventListView: View {
             }
             if store.upcoming.isEmpty && store.past.isEmpty && !store.isLoading {
                 HomitaEmptyState(
-                    systemImage: "calendar.badge.plus",
+                    illustration: .events,
                     title: "Sin eventos",
                     message: "Añade un evento con fecha y hora para verlo aquí.",
                     actionTitle: "Nuevo evento"

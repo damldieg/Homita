@@ -551,9 +551,9 @@ struct HomitaLinkRow: View {
     }
 }
 
-/// Estado vacío de Homita: icono en baldosa, título, explicación y botón para crear desde ahí.
+/// Estado vacío de Homita: ilustración propia, título, explicación y botón para crear desde ahí.
 struct HomitaEmptyState: View {
-    let systemImage: String
+    let illustration: HomitaIllustrationKind
     let title: String
     let message: String
     let actionTitle: String
@@ -562,12 +562,7 @@ struct HomitaEmptyState: View {
     var body: some View {
         HomitaCard {
             VStack(spacing: 14) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 34, weight: .semibold))
-                    .foregroundStyle(Palette.accent)
-                    .frame(width: 84, height: 84)
-                    .background(Palette.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 26))
-                    .accessibilityHidden(true)
+                HomitaIllustration(kind: illustration)
                 Text(title)
                     .font(HomitaFont.geist(20, weight: .bold, relativeTo: .title3))
                     .foregroundStyle(Palette.ink)

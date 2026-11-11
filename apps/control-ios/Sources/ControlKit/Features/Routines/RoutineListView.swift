@@ -63,7 +63,7 @@ struct RoutineListView: View {
             }
             if store.routines.isEmpty && !store.isLoading {
                 HomitaEmptyState(
-                    systemImage: "repeat",
+                    illustration: .routines,
                     title: "Sin rutinas",
                     message: "Las rutinas repiten eventos cada día, semana o mes sin que las vuelvas a escribir.",
                     actionTitle: "Nueva rutina"

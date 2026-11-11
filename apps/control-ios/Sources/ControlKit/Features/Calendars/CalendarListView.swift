@@ -10,7 +10,7 @@ struct CalendarListView: View {
         List {
             if store.calendars.isEmpty && !store.isLoading {
                 HomitaEmptyState(
-                    systemImage: "calendar",
+                    illustration: .calendars,
                     title: "Sin calendarios",
                     message: "Los calendarios agrupan eventos y rutinas por color, como Trabajo o Familia.",
                     actionTitle: "Nuevo calendario"
