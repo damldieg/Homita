@@ -7,34 +7,47 @@
 <link rel="stylesheet" href="../tokens.css">
 <link rel="stylesheet" href="../components.css">
 <style>
-/* Extras de esta página (no existen en components.css) */
-.home-sel { display: flex; align-items: center; gap: var(--s3); min-height: 52px; }
-.home-sel .grow { flex: 1; min-width: 0; }
-.perm-sum { font: var(--t-cap); color: var(--text-2); display: flex; align-items: center; gap: var(--s2); padding-left: 52px; margin-top: 2px; }
-.perm-sum .link { font: 600 13px/18px var(--font); }
-.memb .row { align-items: flex-start; }
-.memb .row .grow { padding-top: 2px; }
-.nameline { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
-.tagline { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; }
-.noaplica { border: 1.5px dashed var(--line); border-radius: var(--r-lg); background: var(--surface); padding: var(--s6); font: var(--t-sub); color: var(--text-2); height: 100%; }
-.noaplica b { display: block; color: var(--text); font: var(--t-body-b); margin-bottom: var(--s2); }
-.frame-foot { margin-top: var(--s3); }
-.muted-row { opacity: .55; }
+  /* Extras de esta página (no existen en components.css) */
+  .hr { display: flex; align-items: center; gap: var(--s3); min-height: 52px; }
+  .hr .grow { flex: 1; min-width: 0; }
+  .hr + .hr { border-top: 1px solid var(--line); }
+  .mrow { align-items: flex-start; }
+  .mrow .grow { padding-top: 2px; min-width: 0; }
+  .namel { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+  .perms { font: var(--t-cap); color: var(--text-2); margin-top: 4px; }
+  .perms .link { font: 600 13px/18px var(--font); margin-left: 6px; color: var(--accent); }
+  .fixed-err { font: 500 14px/19px var(--font); color: var(--err); margin-top: var(--s2); }
+  .hint-p { font: var(--t-sub); color: var(--text-2); margin-top: var(--s2); }
+  .inv-row { border-top: 1px solid var(--line); min-height: 52px; display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); }
+  .inv-row .grow { flex: 1; font: var(--t-body); }
+  .muted { opacity: .55; }
+  .empty-s { font: var(--t-sub); color: var(--text-2); padding: var(--s3) 0 var(--s1); }
+  .dlg-off { opacity: .45; }
+  .sheet .s-title { font: var(--t-title); margin-bottom: var(--s3); }
+  .sheet .s-list { display: flex; flex-direction: column; }
+  .sheet .s-list div { font: var(--t-body); padding: var(--s3) 0; border-top: 1px solid var(--line); }
+  .sheet .s-list div:first-child { border-top: 0; }
+  .sheet .s-list small { display: block; font: var(--t-sub); color: var(--text-2); }
+  .sheet .s-foot { margin-top: var(--s4); }
+  .sheet .s-foot .btn { width: 100%; }
+  .noaplica { border: 1.5px dashed var(--line); border-radius: var(--r-lg); background: var(--surface); padding: var(--s6); font: var(--t-sub); color: var(--text-2); height: 100%; }
+  .noaplica b { display: block; color: var(--text); font: var(--t-body-b); margin-bottom: var(--s2); }
+  .frame-foot { margin-top: var(--s3); }
+  .flag { display: flex; align-items: center; gap: var(--s2); font: var(--t-cap); color: var(--text-2); margin-top: var(--s2); }
 </style>
 </head>
 <body>
-<!-- PLANTILLA: toda pantalla = wf-head + .states (estados) + .notes -->
 <header class="wf-head">
   <div class="id">HOGAR-01 · pestaña Hogar · epic E4</div>
   <h1>Hogar</h1>
-  <p>Hogar activo, miembros con su tipo, estado y rol, e invitar. «Administración» agrupa la gestión del hogar. El miembro sin permisos de administración ve el mismo hogar, sin acciones de administración (ocultas, no deshabilitadas).</p>
+  <p>Pestaña Hogar con el hogar activo (una fila por hogar, tocar cambia de hogar), los miembros con su tipo y, cuando aplica, su rol y sus permisos en texto. «Invitar» aparece solo si la persona puede invitar. «Administración» es siempre visible. Las etiquetas <span class="tagnew">Nuevo</span> señalan lo que el código actual no tiene.</p>
   <nav class="wf-nav">
     <a href="../index.html">← Índice</a>
     <a href="hogar-admin-menu.html">Administración →</a>
-    <a href="hogar-invitaciones.html">Invitar →</a>
-    <a href="hogar-accesos.html">Permisos (Accesos) →</a>
+    <a href="hogar-invitaciones.html">Invitaciones →</a>
+    <a href="hogar-miembros.html">Miembros →</a>
     <a href="hogar-sin-hogar.html">Sin hogar →</a>
-    <a href="aj-personas.html">Personas (Ajustes) →</a>
+    <a href="aj-perfil.html">Perfil →</a>
   </nav>
 </header>
 
@@ -42,201 +55,293 @@
 
   <!-- 1. CON DATOS (admin) -->
   <section class="state">
-    <div class="label">1 · Con datos (admin)<small>Hogar activo + miembros; permisos en una línea, «Invitar» al pie</small></div>
+    <div class="label">1 · Con datos (admin)<small>Hogar activo, miembros con permisos en texto, «Invitar» e «Administración»</small></div>
     <div class="phone">
       <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><span></span><span></span></div>
-        <div class="large-title">Hogar<small>Hogar de Familia Demo</small></div>
+        <div class="nav"><span></span></div>
+        <div class="large-title">Hogar</div>
         <div class="stack">
           <div class="card">
-            <div class="card-h"><div class="ico">⌂</div><h3>Hogar activo</h3></div>
-            <!-- Selector: con varios hogares la fila abre una hoja con la lista; con uno es fija -->
-            <div class="row home-sel">
+            <div class="card-h"><div class="ico">⌂</div><h3>Hogar activo</h3><span class="badge">1</span></div>
+            <div class="hr">
               <div class="grow"><div class="t">Hogar de Familia Demo</div><div class="s">Administrador</div></div>
               <span class="badge ok">Activo</span>
             </div>
           </div>
-          <div class="card memb">
+
+          <div class="card">
             <div class="card-h"><div class="ico">☺☺</div><h3>Miembros</h3><span class="badge">5</span></div>
-            <div class="row"><div class="avatar">F</div><div class="grow">
-              <div class="nameline"><span class="t">Familia Demo</span><span class="badge ok">tú</span></div>
-              <div class="s">Adulto · Administrador</div>
-              <div class="perm-sum"><span>Permisos 6 de 6</span></div>
-            </div></div>
-            <div class="row"><div class="avatar">A</div><div class="grow">
-              <div class="nameline"><span class="t">Ana</span><span class="badge ok">Vinculada</span></div>
-              <div class="s">Adulto · Administradora</div>
-              <a class="perm-sum go" href="hogar-accesos.html"><span>Permisos 4 de 6</span><span class="link">Ver ›</span></a>
-            </div></div>
-            <div class="row"><div class="avatar">L</div><div class="grow">
-              <div class="nameline"><span class="t">Lucía</span><span class="badge ok">Vinculada</span></div>
-              <div class="s">Adulto · Miembro</div>
-              <a class="perm-sum go" href="hogar-accesos.html"><span>Permisos 2 de 6</span><span class="link">Ver ›</span></a>
-            </div></div>
-            <div class="row"><div class="avatar">M</div><div class="grow">
-              <div class="nameline"><span class="t">Marcos</span><span class="badge warn">Sin cuenta</span></div>
-              <div class="s">Adulto · Miembro</div>
-              <div class="perm-sum"><span>Sin cuenta: no entra a la app</span></div>
-            </div></div>
-            <div class="row"><div class="avatar">P</div><div class="grow">
-              <div class="nameline"><span class="t">Pablo</span><span class="badge warn">Sin cuenta</span></div>
-              <div class="s">Menor · Miembro</div>
-            </div></div>
-            <div class="row" style="justify-content:flex-end"><a class="btn sm secondary go" href="hogar-invitaciones.html" style="min-height:40px;padding:0 var(--s5)">Invitar</a></div>
+            <div class="hr mrow">
+              <div class="avatar">F</div>
+              <div class="grow">
+                <div class="namel"><span class="t">Familia Demo</span><span class="badge ok">tú</span></div>
+                <div class="s">Adulto · Administrador</div>
+                <div class="perms">Gestionar calendarios (metadatos y usuarios), Ver calendarios, Asignar eventos a personas <span class="link">Ver más</span></div>
+              </div>
+            </div>
+            <div class="hr mrow">
+              <div class="avatar">A</div>
+              <div class="grow"><div class="t">Ana</div><div class="s">Adulto</div></div>
+            </div>
+            <div class="hr mrow">
+              <div class="avatar">L</div>
+              <div class="grow"><div class="t">Lucía</div><div class="s">Adulto</div></div>
+            </div>
+            <div class="hr mrow">
+              <div class="avatar">M</div>
+              <div class="grow"><div class="t">Marcos</div><div class="s">Adulto</div></div>
+            </div>
+            <div class="hr mrow">
+              <div class="avatar">P</div>
+              <div class="grow"><div class="t">Pablo</div><div class="s">Niño</div></div>
+            </div>
           </div>
+
+          <div class="card">
+            <div class="card-h"><div class="ico">＋</div><h3>Invitar</h3></div>
+            <p class="hint-p">Crea un código de invitación y compártelo. Solo se muestra al crearlo.</p>
+            <div class="card-btn" style="margin-top:var(--s3)"><span class="btn sm primary" style="min-height:40px">Crear invitación</span></div>
+            <div class="inv-row go" style="margin-top:var(--s3)"><span class="grow">Invitaciones pendientes</span><span class="chev"></span></div>
+          </div>
+
           <a class="card go" href="hogar-admin-menu.html">
             <div class="card-h"><div class="ico">⚙</div><h3>Administración</h3><span class="chev"></span></div>
-            <div class="s" style="font:var(--t-sub);color:var(--text-2);padding-left:52px">Configuración, administradores, miembros, invitaciones, accesos y auditoría</div>
           </a>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
-  <!-- 2. VACÍO -->
+  <!-- 2. VACÍO (miembros) -->
   <section class="state">
-    <div class="label">2 · Vacío<small>No aplica como estado de esta pantalla</small></div>
-    <div class="noaplica">
-      <b>No aplica: el hogar siempre tiene al menos una persona (tú)</b>
-      Sin hogares, la pestaña muestra HOGAR-02 (crear o unirse). Con hogar, la lista nunca queda vacía.
-      <div class="frame-foot"><a class="link go" href="hogar-sin-hogar.html">Ver HOGAR-02 →</a></div>
-    </div>
-  </section>
-
-  <!-- 3. SKELETON -->
-  <section class="state">
-    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que con datos; título real</small></div>
+    <div class="label">2 · Vacío<small>Sin miembros: texto real «Sin miembros». El hogar activo y las demás tarjetas siguen</small></div>
     <div class="phone">
       <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><span></span><span></span></div>
-        <div class="large-title">Hogar<small><span class="sk line" style="display:inline-block;width:170px"></span></small></div>
+        <div class="nav"><span></span></div>
+        <div class="large-title">Hogar</div>
         <div class="stack">
-          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
-            <div class="row"><div class="grow"><div class="sk line" style="width:65%"></div><div class="sk line" style="width:35%;margin-top:6px"></div></div><div class="sk line" style="width:64px;height:26px;border-radius:999px"></div></div></div>
-          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
-            <div class="row"><div class="avatar sk"></div><div class="grow"><div class="sk line" style="width:45%"></div><div class="sk line" style="width:60%;margin-top:6px"></div></div></div>
-            <div class="row"><div class="avatar sk"></div><div class="grow"><div class="sk line" style="width:35%"></div><div class="sk line" style="width:50%;margin-top:6px"></div></div></div>
-            <div class="row"><div class="avatar sk"></div><div class="grow"><div class="sk line" style="width:40%"></div><div class="sk line" style="width:55%;margin-top:6px"></div></div></div></div>
+          <div class="card">
+            <div class="card-h"><div class="ico">⌂</div><h3>Hogar activo</h3><span class="badge">1</span></div>
+            <div class="hr">
+              <div class="grow"><div class="t">Hogar de Familia Demo</div><div class="s">Administrador</div></div>
+              <span class="badge ok">Activo</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺☺</div><h3>Miembros</h3><span class="badge">0</span></div>
+            <div class="empty-s">Sin miembros</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">＋</div><h3>Invitar</h3></div>
+            <p class="hint-p">Crea un código de invitación y compártelo. Solo se muestra al crearlo.</p>
+            <div style="margin-top:var(--s3)"><span class="btn sm primary" style="min-height:40px">Crear invitación</span></div>
+            <div class="inv-row go"><span class="grow">Invitaciones pendientes</span><span class="chev"></span></div>
+          </div>
+          <a class="card go" href="hogar-admin-menu.html">
+            <div class="card-h"><div class="ico">⚙</div><h3>Administración</h3><span class="chev"></span></div>
+          </a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. CARGANDO (skeleton) -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton) <span class="tagnew">Nuevo</span><small>Hoy no hay skeleton en esta pestaña. Misma geometría que con datos</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span></div>
+        <div class="large-title">Hogar</div>
+        <div class="stack">
+          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title" style="width:45%"></div></div>
+            <div class="hr"><div class="grow"><div class="sk line" style="width:65%"></div><div class="sk line" style="width:35%;margin-top:6px"></div></div></div></div>
+          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title" style="width:40%"></div></div>
+            <div class="hr mrow"><div class="avatar sk"></div><div class="grow"><div class="sk line" style="width:45%"></div><div class="sk line" style="width:60%;margin-top:6px"></div></div></div>
+            <div class="hr mrow"><div class="avatar sk"></div><div class="grow"><div class="sk line" style="width:35%"></div><div class="sk line" style="width:50%;margin-top:6px"></div></div></div></div>
           <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title" style="width:40%"></div></div></div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
-  <!-- 4. ERROR (parcial + escritura) -->
+  <!-- 4. ERROR (persistir hogar activo + carga de miembros) -->
   <section class="state">
-    <div class="label">4 · Error<small>Miembros falla solo en su tarjeta; el fallo al guardar el hogar activo va en toast, no fijo en la tarjeta</small></div>
+    <div class="label">4 · Error<small>Miembros falla solo en su tarjeta (mensaje del servidor + «Reintentar»). Fallo al guardar el hogar activo: texto fijo, real</small></div>
     <div class="phone">
       <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><span></span><span></span></div>
-        <div class="large-title">Hogar<small>Hogar de Familia Demo</small></div>
+        <div class="nav"><span></span></div>
+        <div class="large-title">Hogar</div>
         <div class="stack">
           <div class="card">
-            <div class="card-h"><div class="ico">⌂</div><h3>Hogar activo</h3></div>
-            <div class="row home-sel">
+            <div class="card-h"><div class="ico">⌂</div><h3>Hogar activo</h3><span class="badge">1</span></div>
+            <div class="hr">
               <div class="grow"><div class="t">Hogar de Familia Demo</div><div class="s">Administrador</div></div>
               <span class="badge ok">Activo</span>
             </div>
+            <div class="fixed-err">No se pudo guardar el hogar activo: seguirá activo en esta sesión, pero al reabrir la app volverá el predeterminado.</div>
           </div>
           <div class="card">
             <div class="card-h"><div class="ico">☺☺</div><h3>Miembros</h3></div>
-            <div class="inline-err"><span>⚠</span><span class="grow">No pudimos cargar los miembros. Revisá la conexión.</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div>
+            <div class="inline-err"><span>⚠</span><span class="grow">No se pudieron cargar los miembros.</span><span class="btn sm secondary" style="min-height:32px">Reintentar</span></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">＋</div><h3>Invitar</h3></div>
+            <div style="margin-top:var(--s3)"><span class="btn sm primary" style="min-height:40px">Crear invitación</span></div>
           </div>
           <a class="card go" href="hogar-admin-menu.html">
             <div class="card-h"><div class="ico">⚙</div><h3>Administración</h3><span class="chev"></span></div>
           </a>
         </div>
       </div>
-      <div class="toast"><span>⚠</span><span>No se pudo guardar el hogar activo. Reintenta.</span><b>Reintentar</b></div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
   <!-- 5. SIN CONEXIÓN -->
   <section class="state">
-    <div class="label">5 · Sin conexión<small>Datos en caché + banner; Invitar y el cambio de hogar quedan desactivados</small></div>
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy: error por tarjeta. Propuesta: banner con la hora de los datos; «Invitar» y el cambio de hogar desactivados</small></div>
     <div class="phone">
       <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><span></span><span></span></div>
-        <div class="large-title">Hogar<small>Hogar de Familia Demo</small></div>
+        <div class="nav"><span></span></div>
+        <div class="large-title">Hogar</div>
         <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
         <div class="stack">
           <div class="card">
-            <div class="card-h"><div class="ico">⌂</div><h3>Hogar activo</h3></div>
-            <div class="row home-sel muted-row">
+            <div class="card-h"><div class="ico">⌂</div><h3>Hogar activo</h3><span class="badge">1</span></div>
+            <div class="hr muted">
               <div class="grow"><div class="t">Hogar de Familia Demo</div><div class="s">Administrador</div></div>
               <span class="badge ok">Activo</span>
             </div>
           </div>
-          <div class="card memb">
+          <div class="card">
             <div class="card-h"><div class="ico">☺☺</div><h3>Miembros</h3><span class="badge">5</span></div>
-            <div class="row"><div class="avatar">F</div><div class="grow">
-              <div class="nameline"><span class="t">Familia Demo</span><span class="badge ok">tú</span></div>
-              <div class="s">Adulto · Administrador</div>
-            </div></div>
-            <div class="row"><div class="avatar">A</div><div class="grow">
-              <div class="nameline"><span class="t">Ana</span><span class="badge ok">Vinculada</span></div>
-              <div class="s">Adulto · Administradora</div>
-            </div></div>
-            <div class="row" style="justify-content:flex-end"><span class="btn sm disabled" style="min-height:40px;padding:0 var(--s5);border:1.5px solid var(--accent);color:var(--accent);background:var(--surface)">Invitar</span></div>
+            <div class="hr mrow">
+              <div class="avatar">F</div>
+              <div class="grow"><div class="namel"><span class="t">Familia Demo</span><span class="badge ok">tú</span></div><div class="s">Adulto · Administrador</div></div>
+            </div>
+            <div class="hr mrow">
+              <div class="avatar">A</div>
+              <div class="grow"><div class="t">Ana</div><div class="s">Adulto</div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">＋</div><h3>Invitar</h3></div>
+            <div style="margin-top:var(--s3)"><span class="btn sm primary disabled" style="min-height:40px">Crear invitación</span></div>
           </div>
           <a class="card go" href="hogar-admin-menu.html">
             <div class="card-h"><div class="ico">⚙</div><h3>Administración</h3><span class="chev"></span></div>
           </a>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
-  <!-- 6. VISTA DE MIEMBRO SIN PERMISOS -->
+  <!-- 6. VARIOS HOGARES -->
   <section class="state">
-    <div class="label">6 · Vista de miembro sin permisos<small>«Invitar» oculto. «Administración» visible en solo lectura (comportamiento actual, doc funcional §2). Sin permisos de otros</small></div>
+    <div class="label">6 · Varios hogares<small>Una fila por hogar, siempre visible. Tocar una fila cambia el hogar activo (sin hoja)</small></div>
     <div class="phone">
       <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><span></span><span></span></div>
-        <div class="large-title">Hogar<small>Hogar de Familia Demo</small></div>
+        <div class="nav"><span></span></div>
+        <div class="large-title">Hogar</div>
         <div class="stack">
           <div class="card">
-            <div class="card-h"><div class="ico">⌂</div><h3>Hogar activo</h3></div>
-            <div class="row home-sel">
+            <div class="card-h"><div class="ico">⌂</div><h3>Hogar activo</h3><span class="badge">2</span></div>
+            <div class="hr">
+              <div class="grow"><div class="t">Hogar de Familia Demo</div><div class="s">Administrador</div></div>
+              <span class="badge ok">Activo</span>
+            </div>
+            <div class="hr">
+              <div class="grow"><div class="t">Casa de la playa</div><div class="s">Miembro</div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺☺</div><h3>Miembros</h3><span class="badge">5</span></div>
+            <div class="hr mrow"><div class="avatar">F</div><div class="grow"><div class="namel"><span class="t">Familia Demo</span><span class="badge ok">tú</span></div><div class="s">Adulto · Administrador</div></div></div>
+            <div class="empty-s" style="padding-top:var(--s2)">Se listan los miembros del hogar activo («Hogar de Familia Demo»).</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">＋</div><h3>Invitar</h3></div>
+            <div style="margin-top:var(--s3)"><span class="btn sm primary" style="min-height:40px">Crear invitación</span></div>
+          </div>
+          <a class="card go" href="hogar-admin-menu.html">
+            <div class="card-h"><div class="ico">⚙</div><h3>Administración</h3><span class="chev"></span></div>
+          </a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+    </div>
+  </section>
+
+  <!-- 7. MIEMBRO SIN PERMISO DE INVITAR -->
+  <section class="state">
+    <div class="label">7 · Miembro sin permiso de invitar<small>«Invitar» oculto (no deshabilitado). «Administración» visible: título y chevron. El miembro ve los permisos de todos</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span></div>
+        <div class="large-title">Hogar</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">⌂</div><h3>Hogar activo</h3><span class="badge">1</span></div>
+            <div class="hr">
               <div class="grow"><div class="t">Hogar de Familia Demo</div><div class="s">Miembro</div></div>
               <span class="badge ok">Activo</span>
             </div>
           </div>
-          <div class="card memb">
+          <div class="card">
             <div class="card-h"><div class="ico">☺☺</div><h3>Miembros</h3><span class="badge">5</span></div>
-            <div class="row"><div class="avatar">F</div><div class="grow">
-              <div class="nameline"><span class="t">Familia Demo</span><span class="badge ok">Administrador</span></div>
-              <div class="s">Adulto · Vinculada</div>
-            </div></div>
-            <div class="row"><div class="avatar">A</div><div class="grow">
-              <div class="nameline"><span class="t">Ana</span><span class="badge ok">Vinculada</span></div>
-              <div class="s">Adulto · Miembro</div>
-            </div></div>
-            <div class="row"><div class="avatar">L</div><div class="grow">
-              <div class="nameline"><span class="t">Lucía</span><span class="badge ok">tú</span></div>
-              <div class="s">Adulto · Miembro</div>
-              <div class="perm-sum"><span>Tus permisos: ver calendarios, asignar eventos</span></div>
-            </div></div>
-            <div class="row"><div class="avatar">M</div><div class="grow">
-              <div class="nameline"><span class="t">Marcos</span><span class="badge warn">Sin cuenta</span></div>
-              <div class="s">Adulto · Miembro</div>
-            </div></div>
+            <div class="hr mrow"><div class="avatar">F</div><div class="grow"><div class="t">Familia Demo</div><div class="s">Adulto · Administrador</div>
+              <div class="perms">Gestionar calendarios (metadatos y usuarios), Ver calendarios, Asignar eventos a personas <span class="link">Ver más</span></div></div></div>
+            <div class="hr mrow"><div class="avatar">L</div><div class="grow"><div class="namel"><span class="t">Lucía</span><span class="badge ok">tú</span></div><div class="s">Adulto · Miembro</div>
+              <div class="perms">Ver calendarios, Asignar eventos a personas <span class="link">Ver más</span></div></div></div>
+            <div class="hr mrow"><div class="avatar">A</div><div class="grow"><div class="t">Ana</div><div class="s">Adulto</div></div></div>
           </div>
           <a class="card go" href="hogar-admin-menu.html">
-            <div class="card-h"><div class="ico">⚙</div><h3>Administración</h3><span class="badge">Solo lectura</span><span class="chev"></span></div>
+            <div class="card-h"><div class="ico">⚙</div><h3>Administración</h3><span class="chev"></span></div>
           </a>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+    </div>
+  </section>
+
+  <!-- 8. HOJA «PERMISOS DEL HOGAR» -->
+  <section class="state">
+    <div class="label">8 · Hoja «Permisos del hogar»<small>Desde «Ver más» de un miembro. Lista completa y «Cerrar». Lista de ejemplo: solo se ven 3 de la captura</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span></div>
+        <div class="large-title">Hogar</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">☺☺</div><h3>Miembros</h3><span class="badge">5</span></div>
+            <div class="hr mrow"><div class="avatar">F</div><div class="grow"><div class="t">Familia Demo</div><div class="s">Adulto · Administrador</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <div class="s-title">Permisos del hogar</div>
+        <div class="s-list">
+          <div>Gestionar calendarios (metadatos y usuarios)</div>
+          <div>Ver calendarios</div>
+          <div>Asignar eventos a personas</div>
+          <div><small>Resto de permisos del hogar</small>Lista completa que devuelve el servidor</div>
+        </div>
+        <div class="s-foot"><span class="btn secondary">Cerrar</span></div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
@@ -245,22 +350,34 @@
 <aside class="notes">
   <h2>Cambios respecto a la app actual</h2>
   <ul>
-    <li>① El error «No se pudo guardar el hogar activo» deja de ir fijo dentro de la tarjeta: pasa a toast descartable con «Reintentar» (estado 4). En reposo no hay ningún aviso.</li>
-    <li>Permisos compactos: en vez de la descripción larga con «Ver más», una línea «Permisos 4 de 6 ›» que lleva a Accesos. El detalle vive en HOGAR-accesos, no aquí.</li>
-    <li>Cada miembro muestra tipo, estado («Vinculada» / «Sin cuenta») y rol como badges solo si aportan; la persona que usa la app lleva «tú».</li>
-    <li>«Administración» pasa a fila de navegación con resumen (ver HOGAR-03); «Invitar» queda como acción secundaria al pie de la tarjeta de miembros.</li>
-    <li>Estado 6: el miembro sin permisos no ve «Administración» ni «Invitar». Son ocultos, no deshabilitados. Hay que confirmar si el miembro ve Administración en solo lectura (ver dudas).</li>
+    <li><b>Quitado</b>: «Permisos 4 de 6», «Permisos 2 de 6», «Tus permisos…», el subtítulo «Solo lectura» y el badge de Administración; los badges «Vinculada» / «Sin cuenta» (el código no los muestra aquí). Permisos: texto con «Ver más» (3 primeros) en vez de un resumen numérico.</li>
+    <li><b>Administración</b> se queda como fila con título y chevron, siempre visible. Sin subtítulo (el código no lo tiene).</li>
+    <li><b>Hogar activo</b>: una fila por hogar, sin hoja ni selector propio (estado 6). El error al guardar el hogar activo sigue como texto fijo, como en el código; pasar a toast es propuesta (no dibujada aquí).</li>
+    <li><span class="tagnew">Nuevo</span> Skeleton (estado 3) y sin conexión (estado 5). El código no tiene ninguno de los dos en esta pestaña.</li>
+    <li><span class="tagnew">Nuevo</span> Contador del hogar activo (badge «1» / «2») en la cabecera de la tarjeta; el código solo muestra el título.</li>
+    <li>Estado 8 (hoja «Permisos del hogar») es el real del código: se abre desde «Ver más».</li>
+  </ul>
+  <h2 style="margin-top:12px">Reglas de negocio</h2>
+  <ul>
+    <li>Orden: Hogar activo → Miembros → tarjeta «Invitar» (solo si `canInvite`) → «Administración» (siempre).</li>
+    <li>Miembros: avatar con inicial, nombre, badge «tú» en la persona que usa la app, «Tipo · Rol». El rol solo aparece en cuentas vinculadas. Tipos: Adulto, Niño, Familiar, Invitado, Mascota.</li>
+    <li>Permisos como texto: 3 primeros, «Ver más» abre la hoja. El miembro ve los permisos de todos.</li>
+    <li>«Invitar»: texto «Crea un código de invitación y compártelo. Solo se muestra al crearlo.», botón «Crear invitación» y fila «Invitaciones pendientes».</li>
+    <li>Error de miembros: mensaje del servidor + «Reintentar» (el texto del ejemplo es provisional).</li>
+    <li>Vacío: «Sin miembros».</li>
   </ul>
   <h2 style="margin-top:12px">Conexiones</h2>
   <ul>
-    <li>Llega desde: pestaña Hogar (raíz tras login con hogar); HOGAR-02 cuando el usuario tiene hogar.</li>
-    <li>Lleva a: HOGAR-03 (Administración), HOGAR-accesos (permisos de cada miembro), HOGAR-invitaciones (Invitar), AJ-personas (si se gestionan personas desde Ajustes).</li>
-    <li>Selector de hogar: solo si hay varios hogares; abre una hoja con la lista (no tiene pantalla propia). Sin hogar, Tareas y Calendario muestran el estado de HOGAR-02.</li>
+    <li>«Administración» → HOGAR-03. «Crear invitación» y «Invitaciones pendientes» → HOGAR-07 (hogar-invitaciones).</li>
+    <li>«Ver más» de permisos → hoja «Permisos del hogar» (estado 8), sin pantalla propia.</li>
+    <li>Tocar un miembro (admin) → HOGAR-06 (hogar-miembros) en modo editor. El miembro no lo abre.</li>
+    <li>Sin hogar → HOGAR-02. Esta pestaña es la raíz de Hogar.</li>
   </ul>
   <h2 style="margin-top:12px">Dudas de diseño</h2>
   <ul>
-    <li>Estado 6: la app actual muestra «Administración» en solo lectura al miembro (doc funcional, sección 2). Este frame la oculta según el encargo. Decidir cuál aplica.</li>
-    <li>El aviso de «hogar activo no guardado» se muestra como toast. Confirmar si debe sobrevivir al cambio de pestaña o desaparecer a los pocos segundos.</li>
+    <li>Las capturas de la auditoría muestran los permisos solo en la fila del admin, y Ana y Lucía sin permisos. Code-facts dice que aparecen en todos los miembros. Este frame sigue code-facts; confirmar con la app.</li>
+    <li>Las capturas muestran el rol solo en la persona que usa la app. Se sigue la regla de code-facts (rol solo en cuentas).</li>
+    <li>La lista de permisos del estado 8 es de ejemplo: la captura solo muestra 3.</li>
   </ul>
 </aside>
 </body>

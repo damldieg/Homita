@@ -7,22 +7,24 @@
 <link rel="stylesheet" href="../tokens.css">
 <link rel="stylesheet" href="../components.css">
 <style>
-/* Específico de esta pantalla (no está en components.css) */
-.ph { color: var(--text-3); }
-.field.dis { opacity: .5; }
-.field .row.err-row { box-shadow: inset 0 0 0 1.5px var(--err); border-radius: var(--r-md); }
-.card .inline-err { margin-bottom: var(--s3); }
-.kbd { position: absolute; left: 0; right: 0; bottom: 0; height: 268px; background: var(--bg-sunken); border-top: 1px solid var(--line); display: grid; place-items: center; font: var(--t-cap); color: var(--text-2); z-index: 6; }
-.kbd span { letter-spacing: .02em; }
-.pw-toggle { color: var(--accent); font: var(--t-body-b); }
+  .ph { color: var(--text-3); }
+  .card .field .row { min-height: 52px; }
+  .card-h .ico { background: var(--accent-soft); }
+  .alert { position: absolute; left: 50px; right: 50px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+  .alert h4 { font: 600 17px/22px var(--font); } .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+  .alert .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .overlay { position: absolute; inset: 0; background: rgba(20,14,8,.35); z-index: 9; display: grid; place-items: center; }
+  .loadbox { background: var(--surface); border-radius: 18px; padding: 18px 22px; display: flex; align-items: center; gap: 12px; font: 600 16px/20px var(--font); box-shadow: var(--shadow-float); }
+  .loadbox .spin { width: 20px; height: 20px; color: var(--accent); }
+  .btn.disabled .spin { color: currentColor; }
+  .btn-row { display: flex; gap: var(--s2); align-items: center; justify-content: center; }
 </style>
 </head>
 <body>
-<!-- PLANTILLA DE REFERENCIA: toda pantalla = wf-head + .states (5 estados) + .notes -->
 <header class="wf-head">
   <div class="id">AUTH-02 · Iniciar sesión · epic E0 Acceso</div>
   <h1>Iniciar sesión</h1>
-  <p>Email y contraseña para entrar a un hogar. El botón se activa con datos completos. Un error de credenciales se muestra dentro del formulario, sin alerta modal, y conserva lo escrito en el email.</p>
+  <p>Tarjeta «Cuenta» con «Email» y «Contraseña» (sin botón «Mostrar»). El botón «Iniciar sesión» se activa con ambos campos no vacíos. Durante la llamada aparece el overlay «Entrando…». Un error del servidor se muestra en alerta modal «Aviso / OK» con su mensaje real.</p>
   <nav class="wf-nav">
     <a href="../index.html">← Índice</a>
     <a href="auth-bienvenida.html">← Bienvenida</a>
@@ -32,18 +34,18 @@
 
 <div class="states">
 
-  <!-- 1. NORMAL -->
+  <!-- 1. CON DATOS -->
   <section class="state">
-    <div class="label">1 · Normal<small>Datos completos, botón activo, contraseña oculta con «Mostrar»</small></div>
+    <div class="label">1 · Con datos<small>Ambos campos rellenos: botón activo</small></div>
     <div class="phone no-tabs">
       <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
         <div class="nav"><a class="btn-icon go" href="auth-bienvenida.html">‹</a><span class="center">Iniciar sesión</span><span style="width:44px"></span></div>
-        <div class="large-title">Iniciar sesión<small>Usa el email de tu cuenta Homita</small></div>
-        <div class="card">
-          <div class="field">
+        <div class="card" style="margin-top:var(--s4)">
+          <div class="card-h"><div class="ico">◉</div><h3>Cuenta</h3></div>
+          <div class="field" style="margin-top:var(--s3)">
             <div class="row"><span class="lbl">Email</span><span class="val">nadie@homita.example</span></div>
-            <div class="row"><span class="lbl">Contraseña</span><span class="val">••••••••••</span><a class="pw-toggle">Mostrar</a></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val">••••••••••</span></div>
           </div>
         </div>
         <div style="margin-top:var(--s4)">
@@ -53,16 +55,16 @@
     </div>
   </section>
 
-  <!-- 2. VACÍO / INICIAL (con teclado) -->
+  <!-- 2. INICIAL -->
   <section class="state">
-    <div class="label">2 · Vacío<small>Campos vacíos, Email enfocado con teclado visible; botón desactivado</small></div>
+    <div class="label">2 · Inicial<small>Campos vacíos y botón desactivado (con teclado visible)</small></div>
     <div class="phone no-tabs">
       <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
         <div class="nav"><a class="btn-icon go" href="auth-bienvenida.html">‹</a><span class="center">Iniciar sesión</span><span style="width:44px"></span></div>
-        <div class="large-title">Iniciar sesión<small>Usa el email de tu cuenta Homita</small></div>
-        <div class="card">
-          <div class="field">
+        <div class="card" style="margin-top:var(--s4)">
+          <div class="card-h"><div class="ico">◉</div><h3>Cuenta</h3></div>
+          <div class="field" style="margin-top:var(--s3)">
             <div class="row"><span class="lbl">Email</span><span class="val ph">Email</span></div>
             <div class="row"><span class="lbl">Contraseña</span><span class="val ph">Contraseña</span></div>
           </div>
@@ -71,66 +73,68 @@
           <a class="btn primary disabled">Iniciar sesión</a>
         </div>
       </div>
-      <div class="kbd">Teclado</div>
+      <div class="kbd" style="position:absolute;left:0;right:0;bottom:0;height:268px;background:var(--bg-sunken);border-top:1px solid var(--line);display:grid;place-items:center;font:var(--t-cap);color:var(--text-2);z-index:6">Teclado</div>
     </div>
   </section>
 
   <!-- 3. CARGANDO -->
   <section class="state">
-    <div class="label">3 · Cargando<small>Botón con .spin, campos desactivados mientras se valida</small></div>
+    <div class="label">3 · Cargando<small>Overlay «Entrando…» sobre la pantalla mientras se llama al servidor</small></div>
     <div class="phone no-tabs">
       <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
         <div class="nav"><a class="btn-icon">‹</a><span class="center">Iniciar sesión</span><span style="width:44px"></span></div>
-        <div class="large-title">Iniciar sesión<small>Usa el email de tu cuenta Homita</small></div>
-        <div class="card">
-          <div class="field dis">
+        <div class="card" style="margin-top:var(--s4)">
+          <div class="card-h"><div class="ico">◉</div><h3>Cuenta</h3></div>
+          <div class="field" style="margin-top:var(--s3)">
             <div class="row"><span class="lbl">Email</span><span class="val">nadie@homita.example</span></div>
             <div class="row"><span class="lbl">Contraseña</span><span class="val">••••••••••</span></div>
           </div>
         </div>
         <div style="margin-top:var(--s4)">
-          <a class="btn primary disabled" style="display:flex;gap:var(--s2);align-items:center;justify-content:center"><span class="spin"></span>Entrando…</a>
+          <a class="btn primary disabled">Iniciar sesión</a>
         </div>
       </div>
+      <div class="overlay"><div class="loadbox"><span class="spin"></span>Entrando…</div></div>
     </div>
   </section>
 
-  <!-- 4. ERROR (credenciales incorrectas) -->
+  <!-- 4. ERROR -->
   <section class="state">
-    <div class="label">4 · Error<small>Credenciales incorrectas: aviso inline arriba, email conservado, contraseña a revisar</small></div>
+    <div class="label">4 · Error<small>Alerta «Aviso / OK» con el mensaje real del servidor (captura 04). Los campos conservan lo escrito</small></div>
     <div class="phone no-tabs">
       <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="btn-icon go" href="auth-bienvenida.html">‹</a><span class="center">Iniciar sesión</span><span style="width:44px"></span></div>
-        <div class="large-title">Iniciar sesión<small>Usa el email de tu cuenta Homita</small></div>
-        <div class="card">
-          <div class="inline-err"><span>⚠</span><span class="grow">Email o contraseña incorrectos. Revisa los datos e inténtalo de nuevo.</span></div>
-          <div class="field">
+        <div class="nav"><a class="btn-icon">‹</a><span class="center">Iniciar sesión</span><span style="width:44px"></span></div>
+        <div class="card" style="margin-top:var(--s4)">
+          <div class="card-h"><div class="ico">◉</div><h3>Cuenta</h3></div>
+          <div class="field" style="margin-top:var(--s3)">
             <div class="row"><span class="lbl">Email</span><span class="val">nadie@homita.example</span></div>
-            <div class="row err-row"><span class="lbl">Contraseña</span><span class="val">••••••••••</span><a class="pw-toggle">Mostrar</a></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val">••••••••••</span></div>
           </div>
         </div>
         <div style="margin-top:var(--s4)">
           <a class="btn primary go" href="home-inicio.html">Iniciar sesión</a>
         </div>
       </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert"><h4>Aviso</h4><p>Email o contraseña incorrectos</p><div class="ok">OK</div></div>
     </div>
   </section>
 
   <!-- 5. SIN CONEXIÓN -->
   <section class="state">
-    <div class="label">5 · Sin conexión<small>Aviso arriba; no se puede iniciar sesión, botón desactivado; lo escrito se conserva</small></div>
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy un fallo de red cae a la alerta «Aviso/OK» (texto por verificar). Propuesta: banner arriba y botón desactivado; lo escrito se conserva</small></div>
     <div class="phone no-tabs">
       <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
         <div class="nav"><a class="btn-icon">‹</a><span class="center">Iniciar sesión</span><span style="width:44px"></span></div>
-        <div class="large-title">Iniciar sesión<small>Usa el email de tu cuenta Homita</small></div>
-        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Conéctate para iniciar sesión.</span></div>
+        <div class="offline" style="margin-top:var(--s4)"><span>⚠</span><span class="grow">Sin conexión. Conéctate para iniciar sesión.</span></div>
         <div class="card">
-          <div class="field">
+          <div class="card-h"><div class="ico">◉</div><h3>Cuenta</h3></div>
+          <div class="field" style="margin-top:var(--s3)">
             <div class="row"><span class="lbl">Email</span><span class="val">nadie@homita.example</span></div>
-            <div class="row"><span class="lbl">Contraseña</span><span class="val">••••••••••</span><a class="pw-toggle">Mostrar</a></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val">••••••••••</span></div>
           </div>
         </div>
         <div style="margin-top:var(--s4)">
@@ -145,16 +149,20 @@
 <aside class="notes">
   <h2>Cambios respecto a la app actual</h2>
   <ul>
-    <li>El error de credenciales se muestra como alerta modal «Aviso» con OK (captura 04). Pasa a aviso inline dentro del formulario: no bloquea, y el email escrito se conserva.</li>
-    <li>Los campos son solo placeholders en la captura (Email, Contraseña). Se añaden etiquetas visibles al escribir y el toggle «Mostrar» para revisar la contraseña.</li>
-    <li>El botón «Iniciar sesión» aparece atenuado sin datos (captura 02); se mantiene, y pasa a estado de carga con .spin y campos desactivados mientras se valida.</li>
-    <li>La tarjeta «Cuenta» con icono y título se quita: el formulario va directo bajo el título grande, con la cabecera compacta.</li>
-    <li>Sin conexión: aviso arriba y botón desactivado, en vez de un error tras tocar.</li>
+    <li>Tarjeta «Cuenta» con «Email» y «Contraseña» como en la app. El icono de la tarjeta es decorativo (captura 02).</li>
+    <li><b>Quitado:</b> el botón «Mostrar» de la contraseña. No existe en la app.</li>
+    <li>El error de credenciales se muestra como alerta modal «Aviso / OK» con el mensaje del servidor, igual que hoy (captura 04). No hay aviso inline.</li>
+    <li>Cargando: overlay «Entrando…» sobre la pantalla, no un botón con spinner.</li>
+    <li><span class="tagnew">Nuevo</span> Estado 5 sin conexión: banner y botón desactivado. Hoy el fallo de red sale como alerta.</li>
+  </ul>
+  <h2 style="margin-top:12px">Reglas de negocio</h2>
+  <ul>
+    <li>«Iniciar sesión» activo solo con Email y Contraseña no vacíos.</li>
+    <li>Error del servidor = alerta «Aviso / OK» con su mensaje.</li>
   </ul>
   <h2 style="margin-top:12px">Conexiones</h2>
   <ul>
-    <li>Va a: home-inicio (Inicio con sesión) al iniciar sesión correctamente. Atrás vuelve a AUTH-01 Bienvenida.</li>
-    <li>Llega desde: AUTH-01 Bienvenida, botón «Iniciar sesión» (estados 1, 4, 5 y 6 de esa pantalla).</li>
+    <li>Éxito → home-inicio (Inicio con sesión). Atrás (‹) → AUTH-01 Bienvenida.</li>
   </ul>
 </aside>
 </body>

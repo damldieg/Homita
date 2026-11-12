@@ -7,25 +7,52 @@
 <link rel="stylesheet" href="../tokens.css">
 <link rel="stylesheet" href="../components.css">
 <style>
-/* Añadido en línea (no está en components.css): segmento con enlaces, tarjeta como enlace, atenuado */
-.seg a { flex: 1; text-align: center; font: 600 14px/32px var(--font); color: var(--text-2); border-radius: 9px; }
-.seg a.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
-a.card { display: block; }
-.btn-icon.disabled, .check.disabled, .dim { opacity: .45; }
+  .seg a { flex: 1; text-align: center; font: 600 14px/32px var(--font); color: var(--text-2); border-radius: 9px; }
+  .seg a.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .sh { display: flex; align-items: center; gap: 8px; padding: 14px 4px 6px; font: 600 15px/20px var(--font); color: var(--text-2); }
+  .sh .cnt { margin-left: auto; font: 700 13px/1 var(--font); padding: 5px 9px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent); }
+  .rr { display: flex; gap: 12px; align-items: center; padding: 12px 14px 12px 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); margin-bottom: 10px; overflow: hidden; }
+  .rr .bar5 { width: 5px; align-self: stretch; border-radius: 0 3px 3px 0; flex: none; background: var(--c); }
+  .rr .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .rr .top { display: flex; align-items: baseline; gap: 8px; }
+  .rr .t { font: 600 17px/22px var(--font); }
+  .rr .hr { font: 600 14px/18px var(--font); color: var(--text-2); font-variant-numeric: tabular-nums; }
+  .rr .next { font: 600 11px/16px var(--font); letter-spacing: .02em; text-transform: uppercase; color: var(--text-2); }
+  .rr .side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font: 600 12px/16px var(--font); padding: 3px 9px; border-radius: 999px; color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--surface)); }
+  .badge.ok { background: var(--ok-soft); color: var(--ok); }
+  .badge.pause { background: var(--bg-sunken); color: var(--text-2); }
+  /* Estados por horario (ventana 60 min) */
+  .rr.now { background: var(--accent-soft); border-color: transparent; }
+  .rr.past { background: var(--bg-sunken); opacity: .7; }
+  .rr.past .t { color: var(--text-2); text-decoration: line-through; text-decoration-color: #A89C8B; }
+  .hecha { font: 600 12px/16px var(--font); color: var(--text-2); display: inline-flex; gap: 4px; align-items: center; }
+  .swipe { position: relative; border-radius: var(--r-lg); overflow: hidden; margin-bottom: 10px; }
+  .swipe .act { position: absolute; right: 0; top: 0; bottom: 0; width: 96px; background: var(--err); color: #fff; display: grid; place-items: center; font: 600 15px/1 var(--font); }
+  .swipe .rr { margin-bottom: 0; margin-left: 96px; transform: translateX(-96px); }
+  .empty { text-align: center; padding: 32px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .empty .art { width: 88px; height: 88px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-size: 38px; }
+  .empty h3 { font: var(--t-title); } .empty p { font: var(--t-sub); color: var(--text-2); max-width: 28ch; }
+  .alert-s { position: absolute; left: 50px; right: 50px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+  .alert-s h4 { font: 600 17px/22px var(--font); } .alert-s p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+  .alert-s .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .dim { opacity: .45; }
+  .sk-row { display: flex; gap: 12px; align-items: center; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); margin-bottom: 10px; }
 </style>
 </head>
 <body>
-<!-- CAL-02: vista de lectura de rutinas con próxima ocurrencia y casilla «Hecha». -->
 <header class="wf-head">
-  <div class="id">CAL-02 · pestaña Calendario · segmento Rutinas · epic E3</div>
+  <div class="id">CAL-02 · pestaña Calendario · vista Rutinas · épica Calendario</div>
   <h1>Calendario · Rutinas</h1>
-  <p>Rutinas con su próxima ocurrencia («PRÓXIMA · fecha») y la casilla para marcar la de hoy como hecha. Tocar la fila abre la rutina; la casilla marca la ocurrencia sin entrar en ella. «+» crea una rutina nueva.</p>
+  <p>Lista con separadores <b>Hoy · Mañana · Próxima semana</b> (se omiten los vacíos). El estado de cada fila sale del horario: caducada (gris, tachada, «Hecha»), en curso (fondo de acento suave) o normal. Badge <b>Activa</b> / <b>Pausada</b> siempre visible. Deslizar para eliminar sin confirmación. <b>No hay casilla «marcar hecha»</b>: el estado es automático.</p>
   <nav class="wf-nav">
     <a href="../index.html">← Índice</a>
     <a href="cal-eventos.html">Segmento Eventos →</a>
     <a href="cal-calendarios.html">Segmento Calendarios →</a>
-    <a href="cal-detalle-rutina.html">Detalle de rutina →</a>
+    <a href="cal-detalle-rutina.html">Editar rutina →</a>
     <a href="cal-form-rutina.html">Nueva rutina →</a>
+    <a href="home-inicio.html">Inicio →</a>
   </nav>
 </header>
 
@@ -33,114 +60,142 @@ a.card { display: block; }
 
   <!-- 1. DATOS -->
   <section class="state">
-    <div class="label">1 · Con datos<small>Hoy y próximas; cada fila lleva su próxima fecha</small></div>
+    <div class="label">1 · Con datos<small>Hora simulada 19:30. Hoy: en curso (Cena 19:00), normales, sin hora y caducadas al final</small></div>
     <div class="phone">
-      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
         <div class="nav"><span></span><a class="btn-icon go" href="cal-form-rutina.html" aria-label="Nueva rutina">+</a></div>
-        <div class="large-title">Rutinas<small>Próximas ocurrencias</small></div>
+        <div class="large-title">Rutinas</div>
         <div class="seg"><a class="go" href="cal-eventos.html">Eventos</a><a class="on">Rutinas</a><a class="go" href="cal-calendarios.html">Calendarios</a></div>
-        <div class="stack">
-          <div class="card">
-            <div class="card-h"><div class="ico">↻</div><h3>Hoy</h3><span class="badge ok">1/2</span></div>
-            <a class="row go" href="cal-detalle-rutina.html"><span class="check done" aria-label="Hecha"></span><div class="grow"><div class="t">Sacar la basura</div><div class="s">19:00 · Hecha</div></div><span class="badge info">Ana</span></a>
-            <a class="row go" href="cal-detalle-rutina.html"><span class="check" aria-label="Marcar hecha"></span><div class="grow"><div class="t">Revisar medicación</div><div class="s">PRÓXIMA · JUE, 12 NOV, 21:00</div></div><span class="badge">Lucía</span></a>
-          </div>
-          <div class="card">
-            <div class="card-h"><div class="ico">↻</div><h3>Próximas</h3><span class="badge">3</span></div>
-            <a class="row go" href="cal-detalle-rutina.html"><span class="check" aria-label="Marcar hecha"></span><div class="grow"><div class="t">Recoger a los niños</div><div class="s">PRÓXIMA · VIE, 13 NOV, 16:00</div></div><span class="badge info">Ana</span></a>
-            <a class="row go" href="cal-detalle-rutina.html"><span class="check" aria-label="Marcar hecha"></span><div class="grow"><div class="t">Fútbol</div><div class="s">PRÓXIMA · VIE, 13 NOV, 17:00</div></div><span class="badge">Pablo</span></a>
-            <a class="row go" href="cal-detalle-rutina.html"><span class="check" aria-label="Marcar hecha"></span><div class="grow"><div class="t">Sacar al perro</div><div class="s">PRÓXIMA · VIE, 13 NOV, 19:30</div></div><span class="badge">Marcos</span></a>
-          </div>
-        </div>
+
+        <div class="sh">Hoy<span class="cnt">5</span></div>
+        <a class="rr now go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-2)"></span><div class="grow"><div class="top"><span class="hr">19:00</span></div><div class="t">Cena</div><div class="chips"><span class="chip" style="--c:var(--person-1)">Damian</span></div><div class="next">Próxima · jue, 12 nov, 19:00</div></div><div class="side"><span class="badge ok">Activa</span></div></a>
+        <a class="rr go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-5)"></span><div class="grow"><div class="top"><span class="hr">20:00</span></div><div class="t">Pilates</div><div class="chips"><span class="chip" style="--c:var(--person-2)">Ana</span></div><div class="next">Próxima · jue, 12 nov, 20:00</div></div><div class="side"><span class="badge ok">Activa</span></div></a>
+        <a class="rr go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-3)"></span><div class="grow"><div class="top"><span class="hr">21:00</span></div><div class="t">Lavavajillas</div><div class="chips"><span class="chip" style="--c:var(--person-1)">Damian</span></div><div class="next">Próxima · jue, 12 nov, 21:00</div></div><div class="side"><span class="badge pause">Pausada</span></div></a>
+        <a class="rr go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-1)"></span><div class="grow"><div class="top"><span class="hr">Sin hora</span></div><div class="t">Lavar la ropa</div><div class="chips"><span class="chip" style="--c:var(--person-2)">Ana</span></div><div class="next">Próxima · jue, 12 nov</div></div><div class="side"><span class="badge ok">Activa</span></div></a>
+        <a class="rr past go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-2)"></span><div class="grow"><div class="top"><span class="hr">08:00</span></div><div class="t">Tomar Sertralina</div><div class="chips"><span class="chip" style="--c:var(--person-2)">Ana</span></div><span class="hecha">✓ Hecha</span><div class="next">Próxima · jue, 12 nov, 08:00</div></div><div class="side"><span class="badge ok">Activa</span></div></a>
+        <a class="rr past go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-1)"></span><div class="grow"><div class="top"><span class="hr">18:00</span></div><div class="t">Psicóloga</div><div class="chips"><span class="chip" style="--c:var(--person-1)">Damian</span></div><span class="hecha">✓ Hecha</span><div class="next">Próxima · jue, 12 nov, 18:00</div></div><div class="side"><span class="badge ok">Activa</span></div></a>
+
+        <div class="sh">Mañana<span class="cnt">1</span></div>
+        <a class="rr go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-5)"></span><div class="grow"><div class="top"><span class="hr">10:00</span></div><div class="t">Paseo en bici</div><div class="chips"><span class="chip" style="--c:var(--person-2)">Ana</span></div><div class="next">Próxima · vie, 13 nov, 10:00</div></div><div class="side"><span class="badge ok">Activa</span></div></a>
+
+        <div class="sh">Próxima semana<span class="cnt">2</span></div>
+        <a class="rr go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-3)"></span><div class="grow"><div class="top"><span class="hr">19:30</span></div><div class="t">Sacar al perro</div><div class="chips"><span class="chip" style="--c:var(--person-4)">Marcos</span></div><div class="next">Próxima · sáb, 14 nov, 19:30</div></div><div class="side"><span class="badge pause">Pausada</span></div></a>
+        <a class="rr go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-5)"></span><div class="grow"><div class="top"><span class="hr">17:00</span></div><div class="t">Fútbol</div><div class="chips"><span class="chip" style="--c:var(--person-3)">Pablo</span></div><div class="next">Próxima · lun, 16 nov, 17:00</div></div><div class="side"><span class="badge ok">Activa</span></div></a>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
       <span class="anno" style="top:70px;left:8px">1</span>
     </div>
   </section>
 
   <!-- 2. VACÍO -->
   <section class="state">
-    <div class="label">2 · Vacío<small>Sin rutinas: explicación corta y una acción</small></div>
+    <div class="label">2 · Vacío<small>Textos reales del código. «+» y «Nueva rutina» abren el alta</small></div>
     <div class="phone">
-      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
         <div class="nav"><span></span><a class="btn-icon go" href="cal-form-rutina.html" aria-label="Nueva rutina">+</a></div>
-        <div class="large-title">Rutinas<small>Próximas ocurrencias</small></div>
+        <div class="large-title">Rutinas</div>
         <div class="seg"><a class="go" href="cal-eventos.html">Eventos</a><a class="on">Rutinas</a><a class="go" href="cal-calendarios.html">Calendarios</a></div>
         <div class="empty">
           <div class="art">↻</div>
-          <h3>Todavía no hay rutinas</h3>
-          <p>Una rutina repite algo cada día, semana o mes, como sacar la basura.</p>
-          <a class="btn primary go" href="cal-form-rutina.html">Crear una rutina</a>
+          <h3>Sin rutinas</h3>
+          <p>Las rutinas repiten eventos cada día, semana o mes sin que las vuelvas a escribir.</p>
+          <a class="btn primary go" href="cal-form-rutina.html" style="padding:0 24px">Nueva rutina</a>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
-  <!-- 3. SKELETON -->
+  <!-- 3. CARGANDO (skeleton) -->
   <section class="state">
-    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que el estado con datos</small></div>
+    <div class="label">3 · Cargando <span class="tagnew">Nuevo</span><small>Hoy: texto «Cargando…». Propuesta: filas esqueleto con la misma geometría</small></div>
     <div class="phone">
-      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
         <div class="nav"><span></span><a class="btn-icon">+</a></div>
-        <div class="large-title">Rutinas<small>Próximas ocurrencias</small></div>
+        <div class="large-title">Rutinas</div>
         <div class="seg"><a>Eventos</a><a class="on">Rutinas</a><a>Calendarios</a></div>
-        <div class="stack">
-          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
-            <div class="row"><div class="check sk"></div><div class="grow"><div class="sk line" style="width:50%"></div><div class="sk line" style="width:65%;margin-top:6px"></div></div></div>
-            <div class="row"><div class="check sk"></div><div class="grow"><div class="sk line" style="width:45%"></div><div class="sk line" style="width:60%;margin-top:6px"></div></div></div></div>
-          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
-            <div class="row"><div class="check sk"></div><div class="grow"><div class="sk line" style="width:55%"></div><div class="sk line" style="width:70%;margin-top:6px"></div></div></div>
-            <div class="row"><div class="check sk"></div><div class="grow"><div class="sk line" style="width:40%"></div><div class="sk line" style="width:65%;margin-top:6px"></div></div></div></div>
-        </div>
+        <div class="sh"><span class="sk title" style="width:40%"></span></div>
+        <div class="sk-row"><span class="sk" style="width:5px;height:56px;border-radius:3px"></span><div style="flex:1"><div class="sk line" style="width:60%"></div><div class="sk line" style="width:40%;margin-top:8px"></div></div><div class="sk" style="width:56px;height:24px;border-radius:999px"></div></div>
+        <div class="sk-row"><span class="sk" style="width:5px;height:56px;border-radius:3px"></span><div style="flex:1"><div class="sk line" style="width:50%"></div><div class="sk line" style="width:35%;margin-top:8px"></div></div><div class="sk" style="width:56px;height:24px;border-radius:999px"></div></div>
+        <div class="sk-row"><span class="sk" style="width:5px;height:56px;border-radius:3px"></span><div style="flex:1"><div class="sk line" style="width:70%"></div><div class="sk line" style="width:45%;margin-top:8px"></div></div><div class="sk" style="width:56px;height:24px;border-radius:999px"></div></div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
   <!-- 4. ERROR -->
   <section class="state">
-    <div class="label">4 · Error<small>Fallo de carga: errbox con Reintentar; un fallo al marcar «Hecha» usa toast</small></div>
+    <div class="label">4 · Error<small>Real: mensaje del servidor + «Reintentar» en la lista. Fallo al eliminar = alerta «Aviso / OK»</small></div>
     <div class="phone">
-      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><span></span><a class="btn-icon go" href="cal-form-rutina.html" aria-label="Nueva rutina">+</a></div>
-        <div class="large-title">Rutinas<small>Próximas ocurrencias</small></div>
-        <div class="seg"><a class="go" href="cal-eventos.html">Eventos</a><a class="on">Rutinas</a><a class="go" href="cal-calendarios.html">Calendarios</a></div>
-        <div class="errbox">
-          <div class="art">⚠</div>
-          <h3>No pudimos cargar las rutinas</h3>
-          <p>Revisa la conexión y vuelve a intentarlo.</p>
-          <a class="btn sm secondary">Reintentar</a>
+        <div class="nav"><span></span><a class="btn-icon">+</a></div>
+        <div class="large-title">Rutinas</div>
+        <div class="seg"><a>Eventos</a><a class="on">Rutinas</a><a>Calendarios</a></div>
+        <div class="card" style="padding:12px">
+          <div class="inline-err"><span>⚠</span><span style="flex:1">No se pudo conectar con el servidor.</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div>
         </div>
       </div>
-      <div class="toast"><span>⚠</span><span>No se pudo marcar «Sacar la basura». Reintenta.</span><b>Reintentar</b></div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert-s"><h4>Aviso</h4><p>No se pudo eliminar la rutina. Inténtalo de nuevo.</p><div class="ok">OK</div></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
   <!-- 5. SIN CONEXIÓN -->
   <section class="state">
-    <div class="label">5 · Sin conexión<small>Banner + rutinas en caché; las casillas quedan desactivadas</small></div>
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy cae al error de la sección. Propuesta: banner con la hora de los datos; deslizar para eliminar atenuado</small></div>
     <div class="phone">
-      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><span></span><span class="btn-icon disabled" aria-disabled="true">+</span></div>
-        <div class="large-title">Rutinas<small>Próximas ocurrencias</small></div>
-        <div class="seg"><a class="go" href="cal-eventos.html">Eventos</a><a class="on">Rutinas</a><a class="go" href="cal-calendarios.html">Calendarios</a></div>
-        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
-        <div class="stack">
-          <div class="card">
-            <div class="card-h"><div class="ico">↻</div><h3>Hoy</h3><span class="badge ok">1/2</span></div>
-            <a class="row go" href="cal-detalle-rutina.html"><span class="check done dim" aria-label="Hecha"></span><div class="grow"><div class="t">Sacar la basura</div><div class="s">19:00 · Hecha</div></div><span class="badge info">Ana</span></a>
-            <a class="row go" href="cal-detalle-rutina.html"><span class="check disabled dim" aria-disabled="true"></span><div class="grow"><div class="t">Revisar medicación</div><div class="s">PRÓXIMA · JUE, 12 NOV, 21:00</div></div><span class="badge">Lucía</span></a>
-          </div>
+        <div class="nav"><span></span><a class="btn-icon dim">+</a></div>
+        <div class="large-title">Rutinas</div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:12.</span><u>Reintentar</u></div>
+        <div class="seg"><a>Eventos</a><a class="on">Rutinas</a><a>Calendarios</a></div>
+        <div class="sh">Hoy<span class="cnt">2</span></div>
+        <div class="rr dim"><span class="bar5" style="--c:var(--person-2)"></span><div class="grow"><div class="top"><span class="hr">19:00</span></div><div class="t">Cena</div><div class="next">Próxima · jue, 12 nov, 19:00</div></div><div class="side"><span class="badge ok">Activa</span></div></div>
+        <div class="rr dim"><span class="bar5" style="--c:var(--person-5)"></span><div class="grow"><div class="top"><span class="hr">20:00</span></div><div class="t">Pilates</div><div class="next">Próxima · jue, 12 nov, 20:00</div></div><div class="side"><span class="badge ok">Activa</span></div></div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+    </div>
+  </section>
+
+  <!-- 6. ESTADOS POR HORARIO (extra) -->
+  <section class="state">
+    <div class="label">6 · Estados por horario<small>Extra. Hora 19:30 con ventana de 60 min: una en curso (19:00), una normal (21:00) y una caducada (18:00 → 90 min después)</small></div>
+    <div class="phone">
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon">+</a></div>
+        <div class="large-title">Rutinas</div>
+        <div class="sh">Hoy<span class="cnt">3</span></div>
+        <div class="rr now"><span class="bar5" style="--c:var(--person-2)"></span><div class="grow"><div class="top"><span class="hr">19:00</span></div><div class="t">Cena</div><div class="next">En curso · hasta las 20:00</div></div><div class="side"><span class="badge ok">Activa</span></div></div>
+        <div class="rr"><span class="bar5" style="--c:var(--person-3)"></span><div class="grow"><div class="top"><span class="hr">21:00</span></div><div class="t">Lavavajillas</div><div class="next">Próxima · jue, 12 nov, 21:00</div></div><div class="side"><span class="badge pause">Pausada</span></div></div>
+        <div class="rr past"><span class="bar5" style="--c:var(--person-1)"></span><div class="grow"><div class="top"><span class="hr">18:00</span></div><div class="t">Psicóloga</div><span class="hecha">✓ Hecha</span></div><div class="side"><span class="badge ok">Activa</span></div></div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+    </div>
+  </section>
+
+  <!-- 7. DESLIZAR PARA ELIMINAR (extra) -->
+  <section class="state">
+    <div class="label">7 · Deslizar para eliminar<small>Extra. Sin confirmación. El texto del botón «Eliminar» es propuesta de etiqueta (el código no la fija)</small></div>
+    <div class="phone">
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon">+</a></div>
+        <div class="large-title">Rutinas</div>
+        <div class="seg"><a>Eventos</a><a class="on">Rutinas</a><a>Calendarios</a></div>
+        <div class="sh">Mañana<span class="cnt">1</span></div>
+        <div class="swipe">
+          <div class="rr"><span class="bar5" style="--c:var(--person-5)"></span><div class="grow"><div class="top"><span class="hr">10:00</span></div><div class="t">Paseo en bici</div><div class="chips"><span class="chip" style="--c:var(--person-2)">Ana</span></div><div class="next">Próxima · vie, 13 nov, 10:00</div></div><div class="side"><span class="badge ok">Activa</span></div></div>
+          <span class="act">Eliminar</span>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
@@ -149,17 +204,26 @@ a.card { display: block; }
 <aside class="notes">
   <h2>Cambios respecto a la app actual</h2>
   <ul>
-    <li>Las rutinas se agrupan en «Hoy» y «Próximas» en lugar de una lista plana por «Mañana» y «Próxima semana»: se ve primero lo que toca hoy.</li>
-    <li>Cada fila muestra su próxima ocurrencia con el formato «PRÓXIMA · día, fecha, hora». La rutina ya hecha hoy lleva «Hecha» y casilla marcada.</li>
-    <li>Un solo gesto por fila: tocar la fila abre la rutina; la casilla marca la ocurrencia de hoy. Quitamos el «Activa» verde de cada fila: solo se muestra cuando la rutina está pausada (por confirmar).</li>
-    <li>El chip de persona es la única etiqueta por fila; no se repite el calendario, que ya está en el detalle.</li>
-    <li>Sin conexión: las casillas quedan atenuadas y no se pueden marcar. Un fallo al marcar se avisa con toast y permite reintentar.</li>
+    <li><b>Se quitan</b> de la primera pasada: la casilla «Marcar hecha» y su toast (no existen; el estado de rutina es automático), el badge «1/2» y la lista plana «Mañana / Próxima semana» con «Hecha» como casilla marcada.</li>
+    <li><b>Estados por horario</b> (ventana 60 min): caducada = gris, opacidad .7, título tachado y «✓ Hecha»; en curso = fondo de acento suave; normal = superficie. El aspecto verde/ámbar del diseño «Rutinas de hoy» no se aplica aquí: la lista respeta lo real.</li>
+    <li><span class="tagnew">Nuevo</span> Skeleton de carga (estado 3). Hoy: texto «Cargando…».</li>
+    <li><span class="tagnew">Nuevo</span> Banner «Sin conexión» (estado 5).</li>
+    <li>Badge <b>Pausada</b> en gris. La primera pasada quitaba «Activa» salvo en rutinas pausadas; ahora «Activa» y «Pausada» van siempre, como pide el código.</li>
+    <li>Orden de «Hoy»: con hora fija primero, sin hora después y las caducadas al final. Es una lectura de la regla del código; conviene confirmarla.</li>
+    <li>Estado 4: el error real es mensaje del servidor + «Reintentar». El texto del servidor del frame es un ejemplo.</li>
+  </ul>
+  <h2>Reglas de negocio</h2>
+  <ul>
+    <li>Separadores «Hoy», «Mañana», «Próxima semana» con contador; se omiten los vacíos. Clasificación por fecha de la próxima sesión; sin próxima o posterior a mañana → «Próxima semana».</li>
+    <li>Fila: barra de color del calendario, título, hora o «Sin hora», etiquetas de persona, «PRÓXIMA · fecha-hora», badge Activa (verde) / Pausada (gris) siempre.</li>
+    <li>Deslizar para eliminar sin confirmación. Tocar la fila abre el editor (CAL-08).</li>
+    <li>Pull-to-refresh en la lista.</li>
   </ul>
   <h2>Conexiones</h2>
   <ul>
-    <li>Sale a: cal-detalle-rutina (tocar fila), cal-form-rutina («+» y «Crear una rutina»).</li>
-    <li>Entra desde: cal-eventos y cal-calendarios (segmentos), home-inicio («Rutinas de hoy» abre este segmento).</li>
-    <li>Lo que muestra el segmento viene del servidor; «Próxima ocurrencia» se calcula en cliente (ver docs/ios-funcional.md, sección 6).</li>
+    <li>Fila → CAL-08 (editor de rutina con datos). «+» y «Nueva rutina» → CAL-06 (alta).</li>
+    <li>Segmentos Eventos → CAL-01 · Calendarios → CAL-03.</li>
+    <li>Entra desde: Inicio («Ver todas ›» de Rutinas de hoy) y los segmentos de la pestaña Calendario.</li>
   </ul>
 </aside>
 </body>

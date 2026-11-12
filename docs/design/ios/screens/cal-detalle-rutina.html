@@ -3,36 +3,63 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CAL-08 Detalle de rutina</title>
+<title>CAL-08 Editor de rutina (modo edición)</title>
 <link rel="stylesheet" href="../tokens.css">
 <link rel="stylesheet" href="../components.css">
 <style>
-/* Añadido en línea para este lote (no está en components.css) */
+/* Estilos del editor (no están en components.css) */
 .off { opacity: .4; }
 .card-h + * { margin-top: var(--s3); }
-.frow { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 44px; padding: var(--s2) 0; border-top: 1px solid var(--line); font: var(--t-body); }
-.frow:first-child { border-top: 0; }
-.frow .val { color: var(--text-2); text-align: right; }
-.sess { min-height: 40px; padding: var(--s1) 0; }
-.sess .t { font: 600 16px/20px var(--font); }
-.sess .time { font: 600 16px/20px var(--font); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.field .row .lbl { width: auto; color: var(--text-2); flex: none; }
+.field .val { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
+.field .row .ph { color: var(--text-3); }
+.pill { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: 999px; background: var(--bg-sunken); font: 600 15px/1 var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.radio { display: flex; align-items: center; gap: var(--s3); min-height: 44px; font: var(--t-body); }
+.radio i { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--text-3); flex: none; display: grid; place-items: center; }
+.radio.on i { border-color: var(--accent); }
+.radio.on i::after { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); }
+.cbx { display: flex; align-items: center; gap: var(--s3); min-height: 44px; font: var(--t-body); }
+.cbx i { width: 24px; height: 24px; border-radius: 6px; border: 2px solid var(--text-3); flex: none; display: grid; place-items: center; }
+.cbx.on i { background: var(--accent); border-color: var(--accent); color: #fff; font: 700 14px/1 var(--font); font-style: normal; }
+.cbx .pc { width: 14px; height: 14px; border-radius: 50%; background: var(--c); flex: none; }
+.stepper { display: flex; align-items: center; background: var(--bg-sunken); border-radius: 999px; flex: none; }
+.stepper span { width: 44px; height: 36px; display: grid; place-items: center; font: 600 20px/1 var(--font); }
+.stepper b { min-width: 24px; text-align: center; font: 600 17px/1 var(--font); }
+.days { display: flex; justify-content: space-between; gap: 4px; padding: var(--s2) 0 var(--s1); }
+.days span { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid var(--line); background: var(--surface); color: var(--text-2); font: 600 14px/1 var(--font); }
+.days span.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.sum { font: var(--t-sub); color: var(--text-2); padding: var(--s3) var(--s1) 0; }
+.sum b { color: var(--text); font-weight: 600; }
+.sw { width: 51px; height: 31px; border-radius: 999px; background: var(--text-3); position: relative; flex: none; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow); }
+.sw.on { background: var(--ok); }
+.sw.on::after { left: 22px; }
+.foot { margin-top: var(--s2); display: flex; flex-direction: column; gap: var(--s3); }
+.spin-line { display: flex; align-items: center; gap: 10px; justify-content: center; }
 .sheet h3 { font: var(--t-title); margin-bottom: var(--s2); }
 .sheet p { font: var(--t-sub); color: var(--text-2); margin-bottom: var(--s4); }
 .sheet .btn { margin-top: var(--s2); }
+.alert { position: absolute; left: 50px; right: 50px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+.alert h4 { font: 600 17px/22px var(--font); } .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+.alert .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+.sk-line { display: inline-block; height: 14px; border-radius: 8px; }
+.phone.tall { height: 1600px; }
+.phone.tall .scroll { padding-bottom: 24px; }
+.nav .txt.off { color: var(--accent); }
 </style>
 </head>
 <body>
-<!-- CAL-08: detalle de rutina (pantalla empujada: barra de pestañas con Calendario activa, nav con ‹ Atrás) -->
+<!-- CAL-08: editor de rutina en modo edición (antes «detalle»). Mismo editor que CAL-06 con datos. Sin «Próximas sesiones». -->
 <header class="wf-head">
-  <div class="id">CAL-08 · detalle de rutina · epic E3</div>
-  <h1>Detalle de rutina</h1>
-  <p>Resumen de la rutina en lenguaje natural, sus próximas 10 sesiones (solo lectura) y el aviso. «Editar» abre el formulario; «Eliminar» abre una hoja de confirmación. Los controles de escritura se atenúan sin conexión.</p>
+  <div class="id">CAL-08 · editor de rutina (modo edición) · epic E3</div>
+  <h1>Rutina (modo edición)</h1>
+  <p>Tocar una rutina abre este editor, no una ficha de lectura. Es el mismo formulario que el alta (CAL-06) con los datos cargados: el calendario queda fijo y aparecen «Guardar» y «Eliminar rutina» al pie. No hay lista de próximas sesiones: las sesiones son eventos con «Sesión de rutina» (se editan en CAL-05).</p>
   <nav class="wf-nav">
     <a href="../index.html">← Índice</a>
     <a href="cal-rutinas.html">Rutinas</a>
-    <a href="cal-form-rutina.html">Editar rutina →</a>
-    <a href="cal-eventos.html">Eventos</a>
-    <a href="cal-calendarios.html">Calendarios</a>
+    <a href="cal-form-rutina.html">Alta de rutina (CAL-06) →</a>
+    <a href="cal-form-evento.html">Editar evento (CAL-05) →</a>
+    <a href="cal-detalle-calendario.html">Calendario (CAL-04) →</a>
   </nav>
 </header>
 
@@ -40,194 +67,211 @@
 
   <!-- 1. CON DATOS -->
   <section class="state">
-    <div class="label">1 · Con datos<small>Resumen, próximas sesiones y aviso; Eliminar al pie</small></div>
-    <div class="phone">
+    <div class="label">1 · Con datos<small>Frecuencia Semanal con cada 2 y días M y X. Calendario fijo. Activa. Aviso y Personas</small></div>
+    <div class="phone tall">
       <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt go" href="cal-rutinas.html">‹ Atrás</a><span></span><a class="txt go" href="cal-form-rutina.html">Editar</a></div>
-        <div class="large-title">Sacar la basura<small>Cada 2 semanas a las 19:00 · Marcos</small></div>
-        <div class="stack">
-          <div class="card">
-            <div class="card-h"><div class="ico">↻</div><h3>Resumen</h3><span class="badge ok">Activa</span></div>
-            <div class="frow"><span>Calendario</span><span class="val">Familia</span></div>
-            <div class="frow"><span>Frecuencia</span><span class="val">Semanal · cada 2</span></div>
-            <div class="frow"><span>Hora</span><span class="val">19:00</span></div>
-            <div class="frow"><span>Inicio</span><span class="val">12 nov 2026</span></div>
-            <div class="frow"><span>Fin</span><span class="val">Sin fecha fin</span></div>
-          </div>
-          <div class="card">
-            <div class="card-h"><div class="ico">◔</div><h3>Aviso</h3></div>
-            <div class="row go" style="min-height:44px"><div class="grow t">Aviso</div><span class="link">10 min antes ›</span></div>
-            <div class="hint">El aviso se guarda en el servidor. En este iPhone llegará con las notificaciones (fase 3).</div>
-          </div>
-          <div class="card">
-            <div class="card-h"><div class="ico">☰</div><h3>Próximas sesiones</h3><span class="badge">10</span></div>
-            <div class="row sess"><div class="grow t">jue 26 nov</div><div class="time">19:00</div></div>
-            <div class="row sess"><div class="grow t">jue 10 dic</div><div class="time">19:00</div></div>
-            <div class="row sess"><div class="grow t">jue 24 dic</div><div class="time">19:00</div></div>
-            <div class="row sess"><div class="grow t">jue 7 ene</div><div class="time">19:00</div></div>
-            <div class="row sess"><div class="grow t">jue 21 ene</div><div class="time">19:00</div></div>
-            <div class="hint">Mostrando 5 de 10 · solo lectura. Para marcar una sesión hecha, usa la lista de rutinas.</div>
-          </div>
-          <a class="btn danger" href="#eliminar">Eliminar rutina</a>
+        <div class="nav">
+          <a class="txt go" href="cal-rutinas.html">Cancelar</a>
+          <span class="center">Editar rutina</span>
+          <span></span>
         </div>
-      </div>
-      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
-    </div>
-  </section>
-
-  <!-- 2. VACÍO (sin sesiones próximas) -->
-  <section class="state">
-    <div class="label">2 · Vacío<small>Rutina terminada: sin próximas sesiones; una sola acción</small></div>
-    <div class="phone">
-      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
-      <div class="scroll">
-        <div class="nav"><a class="txt go" href="cal-rutinas.html">‹ Atrás</a><span></span><a class="txt go" href="cal-form-rutina.html">Editar</a></div>
-        <div class="large-title">Revisar medicación<small>Cada día a las 21:00 · Pablo</small></div>
         <div class="stack">
           <div class="card">
-            <div class="card-h"><div class="ico">↻</div><h3>Resumen</h3><span class="badge warn">Terminada</span></div>
-            <div class="frow"><span>Calendario</span><span class="val">Familia</span></div>
-            <div class="frow"><span>Frecuencia</span><span class="val">Diaria · cada 1</span></div>
-            <div class="frow"><span>Hora</span><span class="val">21:00</span></div>
-            <div class="frow"><span>Inicio</span><span class="val">1 sep 2026</span></div>
-            <div class="frow"><span>Fin</span><span class="val">30 oct 2026</span></div>
+            <div class="card-h"><div class="ico">↻</div><h3>Rutina</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Sacar la basura</span></div></div>
+            <div class="field"><div class="row"><span class="lbl">Calendario</span><span class="val">Familia</span></div></div>
           </div>
           <div class="card">
-            <div class="card-h"><div class="ico">◔</div><h3>Aviso</h3></div>
-            <div class="row" style="min-height:44px"><div class="grow t">Aviso</div><span class="link">Sin aviso</span></div>
+            <div class="card-h"><div class="ico">☰</div><h3>Frecuencia</h3></div>
+            <div class="radio"><i></i>Diaria</div>
+            <div class="radio on"><i></i>Semanal</div>
+            <div class="radio"><i></i>Mensual</div>
+            <div class="row" style="border-top:0;padding:var(--s2) 0"><div class="grow t">Cada 2 semanas</div>
+              <div class="stepper"><span>−</span><b>2</b><span>+</span></div></div>
+            <div class="days"><span>L</span><span class="on">M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+            <div class="sum">Se repite: <b>cada 2 semanas los martes a las 19:00</b> <span class="tagnew">Nuevo</span></div>
           </div>
           <div class="card">
-            <div class="card-h"><div class="ico">☰</div><h3>Próximas sesiones</h3></div>
-            <div class="empty" style="padding:var(--s4) var(--s2)">
-              <div class="art">↻</div>
-              <h3>No quedan sesiones</h3>
-              <p>La rutina terminó el 30 oct. Cambia la fecha fin para seguir repitiéndola.</p>
-              <a class="btn primary go" href="cal-form-rutina.html">Editar rutina</a>
+            <div class="card-h"><div class="ico">◷</div><h3>Horario</h3></div>
+            <div class="field">
+              <div class="row"><span class="lbl">Hora</span><span class="val"><span class="pill">19:00</span></span></div>
+              <div class="row"><span class="lbl">Inicio</span><span class="val"><span class="pill">12 Nov 2026</span></span></div>
+              <div class="row"><span class="lbl">Fecha fin</span><span class="val"><span class="sw"></span></span></div>
             </div>
           </div>
-          <a class="btn danger" href="#eliminar">Eliminar rutina</a>
-        </div>
-      </div>
-      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
-    </div>
-  </section>
-
-  <!-- 3. SKELETON -->
-  <section class="state">
-    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que con datos; título real en la cabecera</small></div>
-    <div class="phone">
-      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
-      <div class="scroll">
-        <div class="nav"><a class="txt go" href="cal-rutinas.html">‹ Atrás</a><span></span><span class="txt off">Editar</span></div>
-        <div class="large-title">Sacar la basura<small><span class="sk line" style="display:inline-block;width:200px"></span></small></div>
-        <div class="stack">
           <div class="card">
-            <div class="card-h"><div class="ico">↻</div><h3>Resumen</h3></div>
-            <div class="row"><div class="sk line" style="width:40%"></div><div class="sk line" style="width:35%;margin-left:auto"></div></div>
-            <div class="row"><div class="sk line" style="width:45%"></div><div class="sk line" style="width:30%;margin-left:auto"></div></div>
-            <div class="row"><div class="sk line" style="width:30%"></div><div class="sk line" style="width:25%;margin-left:auto"></div></div>
-            <div class="row"><div class="sk line" style="width:38%"></div><div class="sk line" style="width:40%;margin-left:auto"></div></div>
+            <div class="card-h"><div class="ico">⏻</div><h3>Estado</h3></div>
+            <div class="row" style="border-top:0"><div class="grow t">Activa</div><span class="sw on"></span></div>
           </div>
           <div class="card">
             <div class="card-h"><div class="ico">◔</div><h3>Aviso</h3></div>
-            <div class="row"><div class="sk line" style="width:50%"></div></div>
+            <div class="row" style="border-top:0"><div class="grow t">Aviso</div><span class="link">10 min antes ›</span></div>
           </div>
           <div class="card">
-            <div class="card-h"><div class="ico">☰</div><h3>Próximas sesiones</h3></div>
-            <div class="row"><div class="sk line" style="width:50%"></div></div>
-            <div class="row"><div class="sk line" style="width:45%"></div></div>
-            <div class="row"><div class="sk line" style="width:55%"></div></div>
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3></div>
+            <div class="cbx" style="--c:var(--person-1)"><i></i><span class="pc"></span>Ana</div>
+            <div class="cbx on" style="--c:var(--person-3)"><i>✓</i><span class="pc"></span>Marcos</div>
+          </div>
+          <div class="foot">
+            <a class="btn primary go" href="cal-rutinas.html">Guardar</a>
+            <a class="btn danger" href="#eliminar">Eliminar rutina</a>
           </div>
         </div>
       </div>
-      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
     </div>
   </section>
 
-  <!-- 4. ERROR (parcial: solo sesiones) -->
+  <!-- 2. VACÍO -->
   <section class="state">
-    <div class="label">4 · Error<small>Fallo parcial: solo la tarjeta de sesiones; resumen y aviso siguen</small></div>
+    <div class="label">2 · Vacío <small>No aplica: el editor siempre muestra la rutina con sus datos. Sin sesiones próximas no hay lista (la sección se quitó)</small></div>
     <div class="phone">
       <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt go" href="cal-rutinas.html">‹ Atrás</a><span></span><a class="txt go" href="cal-form-rutina.html">Editar</a></div>
-        <div class="large-title">Sacar la basura<small>Cada 2 semanas a las 19:00 · Marcos</small></div>
-        <div class="stack">
-          <div class="card">
-            <div class="card-h"><div class="ico">↻</div><h3>Resumen</h3><span class="badge ok">Activa</span></div>
-            <div class="frow"><span>Calendario</span><span class="val">Familia</span></div>
-            <div class="frow"><span>Frecuencia</span><span class="val">Semanal · cada 2</span></div>
-            <div class="frow"><span>Hora</span><span class="val">19:00</span></div>
-            <div class="frow"><span>Inicio</span><span class="val">12 nov 2026</span></div>
-            <div class="frow"><span>Fin</span><span class="val">Sin fecha fin</span></div>
-          </div>
-          <div class="card">
-            <div class="card-h"><div class="ico">☰</div><h3>Próximas sesiones</h3></div>
-            <div class="inline-err"><span>⚠</span><span class="grow">No pudimos cargar las sesiones.</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div>
-          </div>
-          <a class="btn danger" href="#eliminar">Eliminar rutina</a>
+        <div class="nav"><span></span></div>
+        <div class="empty" style="padding-top:var(--s8)">
+          <div class="art">↻</div>
+          <h3>No aplica</h3>
+          <p>El editor de rutina no tiene estado vacío: los campos siempre tienen valor (aunque sea el predeterminado).</p>
         </div>
       </div>
-      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. CARGANDO -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton) <span class="tagnew">Nuevo</span><small>Hoy no hay estado de carga documentado en el editor. Propuesta: misma geometría que con datos</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-rutinas.html">Cancelar</a>
+          <span class="center">Editar rutina</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">↻</div><h3>Rutina</h3></div>
+            <div class="row" style="border-top:0"><div class="sk-line sk" style="width:60%"></div></div>
+            <div class="row"><div class="sk-line sk" style="width:30%"></div><div class="sk-line sk" style="width:30%;margin-left:auto"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☰</div><h3>Frecuencia</h3></div>
+            <div class="row" style="border-top:0"><div class="sk-line sk" style="width:45%"></div></div>
+            <div class="row"><div class="sk-line sk" style="width:55%"></div></div>
+          </div>
+          <div class="foot"><span class="btn primary off">Guardar</span><span class="btn danger off">Eliminar rutina</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. ERROR DE GUARDADO (ALERTA) -->
+  <section class="state">
+    <div class="label">4 · Error al guardar: alerta «Aviso / OK»<small>Error de acción = alerta modal, con el mensaje del servidor (marcador). Validación: «Revisa la frecuencia, el intervalo, los días y el rango de fechas»</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-rutinas.html">Cancelar</a>
+          <span class="center">Editar rutina</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">↻</div><h3>Rutina</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Sacar la basura</span></div></div>
+            <div class="field"><div class="row"><span class="lbl">Calendario</span><span class="val">Familia</span></div></div>
+          </div>
+          <div class="foot"><span class="btn primary">Guardar</span><span class="btn danger">Eliminar rutina</span></div>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert"><h4>Aviso</h4><p>[mensaje del servidor]</p><div class="ok">OK</div></div>
     </div>
   </section>
 
   <!-- 5. SIN CONEXIÓN -->
   <section class="state">
-    <div class="label">5 · Sin conexión<small>Datos en caché + banner; Editar y Eliminar desactivados</small></div>
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Propuesta: banner con la hora de los datos y escrituras desactivadas. Hoy el fallo es la alerta del estado 4</small></div>
     <div class="phone">
       <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt go" href="cal-rutinas.html">‹ Atrás</a><span></span><span class="txt off">Editar</span></div>
-        <div class="large-title">Sacar la basura<small>Cada 2 semanas a las 19:00 · Marcos</small></div>
+        <div class="nav">
+          <a class="txt go" href="cal-rutinas.html">Cancelar</a>
+          <span class="center">Editar rutina</span>
+          <span></span>
+        </div>
         <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span></div>
         <div class="stack">
           <div class="card">
-            <div class="card-h"><div class="ico">↻</div><h3>Resumen</h3><span class="badge ok">Activa</span></div>
-            <div class="frow"><span>Calendario</span><span class="val">Familia</span></div>
-            <div class="frow"><span>Frecuencia</span><span class="val">Semanal · cada 2</span></div>
-            <div class="frow"><span>Hora</span><span class="val">19:00</span></div>
+            <div class="card-h"><div class="ico">↻</div><h3>Rutina</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Sacar la basura</span></div></div>
+            <div class="field"><div class="row"><span class="lbl">Calendario</span><span class="val">Familia</span></div></div>
           </div>
-          <div class="card">
-            <div class="card-h"><div class="ico">☰</div><h3>Próximas sesiones</h3><span class="badge">10</span></div>
-            <div class="row sess" style="opacity:.6"><div class="grow t">jue 26 nov</div><div class="time">19:00</div></div>
-            <div class="row sess" style="opacity:.6"><div class="grow t">jue 10 dic</div><div class="time">19:00</div></div>
-          </div>
-          <span class="btn danger disabled">Eliminar rutina</span>
+          <div class="foot"><span class="btn primary off">Guardar</span><span class="btn danger off">Eliminar rutina</span></div>
         </div>
       </div>
-      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
     </div>
   </section>
 
   <!-- 6. CONFIRMAR ELIMINACIÓN -->
   <section class="state" id="eliminar">
-    <div class="label">6 · Confirmar eliminación<small>Hoja inferior; la acción destructiva va separada de Cancelar</small></div>
+    <div class="label">6 · Confirmar eliminación<small>Texto real: «Se eliminará la rutina y sus sesiones futuras.». El título de la hoja repite el botón: el código no tiene título propio</small></div>
     <div class="phone">
       <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt">‹ Atrás</a><span></span><span class="txt">Editar</span></div>
-        <div class="large-title">Sacar la basura<small>Cada 2 semanas a las 19:00 · Marcos</small></div>
+        <div class="nav">
+          <a class="txt go" href="cal-rutinas.html">Cancelar</a>
+          <span class="center">Editar rutina</span>
+          <span></span>
+        </div>
         <div class="stack">
           <div class="card">
-            <div class="card-h"><div class="ico">↻</div><h3>Resumen</h3><span class="badge ok">Activa</span></div>
-            <div class="frow"><span>Calendario</span><span class="val">Familia</span></div>
-            <div class="frow"><span>Frecuencia</span><span class="val">Semanal · cada 2</span></div>
+            <div class="card-h"><div class="ico">↻</div><h3>Rutina</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Sacar la basura</span></div></div>
+            <div class="field"><div class="row"><span class="lbl">Calendario</span><span class="val">Familia</span></div></div>
           </div>
-          <div class="card">
-            <div class="card-h"><div class="ico">☰</div><h3>Próximas sesiones</h3><span class="badge">10</span></div>
-            <div class="row sess"><div class="grow t">jue 26 nov</div><div class="time">19:00</div></div>
-          </div>
+          <div class="foot"><span class="btn primary">Guardar</span><span class="btn danger">Eliminar rutina</span></div>
         </div>
       </div>
-      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
       <div class="scrim"></div>
       <div class="sheet">
-        <h3>¿Eliminar esta rutina?</h3>
-        <p>«Sacar la basura» deja de repetirse y se quitan sus 10 próximas sesiones. No se puede deshacer.</p>
+        <h3>Eliminar rutina</h3>
+        <p>Se eliminará la rutina y sus sesiones futuras.</p>
         <a class="btn danger go" href="cal-rutinas.html">Eliminar rutina</a>
         <a class="btn secondary" href="#eliminar">Cancelar</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. FIN ACTIVO -->
+  <section class="state">
+    <div class="label">7 · Con «Fecha fin»<small>Interruptor encendido: aparece la fila «Fin». Sin el interruptor la rutina se repite hasta que la desactives</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-rutinas.html">Cancelar</a>
+          <span class="center">Editar rutina</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">◷</div><h3>Horario</h3></div>
+            <div class="field">
+              <div class="row"><span class="lbl">Hora</span><span class="val"><span class="pill">21:00</span></span></div>
+              <div class="row"><span class="lbl">Inicio</span><span class="val"><span class="pill">1 Sep 2026</span></span></div>
+              <div class="row"><span class="lbl">Fecha fin</span><span class="val"><span class="sw on"></span></span></div>
+              <div class="row"><span class="lbl">Fin</span><span class="val"><span class="pill">30 Oct 2026</span></span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">⏻</div><h3>Estado</h3></div>
+            <div class="row" style="border-top:0"><div class="grow t">Activa</div><span class="sw"></span></div>
+          </div>
+          <div class="foot"><span class="btn primary">Guardar</span><span class="btn danger">Eliminar rutina</span></div>
+        </div>
       </div>
     </div>
   </section>
@@ -237,13 +281,25 @@
 <aside class="notes">
   <h2>Cambios respecto a la app actual</h2>
   <ul>
-    <li>La rutina pasa a tener pantalla de detalle con resumen legible («Cada 2 semanas a las 19:00») y su estado Activa en la cabecera de la tarjeta; la lista actual solo muestra «PRÓXIMA · fecha».</li>
-    <li>Las próximas sesiones son solo lectura: 10 filas, con 5 visibles y el total en la nota. Marcar hecha queda en la lista, como hoy.</li>
-    <li>El aviso aparece como fila con su valor y la nota de fase 3, separada del resumen.</li>
-    <li>Eliminar va al pie en rojo y pide confirmación en hoja inferior. En la auditoría no se abrió el detalle ni la eliminación; el texto de la hoja es propuesta.</li>
-    <li>Sin conexión, Editar y Eliminar se atenúan y el resto de datos sigue visible desde caché; un fallo de sesiones no tapa el resumen.</li>
+    <li><b>Detalle → editor</b>: tocar una rutina abre el formulario con los datos. Se quitan la ficha de solo lectura y su resumen de la primera pasada.</li>
+    <li><b>Se quitan «Próximas sesiones»</b>, el resumen de solo lectura y «No quedan sesiones» (no existen en el código). Las sesiones son eventos con «Sesión de rutina»: editar una crea una excepción (CAL-05 para borrar una sesión).</li>
+    <li><b>Frecuencia</b> (radios, stepper, días L M X J V S D) y <b>Horario</b> como en CAL-06. El resumen en lenguaje natural es <span class="tagnew">Nuevo</span>.</li>
+    <li><b>Calendario</b> fijo en la edición (texto), como en CAL-05.</li>
+    <li><b>Acción al pie</b>: «Guardar» y «Eliminar rutina», con confirmación real. «Cancelar» a la izquierda.</li>
+    <li>Estados 3 (skeleton) y 5 (sin conexión) son <span class="tagnew">Nuevo</span>. El estado 2 no aplica. La rutina «Terminada» de la primera pasada se quita: el código no tiene ese estado (solo fecha fin).</li>
   </ul>
-  <p style="margin-top:10px"><b>Conexiones:</b> llega desde <a class="go" href="cal-rutinas.html" style="text-decoration:underline">Rutinas</a> (tocar una rutina). «Editar» va a <a class="go" href="cal-form-rutina.html" style="text-decoration:underline">Editar rutina</a>; «Atrás» y la eliminación confirmada vuelven a <a class="go" href="cal-rutinas.html" style="text-decoration:underline">Rutinas</a>.</p>
+  <h2>Reglas de negocio</h2>
+  <ul>
+    <li>Eliminar rutina: «Se eliminará la rutina y sus sesiones futuras.».</li>
+    <li>Validación al guardar: alerta «Revisa la frecuencia, el intervalo, los días y el rango de fechas».</li>
+    <li>Fecha fin: interruptor; sin él la rutina no tiene fin.</li>
+  </ul>
+  <h2>Conexiones</h2>
+  <ul>
+    <li>Entra desde: Rutinas (tocar una rutina).</li>
+    <li>Sale a: Rutinas (Cancelar, Guardar y, tras eliminar, la lista); CAL-05 (sesión de rutina, desde un evento).</li>
+    <li>El alta de rutina es CAL-06 (cal-form-rutina.html).</li>
+  </ul>
 </aside>
 </body>
 </html>

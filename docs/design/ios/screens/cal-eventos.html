@@ -7,19 +7,47 @@
 <link rel="stylesheet" href="../tokens.css">
 <link rel="stylesheet" href="../components.css">
 <style>
-/* Añadido en línea (no está en components.css): segmento con enlaces, tarjeta como enlace, atenuado */
-.seg a { flex: 1; text-align: center; font: 600 14px/32px var(--font); color: var(--text-2); border-radius: 9px; }
-.seg a.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
-a.card { display: block; }
-.btn-icon.disabled, .check.disabled, .dim { opacity: .45; }
+  .seg a { flex: 1; text-align: center; font: 600 14px/32px var(--font); color: var(--text-2); border-radius: 9px; }
+  .seg a.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .seg.sub { background: var(--bg-sunken); }
+  .month-h { display: flex; align-items: center; justify-content: space-between; min-height: 44px; font: 600 17px/22px var(--font); }
+  .month-h .arr { width: 32px; height: 32px; display: grid; place-items: center; color: var(--text-2); font: 400 22px/1 var(--font); }
+  .cgrid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+  .cgrid .wd { font: 600 12px/16px var(--font); color: var(--text-2); padding: 4px 0; }
+  .cgrid .d { height: 44px; display: flex; flex-direction: column; align-items: center; gap: 2px; font: 500 16px/20px var(--font); }
+  .cgrid .d b { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font: 500 16px/1 var(--font); }
+  .cgrid .d.out b { color: var(--text-3); }
+  .cgrid .d.sel b { background: var(--accent); color: #fff; font-weight: 700; }
+  .cgrid.week .d { height: 64px; }
+  .dt { display: flex; gap: 3px; height: 5px; }
+  .dt i { width: 5px; height: 5px; border-radius: 50%; display: block; }
+  .c1 { background: var(--person-1); } .c2 { background: var(--person-2); } .c5 { background: var(--person-5); }
+  .dayh { display: flex; align-items: center; gap: 8px; padding: 14px 4px 8px; font: 600 15px/20px var(--font); color: var(--text-2); }
+  .dayh .cnt { margin-left: auto; font: 700 13px/1 var(--font); padding: 5px 9px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent); }
+  .ev { display: flex; gap: 12px; padding: 12px 14px 12px 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); margin-bottom: 10px; overflow: hidden; }
+  .ev .bar5 { width: 5px; border-radius: 0 3px 3px 0; flex: none; background: var(--c); }
+  .ev .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .ev .when { font: 600 12px/16px var(--font); color: var(--text-2); text-transform: uppercase; letter-spacing: .02em; }
+  .ev .t { font: 600 17px/22px var(--font); }
+  .ev .cd { font: 600 13px/18px var(--font); color: var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+  .chip { font: 600 12px/16px var(--font); padding: 3px 9px; border-radius: 999px; color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--surface)); }
+  .rut { align-self: flex-start; font: 600 11px/16px var(--font); color: var(--text-2); background: var(--bg-sunken); padding: 1px 8px; border-radius: 999px; }
+  .empty-day { text-align: center; padding: 28px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .empty-day p { font: var(--t-sub); color: var(--text-2); }
+  .skl-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px 0; padding: 6px 0; }
+  .skl-grid i { display: block; width: 26px; height: 26px; margin: 0 auto; border-radius: 50%; }
+  .alert-s { position: absolute; left: 50px; right: 50px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+  .alert-s h4 { font: 600 17px/22px var(--font); } .alert-s p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+  .alert-s .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .dim { opacity: .45; }
 </style>
 </head>
 <body>
-<!-- CAL-01: vista de lectura de eventos por día con cuenta atrás. Segmentos Eventos | Rutinas | Calendarios. -->
 <header class="wf-head">
-  <div class="id">CAL-01 · pestaña Calendario · segmento Eventos · epic E3</div>
-  <h1>Calendario · Eventos</h1>
-  <p>Lista de eventos agrupada por día, con cuenta atrás para los que están cerca. «+» en la cabecera crea un evento. Los otros dos segmentos cambian de vista dentro de la misma pestaña. En v1 solo hay listas: no hay vista mensual ni semanal.</p>
+  <div class="id">CAL-01 · pestaña Calendario · vista Eventos · épica Calendario</div>
+  <h1>Calendario · Eventos (Mes | Semana | Día)</h1>
+  <p>No es una lista agrupada: un conmutador <b>Mes | Semana | Día</b> (defecto Mes) con cabecera de rango, cuadrícula L M X J V S D (lunes primero) y, debajo, la <b>lista del día seleccionado</b>. Los segmentos «Eventos | Rutinas | Calendarios» de la cabecera vienen de las capturas de la auditoría y cambian de vista dentro de la pestaña. Las etiquetas <span class="tagnew">Nuevo</span> señalan lo que el código no tiene.</p>
   <nav class="wf-nav">
     <a href="../index.html">← Índice</a>
     <a href="cal-rutinas.html">Segmento Rutinas →</a>
@@ -31,117 +59,171 @@ a.card { display: block; }
 
 <div class="states">
 
-  <!-- 1. DATOS -->
-  <section class="state">
-    <div class="label">1 · Con datos<small>Eventos por día; la cuenta atrás destaca el más próximo</small></div>
+  <!-- 1. DATOS (Mes) -->
+  <section class="state" id="s1">
+    <div class="label">1 · Con datos (Mes)<small>Hora simulada 19:30. Día 12 seleccionado: 3 eventos. Cuenta atrás solo de 0 a 120 min</small></div>
     <div class="phone">
-      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
         <div class="nav"><span></span><a class="btn-icon go" href="cal-form-evento.html" aria-label="Nuevo evento">+</a></div>
-        <div class="large-title">Eventos<small>Próximos días</small></div>
+        <div class="large-title">Eventos</div>
         <div class="seg"><a class="on">Eventos</a><a class="go" href="cal-rutinas.html">Rutinas</a><a class="go" href="cal-calendarios.html">Calendarios</a></div>
-        <div class="stack">
-          <div class="card">
-            <div class="card-h"><div class="ico">▦</div><h3>Hoy · jue 12 nov</h3><span class="badge">2</span></div>
-            <div class="row go" data-go="cal-form-evento"><div class="bar" style="background:var(--person-1)"></div><div class="grow"><div class="s">09:00</div><div class="t">Desayuno con la vecina</div><div class="s">Familia</div></div></div>
-            <div class="row go" data-go="cal-form-evento"><div class="bar" style="background:var(--person-1)"></div><div class="grow"><div class="s"><span class="soon">en 22 min</span></div><div class="t">Cena con los abuelos</div><div class="s">Familia</div></div><div class="time">20:30</div></div>
-          </div>
-          <div class="card">
-            <div class="card-h"><div class="ico">▦</div><h3>Mañana · vie 13 nov</h3><span class="badge">2</span></div>
-            <div class="row go" data-go="cal-form-evento"><div class="bar" style="background:var(--person-5)"></div><div class="grow"><div class="t">Recoger a los niños</div><div class="s">Colegio</div></div><div class="time">16:00</div></div>
-            <div class="row go" data-go="cal-form-evento"><div class="bar" style="background:var(--person-1)"></div><div class="grow"><div class="t">Partido de fútbol</div><div class="s">Familia</div></div><div class="time">17:00</div></div>
-          </div>
-          <div class="card">
-            <div class="card-h"><div class="ico">▦</div><h3>Sáb 14 nov</h3><span class="badge">1</span></div>
-            <div class="row go" data-go="cal-form-evento"><div class="bar" style="background:var(--person-5)"></div><div class="grow"><div class="t">Paseo en bici</div><div class="s">Colegio</div></div><div class="time">11:00</div></div>
-          </div>
+        <div class="seg sub"><a class="on">Mes</a><a class="go" href="#s6">Semana</a><a class="go" href="#s7">Día</a></div>
+        <div class="month-h"><span class="arr">‹</span><span>Noviembre 2026</span><span class="arr">›</span></div>
+        <div class="cgrid">
+          <div class="wd">L</div><div class="wd">M</div><div class="wd">X</div><div class="wd">J</div><div class="wd">V</div><div class="wd">S</div><div class="wd">D</div>
+          <span class="d out"><b>26</b></span><span class="d out"><b>27</b></span><span class="d out"><b>28</b></span><span class="d out"><b>29</b></span><span class="d out"><b>30</b></span><span class="d out"><b>31</b><em class="dt"><i class="c1"></i></em></span><span class="d"><b>1</b></span>
+          <span class="d"><b>2</b></span><span class="d"><b>3</b></span><span class="d"><b>4</b><em class="dt"><i class="c5"></i></em></span><span class="d"><b>5</b></span><span class="d"><b>6</b></span><span class="d"><b>7</b><em class="dt"><i class="c1"></i></em></span><span class="d"><b>8</b></span>
+          <span class="d"><b>9</b></span><span class="d"><b>10</b><em class="dt"><i class="c1"></i></em></span><span class="d"><b>11</b></span><span class="d sel"><b>12</b><em class="dt"><i class="c1"></i><i class="c5"></i></em></span><span class="d"><b>13</b><em class="dt"><i class="c5"></i><i class="c1"></i></em></span><span class="d"><b>14</b><em class="dt"><i class="c1"></i><i class="c5"></i></em></span><span class="d"><b>15</b><em class="dt"><i class="c5"></i><i class="c1"></i></em></span>
+          <span class="d"><b>16</b><em class="dt"><i class="c5"></i></em></span><span class="d"><b>17</b><em class="dt"><i class="c1"></i><i class="c5"></i></em></span><span class="d"><b>18</b><em class="dt"><i class="c5"></i></em></span><span class="d"><b>19</b><em class="dt"><i class="c5"></i><i class="c1"></i></em></span><span class="d"><b>20</b><em class="dt"><i class="c5"></i></em></span><span class="d"><b>21</b><em class="dt"><i class="c5"></i><i class="c1"></i></em></span><span class="d"><b>22</b><em class="dt"><i class="c5"></i></em></span>
+          <span class="d"><b>23</b><em class="dt"><i class="c5"></i></em></span><span class="d"><b>24</b><em class="dt"><i class="c5"></i></em></span><span class="d"><b>25</b><em class="dt"><i class="c5"></i></em></span><span class="d"><b>26</b><em class="dt"><i class="c5"></i></em></span><span class="d"><b>27</b><em class="dt"><i class="c5"></i></em></span><span class="d"><b>28</b><em class="dt"><i class="c5"></i></em></span><span class="d"><b>29</b><em class="dt"><i class="c5"></i></em></span>
+          <span class="d"><b>30</b><em class="dt"><i class="c5"></i></em></span><span class="d out"><b>1</b><em class="dt"><i class="c5"></i></em></span><span class="d out"><b>2</b><em class="dt"><i class="c5"></i></em></span><span class="d out"><b>3</b><em class="dt"><i class="c5"></i></em></span><span class="d out"><b>4</b><em class="dt"><i class="c5"></i></em></span><span class="d out"><b>5</b><em class="dt"><i class="c5"></i></em></span><span class="d out"><b>6</b><em class="dt"><i class="c5"></i></em></span>
         </div>
+        <div class="dayh">Jueves, 12 de noviembre<span class="cnt">3</span></div>
+        <a class="ev go" href="cal-form-evento.html"><span class="bar5" style="--c:var(--person-1)"></span><div class="grow"><div class="when">JUE, 12 NOV, 09:00</div><div class="t">Desayuno con la vecina</div><div class="chips"><span class="chip" style="--c:var(--person-2)">Ana</span></div></div></a>
+        <a class="ev go" href="cal-form-evento.html"><span class="bar5" style="--c:var(--person-5)"></span><div class="grow"><div class="when">JUE, 12 NOV, 20:00</div><div class="t">Pilates</div><div class="cd">en 30 min</div><div class="chips"><span class="chip" style="--c:var(--person-2)">Ana</span></div><span class="rut">↻ Sesión de rutina</span></div></a>
+        <a class="ev go" href="cal-form-evento.html"><span class="bar5" style="--c:var(--person-1)"></span><div class="grow"><div class="when">JUE, 12 NOV, 20:30</div><div class="t">Cena con los abuelos</div><div class="cd">en 1 h</div><div class="chips"><span class="chip" style="--c:var(--person-3)">Pablo</span><span class="chip" style="--c:var(--person-2)">Ana</span></div></div></a>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
       <span class="anno" style="top:70px;left:8px">1</span>
     </div>
   </section>
 
-  <!-- 2. VACÍO -->
+  <!-- 2. VACÍO (día sin eventos) -->
   <section class="state">
-    <div class="label">2 · Vacío<small>Sin eventos próximos: un mensaje y una acción</small></div>
+    <div class="label">2 · Vacío (día sin eventos)<small>Vacío del día seleccionado: texto real y «Nuevo evento». La cuadrícula sigue visible</small></div>
     <div class="phone">
-      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
         <div class="nav"><span></span><a class="btn-icon go" href="cal-form-evento.html" aria-label="Nuevo evento">+</a></div>
-        <div class="large-title">Eventos<small>Próximos días</small></div>
+        <div class="large-title">Eventos</div>
         <div class="seg"><a class="on">Eventos</a><a class="go" href="cal-rutinas.html">Rutinas</a><a class="go" href="cal-calendarios.html">Calendarios</a></div>
-        <div class="empty">
-          <div class="art">▦</div>
-          <h3>No hay eventos próximos</h3>
-          <p>Las citas y fechas que añadas aparecerán aquí, por día.</p>
-          <a class="btn primary go" href="cal-form-evento.html">Añadir un evento</a>
+        <div class="seg sub"><a class="on">Mes</a><a class="go" href="#s6">Semana</a><a class="go" href="#s7">Día</a></div>
+        <div class="month-h"><span class="arr">‹</span><span>Noviembre 2026</span><span class="arr">›</span></div>
+        <div class="cgrid">
+          <div class="wd">L</div><div class="wd">M</div><div class="wd">X</div><div class="wd">J</div><div class="wd">V</div><div class="wd">S</div><div class="wd">D</div>
+          <span class="d out"><b>26</b></span><span class="d out"><b>27</b></span><span class="d out"><b>28</b></span><span class="d out"><b>29</b></span><span class="d out"><b>30</b></span><span class="d out"><b>31</b></span><span class="d"><b>1</b></span>
+          <span class="d"><b>2</b></span><span class="d"><b>3</b></span><span class="d"><b>4</b></span><span class="d"><b>5</b></span><span class="d"><b>6</b></span><span class="d"><b>7</b></span><span class="d"><b>8</b></span>
+          <span class="d"><b>9</b></span><span class="d"><b>10</b></span><span class="d"><b>11</b></span><span class="d sel"><b>12</b></span><span class="d"><b>13</b></span><span class="d"><b>14</b></span><span class="d"><b>15</b></span>
+          <span class="d"><b>16</b></span><span class="d"><b>17</b></span><span class="d"><b>18</b></span><span class="d"><b>19</b></span><span class="d"><b>20</b></span><span class="d"><b>21</b></span><span class="d"><b>22</b></span>
+          <span class="d"><b>23</b></span><span class="d"><b>24</b></span><span class="d"><b>25</b></span><span class="d"><b>26</b></span><span class="d"><b>27</b></span><span class="d"><b>28</b></span><span class="d"><b>29</b></span>
+          <span class="d"><b>30</b></span><span class="d out"><b>1</b></span><span class="d out"><b>2</b></span><span class="d out"><b>3</b></span><span class="d out"><b>4</b></span><span class="d out"><b>5</b></span><span class="d out"><b>6</b></span>
+        </div>
+        <div class="dayh">Sábado, 14 de noviembre<span class="cnt">0</span></div>
+        <div class="empty-day">
+          <p>Sin eventos este día.</p>
+          <a class="btn primary sm go" href="cal-form-evento.html" style="min-height:44px">+ Nuevo evento</a>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
-  <!-- 3. SKELETON -->
+  <!-- 3. CARGANDO (skeleton) -->
   <section class="state">
-    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que el estado con datos; título y segmento reales</small></div>
+    <div class="label">3 · Cargando <span class="tagnew">Nuevo</span><small>Hoy: texto «Cargando calendario…». Propuesta: skeleton con la misma geometría de cuadrícula y filas</small></div>
     <div class="phone">
-      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
         <div class="nav"><span></span><a class="btn-icon">+</a></div>
-        <div class="large-title">Eventos<small>Próximos días</small></div>
+        <div class="large-title">Eventos</div>
         <div class="seg"><a class="on">Eventos</a><a>Rutinas</a><a>Calendarios</a></div>
-        <div class="stack">
-          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
-            <div class="row"><div class="bar sk"></div><div class="grow"><div class="sk line" style="width:25%"></div><div class="sk line" style="width:70%;margin-top:6px"></div><div class="sk line" style="width:35%;margin-top:6px"></div></div></div>
-            <div class="row"><div class="bar sk"></div><div class="grow"><div class="sk line" style="width:30%"></div><div class="sk line" style="width:60%;margin-top:6px"></div><div class="sk line" style="width:35%;margin-top:6px"></div></div></div></div>
-          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
-            <div class="row"><div class="bar sk"></div><div class="grow"><div class="sk line" style="width:60%"></div><div class="sk line" style="width:30%;margin-top:6px"></div></div><div class="sk line" style="width:44px"></div></div></div>
+        <div class="seg sub"><a class="on">Mes</a><a>Semana</a><a>Día</a></div>
+        <div class="month-h"><span class="sk" style="width:24px;height:24px;border-radius:50%"></span><span class="sk title" style="width:160px"></span><span class="sk" style="width:24px;height:24px;border-radius:50%"></span></div>
+        <div class="skl-grid">
+          <i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i>
+          <i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i>
+          <i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i>
+          <i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i>
         </div>
+        <div class="dayh"><span class="sk title" style="width:55%"></span></div>
+        <div class="ev"><span class="bar5 sk" style="border-radius:0"></span><div class="grow"><div class="sk line" style="width:40%"></div><div class="sk line" style="width:70%;margin-top:6px"></div></div></div>
+        <div class="ev"><span class="bar5 sk" style="border-radius:0"></span><div class="grow"><div class="sk line" style="width:35%"></div><div class="sk line" style="width:55%;margin-top:6px"></div></div></div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
   <!-- 4. ERROR -->
   <section class="state">
-    <div class="label">4 · Error<small>Fallo de carga de la lista completa: explica qué pasó y ofrece reintentar</small></div>
+    <div class="label">4 · Error<small>Real: mensaje del servidor + «Reintentar» en la sección. Fallo de escritura = alerta «Aviso / OK»</small></div>
     <div class="phone">
-      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><span></span><a class="btn-icon go" href="cal-form-evento.html" aria-label="Nuevo evento">+</a></div>
-        <div class="large-title">Eventos<small>Próximos días</small></div>
-        <div class="seg"><a class="on">Eventos</a><a class="go" href="cal-rutinas.html">Rutinas</a><a class="go" href="cal-calendarios.html">Calendarios</a></div>
-        <div class="errbox">
-          <div class="art">⚠</div>
-          <h3>No pudimos cargar los eventos</h3>
-          <p>Revisa la conexión y vuelve a intentarlo.</p>
-          <a class="btn sm secondary">Reintentar</a>
+        <div class="nav"><span></span><a class="btn-icon">+</a></div>
+        <div class="large-title">Eventos</div>
+        <div class="seg"><a class="on">Eventos</a><a>Rutinas</a><a>Calendarios</a></div>
+        <div class="seg sub"><a class="on">Mes</a><a>Semana</a><a>Día</a></div>
+        <div class="month-h"><span class="arr">‹</span><span>Noviembre 2026</span><span class="arr">›</span></div>
+        <div class="card" style="padding:12px">
+          <div class="inline-err"><span>⚠</span><span class="grow" style="flex:1">No se pudo conectar con el servidor.</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert-s"><h4>Aviso</h4><p>No se pudo guardar el evento. Inténtalo de nuevo.</p><div class="ok">OK</div></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
   <!-- 5. SIN CONEXIÓN -->
   <section class="state">
-    <div class="label">5 · Sin conexión<small>Banner + eventos en caché; «+» atenuado porque crear requiere red</small></div>
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy cae al error de la sección. Propuesta: banner con la hora de los datos y «+» atenuado (requiere caché de lectura: por verificar)</small></div>
     <div class="phone">
-      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><span></span><span class="btn-icon disabled" aria-disabled="true">+</span></div>
-        <div class="large-title">Eventos<small>Próximos días</small></div>
-        <div class="seg"><a class="on">Eventos</a><a class="go" href="cal-rutinas.html">Rutinas</a><a class="go" href="cal-calendarios.html">Calendarios</a></div>
-        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
-        <div class="stack">
-          <div class="card">
-            <div class="card-h"><div class="ico">▦</div><h3>Hoy · jue 12 nov</h3><span class="badge">2</span></div>
-            <div class="row go" data-go="cal-form-evento"><div class="bar" style="background:var(--person-1)"></div><div class="grow"><div class="s">09:00</div><div class="t">Desayuno con la vecina</div><div class="s">Familia</div></div></div>
-            <div class="row go" data-go="cal-form-evento"><div class="bar" style="background:var(--person-1)"></div><div class="grow"><div class="t">Cena con los abuelos</div><div class="s">Familia</div></div><div class="time">20:30</div></div>
-          </div>
-        </div>
+        <div class="nav"><span></span><a class="btn-icon dim">+</a></div>
+        <div class="large-title">Eventos</div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:12.</span><u>Reintentar</u></div>
+        <div class="seg"><a class="on">Eventos</a><a>Rutinas</a><a>Calendarios</a></div>
+        <div class="seg sub"><a class="on">Mes</a><a>Semana</a><a>Día</a></div>
+        <div class="dayh">Jueves, 12 de noviembre<span class="cnt">3</span></div>
+        <div class="ev dim"><span class="bar5" style="--c:var(--person-1)"></span><div class="grow"><div class="when">JUE, 12 NOV, 09:00</div><div class="t">Desayuno con la vecina</div></div></div>
+        <div class="ev dim"><span class="bar5" style="--c:var(--person-5)"></span><div class="grow"><div class="when">JUE, 12 NOV, 20:00</div><div class="t">Pilates</div><span class="rut">↻ Sesión de rutina</span></div></div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+    </div>
+  </section>
+
+  <!-- 6. SEMANA (extra) -->
+  <section class="state" id="s6">
+    <div class="label">6 · Vista Semana<small>Extra. Cabecera de rango «9 nov – 15 nov»; franja de 7 días L–D y lista del día seleccionado (12)</small></div>
+    <div class="phone">
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon go" href="cal-form-evento.html" aria-label="Nuevo evento">+</a></div>
+        <div class="large-title">Eventos</div>
+        <div class="seg"><a class="on">Eventos</a><a class="go" href="cal-rutinas.html">Rutinas</a><a class="go" href="cal-calendarios.html">Calendarios</a></div>
+        <div class="seg sub"><a class="go" href="#s1">Mes</a><a class="on">Semana</a><a class="go" href="#s7">Día</a></div>
+        <div class="month-h"><span class="arr">‹</span><span>9 nov – 15 nov</span><span class="arr">›</span></div>
+        <div class="cgrid week">
+          <div class="wd">L</div><div class="wd">M</div><div class="wd">X</div><div class="wd">J</div><div class="wd">V</div><div class="wd">S</div><div class="wd">D</div>
+          <span class="d"><b>9</b><em class="dt"><i class="c1"></i></em></span><span class="d"><b>10</b><em class="dt"><i class="c1"></i></em></span><span class="d"><b>11</b></span><span class="d sel"><b>12</b><em class="dt"><i class="c1"></i><i class="c5"></i></em></span><span class="d"><b>13</b><em class="dt"><i class="c5"></i><i class="c1"></i></em></span><span class="d"><b>14</b><em class="dt"><i class="c1"></i><i class="c5"></i></em></span><span class="d"><b>15</b><em class="dt"><i class="c5"></i></em></span>
+        </div>
+        <div class="dayh">Jueves, 12 de noviembre<span class="cnt">3</span></div>
+        <a class="ev go" href="cal-form-evento.html"><span class="bar5" style="--c:var(--person-1)"></span><div class="grow"><div class="when">JUE, 12 NOV, 09:00</div><div class="t">Desayuno con la vecina</div><div class="chips"><span class="chip" style="--c:var(--person-2)">Ana</span></div></div></a>
+        <a class="ev go" href="cal-form-evento.html"><span class="bar5" style="--c:var(--person-5)"></span><div class="grow"><div class="when">JUE, 12 NOV, 20:00</div><div class="t">Pilates</div><div class="cd">en 30 min</div><span class="rut">↻ Sesión de rutina</span></div></a>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+    </div>
+  </section>
+
+  <!-- 7. DÍA (extra) -->
+  <section class="state" id="s7">
+    <div class="label">7 · Vista Día<small>Extra. Cabecera «Jueves 12 noviembre» con ‹ › para cambiar de día; sin cuadrícula, solo la lista del día</small></div>
+    <div class="phone">
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon go" href="cal-form-evento.html" aria-label="Nuevo evento">+</a></div>
+        <div class="large-title">Eventos</div>
+        <div class="seg"><a class="on">Eventos</a><a class="go" href="cal-rutinas.html">Rutinas</a><a class="go" href="cal-calendarios.html">Calendarios</a></div>
+        <div class="seg sub"><a class="go" href="#s1">Mes</a><a class="go" href="#s6">Semana</a><a class="on">Día</a></div>
+        <div class="month-h"><span class="arr">‹</span><span>Jueves 12 noviembre</span><span class="arr">›</span></div>
+        <div class="dayh" style="padding-top:6px">Eventos del día<span class="cnt">3</span></div>
+        <a class="ev go" href="cal-form-evento.html"><span class="bar5" style="--c:var(--person-1)"></span><div class="grow"><div class="when">JUE, 12 NOV, 09:00</div><div class="t">Desayuno con la vecina</div><div class="chips"><span class="chip" style="--c:var(--person-2)">Ana</span></div></div></a>
+        <a class="ev go" href="cal-form-evento.html"><span class="bar5" style="--c:var(--person-5)"></span><div class="grow"><div class="when">JUE, 12 NOV, 20:00</div><div class="t">Pilates</div><div class="cd">en 30 min</div><div class="chips"><span class="chip" style="--c:var(--person-2)">Ana</span></div><span class="rut">↻ Sesión de rutina</span></div></a>
+        <a class="ev go" href="cal-form-evento.html"><span class="bar5" style="--c:var(--person-1)"></span><div class="grow"><div class="when">JUE, 12 NOV, 20:30</div><div class="t">Cena con los abuelos</div><div class="cd">en 1 h</div><div class="chips"><span class="chip" style="--c:var(--person-3)">Pablo</span><span class="chip" style="--c:var(--person-2)">Ana</span></div></div></a>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
@@ -150,17 +232,27 @@ a.card { display: block; }
 <aside class="notes">
   <h2>Cambios respecto a la app actual</h2>
   <ul>
-    <li>Se quita la cuadrícula mensual y el selector Mes · Semana · Día de la captura: en v1 la pestaña es solo listas. La cabecera pasa a ser «Eventos» con «+» a la derecha, pegada a la barra de estado.</li>
-    <li>Los eventos se agrupan por día en tarjetas con cabecera y contador. Solo el evento más próximo muestra la cuenta atrás («en 22 min»); el resto muestra su hora.</li>
-    <li>Cada fila lleva una barra con el color del calendario y el nombre del calendario debajo del título. Un solo gesto por evento.</li>
-    <li>Sin conexión: se mantienen los eventos en caché con banner, y «+» queda atenuado porque crear necesita red.</li>
-    <li>Propuesta opcional (no incluida en el frame principal): selector Lista | Semana bajo el segmento, para ver la semana en cuadrícula en una versión posterior a v1.</li>
+    <li><b>Conmutador Mes | Semana | Día</b> con cuadrícula y lista del día: así lo define el código (CAL-01). La primera pasada era una lista agrupada por día y se <b>quitó</b>.</li>
+    <li><b>Quitado</b> de la primera pasada: el nombre de calendario en cada fila (el color de la barra identifica el calendario) y las etiquetas «Hoy/Mañana» (son de Rutinas).</li>
+    <li><span class="tagnew">Nuevo</span> Skeleton de carga (estado 3): hoy solo hay el texto «Cargando calendario…».</li>
+    <li><span class="tagnew">Nuevo</span> Banner «Sin conexión» con hora de los datos (estado 5). Hoy el fallo cae al error de la sección.</li>
+    <li>Estado 4: el error real es mensaje del servidor + «Reintentar» en la sección. El texto del servidor depende del backend; el del frame es un ejemplo.</li>
+    <li>Las vistas <b>Semana</b> y <b>Día</b> (frames 6 y 7) siguen el código solo en lo que fija (rango de cabecera, lista del día); su disposición interna es inferida y conviene revisarla con la app.</li>
+    <li>La cabecera de la lista usa «Jueves, 12 de noviembre» (igual que Inicio) y no las mayúsculas de la captura de la auditoría.</li>
+  </ul>
+  <h2>Reglas de negocio</h2>
+  <ul>
+    <li>Cuadrícula L M X J V S D, lunes primero. Celdas de 34 pt, día seleccionado en círculo de acento, hasta 3 puntos de color por día, días fuera del mes atenuados.</li>
+    <li>Cuenta atrás solo de 0 a 120 min: «ahora», «en N min», «en H h», «en H h M min», en color de acento.</li>
+    <li>Sin fecha de fin: el modelo de evento no la tiene. Marca «Sesión de rutina» si el evento viene de una rutina.</li>
+    <li>«+» en la barra crea un evento con fecha = día seleccionado a la hora en punto. Vacío del día: «Sin eventos este día.» + «Nuevo evento».</li>
+    <li>Pull-to-refresh en la lista.</li>
   </ul>
   <h2>Conexiones</h2>
   <ul>
-    <li>Sale a: cal-form-evento («+» y «Añadir un evento»), cal-rutinas y cal-calendarios (segmentos).</li>
-    <li>Entra desde: home-inicio («Hoy · Eventos» abre Calendario en el segmento Eventos).</li>
-    <li>Abrir un evento no tiene pantalla de detalle en la lista de ids: la fila queda sin navegar. Por confirmar.</li>
+    <li>Fila de evento → CAL-05 «Editar evento» (el editor es el detalle; no hay ficha de solo lectura). «+» y «Nuevo evento» → CAL-05 (alta).</li>
+    <li>Segmento Rutinas → CAL-02 · Segmento Calendarios → CAL-03 · Vistas Semana y Día → frames 6 y 7 de esta misma página (anclas #s6 y #s7).</li>
+    <li>Entra desde: pestaña Calendario, Inicio («Ver todas» de Rutinas abre CAL-02; el chevron de Eventos abre esta vista).</li>
   </ul>
 </aside>
 </body>

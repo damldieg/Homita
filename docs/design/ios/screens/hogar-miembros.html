@@ -7,22 +7,43 @@
 <link rel="stylesheet" href="../tokens.css">
 <link rel="stylesheet" href="../components.css">
 <style>
-/* Añadido en este wireframe (no está en components.css) */
-.inline-err { display: flex; gap: var(--s3); align-items: center; background: var(--err-soft); color: var(--err); border-radius: var(--r-md); padding: var(--s3) var(--s4); font: 500 14px/19px var(--font); margin-bottom: var(--s3); }
-.inline-err .grow { flex: 1; }
-.avc { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 700 16px/1 var(--font); flex: none; }
-.dis { opacity: .45; }
-.na { font: var(--t-cap); color: var(--text-2); border: 1px dashed var(--line); border-radius: var(--r-md); padding: var(--s3) var(--s4); }
-.phone .scroll .stack + .sect { padding-top: var(--s5); }
-.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: -2px; margin-right: 6px; }
+  .nav .grow { flex: 1; }
+  .pdot { width: 14px; height: 14px; border-radius: 50%; flex: none; display: inline-block; }
+  .card > .row:first-child { border-top: 0; }
+  .card-h + .row { border-top: 1px solid var(--line); }
+  .row.off { opacity: .6; }
+  .dis { opacity: .45; }
+  .mono { font: 500 11px/14px ui-monospace, monospace; color: var(--text-2); }
+  .rad { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--text-3); flex: none; display: grid; place-items: center; }
+  .rad.on { border-color: var(--accent); }
+  .rad.on::after { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); }
+  .sw { width: 51px; height: 31px; border-radius: 16px; background: var(--line); position: relative; flex: none; }
+  .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .sw.on { background: var(--now); } .sw.on::after { left: 22px; }
+  .avc-sw { display: inline-block; width: 26px; height: 26px; border-radius: 50%; flex: none; }
+  .fld { display: flex; flex-direction: column; gap: 2px; }
+  .fld .s { font: var(--t-cap); color: var(--text-2); }
+  .fld .t { font: var(--t-body); }
+  .lblrow { font: 600 13px/18px var(--font); color: var(--text-2); padding: var(--s3) var(--s1) 0; }
+  .btns { display: flex; gap: var(--s3); }
+  .btns .btn { flex: 1; min-height: 46px; }
+  .inline-err { display: flex; gap: var(--s3); align-items: center; background: var(--err-soft); color: var(--err); border-radius: var(--r-md); padding: var(--s3) var(--s4); font: 500 14px/19px var(--font); margin-bottom: var(--s3); }
+  .inline-err .grow { flex: 1; }
+  .alert { position: absolute; left: 50px; right: 50px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+  .alert h4 { font: 600 17px/22px var(--font); } .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+  .alert .acts { display: flex; border-top: 1px solid var(--line); }
+  .alert .acts span { flex: 1; min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .alert .acts span + span { border-left: 1px solid var(--line); }
+  .alert .acts span.dng { color: var(--err); }
+  .na { font: var(--t-cap); color: var(--text-2); border: 1px dashed var(--line); border-radius: var(--r-md); padding: var(--s3) var(--s4); margin-top: var(--s3); }
+  .phone .scroll .card + .hint { padding-top: var(--s3); }
 </style>
 </head>
 <body>
-<!-- HOGAR-06: personas del hogar. Lista para todos los roles; alta y edición solo admin (acciones ocultas a miembros, no deshabilitadas). -->
 <header class="wf-head">
-  <div class="id">HOGAR-06 · pestaña Hogar · épica E4</div>
-  <h1>Miembros del hogar</h1>
-  <p>Personas del hogar con color, tipo y estado. Se separan las que tienen cuenta de las que no. Solo el admin agrega y edita; el alta se hace en una hoja. Los permisos de cada uno se ven en Accesos (HOGAR-08).</p>
+  <div class="id">HOGAR-06 · Administración › Miembros · épica E4</div>
+  <h1>Miembros</h1>
+  <p>Lista plana de las personas del hogar: nombre, color, «Tipo · Estado · Vinculada|Sin cuenta». Admin: tocar una fila abre el editor y «+» agrega. Miembro: solo lectura, sin «+» ni editor. Las etiquetas <span class="tagnew">Nuevo</span> señalan lo que el código no tiene.</p>
   <nav class="wf-nav">
     <a href="../index.html">← Índice</a>
     <a href="hogar-admin-menu.html">← Administración</a>
@@ -35,131 +56,233 @@
 
 <div class="states">
 
-  <!-- 1. DATOS -->
+  <!-- 1. CON DATOS -->
   <section class="state" id="f1">
-    <div class="label">1 · Con datos<small>Dos grupos: con cuenta y sin cuenta. Admin ve «+» y filas editables</small></div>
+    <div class="label">1 · Con datos<small>Admin. Panel «Miembros» con contador; filas planas; inactivo al 60 %</small></div>
     <div class="phone">
       <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><a class="btn-icon go" href="#f6" aria-label="Agregar miembro">+</a></div>
-        <div class="large-title">Miembros<small>Hogar de Familia Demo · 5 personas</small></div>
-        <div class="sect">Con cuenta</div>
-        <div class="card">
-          <a class="row go" href="#f6"><span class="avc" style="background:var(--person-1)">F</span><div class="grow"><div class="t">Familia Demo</div><div class="s">Adulto · Vinculada · Activo</div></div><span class="chev"></span></a>
-          <a class="row go" href="#f6"><span class="avc" style="background:var(--person-2)">A</span><div class="grow"><div class="t">Ana</div><div class="s">Adulto · Vinculada · Activo</div></div><span class="chev"></span></a>
-        </div>
-        <div class="sect">Sin cuenta</div>
-        <div class="card">
-          <a class="row go" href="#f6"><span class="avc" style="background:var(--person-3)">L</span><div class="grow"><div class="t">Lucía</div><div class="s">Niño · Activo</div></div><span class="chev"></span></a>
-          <a class="row go" href="#f6"><span class="avc" style="background:var(--person-4)">M</span><div class="grow"><div class="t">Marcos</div><div class="s">Pariente</div></div><span class="badge warn">Inactivo</span></a>
-          <a class="row go" href="#f6"><span class="avc" style="background:var(--person-5)">P</span><div class="grow"><div class="t">Pipo</div><div class="s">Mascota · Activo</div></div><span class="chev"></span></a>
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><a class="btn-icon go" href="hogar-miembros.html#f7" aria-label="Agregar">+</a></div>
+        <div class="large-title">Miembros</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><h3>Miembros</h3><span class="badge">6</span></div>
+            <a class="row go" href="hogar-miembros.html#f8"><span class="pdot" style="background:var(--person-1)"></span><div class="grow"><div class="t">Familia Demo</div><div class="s">Adulto · Activo · Vinculada</div></div></a>
+            <a class="row go" href="hogar-miembros.html#f8"><span class="pdot" style="background:var(--person-2)"></span><div class="grow"><div class="t">Ana</div><div class="s">Adulto · Activo · Vinculada</div></div></a>
+            <a class="row go" href="hogar-miembros.html#f8"><span class="pdot" style="background:var(--person-4)"></span><div class="grow"><div class="t">Tomás</div><div class="s">Familiar · Activo · Vinculada</div></div></a>
+            <a class="row go" href="hogar-miembros.html#f10"><span class="pdot" style="background:var(--person-3)"></span><div class="grow"><div class="t">Lucía</div><div class="s">Niño · Activo · Sin cuenta</div></div></a>
+            <a class="row go off" href="hogar-miembros.html#f10"><span class="pdot" style="background:var(--person-5)"></span><div class="grow"><div class="t">Marcos</div><div class="s">Familiar · Inactivo · Sin cuenta</div></div></a>
+            <a class="row go" href="hogar-miembros.html#f10"><span class="pdot" style="background:var(--person-1)"></span><div class="grow"><div class="t">Pipo</div><div class="s">Mascota · Activo · Sin cuenta</div></div></a>
+          </div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
       <span class="anno" style="top:70px;left:8px">1</span>
     </div>
   </section>
 
   <!-- 2. VACÍO -->
   <section class="state">
-    <div class="label">2 · Vacío<small>Solo el admin ve la acción; un miembro vería el mensaje sin botón</small></div>
+    <div class="label">2 · Vacío<small>Texto real «Sin miembros» dentro del panel. Admin mantiene «+»</small></div>
     <div class="phone">
       <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><a class="btn-icon">+</a></div>
-        <div class="large-title">Miembros<small>Hogar de Familia Demo · 0 personas</small></div>
-        <div class="empty">
-          <div class="art">☺</div>
-          <h3>Todavía no hay personas</h3>
-          <p>Agrega a quienes viven en el hogar para asignarles tareas y eventos.</p>
-          <a class="btn primary go" href="#f6">Agregar miembro</a>
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><a class="btn-icon go" href="hogar-miembros.html#f7" aria-label="Agregar">+</a></div>
+        <div class="large-title">Miembros</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><h3>Miembros</h3><span class="badge">0</span></div>
+            <div class="hint">Sin miembros</div>
+          </div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
-  <!-- 3. SKELETON -->
+  <!-- 3. CARGANDO -->
   <section class="state">
-    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que la lista con datos</small></div>
+    <div class="label">3 · Cargando (skeleton) <span class="tagnew">Nuevo</span><small>Hoy: <code>HomeLoadingView</code> de la pantalla de hogar («Cargando hogar…»). El skeleton con la geometría de la lista es propuesta</small></div>
     <div class="phone">
       <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
         <div class="nav"><a class="txt">‹ Atrás</a><a class="btn-icon">+</a></div>
-        <div class="large-title">Miembros<small><span class="sk line" style="display:inline-block;width:200px"></span></small></div>
-        <div class="sect"><span class="sk line" style="width:110px;display:inline-block"></span></div>
-        <div class="card">
-          <div class="row"><span class="avc sk"></span><div class="grow"><div class="sk line" style="width:45%"></div><div class="sk line" style="width:70%;margin-top:6px"></div></div></div>
-          <div class="row"><span class="avc sk"></span><div class="grow"><div class="sk line" style="width:35%"></div><div class="sk line" style="width:60%;margin-top:6px"></div></div></div>
-        </div>
-        <div class="sect"><span class="sk line" style="width:100px;display:inline-block"></span></div>
-        <div class="card">
-          <div class="row"><span class="avc sk"></span><div class="grow"><div class="sk line" style="width:40%"></div><div class="sk line" style="width:55%;margin-top:6px"></div></div></div>
-          <div class="row"><span class="avc sk"></span><div class="grow"><div class="sk line" style="width:50%"></div><div class="sk line" style="width:45%;margin-top:6px"></div></div></div>
+        <div class="large-title">Miembros</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="sk title" style="width:40%"></div></div>
+            <div class="row"><span class="pdot sk"></span><div class="grow"><div class="sk line" style="width:45%"></div><div class="sk line" style="width:70%;margin-top:6px"></div></div></div>
+            <div class="row"><span class="pdot sk"></span><div class="grow"><div class="sk line" style="width:35%"></div><div class="sk line" style="width:60%;margin-top:6px"></div></div></div>
+            <div class="row"><span class="pdot sk"></span><div class="grow"><div class="sk line" style="width:50%"></div><div class="sk line" style="width:55%;margin-top:6px"></div></div></div>
+          </div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
   <!-- 4. ERROR -->
   <section class="state">
-    <div class="label">4 · Error<small>Fallo de carga de la lista completa: errbox con Reintentar</small></div>
+    <div class="label">4 · Error<small>Real: <code>HomeErrorView</code> sustituye la lista; texto del servidor + «Reintentar». El texto del ejemplo es ilustrativo</small></div>
     <div class="phone">
       <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
         <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><a class="btn-icon">+</a></div>
-        <div class="large-title">Miembros<small>Hogar de Familia Demo</small></div>
+        <div class="large-title">Miembros</div>
         <div class="errbox">
           <div class="art">⚠</div>
-          <h3>No pudimos cargar las personas</h3>
-          <p>Revisa tu conexión y vuelve a intentarlo.</p>
+          <h3>No se pudo conectar con el servidor.</h3>
+          <p>Texto del servidor (ejemplo).</p>
           <a class="btn secondary" style="min-height:44px;padding:0 var(--s6)">Reintentar</a>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
   <!-- 5. SIN CONEXIÓN -->
   <section class="state">
-    <div class="label">5 · Sin conexión<small>Caché + banner. «+» y la edición quedan desactivadas</small></div>
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy cae al error de la sección. Propuesta: datos de caché con banner; «+» y filas inactivas</small></div>
     <div class="phone">
       <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
         <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><a class="btn-icon dis">+</a></div>
-        <div class="large-title">Miembros<small>Hogar de Familia Demo · 5 personas</small></div>
+        <div class="large-title">Miembros</div>
         <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
-        <div class="sect">Con cuenta</div>
-        <div class="card">
-          <div class="row"><span class="avc" style="background:var(--person-1)">F</span><div class="grow"><div class="t">Familia Demo</div><div class="s">Adulto · Vinculada · Activo</div></div></div>
-          <div class="row"><span class="avc" style="background:var(--person-2)">A</span><div class="grow"><div class="t">Ana</div><div class="s">Adulto · Vinculada · Activo</div></div></div>
-        </div>
-        <div class="sect">Sin cuenta</div>
-        <div class="card dis">
-          <div class="row"><span class="avc" style="background:var(--person-3)">L</span><div class="grow"><div class="t">Lucía</div><div class="s">Niño · Activo</div></div></div>
+        <div class="stack">
+          <div class="card dis">
+            <div class="card-h"><h3>Miembros</h3><span class="badge">6</span></div>
+            <div class="row"><span class="pdot" style="background:var(--person-1)"></span><div class="grow"><div class="t">Familia Demo</div><div class="s">Adulto · Activo · Vinculada</div></div></div>
+            <div class="row"><span class="pdot" style="background:var(--person-2)"></span><div class="grow"><div class="t">Ana</div><div class="s">Adulto · Activo · Vinculada</div></div></div>
+            <div class="row"><span class="pdot" style="background:var(--person-3)"></span><div class="grow"><div class="t">Lucía</div><div class="s">Niño · Activo · Sin cuenta</div></div></div>
+          </div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
-  <!-- 6. ALTA DE MIEMBRO (HOJA) -->
-  <section class="state" id="f6">
-    <div class="label">6 · Alta de miembro (hoja)<small>Formulario modal. Mascota no se vincula a una cuenta</small></div>
+  <!-- 6. MIEMBRO: SOLO LECTURA -->
+  <section class="state">
+    <div class="label">6 · Miembro (solo lectura)<small>Sin «+», filas sin editor, sin chevron. El código oculta las acciones (no las deshabilita)</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Miembros</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><h3>Miembros</h3><span class="badge">6</span></div>
+            <div class="row"><span class="pdot" style="background:var(--person-1)"></span><div class="grow"><div class="t">Familia Demo</div><div class="s">Adulto · Activo · Vinculada</div></div></div>
+            <div class="row"><span class="pdot" style="background:var(--person-2)"></span><div class="grow"><div class="t">Ana</div><div class="s">Adulto · Activo · Vinculada</div></div></div>
+            <div class="row"><span class="pdot" style="background:var(--person-4)"></span><div class="grow"><div class="t">Tomás</div><div class="s">Familiar · Activo · Vinculada</div></div></div>
+            <div class="row"><span class="pdot" style="background:var(--person-3)"></span><div class="grow"><div class="t">Lucía</div><div class="s">Niño · Activo · Sin cuenta</div></div></div>
+            <div class="row off"><span class="pdot" style="background:var(--person-5)"></span><div class="grow"><div class="t">Marcos</div><div class="s">Familiar · Inactivo · Sin cuenta</div></div></div>
+            <div class="row"><span class="pdot" style="background:var(--person-1)"></span><div class="grow"><div class="t">Pipo</div><div class="s">Mascota · Activo · Sin cuenta</div></div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+    </div>
+  </section>
+
+  <!-- 7. ALTA (HOJA) -->
+  <section class="state" id="f7">
+    <div class="label">7 · Nuevo miembro (hoja)<small>Real: «Cancelar» a la izquierda; «Agregar» al pie y activo con nombre. Sin Estado ni Cuenta (solo en edición)</small></div>
     <div class="phone no-tabs">
       <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt go" href="#f1">Cancelar</a><span class="center">Nuevo miembro</span><a class="txt strong go" href="#f1">Guardar</a></div>
-        <div class="sect">Datos</div>
-        <div class="field">
-          <div class="row"><span class="lbl">Nombre</span><span class="val">Lucía</span></div>
-          <div class="row"><span class="lbl">Color</span><span class="val"><span class="swatch" style="background:var(--person-3)"></span>Ámbar<span class="chev" style="margin-left:6px"></span></span></div>
-          <div class="row"><span class="lbl">Tipo</span><span class="val">Niño<span class="chev" style="margin-left:6px"></span></span></div>
-          <div class="row"><span class="lbl">Activo</span><span class="val" style="flex:none"><span class="sw on" style="display:inline-block;vertical-align:middle"></span></span></div>
+        <div class="nav"><a class="txt go" href="hogar-miembros.html#f1">Cancelar</a><span class="center">Nuevo miembro</span><span></span></div>
+        <div class="card">
+          <div class="card-h"><h3>Miembro</h3></div>
+          <div class="row"><div class="fld"><span class="s">Nombre (1-50)</span><span class="t">Lucía</span></div></div>
+          <div class="row"><div class="grow t">Color</div><span class="avc-sw" style="background:var(--person-3)"></span></div>
+          <div class="lblrow">Tipo</div>
+          <div class="row"><div class="grow t">Adulto</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Niño</div><span class="rad on"></span></div>
+          <div class="row"><div class="grow t">Familiar</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Invitado</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Mascota</div><span class="rad"></span></div>
         </div>
-        <div class="hint">Tipos: adulto, niño, pariente, invitado o mascota. Una mascota no puede vincularse a una cuenta.</div>
-        <div class="hint">Los permisos se asignan después, en Accesos.</div>
+        <div class="btns" style="margin-top:var(--s4)"><a class="btn primary go" href="hogar-miembros.html#f1">Agregar</a></div>
+        <div class="hint">Mascota no se ofrece a personas con cuenta vinculada.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. EDITAR VINCULADA -->
+  <section class="state" id="f8">
+    <div class="label">8 · Editar miembro vinculado (hoja)<small>Real: «Estado» (Activo/Inactivo) y «Cuenta». Sin Mascota. Cambiar el tipo pide confirmación (frame 9)</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:12</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-miembros.html#f1">Cancelar</a><span class="center">Editar miembro</span><span></span></div>
+        <div class="card">
+          <div class="card-h"><h3>Miembro</h3></div>
+          <div class="row"><div class="fld"><span class="s">Nombre (1-50)</span><span class="t">Ana</span></div></div>
+          <div class="row"><div class="grow t">Color</div><span class="avc-sw" style="background:var(--person-2)"></span></div>
+          <div class="lblrow">Tipo</div>
+          <div class="row"><div class="grow t">Adulto</div><span class="rad on"></span></div>
+          <div class="row"><div class="grow t">Niño</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Familiar</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Invitado</div><span class="rad"></span></div>
+          <div class="lblrow">Estado</div>
+          <div class="row"><div class="grow t">Activo</div><span class="rad on"></span></div>
+          <div class="row"><div class="grow t">Inactivo</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Cuenta</div><span class="s">Vinculada</span></div>
+        </div>
+        <div class="btns" style="margin-top:var(--s4)"><a class="btn primary go" href="hogar-miembros.html#f9">Guardar</a></div>
+        <div class="hint">Vinculada: no aparece «Mascota». El valor de «Cuenta» es «Vinculada» o «Sin cuenta».</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. CONFIRMAR CAMBIO DE TIPO -->
+  <section class="state" id="f9">
+    <div class="label">9 · Confirmar cambio de tipo (vinculado)<small>Real: diálogo «Cambiar tipo» sobre el editor. Título y «Cancelar» por confirmar en código</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:12</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt">Cancelar</a><span class="center">Editar miembro</span><span></span></div>
+        <div class="card">
+          <div class="card-h"><h3>Miembro</h3></div>
+          <div class="row"><div class="fld"><span class="s">Nombre (1-50)</span><span class="t">Ana</span></div></div>
+          <div class="lblrow">Tipo</div>
+          <div class="row"><div class="grow t">Adulto</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Familiar</div><span class="rad on"></span></div>
+        </div>
+      </div>
+      <div class="scrim"></div>
+      <div class="alert">
+        <p style="font:400 15px/21px var(--font);color:var(--text);margin:8px 0 16px">Cambiar el tipo restablece los permisos de esta persona a los valores del nuevo tipo</p>
+        <div class="acts"><span>Cancelar</span><span>Cambiar tipo</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10. EDITAR SIN CUENTA -->
+  <section class="state" id="f10">
+    <div class="label">10 · Editar miembro sin cuenta (hoja)<small>Real: Mascota visible; «Cuenta: Sin cuenta». Sin confirmación al cambiar tipo</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-miembros.html#f1">Cancelar</a><span class="center">Editar miembro</span><span></span></div>
+        <div class="card">
+          <div class="card-h"><h3>Miembro</h3></div>
+          <div class="row"><div class="fld"><span class="s">Nombre (1-50)</span><span class="t">Lucía</span></div></div>
+          <div class="row"><div class="grow t">Color</div><span class="avc-sw" style="background:var(--person-3)"></span></div>
+          <div class="lblrow">Tipo</div>
+          <div class="row"><div class="grow t">Adulto</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Niño</div><span class="rad on"></span></div>
+          <div class="row"><div class="grow t">Familiar</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Invitado</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Mascota</div><span class="rad"></span></div>
+          <div class="lblrow">Estado</div>
+          <div class="row"><div class="grow t">Activo</div><span class="rad on"></span></div>
+          <div class="row"><div class="grow t">Inactivo</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Cuenta</div><span class="s">Sin cuenta</span></div>
+        </div>
+        <div class="btns" style="margin-top:var(--s4)"><a class="btn primary go" href="hogar-miembros.html#f1">Guardar</a></div>
       </div>
     </div>
   </section>
@@ -169,13 +292,28 @@
 <aside class="notes">
   <h2>Cambios respecto a la app actual</h2>
   <ul>
-    <li>La captura 52 muestra solo el menú de Administración, no esta lista. El contenido sale de docs/ios-funcional.md (4.6): hay que repetir la captura con la lista abierta.</li>
-    <li>Se separan «Con cuenta» y «Sin cuenta» en dos grupos. Hoy «Vinculada»/«Sin cuenta» va como texto suelto en cada fila.</li>
-    <li>Para un miembro sin permisos de admin, «+» no aparece (ni deshabilitado) y las filas no navegan a la hoja de edición.</li>
-    <li>El alta pasa a una hoja con Cancelar/Guardar. El tipo «mascota» no se ofrece para personas vinculadas a una cuenta (regla del README de Control iOS).</li>
-    <li>Estados vacío, error y sin conexión explícitos; la edición se desactiva sin conexión en lugar de fallar al guardar.</li>
+    <li><b>Lista plana</b>: se quitan los grupos «Con cuenta» / «Sin cuenta» de la primera pasada. Cada fila dice «Tipo · Estado · Vinculada|Sin cuenta» como en el código.</li>
+    <li><b>Quitado de la primera pasada</b>: tipo «Pariente» (el tipo real es «Familiar»), texto «Todavía no hay personas», subtítulo «Hogar de Familia Demo · N personas», botón «Agregar miembro» en el vacío (no existe), «Activo» como interruptor (el código usa radios Activo/Inactivo), pestaña «Ajustes» (ahora «Perfil») y la nota de tipos inventada.</li>
+    <li>Miembro (solo lectura): sin «+», filas sin editor (estado 6). Ya no aparece la acción de alta para quien no es admin.</li>
+    <li><span class="tagnew">Nuevo</span> estado 3 (skeleton) y estado 5 (sin conexión): hoy hay «Cargando hogar…» y un error de sección. El estado 4 es el real.</li>
+    <li>Color: se mantiene el <b>ColorPicker nativo</b> («Color»). No hay paleta de muestras en este frame, así que no lleva Nuevo.</li>
+    <li>Pull-to-refresh en la lista (todas las listas lo tienen).</li>
   </ul>
-  <p style="margin-top:10px"><b>Conexiones.</b> Llega desde hogar-admin-menu (fila «Miembros»). Desde aquí: alta/edición en la hoja (#f6), accesos en hogar-accesos. Endpoints: lectura <code>home/member</code>; escritura <code>home/member/create</code>, <code>home/member/update</code>.</p>
+  <h2>Reglas de negocio</h2>
+  <ul>
+    <li>Admin: tocar fila = editor; «+» en cabecera. Miembro: lectura; acciones ocultas, no deshabilitadas.</li>
+    <li>Nombre 1-50. «Agregar» (alta) / «Guardar» (edición) activos solo con nombre no vacío y sin guardado en curso.</li>
+    <li>Tipos: Adulto, Niño, Familiar, Invitado, Mascota. Mascota no se ofrece a una persona con cuenta vinculada.</li>
+    <li>Cambiar el tipo de un vinculado pide confirmación «Cambiar tipo» y restablece sus permisos a los de su nuevo tipo.</li>
+    <li>Estado (Activo/Inactivo) y «Cuenta» solo se ven en edición. Inactivo: fila al 60 %.</li>
+    <li>Vacío «Sin miembros». Error de carga = texto del servidor + «Reintentar». Error de escritura = alerta «Aviso / OK».</li>
+    <li><b>Por confirmar en código</b>: título y botones del diálogo de cambio de tipo (se muestra «Cambiar tipo» / «Cancelar»); texto exacto del mensaje de error del servidor.</li>
+  </ul>
+  <h2>Conexiones</h2>
+  <ul>
+    <li>Llega desde hogar-admin-menu (fila «Miembros»). Desde aquí no se navega a otra pantalla; los permisos se ven en Accesos (HOGAR-08) desde su fila.</li>
+    <li>Endpoints: lectura <code>home/member</code>; escritura <code>home/member/create</code> y <code>home/member/update</code>.</li>
+  </ul>
 </aside>
 </body>
 </html>

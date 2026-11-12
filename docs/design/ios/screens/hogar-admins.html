@@ -7,29 +7,42 @@
 <link rel="stylesheet" href="../tokens.css">
 <link rel="stylesheet" href="../components.css">
 <style>
-/* Extras de esta página (no existen en components.css) */
-.adm-row { align-items: flex-start; }
-.adm-row .grow { padding-top: 2px; }
-.adm-acts { display: flex; gap: var(--s2); flex-wrap: wrap; margin-top: var(--s2); }
-.adm-acts .btn { min-height: 36px; font: 600 14px/1 var(--font); padding: 0 var(--s4); }
-.nameline { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
-.sect { font: var(--t-over); text-transform: uppercase; letter-spacing: .06em; color: var(--text-2); padding: var(--s4) var(--s1) var(--s2); }
-.owner-acts { display: flex; flex-direction: column; gap: var(--s3); margin-top: var(--s4); }
-.owner-acts .btn { width: 100%; }
-.sheet .s-title { font: var(--t-title); margin-bottom: var(--s2); }
-.sheet .s-body { font: var(--t-sub); color: var(--text-2); margin-bottom: var(--s4); }
-.sheet .s-acts { display: flex; flex-direction: column; gap: var(--s3); }
-.sheet .s-acts .btn { width: 100%; }
-.noaplica { border: 1.5px dashed var(--line); border-radius: var(--r-lg); background: var(--surface); padding: var(--s6); font: var(--t-sub); color: var(--text-2); height: 100%; }
-.noaplica b { display: block; color: var(--text); font: var(--t-body-b); margin-bottom: var(--s2); }
-.frame-foot { margin-top: var(--s3); }
+  /* Extras de esta página (no existen en components.css) */
+  .prow { display: flex; gap: var(--s3); align-items: flex-start; padding: var(--s3) 0; border-top: 1px solid var(--line); }
+  .prow:first-of-type { border-top: 0; }
+  .prow .grow { flex: 1; min-width: 0; }
+  .namel { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+  .chips { display: flex; gap: var(--s2); flex-wrap: wrap; margin-top: var(--s2); }
+  .chip { display: inline-flex; align-items: center; min-height: 34px; padding: 0 var(--s3); border-radius: 999px; font: 600 13px/1 var(--font); border: 1.5px solid var(--accent); color: var(--accent); background: var(--surface); }
+  .chip.d { color: var(--err); border-color: var(--err); }
+  .chip.off { opacity: .45; }
+  .chip.off-plain { border-color: var(--line); color: var(--text-3); }
+  .avatar.me { background: var(--accent); color: #fff; }
+  .navm { display: flex; align-items: center; justify-content: space-between; min-height: var(--hit); margin: 0 calc(var(--gutter) * -1); padding: 0 var(--gutter); }
+  .back { font: var(--t-body); color: var(--accent); }
+  .panel-h { display: flex; align-items: center; gap: var(--s3); min-height: var(--hit); }
+  .panel-h .ico { width: 36px; height: 36px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-size: 17px; }
+  .panel-h h3 { font: var(--t-title); flex: 1; }
+  .owner-acts { display: flex; flex-direction: column; gap: var(--s3); margin-top: var(--s4); }
+  .owner-acts .btn { width: 100%; }
+  .noaplica { border: 1.5px dashed var(--line); border-radius: var(--r-lg); background: var(--surface); padding: var(--s6); font: var(--t-sub); color: var(--text-2); height: 100%; }
+  .noaplica b { display: block; color: var(--text); font: var(--t-body-b); margin-bottom: var(--s2); }
+  .frame-foot { margin-top: var(--s3); }
+  .alert, .dlg { position: absolute; left: 50px; right: 50px; top: 290px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+  .alert h4, .dlg h4 { font: 600 17px/22px var(--font); }
+  .alert p, .dlg p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+  .alert .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .dlg .btns { border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1fr; }
+  .dlg .btns span { min-height: 44px; display: grid; place-items: center; font: 600 17px/1 var(--font); color: var(--accent); }
+  .dlg .btns span + span { border-left: 1px solid var(--line); }
+  .dlg .btns .d { color: var(--err); }
 </style>
 </head>
 <body>
 <header class="wf-head">
   <div class="id">HOGAR-05 · Administradores · epic E4</div>
   <h1>Administradores</h1>
-  <p>Quién administra el hogar y qué acciones tiene cada persona sobre ese rol: hacer o quitar admin, transferir la propiedad o salir. Las acciones destructivas se confirman en una hoja inferior.</p>
+  <p>Un solo panel «Personas del hogar» con todas las personas. Cada fila muestra su rol y hasta 3 acciones en chips: «Quitar admin», «Quitar», «Hacer admin» y «Transferir». En la fila propia aparece «Salir» (no en el hogar personal). Las acciones que cambian quién manda o sacan a alguien se confirman con un diálogo. Las etiquetas <span class="tagnew">Nuevo</span> señalan lo que el código no tiene.</p>
   <nav class="wf-nav">
     <a href="../index.html">← Índice</a>
     <a href="hogar-admin-menu.html">← Administración</a>
@@ -40,171 +53,265 @@
 
 <div class="states">
 
-  <!-- 1. CON DATOS -->
+  <!-- 1. CON DATOS (admin) -->
   <section class="state">
-    <div class="label">1 · Con datos<small>Admins y miembros en una lista; una acción por fila; salida al pie</small></div>
+    <div class="label">1 · Con datos (admin)<small>Varias personas: rol, email y chips por fila. Último admin no aplica aquí (ver frame 11)</small></div>
     <div class="phone">
       <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="btn-icon go" href="hogar-admin-menu.html">‹</a><span class="center">Hogar de Familia Demo</span><span></span></div>
-        <div class="large-title">Administradores<small>Hogar de Familia Demo · 2 admins</small></div>
+        <div class="nav navm"><a class="back go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Administradores<small>Hogar de Familia Demo</small></div>
         <div class="stack">
           <div class="card">
-            <div class="card-h"><div class="ico">♙</div><h3>Administran</h3><span class="badge">2</span></div>
-            <div class="row adm-row"><div class="avatar">F</div><div class="grow">
-              <div class="nameline"><span class="t">Familia Demo</span><span class="badge">tú</span><span class="badge err">Propietaria</span></div>
-              <div class="s">demo@homita.example</div>
-            </div></div>
-            <div class="row adm-row"><div class="avatar">A</div><div class="grow">
-              <div class="nameline"><span class="t">Ana</span><span class="badge err">Administradora</span></div>
-              <div class="s">ana@homita.example</div>
-              <div class="adm-acts"><a class="btn secondary">Quitar admin</a></div>
-            </div></div>
+            <div class="panel-h"><div class="ico">♙</div><h3>Personas del hogar</h3><span class="badge">3</span></div>
+            <div class="prow">
+              <div class="avatar me">F</div>
+              <div class="grow">
+                <div class="namel"><span class="t">Familia Demo</span><span class="s">(tú)</span><span class="badge err">Administrador</span></div>
+                <div class="s">demo@homita.example</div>
+                <div class="chips"><span class="chip d">Salir</span></div>
+              </div>
+            </div>
+            <div class="prow">
+              <div class="avatar">A</div>
+              <div class="grow">
+                <div class="namel"><span class="t">Ana</span><span class="badge err">Administradora</span></div>
+                <div class="s">ana@homita.example</div>
+                <div class="chips"><span class="chip">Quitar admin</span><span class="chip">Quitar</span><span class="chip">Transferir</span></div>
+              </div>
+            </div>
+            <div class="prow">
+              <div class="avatar">L</div>
+              <div class="grow">
+                <div class="namel"><span class="t">Lucía</span><span class="badge">Miembro</span></div>
+                <div class="s">lucia@homita.example</div>
+                <div class="chips"><span class="chip">Quitar</span><span class="chip">Hacer admin</span><span class="chip">Transferir</span></div>
+              </div>
+            </div>
           </div>
-          <div class="card">
-            <div class="card-h"><div class="ico">☺☺</div><h3>Miembros</h3><span class="badge">3</span></div>
-            <div class="row adm-row"><div class="avatar">L</div><div class="grow">
-              <div class="nameline"><span class="t">Lucía</span></div>
-              <div class="s">Adulta · Miembro</div>
-              <div class="adm-acts"><a class="btn secondary">Hacer admin</a></div>
-            </div></div>
-            <div class="row adm-row"><div class="avatar">M</div><div class="grow">
-              <div class="nameline"><span class="t">Marcos</span><span class="badge warn">Sin cuenta</span></div>
-              <div class="s">Adulto · Miembro</div>
-              <div class="s" style="margin-top:4px">Sin cuenta no puede ser admin</div>
-            </div></div>
-          </div>
-          <div class="owner-acts">
-            <a class="btn secondary">Transferir propiedad</a>
-            <a class="btn danger">Salir del hogar</a>
-          </div>
-          <div class="hint">Para salir, antes transferí la propiedad o dejá otro admin.</div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
   <!-- 2. VACÍO -->
   <section class="state">
-    <div class="label">2 · Vacío<small>No aplica: un hogar siempre tiene al menos un administrador</small></div>
+    <div class="label">2 · Vacío<small>No aplica: siempre estoy yo en la lista</small></div>
     <div class="noaplica">
-      <b>No aplica: siempre hay al menos un admin</b>
-      Si la propiedad y el último admin quedan a cargo de una sola persona, el botón «Quitar admin» de esa persona no se ofrece. No hay estado vacío.
+      <b>No aplica: la lista nunca queda vacía</b>
+      La persona que usa la app siempre aparece en «Personas del hogar». Sin otras personas, solo se ve su fila.
       <div class="frame-foot"><a class="link go" href="hogar-admin-menu.html">Volver a HOGAR-03 →</a></div>
     </div>
   </section>
 
-  <!-- 3. SKELETON -->
+  <!-- 3. CARGANDO (skeleton) -->
   <section class="state">
-    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que con datos; las acciones aparecen cuando carga la lista</small></div>
+    <div class="label">3 · Cargando (skeleton) <span class="tagnew">Nuevo</span><small>Hoy: sin texto de carga definido. Misma geometría que con datos</small></div>
     <div class="phone">
       <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="btn-icon go" href="hogar-admin-menu.html">‹</a><span class="center">Hogar de Familia Demo</span><span></span></div>
+        <div class="nav navm"><a class="back go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
         <div class="large-title">Administradores<small><span class="sk line" style="display:inline-block;width:150px"></span></small></div>
         <div class="stack">
           <div class="card">
-            <div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
-            <div class="row adm-row"><div class="avatar sk"></div><div class="grow"><div class="sk line" style="width:45%"></div><div class="sk line" style="width:60%;margin-top:6px"></div></div></div>
-            <div class="row adm-row"><div class="avatar sk"></div><div class="grow"><div class="sk line" style="width:40%"></div><div class="sk line" style="width:55%;margin-top:6px"></div></div></div>
-          </div>
-          <div class="card">
-            <div class="card-h"><div class="ico sk"></div><div class="sk title" style="width:40%"></div></div>
-            <div class="row adm-row"><div class="avatar sk"></div><div class="grow"><div class="sk line" style="width:35%"></div><div class="sk line" style="width:50%;margin-top:6px"></div></div></div>
-          </div>
-          <div class="owner-acts">
-            <div class="sk box" style="min-height:50px;border-radius:999px"></div>
-            <div class="sk box" style="min-height:50px;border-radius:999px"></div>
+            <div class="panel-h"><div class="ico sk"></div><div class="sk title" style="width:50%"></div></div>
+            <div class="prow"><div class="avatar sk"></div><div class="grow"><div class="sk line" style="width:45%"></div><div class="sk line" style="width:60%;margin-top:6px"></div></div></div>
+            <div class="prow"><div class="avatar sk"></div><div class="grow"><div class="sk line" style="width:40%"></div><div class="sk line" style="width:55%;margin-top:6px"></div></div></div>
           </div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
-  <!-- 4. ERROR (parcial + escritura) -->
+  <!-- 4. ERROR DE CARGA (sección) -->
   <section class="state">
-    <div class="label">4 · Error<small>Carga fallida solo en la tarjeta; un fallo al cambiar un rol va en toast con «Reintentar»</small></div>
+    <div class="label">4 · Error de carga <span class="tagnew">Nuevo</span><small>Fallo solo en la tarjeta: mensaje + «Reintentar». El texto del ejemplo es provisional</small></div>
     <div class="phone">
       <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="btn-icon go" href="hogar-admin-menu.html">‹</a><span class="center">Hogar de Familia Demo</span><span></span></div>
+        <div class="nav navm"><a class="back go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
         <div class="large-title">Administradores<small>Hogar de Familia Demo</small></div>
         <div class="stack">
           <div class="card">
-            <div class="card-h"><div class="ico">♙</div><h3>Administran</h3></div>
-            <div class="inline-err"><span>⚠</span><span class="grow">No pudimos cargar los administradores.</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div>
-          </div>
-          <div class="owner-acts">
-            <a class="btn secondary">Transferir propiedad</a>
-            <a class="btn danger">Salir del hogar</a>
+            <div class="panel-h"><div class="ico">♙</div><h3>Personas del hogar</h3></div>
+            <div class="inline-err" style="margin-top:var(--s2)"><span>⚠</span><span class="grow">No se pudieron cargar las personas del hogar.</span><span class="btn sm secondary" style="min-height:32px">Reintentar</span></div>
           </div>
         </div>
       </div>
-      <div class="toast"><span>⚠</span><span>No se pudo quitar el rol a Ana. Reintenta.</span><b>Reintentar</b></div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
-  <!-- 5. SIN CONEXIÓN -->
+  <!-- 5. ERROR DE ACCIÓN (alerta) -->
   <section class="state">
-    <div class="label">5 · Sin conexión<small>Datos de caché + banner; todas las acciones de rol y salida quedan desactivadas</small></div>
+    <div class="label">5 · Error de acción (alerta)<small>Fallo de un cambio de rol o salida: alerta «Aviso / OK» con el texto real</small></div>
     <div class="phone">
       <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="btn-icon go" href="hogar-admin-menu.html">‹</a><span class="center">Hogar de Familia Demo</span><span></span></div>
-        <div class="large-title">Administradores<small>Hogar de Familia Demo · 2 admins</small></div>
+        <div class="nav navm"><a class="back go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Administradores<small>Hogar de Familia Demo</small></div>
+        <div class="stack">
+          <div class="card">
+            <div class="panel-h"><div class="ico">♙</div><h3>Personas del hogar</h3><span class="badge">3</span></div>
+            <div class="prow"><div class="avatar me">F</div><div class="grow"><div class="namel"><span class="t">Familia Demo</span><span class="s">(tú)</span><span class="badge err">Administrador</span></div><div class="s">demo@homita.example</div><div class="chips"><span class="chip d">Salir</span></div></div></div>
+            <div class="prow"><div class="avatar">A</div><div class="grow"><div class="namel"><span class="t">Ana</span><span class="badge err">Administradora</span></div><div class="s">ana@homita.example</div><div class="chips"><span class="chip">Quitar admin</span><span class="chip">Quitar</span><span class="chip">Transferir</span></div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert" style="z-index:9"><h4>Aviso</h4><p>No se puede completar la acción: el hogar debe conservar al menos un administrador</p><div class="ok">OK</div></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+    </div>
+  </section>
+
+  <!-- 6. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">6 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy: no hay estado propio. Propuesta: banner y chips desactivados</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav navm"><a class="back go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Administradores<small>Hogar de Familia Demo</small></div>
         <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
         <div class="stack">
           <div class="card">
-            <div class="card-h"><div class="ico">♙</div><h3>Administran</h3><span class="badge">2</span></div>
-            <div class="row adm-row"><div class="avatar">F</div><div class="grow">
-              <div class="nameline"><span class="t">Familia Demo</span><span class="badge">tú</span><span class="badge err">Propietaria</span></div>
-              <div class="s">demo@homita.example</div>
-            </div></div>
-            <div class="row adm-row"><div class="avatar">A</div><div class="grow">
-              <div class="nameline"><span class="t">Ana</span><span class="badge err">Administradora</span></div>
-              <div class="s">ana@homita.example</div>
-              <div class="adm-acts"><span class="btn secondary disabled">Quitar admin</span></div>
-            </div></div>
-          </div>
-          <div class="owner-acts">
-            <span class="btn secondary disabled">Transferir propiedad</span>
-            <span class="btn danger disabled">Salir del hogar</span>
+            <div class="panel-h"><div class="ico">♙</div><h3>Personas del hogar</h3><span class="badge">3</span></div>
+            <div class="prow"><div class="avatar me">F</div><div class="grow"><div class="namel"><span class="t">Familia Demo</span><span class="s">(tú)</span><span class="badge err">Administrador</span></div><div class="s">demo@homita.example</div><div class="chips"><span class="chip d off">Salir</span></div></div></div>
+            <div class="prow"><div class="avatar">A</div><div class="grow"><div class="namel"><span class="t">Ana</span><span class="badge err">Administradora</span></div><div class="s">ana@homita.example</div><div class="chips"><span class="chip off">Quitar admin</span><span class="chip off">Quitar</span><span class="chip off">Transferir</span></div></div></div>
           </div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
-  <!-- 6. CONFIRMAR TRANSFERIR (hoja inferior) -->
+  <!-- 7. CONFIRMAR «QUITAR» -->
   <section class="state">
-    <div class="label">6 · Confirmar transferir<small>Hoja inferior sobre la lista; la acción destructiva lleva su consecuencia escrita</small></div>
+    <div class="label">7 · Confirmar «Quitar»<small>Diálogo nativo. Consecuencia en el texto. Texto real</small></div>
     <div class="phone">
       <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="btn-icon">‹</a><span class="center">Hogar de Familia Demo</span><span></span></div>
-        <div class="large-title">Administradores<small>Hogar de Familia Demo · 2 admins</small></div>
+        <div class="nav navm"><a class="back go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Administradores<small>Hogar de Familia Demo</small></div>
         <div class="stack">
           <div class="card">
-            <div class="card-h"><div class="ico">♙</div><h3>Administran</h3><span class="badge">2</span></div>
-            <div class="row adm-row"><div class="avatar">F</div><div class="grow"><div class="nameline"><span class="t">Familia Demo</span><span class="badge err">Propietaria</span></div></div></div>
-            <div class="row adm-row"><div class="avatar">A</div><div class="grow"><div class="nameline"><span class="t">Ana</span><span class="badge err">Administradora</span></div></div></div>
+            <div class="panel-h"><div class="ico">♙</div><h3>Personas del hogar</h3><span class="badge">3</span></div>
+            <div class="prow"><div class="avatar me">F</div><div class="grow"><div class="namel"><span class="t">Familia Demo</span><span class="s">(tú)</span><span class="badge err">Administrador</span></div></div></div>
+            <div class="prow"><div class="avatar">L</div><div class="grow"><div class="namel"><span class="t">Lucía</span><span class="badge">Miembro</span></div><div class="chips"><span class="chip">Quitar</span><span class="chip">Hacer admin</span><span class="chip">Transferir</span></div></div></div>
           </div>
         </div>
       </div>
-      <div class="scrim"></div>
-      <div class="sheet">
-        <div class="s-title">¿Transferir la propiedad a Ana?</div>
-        <div class="s-body">Ana pasa a ser la propietaria del hogar. Vos seguís como administradora, pero ya no podés transferirle la propiedad ni salir sin antes hacerlo. Esta acción no se deshace sola.</div>
-        <div class="s-acts">
-          <a class="btn danger go" href="hogar-admins.html">Transferir propiedad</a>
-          <a class="btn ghost go" href="hogar-admins.html">Cancelar</a>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="dlg" style="z-index:9"><h4>¿Quitar a Lucía del hogar?</h4><p>&nbsp;</p><div class="btns"><span>Cancelar</span><span class="d">Quitar</span></div></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+    </div>
+  </section>
+
+  <!-- 8. CONFIRMAR «TRANSFERIR» -->
+  <section class="state">
+    <div class="label">8 · Confirmar «Transferir»<small>Diálogo con la consecuencia escrita: Ana pasa a ser admin, yo paso a miembro</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav navm"><a class="back go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Administradores<small>Hogar de Familia Demo</small></div>
+        <div class="stack">
+          <div class="card">
+            <div class="panel-h"><div class="ico">♙</div><h3>Personas del hogar</h3><span class="badge">3</span></div>
+            <div class="prow"><div class="avatar me">F</div><div class="grow"><div class="namel"><span class="t">Familia Demo</span><span class="s">(tú)</span><span class="badge err">Administrador</span></div></div></div>
+            <div class="prow"><div class="avatar">A</div><div class="grow"><div class="namel"><span class="t">Ana</span><span class="badge err">Administradora</span></div><div class="chips"><span class="chip">Quitar admin</span><span class="chip">Quitar</span><span class="chip">Transferir</span></div></div></div>
+          </div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="dlg" style="z-index:9"><h4>¿Transferir la administración a Ana? Pasarás a ser miembro.</h4><p>&nbsp;</p><div class="btns"><span>Cancelar</span><span class="d">Transferir</span></div></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+    </div>
+  </section>
+
+  <!-- 9. CONFIRMAR «SALIR» -->
+  <section class="state">
+    <div class="label">9 · Confirmar «Salir»<small>Desde la fila propia. No aparece en el hogar personal</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav navm"><a class="back go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Administradores<small>Hogar de Familia Demo</small></div>
+        <div class="stack">
+          <div class="card">
+            <div class="panel-h"><div class="ico">♙</div><h3>Personas del hogar</h3><span class="badge">3</span></div>
+            <div class="prow"><div class="avatar me">F</div><div class="grow"><div class="namel"><span class="t">Familia Demo</span><span class="s">(tú)</span><span class="badge err">Administrador</span></div><div class="chips"><span class="chip d">Salir</span></div></div></div>
+            <div class="prow"><div class="avatar">A</div><div class="grow"><div class="namel"><span class="t">Ana</span><span class="badge err">Administradora</span></div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="dlg" style="z-index:9"><h4>¿Salir de este hogar?</h4><p>&nbsp;</p><div class="btns"><span>Cancelar</span><span class="d">Salir</span></div></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+    </div>
+  </section>
+
+  <!-- 10. CONFIRMAR «QUITAR ADMIN» -->
+  <section class="state">
+    <div class="label">10 · Confirmar «Quitar admin»<small>Diálogo. «Hacer admin» no tiene confirmación</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav navm"><a class="back go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Administradores<small>Hogar de Familia Demo</small></div>
+        <div class="stack">
+          <div class="card">
+            <div class="panel-h"><div class="ico">♙</div><h3>Personas del hogar</h3><span class="badge">3</span></div>
+            <div class="prow"><div class="avatar me">F</div><div class="grow"><div class="namel"><span class="t">Familia Demo</span><span class="s">(tú)</span><span class="badge err">Administrador</span></div></div></div>
+            <div class="prow"><div class="avatar">A</div><div class="grow"><div class="namel"><span class="t">Ana</span><span class="badge err">Administradora</span></div><div class="chips"><span class="chip">Quitar admin</span><span class="chip">Quitar</span><span class="chip">Transferir</span></div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="dlg" style="z-index:9"><h4>¿Quitar el rol de administrador a Ana?</h4><p>&nbsp;</p><div class="btns"><span>Cancelar</span><span class="d">Quitar admin</span></div></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+    </div>
+  </section>
+
+  <!-- 11. ÚLTIMO ADMIN -->
+  <section class="state">
+    <div class="label">11 · Caso último admin<small>Soy el único admin: se ocultan «Quitar admin», «Quitar» y «Salir» en todas las filas. Quedan «Hacer admin» y «Transferir»</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav navm"><a class="back go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Administradores<small>Hogar de Familia Demo</small></div>
+        <div class="stack">
+          <div class="card">
+            <div class="panel-h"><div class="ico">♙</div><h3>Personas del hogar</h3><span class="badge">2</span></div>
+            <div class="prow"><div class="avatar me">F</div><div class="grow"><div class="namel"><span class="t">Familia Demo</span><span class="s">(tú)</span><span class="badge err">Administrador</span></div><div class="s">demo@homita.example</div></div></div>
+            <div class="prow"><div class="avatar">L</div><div class="grow"><div class="namel"><span class="t">Lucía</span><span class="badge">Miembro</span></div><div class="s">lucia@homita.example</div><div class="chips"><span class="chip">Hacer admin</span><span class="chip">Transferir</span></div></div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+    </div>
+  </section>
+
+  <!-- 12. MIEMBRO (solo «Salir») -->
+  <section class="state">
+    <div class="label">12 · Miembro (solo «Salir»)<small>La persona no es admin: sin acciones sobre otras; en su fila, solo «Salir»</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav navm"><a class="back go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Administradores<small>Hogar de Familia Demo</small></div>
+        <div class="stack">
+          <div class="card">
+            <div class="panel-h"><div class="ico">♙</div><h3>Personas del hogar</h3><span class="badge">3</span></div>
+            <div class="prow"><div class="avatar">F</div><div class="grow"><div class="namel"><span class="t">Familia Demo</span><span class="badge err">Administrador</span></div><div class="s">demo@homita.example</div></div></div>
+            <div class="prow"><div class="avatar me">L</div><div class="grow"><div class="namel"><span class="t">Lucía</span><span class="s">(tú)</span><span class="badge">Miembro</span></div><div class="s">lucia@homita.example</div><div class="chips"><span class="chip d">Salir</span></div></div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
@@ -213,22 +320,32 @@
 <aside class="notes">
   <h2>Cambios respecto a la app actual</h2>
   <ul>
-    <li>Cada fila tiene una sola acción visible («Quitar admin» o «Hacer admin»); se quita el texto «Transferir» y «Salir» dispersos en la lista.</li>
-    <li>«Transferir propiedad» y «Salir del hogar» se separan al pie, en su propio bloque, para que no se confundan con acciones de fila.</li>
-    <li>Transferir y salir abren una hoja inferior con la consecuencia escrita («Ana pasa a ser la propietaria»). Quitar admin, en cambio, va directo con toast y «Reintentar».</li>
-    <li>Los fallos de cambio de rol van en toast con «Reintentar»; un fallo de carga queda en la tarjeta de administradores.</li>
-    <li>«Salir» se desactiva si no hay otro admin: el texto de ayuda explica por qué, en vez de ocultarlo sin aviso.</li>
+    <li><b>Un solo panel</b> «Personas del hogar» con contador, en vez de dos paneles («Administran» y «Miembros») y las acciones dispersas. La primera pasada tenía «Propietaria» y botones sueltos al pie: se quitan.</li>
+    <li>Hasta 3 chips por fila. «Transferir propiedad» y «Salir del hogar» al pie de la pantalla salen de la lista; aquí, «Transferir» es chip de fila y «Salir» es chip de la fila propia.</li>
+    <li><b>Quitado</b>: el badge «Propietaria», el texto «Para salir, antes transferí la propiedad…» y «Sin cuenta no puede ser admin» (no están en el código).</li>
+    <li><span class="tagnew">Nuevo</span> Skeleton (3), error de carga por tarjeta (4) y sin conexión (6). El error de acción (5) es el real: alerta «Aviso / OK».</li>
+    <li>Confirmaciones (7–10) con los textos reales; «Hacer admin» no pide confirmación.</li>
+  </ul>
+  <h2 style="margin-top:12px">Reglas de negocio</h2>
+  <ul>
+    <li>Chips por fila, en este orden si aplican: «Quitar admin», «Quitar», «Hacer admin», «Transferir». Máximo 3.</li>
+    <li>«Salir» solo en la fila propia y no en el hogar personal.</li>
+    <li>Último admin: se ocultan «Quitar admin», «Quitar» y «Salir» (frame 11).</li>
+    <li>Miembro sin permisos de admin: solo «Salir» en su fila.</li>
+    <li>Textos de confirmación: «¿Quitar a X del hogar?», «¿Salir de este hogar?», «¿Transferir la administración a X? Pasarás a ser miembro.», «¿Quitar el rol de administrador a X?».</li>
+    <li>Error de acción: «No se puede completar la acción: el hogar debe conservar al menos un administrador».</li>
   </ul>
   <h2 style="margin-top:12px">Conexiones</h2>
   <ul>
-    <li>Llega desde: HOGAR-03 («Administradores»).</li>
-    <li>Lleva a: HOGAR-03 (volver con «‹»), HOGAR-miembros (ver la lista completa). «Salir del hogar» vuelve a HOGAR-01 al completarse.</li>
+    <li>Llega desde: HOGAR-03 («Administradores»). «‹ Atrás» vuelve a HOGAR-03.</li>
+    <li>Lista completa de miembros → HOGAR-06 (hogar-miembros).</li>
   </ul>
   <h2 style="margin-top:12px">Dudas de diseño</h2>
   <ul>
-    <li>El «Transferir propiedad» de la hoja de confirmación lleva con «go» a esta misma pantalla. En el prototipo debería cerrar la hoja y actualizar la lista. Confirmar el comportamiento.</li>
-    <li>Propuesta: el miembro sin permisos de administración ve esta lista en solo lectura, sin «Hacer admin», «Quitar» ni «Transferir». Decidir si la lista se muestra o se oculta del todo.</li>
-    <li>Confirmar si «Quitar admin» debe pedir confirmación en hoja inferior igual que transferir.</li>
+    <li>El caso último admin oculta «Quitar» en todas las filas (literal de code-facts). Confirmar si «Quitar» sobre un miembro debe seguir visible.</li>
+    <li>Las capturas muestran solo la fila del admin (1 persona). Los demás frames son de ejemplo.</li>
+    <li>Marcos (miembro sin cuenta) no aparece en los frames: el código no define sus chips. Confirmar.</li>
+    <li>La captura de la app muestra el nombre con «(tú)» y el badge «Administrador» en la fila propia; se mantiene.</li>
   </ul>
 </aside>
 </body>

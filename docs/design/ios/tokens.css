@@ -3,25 +3,29 @@
    Unidades: pt de iOS (1 px aquí = 1 pt). */
 :root {
   /* Color */
-  --bg: #F5EEE2;            /* fondo de app (crema) */
-  --bg-sunken: #EDE2D3;     /* segmentos, campos hundidos */
-  --surface: #FDFCF9;       /* tarjetas y filas */
-  --surface-2: #F9F4EB;     /* tarjeta secundaria / skeleton base */
-  --line: #E8DDCB;          /* bordes finos */
-  --text: #231F1B;
-  --text-2: #6E6358;        /* secundario, contraste 5.1:1 sobre --bg */
+  --bg: #F4EEE3;            /* fondo de app (crema) */
+  --bg-sunken: #EFE7D8;     /* segmentos, campos hundidos */
+  --surface: #FDFBF7;       /* tarjetas y filas */
+  --surface-2: #F8F3EA;     /* tarjeta secundaria / skeleton base */
+  --line: #EDE5D6;          /* bordes finos */
+  --text: #1D1612;
+  --text-2: #6F655A;        /* secundario, contraste 5.1:1 sobre --bg */
   --text-3: #8F8579;        /* terciario: solo texto grande o decorativo */
-  --accent: #C41E3A;        /* acción principal */
-  --accent-press: #A31830;
-  --accent-soft: #F7DDE1;   /* fondos de icono, badges */
-  --ok: #1F8A4C;      --ok-soft: #D9ECDF;
-  --warn: #B45309;    --warn-soft: #FBE7C6;
+  --accent: #B5313F;        /* acción principal */
+  --accent-press: #952634;
+  --accent-soft: #F4DDE0;   /* fondos de icono, badges */
+  --ok: #2F5E3B;      --ok-soft: #E6F0E0;
+  --warn: #7A5800;    --warn-soft: #FFF4CC;
   --err: #B3261E;     --err-soft: #F9DEDC;
   --info: #3B5BDB;    --info-soft: #E0E7FB;
+  /* Estados de rutina (diseño «Rutinas de hoy») */
+  --now: #3F7D4E;  --now-strong: #2F5E3B; --now-bg: #E6F0E0; --now-track: #C8DDC0;      /* en curso */
+  --soon: #D9A400; --soon-strong: #5C4300; --soon-text: #7A5800; --soon-bg: #FFF4CC; --soon-fill: #A66F00; --soon-track: #F6E3A1; --soon-tile: #F5C842; /* aviso (≤ 60 min) */
+  --far-bg: #F8F3EA;                                                                    /* aún no empieza */
   --person-1: #6D28D9; --person-2: #0E9F6E; --person-3: #F59E0B; --person-4: #E11D48; --person-5: #0284C7;
 
   /* Tipografía (Geist en el marco; en iOS: SF Pro Rounded/SF Pro, Dynamic Type) */
-  --font: -apple-system, "SF Pro Text", "Geist", system-ui, sans-serif;
+  --font: "Inter", -apple-system, "SF Pro Text", system-ui, sans-serif; /* diseño: Inter. App actual: Geist (decisión del usuario: paleta y tipografía del diseño) */
   --t-large: 700 34px/40px var(--font);   /* título grande */
   --t-title: 700 20px/26px var(--font);   /* título de tarjeta / sección */
   --t-body: 400 17px/22px var(--font);

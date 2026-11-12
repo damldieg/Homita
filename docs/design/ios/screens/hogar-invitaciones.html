@@ -7,24 +7,39 @@
 <link rel="stylesheet" href="../tokens.css">
 <link rel="stylesheet" href="../components.css">
 <style>
-/* Añadido en este wireframe (no está en components.css) */
-.inline-err { display: flex; gap: var(--s3); align-items: center; background: var(--err-soft); color: var(--err); border-radius: var(--r-md); padding: var(--s3) var(--s4); font: 500 14px/19px var(--font); margin-bottom: var(--s3); }
-.inline-err .grow { flex: 1; }
-.dis { opacity: .45; }
-.codebox { font: 700 26px/32px ui-monospace, monospace; letter-spacing: .08em; text-align: center; background: var(--bg-sunken); border-radius: var(--r-md); padding: var(--s5) var(--s4); color: var(--text); }
-.btnrow { display: flex; gap: var(--s3); }
-.btnrow .btn { flex: 1; min-height: 46px; }
-.warnbox { display: flex; gap: var(--s3); align-items: flex-start; background: var(--warn-soft); color: var(--warn); border-radius: var(--r-md); padding: var(--s3) var(--s4); font: 600 14px/19px var(--font); }
-.field .row .val small { color: var(--text-2); font: var(--t-cap); }
-.phone .scroll .sect + .card { margin-top: 0; }
+  .nav .grow { flex: 1; }
+  .card > .row:first-child { border-top: 0; }
+  .card-h + .row { border-top: 1px solid var(--line); }
+  .dis { opacity: .45; }
+  .rad { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--text-3); flex: none; display: grid; place-items: center; }
+  .rad.on { border-color: var(--accent); }
+  .rad.on::after { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); }
+  .chip { font: 600 13px/1 var(--font); min-height: 32px; padding: 0 12px; border-radius: var(--r-pill); display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--line); color: var(--text-2); white-space: nowrap; flex: none; }
+  .chip.err { background: var(--err-soft); color: var(--err); border-color: transparent; }
+  .lblrow { font: 600 13px/18px var(--font); color: var(--text-2); padding: var(--s3) var(--s1) 0; }
+  .fld { display: flex; flex-direction: column; gap: 2px; }
+  .fld .s { font: var(--t-cap); color: var(--text-2); }
+  .fld .t { font: var(--t-body); color: var(--text-3); }
+  .fld .t.v { color: var(--text); }
+  .foot { font: var(--t-cap); color: var(--text-2); padding: var(--s2) var(--s1) 0; }
+  .codebox { font: 700 17px/24px ui-monospace, monospace; letter-spacing: .04em; text-align: center; background: var(--bg-sunken); border-radius: var(--r-md); padding: var(--s5) var(--s3); color: var(--text); word-break: break-all; }
+  .btns-col { display: flex; flex-direction: column; gap: var(--s3); margin-top: var(--s4); }
+  .inline-err { display: flex; gap: var(--s3); align-items: center; background: var(--err-soft); color: var(--err); border-radius: var(--r-md); padding: var(--s3) var(--s4); font: 500 14px/19px var(--font); margin-bottom: var(--s3); }
+  .inline-err .grow { flex: 1; }
+  .alert { position: absolute; left: 50px; right: 50px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+  .alert h4 { font: 600 17px/22px var(--font); } .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+  .alert .acts { display: flex; border-top: 1px solid var(--line); }
+  .alert .acts span { flex: 1; min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .alert .acts span + span { border-left: 1px solid var(--line); }
+  .alert .acts span.dng { color: var(--err); }
+  .na { font: var(--t-cap); color: var(--text-2); border: 1px dashed var(--line); border-radius: var(--r-md); padding: var(--s3) var(--s4); margin-top: var(--s3); }
 </style>
 </head>
 <body>
-<!-- HOGAR-07: invitaciones pendientes. Crear: admin (tipo adulto solo admin; mascota nunca). Código una sola vez. Revocar con confirmación. -->
 <header class="wf-head">
-  <div class="id">HOGAR-07 · pestaña Hogar · épica E4</div>
+  <div class="id">HOGAR-07 · Administración › Invitaciones · épica E4</div>
   <h1>Invitaciones</h1>
-  <p>Invitaciones pendientes del hogar. Se crea una con el email y el tipo; el código se muestra una sola vez, porque vive solo en memoria y no se puede volver a ver. Revocar pide confirmación.</p>
+  <p>Panel «Pendientes» con contador. Fila: nombre del miembro o tipo, «[email · ]Tipo · caduca &lt;fecha&gt;» y chip «Revocar» con confirmación. «+» abre «Nueva invitación»; al crear, el código se muestra una sola vez en su propia hoja. Las etiquetas <span class="tagnew">Nuevo</span> señalan lo que el código no tiene.</p>
   <nav class="wf-nav">
     <a href="../index.html">← Índice</a>
     <a href="hogar-admin-menu.html">← Administración</a>
@@ -37,157 +52,238 @@
 
 <div class="states">
 
-  <!-- 1. DATOS -->
+  <!-- 1. CON DATOS -->
   <section class="state" id="f1">
-    <div class="label">1 · Con datos<small>Lista de pendientes; «Revocar» abre confirmación</small></div>
+    <div class="label">1 · Con datos<small>Admin. «Revocar» abre la confirmación (frame 10). «+» siempre visible</small></div>
     <div class="phone">
       <div class="status"><span>20:12</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><a class="txt strong go" href="#f7">+ Invitar</a></div>
-        <div class="large-title">Invitaciones<small>Pendientes · 2</small></div>
-        <div class="card">
-          <div class="row"><div class="grow"><div class="t">invitado@ejemplo.com</div><div class="s">Adulto · Expira en 6 días</div></div><a class="btn sm danger go" href="#f8">Revocar</a></div>
-          <div class="row"><div class="grow"><div class="t">abuela@ejemplo.com</div><div class="s">Pariente · Expira en 2 días</div></div><a class="btn sm danger go" href="#f8">Revocar</a></div>
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><a class="btn-icon go" href="hogar-invitaciones.html#f7" aria-label="Crear invitación">+</a></div>
+        <div class="large-title">Invitaciones</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><h3>Pendientes</h3><span class="badge">2</span></div>
+            <div class="row"><div class="grow"><div class="t">Adulto</div><div class="s">invitado@ejemplo.com · Adulto · caduca 19 nov</div></div><a class="chip err go" href="hogar-invitaciones.html#f10">Revocar</a></div>
+            <div class="row"><div class="grow"><div class="t">Lucía</div><div class="s">Niño · caduca 18 nov</div></div><a class="chip err go" href="hogar-invitaciones.html#f10">Revocar</a></div>
+          </div>
         </div>
-        <div class="hint">Cada código sirve una vez. Quien lo recibe lo introduce en Perfil › Unirse a un hogar.</div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
       <span class="anno" style="top:70px;left:8px">1</span>
     </div>
   </section>
 
   <!-- 2. VACÍO -->
   <section class="state">
-    <div class="label">2 · Vacío<small>Sin pendientes: un mensaje y una acción</small></div>
+    <div class="label">2 · Vacío<small>Texto real «Sin invitaciones pendientes» dentro del panel; «+» sigue visible</small></div>
     <div class="phone">
       <div class="status"><span>20:12</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><a class="txt strong go" href="#f7">+ Invitar</a></div>
-        <div class="large-title">Invitaciones<small>Pendientes · 0</small></div>
-        <div class="empty">
-          <div class="art">✉</div>
-          <h3>No hay invitaciones pendientes</h3>
-          <p>Invita por email a quien quieras sumar al hogar.</p>
-          <a class="btn primary go" href="#f7">Crear invitación</a>
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><a class="btn-icon go" href="hogar-invitaciones.html#f7" aria-label="Crear invitación">+</a></div>
+        <div class="large-title">Invitaciones</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><h3>Pendientes</h3><span class="badge">0</span></div>
+            <div class="hint">Sin invitaciones pendientes</div>
+          </div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
-  <!-- 3. SKELETON -->
+  <!-- 3. CARGANDO -->
   <section class="state">
-    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que la lista con datos</small></div>
+    <div class="label">3 · Cargando (skeleton) <span class="tagnew">Nuevo</span><small>Hoy: <code>HomeLoadingView</code> de la pantalla de hogar («Cargando hogar…»). El skeleton es propuesta</small></div>
     <div class="phone">
       <div class="status"><span>20:12</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt">‹ Atrás</a><a class="txt">+ Invitar</a></div>
-        <div class="large-title">Invitaciones<small><span class="sk line" style="display:inline-block;width:120px"></span></small></div>
-        <div class="card">
-          <div class="row"><div class="grow"><div class="sk line" style="width:65%"></div><div class="sk line" style="width:45%;margin-top:6px"></div></div><div class="sk box" style="width:76px;height:36px"></div></div>
-          <div class="row"><div class="grow"><div class="sk line" style="width:55%"></div><div class="sk line" style="width:40%;margin-top:6px"></div></div><div class="sk box" style="width:76px;height:36px"></div></div>
+        <div class="nav"><a class="txt">‹ Atrás</a><a class="btn-icon">+</a></div>
+        <div class="large-title">Invitaciones</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="sk title" style="width:40%"></div></div>
+            <div class="row"><div class="grow"><div class="sk line" style="width:65%"></div><div class="sk line" style="width:45%;margin-top:6px"></div></div><div class="sk box" style="width:76px;height:32px"></div></div>
+            <div class="row"><div class="grow"><div class="sk line" style="width:55%"></div><div class="sk line" style="width:40%;margin-top:6px"></div></div><div class="sk box" style="width:76px;height:32px"></div></div>
+          </div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
   <!-- 4. ERROR -->
   <section class="state">
-    <div class="label">4 · Error<small>Fallo de carga: errbox con Reintentar</small></div>
+    <div class="label">4 · Error<small>Real: <code>HomeErrorView</code> sustituye la lista con el texto del servidor y «Reintentar». Ejemplo ilustrativo</small></div>
     <div class="phone">
       <div class="status"><span>20:12</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><a class="txt strong">+ Invitar</a></div>
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><a class="btn-icon">+</a></div>
         <div class="large-title">Invitaciones</div>
         <div class="errbox">
           <div class="art">⚠</div>
-          <h3>No pudimos cargar las invitaciones</h3>
-          <p>Revisa tu conexión y vuelve a intentarlo.</p>
+          <h3>No se pudo conectar con el servidor.</h3>
+          <p>Texto del servidor (ejemplo).</p>
           <a class="btn secondary" style="min-height:44px;padding:0 var(--s6)">Reintentar</a>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
   <!-- 5. SIN CONEXIÓN -->
   <section class="state">
-    <div class="label">5 · Sin conexión<small>Caché + banner. Crear y revocar desactivados</small></div>
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy cae al error de la sección. Propuesta: caché con banner; crear y revocar desactivados</small></div>
     <div class="phone">
       <div class="status"><span>20:12</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><a class="txt strong dis">+ Invitar</a></div>
-        <div class="large-title">Invitaciones<small>Pendientes · 2</small></div>
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><a class="btn-icon dis">+</a></div>
+        <div class="large-title">Invitaciones</div>
         <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
-        <div class="card">
-          <div class="row"><div class="grow"><div class="t">invitado@ejemplo.com</div><div class="s">Adulto · Expira en 6 días</div></div><span class="btn sm danger dis">Revocar</span></div>
-          <div class="row"><div class="grow"><div class="t">abuela@ejemplo.com</div><div class="s">Pariente · Expira en 2 días</div></div><span class="btn sm danger dis">Revocar</span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><h3>Pendientes</h3><span class="badge">2</span></div>
+            <div class="row"><div class="grow"><div class="t">Adulto</div><div class="s">invitado@ejemplo.com · Adulto · caduca 19 nov</div></div><span class="chip err dis">Revocar</span></div>
+            <div class="row"><div class="grow"><div class="t">Lucía</div><div class="s">Niño · caduca 18 nov</div></div><span class="chip err dis">Revocar</span></div>
+          </div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
-  <!-- 6. CÓDIGO GENERADO (HOJA) -->
+  <!-- 6. MIEMBRO CON home.invite: CREAR -->
   <section class="state" id="f6">
-    <div class="label">6 · Código generado (hoja)<small>Se muestra una sola vez. Al cerrar, no se vuelve a ver</small></div>
+    <div class="label">6 · Miembro con «home.invite» (hoja)<small>Real: la pantalla se ve si tiene el permiso. «Adulto» no aparece: solo lo invita un admin</small></div>
     <div class="phone no-tabs">
       <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><span></span><span class="center">Invitación creada</span><a class="txt strong go" href="#f1">Listo</a></div>
-        <div class="hint" style="padding:0 0 var(--s2)">Para invitado@ejemplo.com · Adulto · expira en 7 días</div>
-        <div class="codebox">K7M2-QP4X-9R3T</div>
-        <div class="btnrow" style="margin-top:var(--s4)">
-          <a class="btn secondary">Copiar</a>
-          <a class="btn primary">Compartir</a>
-        </div>
-        <div class="warnbox" style="margin-top:var(--s5)"><span>⚠</span><span>Este código solo se muestra ahora. Cópialo o compártelo antes de cerrar: no se volverá a mostrar. Si lo pierdes, revoca la invitación y crea otra.</span></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 7. CREAR INVITACIÓN (HOJA) -->
-  <section class="state" id="f7">
-    <div class="label">7 · Crear invitación (hoja)<small>Relleno. Tipo «Adulto» solo para admin; «Mascota» no se ofrece</small></div>
-    <div class="phone no-tabs">
-      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
-      <div class="scroll">
-        <div class="nav"><a class="txt go" href="#f1">Cancelar</a><span class="center">Nueva invitación</span><a class="txt strong go" href="#f6">Crear</a></div>
-        <div class="sect">Invitado</div>
-        <div class="field">
-          <div class="row"><span class="lbl">Email</span><span class="val">invitado@ejemplo.com</span></div>
-          <div class="row"><span class="lbl">Tipo</span><span class="val">Adulto<span class="chev" style="margin-left:6px"></span></span></div>
-          <div class="row"><span class="lbl">Persona</span><span class="val">Ninguna<span class="chev" style="margin-left:6px"></span></span></div>
-        </div>
-        <div class="hint">Persona (opcional): vincula la invitación a un miembro sin cuenta, como Lucía.</div>
-        <div class="hint">Tipo: Pariente, Invitado o Niño. Adulto solo lo puede invitar un admin. Mascota no se invita.</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 8. CONFIRMAR REVOCAR (HOJA) -->
-  <section class="state" id="f8">
-    <div class="label">8 · Confirmar revocar<small>Hoja inferior sobre la lista; acción destructiva con «Cancelar» visible</small></div>
-    <div class="phone">
-      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
-      <div class="scroll">
-        <div class="nav"><a class="txt">‹ Atrás</a><a class="txt strong">+ Invitar</a></div>
-        <div class="large-title">Invitaciones<small>Pendientes · 2</small></div>
+        <div class="nav"><a class="txt go" href="hogar-invitaciones.html#f1">Cancelar</a><span class="center">Nueva invitación</span><span></span></div>
         <div class="card">
-          <div class="row"><div class="grow"><div class="t">invitado@ejemplo.com</div><div class="s">Adulto · Expira en 6 días</div></div><span class="btn sm danger">Revocar</span></div>
-          <div class="row"><div class="grow"><div class="t">abuela@ejemplo.com</div><div class="s">Pariente · Expira en 2 días</div></div><span class="btn sm danger">Revocar</span></div>
+          <div class="card-h"><h3>Tipo</h3></div>
+          <div class="row"><div class="grow t">Niño</div><span class="rad on"></span></div>
+          <div class="row"><div class="grow t">Familiar</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Invitado</div><span class="rad"></span></div>
+        </div>
+        <div class="card" style="margin-top:var(--s3)">
+          <div class="card-h"><h3>Vincular a un miembro (opcional)</h3></div>
+          <div class="row"><div class="grow t">Ninguno</div><span class="rad on"></span></div>
+          <div class="row"><div class="grow t">Lucía · Niño</div><span class="rad"></span></div>
+          <div class="foot">Solo miembros sin cuenta. Al aceptar, la cuenta queda vinculada a ese miembro.</div>
+        </div>
+        <div class="card" style="margin-top:var(--s3)">
+          <div class="card-h"><h3>Email del invitado</h3></div>
+          <div class="row"><div class="fld"><span class="t v">invitado@ejemplo.com</span></div></div>
+          <div class="foot">La invitación solo se puede aceptar con esta cuenta de email. Si la persona ya tiene cuenta, debe iniciar sesión con ese email.</div>
+        </div>
+        <div class="btns-col"><a class="btn primary go" href="hogar-invitaciones.html#f9">Crear</a></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. NUEVA INVITACIÓN (ADMIN) -->
+  <section class="state" id="f7">
+    <div class="label">7 · Nueva invitación (hoja, admin)<small>Real: «Cancelar» a la izquierda; «Crear» al pie, activo con email válido. Mascota nunca se ofrece</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-invitaciones.html#f1">Cancelar</a><span class="center">Nueva invitación</span><span></span></div>
+        <div class="card">
+          <div class="card-h"><h3>Tipo</h3></div>
+          <div class="row"><div class="grow t">Adulto</div><span class="rad on"></span></div>
+          <div class="row"><div class="grow t">Niño</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Familiar</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Invitado</div><span class="rad"></span></div>
+        </div>
+        <div class="card" style="margin-top:var(--s3)">
+          <div class="card-h"><h3>Vincular a un miembro (opcional)</h3></div>
+          <div class="row"><div class="grow t">Ninguno</div><span class="rad on"></span></div>
+          <div class="row"><div class="grow t">Lucía · Niño</div><span class="rad"></span></div>
+          <div class="foot">Solo miembros sin cuenta. Al aceptar, la cuenta queda vinculada a ese miembro.</div>
+        </div>
+        <div class="card" style="margin-top:var(--s3)">
+          <div class="card-h"><h3>Email del invitado</h3></div>
+          <div class="row"><div class="fld"><span class="t v">invitado@ejemplo.com</span></div></div>
+          <div class="foot">La invitación solo se puede aceptar con esta cuenta de email. Si la persona ya tiene cuenta, debe iniciar sesión con ese email.</div>
+        </div>
+        <div class="btns-col"><a class="btn primary go" href="hogar-invitaciones.html#f9">Crear</a></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. CON MIEMBRO VINCULADO: TIPO BLOQUEADO -->
+  <section class="state" id="f8">
+    <div class="label">8 · Con miembro vinculado (hoja)<small>Real: al elegir un miembro, el «Tipo» queda deshabilitado (lo fija el miembro)</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-invitaciones.html#f1">Cancelar</a><span class="center">Nueva invitación</span><span></span></div>
+        <div class="card dis">
+          <div class="card-h"><h3>Tipo</h3></div>
+          <div class="row"><div class="grow t">Adulto</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Niño</div><span class="rad on"></span></div>
+          <div class="row"><div class="grow t">Familiar</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Invitado</div><span class="rad"></span></div>
+        </div>
+        <div class="card" style="margin-top:var(--s3)">
+          <div class="card-h"><h3>Vincular a un miembro (opcional)</h3></div>
+          <div class="row"><div class="grow t">Ninguno</div><span class="rad"></span></div>
+          <div class="row"><div class="grow t">Lucía · Niño</div><span class="rad on"></span></div>
+          <div class="foot">Solo miembros sin cuenta. Al aceptar, la cuenta queda vinculada a ese miembro.</div>
+        </div>
+        <div class="card" style="margin-top:var(--s3)">
+          <div class="card-h"><h3>Email del invitado</h3></div>
+          <div class="row"><div class="fld"><span class="t v">invitado@ejemplo.com</span></div></div>
+          <div class="foot">La invitación solo se puede aceptar con esta cuenta de email. Si la persona ya tiene cuenta, debe iniciar sesión con ese email.</div>
+        </div>
+        <div class="btns-col"><a class="btn primary go" href="hogar-invitaciones.html#f9">Crear</a></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. CÓDIGO GENERADO (HOJA) -->
+  <section class="state" id="f9">
+    <div class="label">9 · Invitación creada (hoja con código)<small>Real: código en monoespaciado, aviso de una sola vez y tres acciones. «Listo» cierra y borra el código</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><span class="center">Invitación creada</span><a class="txt strong go" href="hogar-invitaciones.html#f1">Listo</a></div>
+        <div class="card">
+          <div class="card-h"><h3>Código</h3></div>
+          <div class="codebox">K7M2QP4X9R3TH6JWB8ZCN5DLAVY0EFGS</div>
+          <div class="foot">Solo se muestra una vez. Compártelo con la persona invitada; caduca en 7 días.</div>
+        </div>
+        <div class="btns-col">
+          <a class="btn secondary">Copiar código</a>
+          <a class="btn secondary">Enviar por WhatsApp</a>
+          <a class="btn secondary">Compartir invitación</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10. CONFIRMAR REVOCAR -->
+  <section class="state" id="f10">
+    <div class="label">10 · Confirmar revocar (diálogo)<small>Real: «¿Revocar la invitación? El código dejará de funcionar.» con «Revocar» y «Cancelar». Diálogo, no hoja</small></div>
+    <div class="phone">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><a class="btn-icon">+</a></div>
+        <div class="large-title">Invitaciones</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><h3>Pendientes</h3><span class="badge">2</span></div>
+            <div class="row"><div class="grow"><div class="t">Adulto</div><div class="s">invitado@ejemplo.com · Adulto · caduca 19 nov</div></div><span class="chip err">Revocar</span></div>
+            <div class="row"><div class="grow"><div class="t">Lucía</div><div class="s">Niño · caduca 18 nov</div></div><span class="chip err">Revocar</span></div>
+          </div>
         </div>
       </div>
       <div class="scrim"></div>
-      <div class="sheet">
-        <h3 style="font:var(--t-title);text-align:center">¿Revocar la invitación?</h3>
-        <p style="font:var(--t-sub);color:var(--text-2);text-align:center;margin:var(--s2) 0 var(--s5)">invitado@ejemplo.com ya no podrá unirse con ese código. No se puede deshacer.</p>
-        <a class="btn danger" style="margin-bottom:var(--s2)">Revocar invitación</a>
-        <a class="btn ghost">Cancelar</a>
+      <div class="alert">
+        <p style="font:400 15px/21px var(--font);color:var(--text);margin:8px 0 16px">¿Revocar la invitación? El código dejará de funcionar.</p>
+        <div class="acts"><span class="dng">Revocar</span><span>Cancelar</span></div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
-      <span class="anno" style="top:70px;left:8px">8</span>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
     </div>
   </section>
 
@@ -196,13 +292,28 @@
 <aside class="notes">
   <h2>Cambios respecto a la app actual</h2>
   <ul>
-    <li>La captura 53 muestra solo el menú de Administración, no esta lista. El contenido sale de docs/ios-funcional.md (4.6 y 5); conviene repetir la captura dentro de la pantalla.</li>
-    <li>El código pasa a una hoja «Código generado» con aviso explícito de que no se volverá a mostrar, y con Copiar y Compartir a la vez (hoy solo «Copiar»).</li>
-    <li>«Adulto» aparece solo para admin y «Mascota» no se ofrece nunca, en vez de un selector que el servidor rechaza.</li>
-    <li>«Revocar» pasa por una hoja de confirmación con la acción destructiva separada de «Cancelar».</li>
-    <li>Sin conexión: crear y revocar quedan desactivados, con datos de caché y banner.</li>
+    <li><b>Quitado de la primera pasada</b>: subtítulo «Pendientes · 2», botón «+ Invitar» con texto (el código usa «+»), aviso de la hoja «Este código solo se muestra ahora…» (no existe), frase «Cada código sirve una vez…» en la lista (no existe), «Persona» como etiqueta (el código dice «Vincular a un miembro (opcional)»), botones «Copiar» / «Compartir» (ahora «Copiar código», «Enviar por WhatsApp», «Compartir invitación») y la hoja inferior de revocar (es un diálogo).</li>
+    <li>Pendientes: fila con nombre del miembro (o tipo si no hay miembro), email si la invitación lo tiene, y chip «Revocar» con confirmación.</li>
+    <li><span class="tagnew">Nuevo</span> estado 3 (skeleton) y estado 5 (sin conexión). El estado 4 es el real.</li>
+    <li>Miembro con «home.invite»: ve la pantalla y crea invitaciones, sin «Adulto» (frame 6).</li>
   </ul>
-  <p style="margin-top:10px"><b>Conexiones.</b> Llega desde hogar-admin-menu (fila «Invitaciones») y desde Perfil si el usuario tiene permiso de invitar (home.invite). Desde aquí: Crear (#f7), código (#f6), revocar (#f8). Endpoints: lectura <code>home/invitation</code>; escritura <code>home/invitation/create</code>, <code>home/invitation/revoke</code>.</p>
+  <h2>Reglas de negocio</h2>
+  <ul>
+    <li>Tipos invitables: Adulto (solo admin), Niño, Familiar, Invitado. <b>Mascota nunca</b>.</li>
+    <li>«Vincular a un miembro (opcional)»: «Ninguno» más miembros <i>activos, sin cuenta, no mascota</i>; si quien invita no es admin, los adultos no aparecen. Al elegir miembro, el tipo queda fijo.</li>
+    <li>Email obligatorio para «Crear» (activo con email válido). Caduca en 7 días.</li>
+    <li>El código se muestra una sola vez, vive en memoria y se borra al cerrar la hoja con «Listo».</li>
+    <li>Revocar: «¿Revocar la invitación? El código dejará de funcionar.»; el código deja de funcionar.</li>
+    <li>Error de escritura = alerta «Aviso / OK». Error de carga = texto del servidor + «Reintentar».</li>
+    <li>Vacío «Sin invitaciones pendientes».</li>
+    <li><b>Por confirmar en código</b>: el texto completo de la pantalla de Revocar (botones «Revocar» y «Cancelar» según el diálogo de la app).</li>
+  </ul>
+  <h2>Conexiones</h2>
+  <ul>
+    <li>Llega desde hogar-admin-menu (fila «Invitaciones») y desde Perfil si el usuario tiene permiso de invitar (<code>home.invite</code>).</li>
+    <li>Desde aquí: «+» → hoja Nueva invitación (frame 7); «Crear» → código (frame 9); «Revocar» → diálogo (frame 10).</li>
+    <li>Endpoints: lectura <code>home/invitation</code>; escritura <code>home/invitation/create</code> y <code>home/invitation/revoke</code>.</li>
+  </ul>
 </aside>
 </body>
 </html>

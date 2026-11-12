@@ -3,37 +3,59 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TASKS-05 Nueva lista</title>
+<title>TASKS-05 Lista (hoja)</title>
 <link rel="stylesheet" href="../tokens.css">
 <link rel="stylesheet" href="../components.css">
 <style>
-/* Añadidos de este lote (no están en components.css) */
-.grow { flex: 1; min-width: 0; }
-.nav .txt.dis { opacity: .4; }
-.field.err-f { border-color: var(--err); border-width: 1.5px; }
-.val.ph { color: var(--text-3); }
-.swatches { display: flex; flex-wrap: wrap; gap: var(--s1); padding: var(--s2) var(--s4) var(--s3); }
-.sw { width: 44px; height: 44px; display: grid; place-items: center; }
-.sw i { width: 32px; height: 32px; border-radius: 50%; display: block; }
-.sw.on i { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
-.sw-sk { width: 32px; height: 32px; border-radius: 50%; }
-.opt-sw { min-height: 52px; padding: 0 var(--s4); display: flex; align-items: center; gap: var(--s3); }
-.switch { width: 51px; height: 31px; border-radius: 16px; background: var(--line); position: relative; flex: none; }
-.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
-.switch.on { background: var(--ok); }
-.switch.on::after { left: 22px; }
-.sect-lbl { padding: var(--s3) var(--s1) var(--s1); font: var(--t-cap); color: var(--text-2); }
+  .grow { flex: 1; min-width: 0; }
+  .radio { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--text-3); flex: none; }
+  .radio.on { border-color: var(--accent); background: radial-gradient(circle, var(--accent) 45%, transparent 50%); }
+  .panel { padding: 0; margin-top: var(--s4); }
+  .panel-h { padding: var(--s3) var(--s4) var(--s1); font: var(--t-over); text-transform: uppercase; letter-spacing: .06em; color: var(--text-2); }
+  .prow { display: flex; align-items: center; gap: var(--s3); min-height: 50px; padding: 0 var(--s4); border-top: 1px solid var(--line); font: var(--t-body); }
+  .prow:first-of-type { border-top: 0; }
+  .prow .val { color: var(--text-2); font: var(--t-sub); }
+  .prow .note { font: var(--t-cap); color: var(--text-2); }
+  .ttl { display: flex; align-items: center; min-height: 48px; padding: 0 var(--s4); font: var(--t-body); }
+  .ttl.ph { color: var(--text-3); }
+  .cpick { width: 28px; height: 28px; border-radius: 50%; flex: none; }
+  .switch { width: 51px; height: 31px; border-radius: 16px; background: var(--line); position: relative; flex: none; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .switch.on { background: var(--ok); }
+  .switch.on::after { left: 22px; }
+  .switch.dis { opacity: .45; }
+  .sw-row { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); min-height: 52px; border-top: 1px solid var(--line); }
+  .sw-row:first-of-type { border-top: 0; }
+  .sw-row .t { font: var(--t-body); }
+  .sw-row .s { font: var(--t-cap); color: var(--text-2); }
+  .swatches { display: flex; flex-wrap: wrap; gap: var(--s1); padding: var(--s2) var(--s4) var(--s3); }
+  .sw { width: 44px; height: 44px; display: grid; place-items: center; }
+  .sw i { width: 32px; height: 32px; border-radius: 50%; display: block; }
+  .sw.on i { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
+  .sw.custom i { background: var(--surface); border: 2px dashed var(--text-3); }
+  .sk-sw { width: 32px; height: 32px; border-radius: 50%; }
+  .alert { position: absolute; left: 50px; right: 50px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+  .alert h4 { font: 600 17px/22px var(--font); }
+  .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+  .alert .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .alert .two { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); }
+  .alert .two div { min-height: 44px; display: grid; place-items: center; font: 600 17px/1 var(--font); }
+  .alert .two .d { color: var(--err); border-left: 1px solid var(--line); }
+  .foot { margin-top: var(--s6); display: flex; flex-direction: column; gap: var(--s2); }
+  .btn.danger-t { background: transparent; color: var(--err); min-height: 44px; font: var(--t-body-b); }
+  .sheet .panel { margin-top: 0; }
 </style>
 </head>
 <body>
 <header class="wf-head">
-  <div class="id">TASKS-05 · pestaña Tareas › Nueva lista (hoja) · epic E2</div>
-  <h1>Nueva lista</h1>
-  <p>Formulario de alta de lista en hoja modal: Nombre, Color (paleta), Widget y Dashboard. Los flags se muestran como interruptores con una frase de qué cambian. Crear desactivado sin nombre.</p>
+  <div class="id">TASKS-05 · Lista (hoja «Nueva lista» / «Editar lista») · epic E2</div>
+  <h1>Lista (hoja)</h1>
+  <p>Hoja modal para crear o editar una lista. Paneles reales: «Lista» (Nombre, Color nativo), «Orden de las tareas» y «Visible en» (Widget y Dashboard, ambos activados por defecto). «Crear lista» / «Guardar» al pie; en edición, «Eliminar lista» con confirmación. Las etiquetas <span class="tagnew">Nuevo</span> señalan lo que el código no tiene.</p>
   <nav class="wf-nav">
     <a href="../index.html">← Índice</a>
     <a href="tasks-listas.html">Volver a Listas</a>
     <a href="tasks-detalle-lista.html">Detalle de lista</a>
+    <a href="tasks-form-tarea.html">Nueva tarea →</a>
   </nav>
 </header>
 
@@ -41,159 +63,205 @@
 
   <!-- 1. RELLENO -->
   <section class="state">
-    <div class="label">1 · Relleno<small>Nombre, color y flags elegidos; Crear activo</small></div>
+    <div class="label">1 · Relleno (alta)<small>Nombre escrito, color elegido con el selector nativo, orden y visibilidad. «Crear lista» activo</small></div>
     <div class="phone no-tabs">
       <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt go" href="tasks-listas.html">Cancelar</a><a class="txt strong go" href="tasks-listas.html">Crear</a></div>
+        <div class="nav"><a class="txt go" href="tasks-listas.html">Cancelar</a><span></span></div>
         <div class="large-title" style="font:var(--t-title);padding:var(--s2) 0 var(--s4)">Nueva lista</div>
-        <div class="field">
-          <div class="row"><span class="lbl">Nombre</span><span class="val" style="text-align:left">Mascotas</span></div>
+        <div class="card panel">
+          <div class="panel-h">Lista</div>
+          <div class="prow"><span class="grow">Nombre</span><span class="val">Mascotas</span></div>
+          <div class="prow"><span class="grow">Color</span><span class="cpick" style="background:var(--person-1)"></span></div>
         </div>
-        <div class="sect-lbl">Color</div>
-        <div class="card" style="padding:0">
-          <div class="swatches">
-            <span class="sw"><i style="background:var(--accent)"></i></span>
-            <span class="sw"><i style="background:var(--ok)"></i></span>
-            <span class="sw"><i style="background:var(--warn)"></i></span>
-            <span class="sw on"><i style="background:var(--info)"></i></span>
-            <span class="sw"><i style="background:var(--person-1)"></i></span>
-            <span class="sw"><i style="background:var(--person-5)"></i></span>
-          </div>
+        <div class="card panel">
+          <div class="panel-h">Orden de las tareas</div>
+          <div class="prow"><span class="radio on"></span><span class="grow">Fecha de actualización</span><span class="note">Defecto</span></div>
+          <div class="prow"><span class="radio"></span><span class="grow">Título</span></div>
+          <div class="prow"><span class="radio"></span><span class="grow">Personalizado</span></div>
+          <p class="prow" style="border-top:1px solid var(--line);min-height:0;padding:var(--s2) var(--s4) var(--s3)"><span class="note">Podrás reordenar las tareas con el botón Editar.</span></p>
         </div>
-        <div class="sect-lbl">Mostrar en</div>
-        <div class="card" style="padding:0">
-          <div class="opt-sw"><div class="grow"><div class="t">Widget</div><div class="s" style="font:var(--t-cap);color:var(--text-2)">Aparece en el widget del iPhone</div></div><span class="switch on"></span></div>
-          <div class="opt-sw" style="border-top:1px solid var(--line)"><div class="grow"><div class="t">Dashboard</div><div class="s" style="font:var(--t-cap);color:var(--text-2)">Aparece en el panel de inicio</div></div><span class="switch"></span></div>
+        <div class="card panel">
+          <div class="panel-h">Visible en</div>
+          <div class="sw-row"><div class="grow"><div class="t">Widget</div></div><span class="switch on"></span></div>
+          <div class="sw-row"><div class="grow"><div class="t">Dashboard</div></div><span class="switch on"></span></div>
         </div>
+        <div class="foot"><a class="btn primary go" href="tasks-listas.html">Crear lista</a></div>
       </div>
     </div>
   </section>
 
-  <!-- 2. INICIAL VACÍO -->
+  <!-- 2. INICIAL -->
   <section class="state">
-    <div class="label">2 · Inicial vacío<small>Sin nombre ni color; Crear desactivado</small></div>
+    <div class="label">2 · Inicial (sin nombre)<small>Defectos reales: orden «Fecha de actualización», Widget y Dashboard activados. «Crear lista» desactivado sin nombre: por confirmar (el código no lo documenta)</small></div>
     <div class="phone no-tabs">
       <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt go" href="tasks-listas.html">Cancelar</a><a class="txt strong dis">Crear</a></div>
+        <div class="nav"><a class="txt go" href="tasks-listas.html">Cancelar</a><span></span></div>
         <div class="large-title" style="font:var(--t-title);padding:var(--s2) 0 var(--s4)">Nueva lista</div>
-        <div class="field">
-          <div class="row"><span class="lbl">Nombre</span><span class="val ph" style="text-align:left">Nombre de la lista</span></div>
+        <div class="card panel">
+          <div class="panel-h">Lista</div>
+          <div class="prow"><span class="grow">Nombre</span><span class="val" style="color:var(--text-3)">Nombre</span></div>
+          <div class="prow"><span class="grow">Color</span><span class="note">Elegir</span></div>
         </div>
-        <div class="sect-lbl">Color</div>
-        <div class="card" style="padding:0">
-          <div class="swatches">
-            <span class="sw"><i style="background:var(--accent)"></i></span>
-            <span class="sw"><i style="background:var(--ok)"></i></span>
-            <span class="sw"><i style="background:var(--warn)"></i></span>
-            <span class="sw"><i style="background:var(--info)"></i></span>
-            <span class="sw"><i style="background:var(--person-1)"></i></span>
-            <span class="sw"><i style="background:var(--person-5)"></i></span>
-          </div>
+        <div class="card panel">
+          <div class="panel-h">Orden de las tareas</div>
+          <div class="prow"><span class="radio on"></span><span class="grow">Fecha de actualización</span><span class="note">Defecto</span></div>
+          <div class="prow"><span class="radio"></span><span class="grow">Título</span></div>
+          <div class="prow"><span class="radio"></span><span class="grow">Personalizado</span></div>
         </div>
-        <div class="sect-lbl">Mostrar en</div>
-        <div class="card" style="padding:0">
-          <div class="opt-sw"><div class="grow"><div class="t">Widget</div><div class="s" style="font:var(--t-cap);color:var(--text-2)">Aparece en el widget del iPhone</div></div><span class="switch"></span></div>
-          <div class="opt-sw" style="border-top:1px solid var(--line)"><div class="grow"><div class="t">Dashboard</div><div class="s" style="font:var(--t-cap);color:var(--text-2)">Aparece en el panel de inicio</div></div><span class="switch"></span></div>
+        <div class="card panel">
+          <div class="panel-h">Visible en</div>
+          <div class="sw-row"><div class="grow"><div class="t">Widget</div></div><span class="switch on"></span></div>
+          <div class="sw-row"><div class="grow"><div class="t">Dashboard</div></div><span class="switch on"></span></div>
         </div>
-        <p class="hint">Ponle nombre a la lista para poder crearla.</p>
+        <div class="foot"><a class="btn primary dis" style="opacity:.45">Crear lista</a></div>
       </div>
     </div>
   </section>
 
-  <!-- 3. GUARDANDO / CARGANDO OPCIONES -->
+  <!-- 3. GUARDANDO -->
   <section class="state">
-    <div class="label">3 · Guardando / cargando opciones<small>Paleta en skeleton; Crear con .spin mientras guarda</small></div>
+    <div class="label">3 · Guardando <span class="tagnew">Nuevo</span><small>Indicador en el botón mientras guarda. Hoy no hay estado de guardado documentado en la hoja</small></div>
     <div class="phone no-tabs">
       <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt dis">Cancelar</a><a class="txt strong dis"><span class="spin"></span> Crear</a></div>
+        <div class="nav"><a class="txt dis">Cancelar</a><span></span></div>
         <div class="large-title" style="font:var(--t-title);padding:var(--s2) 0 var(--s4)">Nueva lista</div>
-        <div class="field">
-          <div class="row"><span class="lbl">Nombre</span><span class="val" style="text-align:left">Mascotas</span></div>
+        <div class="card panel">
+          <div class="panel-h">Lista</div>
+          <div class="prow"><span class="grow">Nombre</span><span class="val">Mascotas</span></div>
+          <div class="prow"><span class="grow">Color</span><span class="sk circle cpick"></span></div>
         </div>
-        <div class="sect-lbl">Color</div>
-        <div class="card" style="padding:0">
-          <div class="swatches">
-            <span class="sw"><span class="sk circle sw-sk"></span></span>
-            <span class="sw"><span class="sk circle sw-sk"></span></span>
-            <span class="sw"><span class="sk circle sw-sk"></span></span>
-            <span class="sw"><span class="sk circle sw-sk"></span></span>
-            <span class="sw"><span class="sk circle sw-sk"></span></span>
-            <span class="sw"><span class="sk circle sw-sk"></span></span>
-          </div>
+        <div class="card panel">
+          <div class="panel-h">Orden de las tareas</div>
+          <div class="prow"><span class="radio on"></span><span class="grow">Fecha de actualización</span></div>
+          <div class="prow"><span class="radio"></span><span class="grow">Título</span></div>
         </div>
-        <div class="sect-lbl">Mostrar en</div>
-        <div class="card" style="padding:0">
-          <div class="opt-sw"><div class="grow"><div class="sk line" style="width:40%"></div></div><span class="sk box" style="width:51px;height:31px;border-radius:16px"></span></div>
-          <div class="opt-sw" style="border-top:1px solid var(--line)"><div class="grow"><div class="sk line" style="width:50%"></div></div><span class="sk box" style="width:51px;height:31px;border-radius:16px"></span></div>
-        </div>
+        <div class="foot"><a class="btn primary"><span class="spin"></span>&nbsp;Crear lista</a></div>
       </div>
     </div>
   </section>
 
-  <!-- 4. VALIDACIÓN + ERROR DE SERVIDOR -->
+  <!-- 4. ERROR DE ACCIÓN -->
   <section class="state">
-    <div class="label">4 · Validación y error de servidor<small>Error del servidor arriba; validación del nombre bajo el campo</small></div>
+    <div class="label">4 · Error de acción (alerta) <small>Fallo al guardar: alerta «Aviso / OK» con el mensaje del servidor. La hoja conserva lo escrito</small></div>
     <div class="phone no-tabs">
       <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt go" href="tasks-listas.html">Cancelar</a><a class="txt strong go" href="tasks-listas.html">Crear</a></div>
-        <div class="inline-err" style="border-radius:var(--r-md);margin-bottom:var(--s3)"><span>⚠</span><span class="grow">No se pudo guardar la lista. Revisa los datos e inténtalo de nuevo.</span></div>
+        <div class="nav"><a class="txt go" href="tasks-listas.html">Cancelar</a><span></span></div>
         <div class="large-title" style="font:var(--t-title);padding:var(--s2) 0 var(--s4)">Nueva lista</div>
-        <div class="field err-f">
-          <div class="row" style="border-top:0"><span class="lbl">Nombre</span><span class="val" style="text-align:left">Casa</span></div>
+        <div class="card panel">
+          <div class="panel-h">Lista</div>
+          <div class="prow"><span class="grow">Nombre</span><span class="val">Mascotas</span></div>
+          <div class="prow"><span class="grow">Color</span><span class="cpick" style="background:var(--person-1)"></span></div>
         </div>
-        <p class="hint err">Ya tienes una lista con ese nombre.</p>
-        <div class="sect-lbl">Color</div>
-        <div class="card" style="padding:0">
-          <div class="swatches">
-            <span class="sw on"><i style="background:var(--ok)"></i></span>
-            <span class="sw"><i style="background:var(--accent)"></i></span>
-            <span class="sw"><i style="background:var(--warn)"></i></span>
-            <span class="sw"><i style="background:var(--info)"></i></span>
-            <span class="sw"><i style="background:var(--person-1)"></i></span>
-            <span class="sw"><i style="background:var(--person-5)"></i></span>
-          </div>
-        </div>
-        <div class="sect-lbl">Mostrar en</div>
-        <div class="card" style="padding:0">
-          <div class="opt-sw"><div class="grow"><div class="t">Widget</div><div class="s" style="font:var(--t-cap);color:var(--text-2)">Aparece en el widget del iPhone</div></div><span class="switch on"></span></div>
-          <div class="opt-sw" style="border-top:1px solid var(--line)"><div class="grow"><div class="t">Dashboard</div><div class="s" style="font:var(--t-cap);color:var(--text-2)">Aparece en el panel de inicio</div></div><span class="switch on"></span></div>
-        </div>
+        <div class="foot"><a class="btn primary go" href="tasks-listas.html">Crear lista</a></div>
       </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert"><h4>Aviso</h4><p>&lt;mensaje del servidor&gt;</p><div class="ok">OK</div></div>
     </div>
   </section>
 
   <!-- 5. SIN CONEXIÓN -->
   <section class="state">
-    <div class="label">5 · Sin conexión<small>Aviso arriba; Crear desactivado, los datos escritos se conservan</small></div>
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Propuesta: aviso arriba; «Crear lista» desactivado y los datos escritos se conservan</small></div>
     <div class="phone no-tabs">
       <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
-        <div class="nav"><a class="txt go" href="tasks-listas.html">Cancelar</a><a class="txt strong dis">Crear</a></div>
+        <div class="nav"><a class="txt go" href="tasks-listas.html">Cancelar</a><span></span></div>
         <div class="offline"><span>⚠</span><span class="grow">Sin conexión. No podemos guardar la lista ahora.</span></div>
         <div class="large-title" style="font:var(--t-title);padding:var(--s2) 0 var(--s4)">Nueva lista</div>
-        <div class="field">
-          <div class="row"><span class="lbl">Nombre</span><span class="val" style="text-align:left">Mascotas</span></div>
+        <div class="card panel">
+          <div class="panel-h">Lista</div>
+          <div class="prow"><span class="grow">Nombre</span><span class="val">Mascotas</span></div>
+          <div class="prow"><span class="grow">Color</span><span class="cpick" style="background:var(--person-1)"></span></div>
         </div>
-        <div class="sect-lbl">Color</div>
-        <div class="card" style="padding:0">
+        <div class="foot"><a class="btn primary dis" style="opacity:.45">Crear lista</a></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. EDICIÓN -->
+  <section class="state">
+    <div class="label">6 · Editar lista (modo edición) <small>Mismo formulario con datos. «Guardar» y «Eliminar lista» (solo propietario) al final</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="tasks-detalle-lista.html">Cancelar</a><span></span></div>
+        <div class="large-title" style="font:var(--t-title);padding:var(--s2) 0 var(--s4)">Editar lista</div>
+        <div class="card panel">
+          <div class="panel-h">Lista</div>
+          <div class="prow"><span class="grow">Nombre</span><span class="val">Casa</span></div>
+          <div class="prow"><span class="grow">Color</span><span class="cpick" style="background:var(--ok)"></span></div>
+        </div>
+        <div class="card panel">
+          <div class="panel-h">Orden de las tareas</div>
+          <div class="prow"><span class="radio"></span><span class="grow">Fecha de actualización</span></div>
+          <div class="prow"><span class="radio"></span><span class="grow">Título</span></div>
+          <div class="prow"><span class="radio on"></span><span class="grow">Personalizado</span></div>
+        </div>
+        <div class="card panel">
+          <div class="panel-h">Visible en</div>
+          <div class="sw-row"><div class="grow"><div class="t">Widget</div></div><span class="switch on"></span></div>
+          <div class="sw-row"><div class="grow"><div class="t">Dashboard</div></div><span class="switch on"></span></div>
+        </div>
+        <div class="foot">
+          <a class="btn primary go" href="tasks-detalle-lista.html">Guardar</a>
+          <a class="btn danger-t" href="#f-confirm">Eliminar lista</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. CONFIRMAR ELIMINACIÓN -->
+  <section class="state" id="f-confirm">
+    <div class="label">7 · Confirmar eliminación (solo propietario)<small>Texto real: «Se eliminará la lista y todas sus tareas.» El título del diálogo y «Cancelar» siguen el estilo nativo: por confirmar</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt">Cancelar</a><span></span></div>
+        <div class="large-title" style="font:var(--t-title);padding:var(--s2) 0 var(--s4)">Editar lista</div>
+        <div class="card panel">
+          <div class="panel-h">Lista</div>
+          <div class="prow"><span class="grow">Nombre</span><span class="val">Casa</span></div>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert" style="top:260px">
+        <h4>Eliminar lista</h4>
+        <p>Se eliminará la lista y todas sus tareas.</p>
+        <div class="two"><div>Cancelar</div><div class="d">Eliminar</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. PALETA PROPUESTA -->
+  <section class="state">
+    <div class="label">8 · Color: paleta propuesta <span class="tagnew">Nuevo</span><small>Hoy es un ColorPicker nativo libre. Muestras propuestas; «Personalizado» abre el selector nativo</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="tasks-listas.html">Cancelar</a><span></span></div>
+        <div class="large-title" style="font:var(--t-title);padding:var(--s2) 0 var(--s4)">Nueva lista</div>
+        <div class="card panel">
+          <div class="panel-h">Lista</div>
+          <div class="prow"><span class="grow">Nombre</span><span class="val">Mascotas</span></div>
+        </div>
+        <div class="card panel">
+          <div class="panel-h">Color</div>
           <div class="swatches">
-            <span class="sw"><i style="background:var(--accent)"></i></span>
-            <span class="sw"><i style="background:var(--ok)"></i></span>
+            <span class="sw on"><i style="background:var(--ok)"></i></span>
             <span class="sw"><i style="background:var(--warn)"></i></span>
-            <span class="sw on"><i style="background:var(--info)"></i></span>
+            <span class="sw"><i style="background:var(--accent)"></i></span>
+            <span class="sw"><i style="background:var(--info)"></i></span>
             <span class="sw"><i style="background:var(--person-1)"></i></span>
-            <span class="sw"><i style="background:var(--person-5)"></i></span>
+            <span class="sw"><i style="background:var(--person-4)"></i></span>
+            <span class="sw custom"><i></i></span>
           </div>
+          <div class="prow" style="border-top:1px solid var(--line)"><span class="grow">Personalizado</span><span class="note">Selector nativo</span></div>
         </div>
-        <div class="sect-lbl">Mostrar en</div>
-        <div class="card" style="padding:0">
-          <div class="opt-sw"><div class="grow"><div class="t">Widget</div><div class="s" style="font:var(--t-cap);color:var(--text-2)">Aparece en el widget del iPhone</div></div><span class="switch on"></span></div>
-          <div class="opt-sw" style="border-top:1px solid var(--line)"><div class="grow"><div class="t">Dashboard</div><div class="s" style="font:var(--t-cap);color:var(--text-2)">Aparece en el panel de inicio</div></div><span class="switch"></span></div>
-        </div>
+        <div class="foot"><a class="btn primary go" href="tasks-listas.html">Crear lista</a></div>
       </div>
     </div>
   </section>
@@ -203,16 +271,27 @@
 <aside class="notes">
   <h2>Cambios respecto a la app actual</h2>
   <ul>
-    <li>Color como paleta de 6 muestras con área táctil de 44 pt y marca de selección clara; hoy el color es una lista de texto sin muestra.</li>
-    <li>Widget y Dashboard pasan a interruptores con una frase de qué cambian, en lugar de casillas sueltas sin explicación.</li>
-    <li>Crear queda desactivado sin nombre; la validación de nombre duplicado va bajo el campo, y el error de servidor arriba.</li>
-    <li>Sin conexión, el formulario conserva lo escrito y avisa en banner; no se pierde el trabajo.</li>
+    <li><b>Color</b>: hoy es un ColorPicker nativo (fila «Color»). La paleta de muestras es <span class="tagnew">Nuevo</span> (frame 8) e incluye «Personalizado». La primera pasada tenía 6 muestras fijas sin «Personalizado».</li>
+    <li><b>Paneles «Orden de las tareas» y «Visible en» añadidos</b>: son reales. Widget y Dashboard son interruptores con defecto activado. La primera pasada los mostraba desactivados por defecto, y eso no coincide con el código.</li>
+    <li><b>Quitado</b> el aviso de nombre duplicado («Ya tienes una lista con ese nombre.»): el código no lo tiene.</li>
+    <li><b>«Crear lista» / «Guardar» al pie</b>, con «Cancelar» a la izquierda. La primera pasada tenía «Crear» en la barra.</li>
+    <li><b>«Eliminar lista» con confirmación</b> en edición (frame 7): borra la lista y sus tareas. Solo propietario.</li>
+    <li><span class="tagnew">Nuevo</span> Sin conexión (5), indicador de guardado (3) y paleta (8). El error de acción (4) es la alerta real.</li>
+  </ul>
+  <h2 style="margin-top:12px">Reglas de negocio</h2>
+  <ul>
+    <li>Título «Nueva lista» / «Editar lista». Botón «Crear lista» / «Guardar».</li>
+    <li>Panel «Lista»: «Nombre», «Color» (ColorPicker nativo).</li>
+    <li>Panel «Orden de las tareas»: «Fecha de actualización» (defecto), «Título», «Personalizado» + nota «Podrás reordenar las tareas con el botón Editar.».</li>
+    <li>Panel «Visible en»: «Widget» y «Dashboard», ambos activados por defecto.</li>
+    <li>Edición: «Eliminar lista» + confirmación «Se eliminará la lista y todas sus tareas.» (solo propietario, en cascada). Resuelve P-03: se borran sus tareas.</li>
+    <li>Errores de acción: alerta «Aviso / OK».</li>
   </ul>
   <h2 style="margin-top:12px">Conexiones</h2>
   <ul>
-    <li>Llega desde: tasks-listas («+» y estado vacío), tasks-detalle-lista («Editar lista»; mismo formulario con datos cargados).</li>
-    <li>Sale a: tasks-listas al cancelar o crear.</li>
-    <li>Por confirmar: la paleta concreta (la captura usa colores de la app actual; aquí se usan tokens del sistema) y si el nombre duplicado se valida en cliente o solo en servidor.</li>
+    <li>Llega desde: tasks-listas («+» flotante y estado vacío), tasks-detalle-lista («Editar lista»; mismo formulario con datos cargados).</li>
+    <li>Sale a: tasks-listas al cancelar o crear/guardar. Eliminar vuelve a tasks-listas.</li>
+    <li>Por confirmar: el valor inicial del color, el estado de «Crear lista» sin nombre y el título del diálogo de eliminación.</li>
   </ul>
 </aside>
 </body>

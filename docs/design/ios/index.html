@@ -32,7 +32,7 @@
 <body>
 <main class="idx">
   <h1>Control iOS · wireframes y flujo</h1>
-  <p>Propuesta evolutiva sobre la app actual (5 pestañas, SwiftUI/HIG). Cada pantalla se muestra en 5 estados: con datos, vacío, skeleton de carga, error y sin conexión. Las cajas con borde discontinuo son hojas modales. Haz clic en una caja para abrir su wireframe. Sistema de diseño: <code>tokens.css</code> y <code>components.css</code>.</p>
+  <p>Propuesta evolutiva sobre la app actual (5 pestañas, SwiftUI/HIG). Cada pantalla se muestra en 5 estados: con datos, vacío, skeleton de carga, error y sin conexión. Las cajas con borde discontinuo son hojas modales. Haz clic en una caja para abrir su wireframe. Sistema de diseño: <code>tokens.css</code> y <code>components.css</code>. Qué hace hoy el código y qué es propuesta (etiqueta amarilla «Nuevo»): <a href="code-facts.md"><code>code-facts.md</code></a>.</p>
 
   <div class="tabs-bar"><span>Barra de pestañas:</span><span>⌂ Inicio</span><span>☑ Tareas</span><span>▦ Calendario</span><span>☺☺ Hogar</span><span>● Ajustes (hoy «Perfil»)</span></div>
   <div class="legend"><span><i style="border-color:#3B5BDB"></i>navega a</span><span><i style="border-color:#B45309;border-top-style:dashed"></i>abre hoja modal / acción</span></div>
@@ -46,7 +46,7 @@
         <a class="node" id="auth-registro" href="screens/auth-registro.html"><small>AUTH-03</small>Registro</a>
       </div>
       <div class="col e1"><h2>E1 · Inicio</h2>
-        <a class="node" id="home-inicio" href="screens/home-inicio.html"><small>HOME-01</small>Inicio (resumen del día)</a>
+        <a class="node" id="home-inicio" href="screens/home-inicio.html"><small>HOME-01</small>Inicio + Rutinas de hoy</a>
       </div>
       <div class="col e2"><h2>E2 · Tareas</h2>
         <a class="node" id="tasks-lista" href="screens/tasks-lista.html"><small>TASKS-01</small>Tareas</a>
@@ -56,11 +56,11 @@
         <a class="node modal" id="tasks-form-lista" href="screens/tasks-form-lista.html"><small>TASKS-05</small>Nueva / editar lista</a>
       </div>
       <div class="col e3"><h2>E3 · Calendario</h2>
-        <a class="node" id="cal-eventos" href="screens/cal-eventos.html"><small>CAL-01</small>Eventos</a>
+        <a class="node" id="cal-eventos" href="screens/cal-eventos.html"><small>CAL-01</small>Eventos (Mes/Semana/Día)</a>
         <a class="node" id="cal-rutinas" href="screens/cal-rutinas.html"><small>CAL-02</small>Rutinas</a>
         <a class="node" id="cal-calendarios" href="screens/cal-calendarios.html"><small>CAL-03</small>Calendarios</a>
-        <a class="node" id="cal-detalle-calendario" href="screens/cal-detalle-calendario.html"><small>CAL-04</small>Detalle de calendario</a>
-        <a class="node" id="cal-detalle-rutina" href="screens/cal-detalle-rutina.html"><small>CAL-08</small>Detalle de rutina</a>
+        <a class="node" id="cal-detalle-calendario" href="screens/cal-detalle-calendario.html"><small>CAL-04</small>Calendario (editar)</a>
+        <a class="node" id="cal-detalle-rutina" href="screens/cal-detalle-rutina.html"><small>CAL-08</small>Rutina (editar)</a>
         <a class="node modal" id="cal-form-evento" href="screens/cal-form-evento.html"><small>CAL-05</small>Nuevo / editar evento</a>
         <a class="node modal" id="cal-form-rutina" href="screens/cal-form-rutina.html"><small>CAL-06</small>Nueva / editar rutina</a>
         <a class="node modal" id="cal-form-calendario" href="screens/cal-form-calendario.html"><small>CAL-07</small>Nuevo / editar calendario</a>
@@ -114,9 +114,9 @@ var EDGES = [
  ["tasks-listas","Abrir lista","tasks-detalle-lista"],["tasks-listas","+ Nueva lista","tasks-form-lista","m"],
  ["tasks-detalle-lista","Editar lista","tasks-form-lista","m"],["tasks-detalle-lista","+ Tarea","tasks-form-tarea","m"],
  ["cal-eventos","+ Nuevo evento","cal-form-evento","m"],["cal-eventos","Segmento Rutinas","cal-rutinas"],
- ["cal-rutinas","Abrir rutina","cal-detalle-rutina"],["cal-rutinas","+ Nueva rutina","cal-form-rutina","m"],
+ ["cal-rutinas","Abrir rutina (editor)","cal-detalle-rutina"],["cal-rutinas","+ Nueva rutina","cal-form-rutina","m"],
  ["cal-rutinas","Segmento Calendarios","cal-calendarios"],
- ["cal-calendarios","Abrir calendario","cal-detalle-calendario"],["cal-calendarios","+ Nuevo calendario","cal-form-calendario","m"],
+ ["cal-calendarios","Abrir calendario (editor)","cal-detalle-calendario"],["cal-calendarios","+ Nuevo calendario","cal-form-calendario","m"],
  ["cal-detalle-calendario","Editar","cal-form-calendario","m"],["cal-detalle-rutina","Editar","cal-form-rutina","m"],
  ["hogar-hogar","Administración","hogar-admin-menu"],["hogar-hogar","Invitar","hogar-invitaciones"],
  ["hogar-sin-hogar","Unirse con código","aj-unirse"],
