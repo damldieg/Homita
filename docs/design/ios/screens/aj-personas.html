@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AJ-03 Personas</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  .nav .grow { flex: 1; }
+  .prow { min-height: 56px; }
+  .prow .dot { width: 14px; height: 14px; flex: none; border-radius: 50%; display: inline-block; }
+  .prow .s { font: var(--t-cap); color: var(--text-2); }
+  .ico-btn { width: 32px; height: 32px; display: grid; place-items: center; color: var(--text-2); flex: none; }
+  .ico-btn svg { width: 20px; height: 20px; }
+  .ico-btn.del { color: var(--err); }
+  .off { opacity: .4; }
+  .dim { opacity: .55; }
+  .sheet h3 { font: var(--t-title); text-align: center; }
+  .sheet p { font: var(--t-sub); color: var(--text-2); text-align: center; margin: 6px 0 16px; }
+  .scrim { z-index: 8; }
+  .sheet { z-index: 9; }
+  .errbox .art { font-size: 38px; }
+  .sk.circle { border-radius: 50%; }
+  .badge.ro { background: var(--bg-sunken); color: var(--text-2); font: 600 12px/1 var(--font); padding: 5px 8px; }
+  .alert { position: absolute; left: 50px; right: 50px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+  .alert h4 { font: 600 17px/22px var(--font); }
+  .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+  .alert .acts { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); margin: 0 -16px; }
+  .alert .acts > div { min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .alert .acts > div + div { border-left: 1px solid var(--line); }
+  .alert .acts .del { color: var(--err); }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">AJ-03 · personas del hogar · epic E5</div>
+  <h1>Personas</h1>
+  <p>Lista de personas del hogar con sección «Personas» y contador. Cada fila propia tiene <b>lápiz</b> (abre la edición, AJ-04) y <b>papelera</b> (borra <b>sin confirmación</b> hoy). Las personas compartidas llegan de otro hogar: badge «Compartida (solo lectura)» y sin acciones. «+» abre «Nueva persona». Pull-to-refresh.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="aj-perfil.html">← Ajustes</a>
+    <a href="aj-form-persona.html">Nueva persona / editar →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. CON DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos<small>Propias con lápiz y papelera; compartidas solo con badge</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">‹ Atrás</a>
+          <span class="center">Personas</span>
+          <a class="btn-icon go" href="aj-form-persona.html" aria-label="Nueva persona">+</a>
+        </div>
+        <div class="stack" style="margin-top:8px">
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3><span class="badge">5</span></div>
+            <div class="row prow"><span class="dot" style="background:var(--person-5)"></span><div class="grow t">Ana</div>
+              <a class="ico-btn go" href="aj-form-persona.html" aria-label="Editar Ana"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L19 8l-3-3L5 16z"/></svg></a>
+              <span class="ico-btn del" aria-label="Eliminar Ana"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></span></div>
+            <div class="row prow"><span class="dot" style="background:var(--person-1)"></span><div class="grow t">Familia Demo</div>
+              <a class="ico-btn go" href="aj-form-persona.html" aria-label="Editar Familia Demo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L19 8l-3-3L5 16z"/></svg></a>
+              <span class="ico-btn del" aria-label="Eliminar Familia Demo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></span></div>
+            <div class="row prow"><span class="dot" style="background:var(--person-4)"></span><div class="grow t">Lucía</div>
+              <a class="ico-btn go" href="aj-form-persona.html" aria-label="Editar Lucía"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L19 8l-3-3L5 16z"/></svg></a>
+              <span class="ico-btn del" aria-label="Eliminar Lucía"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></span></div>
+            <div class="row prow"><span class="dot" style="background:var(--person-2)"></span><div class="grow t">Marcos</div><span class="badge ro">Compartida (solo lectura)</span></div>
+            <div class="row prow"><span class="dot" style="background:var(--person-3)"></span><div class="grow t">Pablo</div><span class="badge ro">Compartida (solo lectura)</span></div>
+          </div>
+          <div class="hint">Marcos y Pablo vienen de otro hogar. Su nombre y color se cambian desde ese hogar.</div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+      <span class="anno" style="top:70px;left:8px">1</span>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>Textos reales: «Sin personas» y «+». La acción de la tarjeta vacía no está en el código</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">‹ Atrás</a>
+          <span class="center">Personas</span>
+          <a class="btn-icon go" href="aj-form-persona.html" aria-label="Nueva persona">+</a>
+        </div>
+        <div class="stack" style="margin-top:8px">
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3><span class="badge">0</span></div>
+            <div class="row"><div class="grow s">Sin personas</div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton) <span class="tagnew">Nuevo</span><small>Hoy no hay estado de carga propio en esta lista. Propuesta: mismas filas en gris</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">‹ Atrás</a>
+          <span class="center">Personas</span>
+          <span class="btn-icon off">+</span>
+        </div>
+        <div class="stack" style="margin-top:8px">
+          <div class="card">
+            <div class="card-h"><div class="sk box" style="width:36px;height:36px"></div><div class="sk title" style="width:40%"></div></div>
+            <div class="row"><div class="sk circle" style="width:14px;height:14px"></div><div class="sk line" style="width:35%"></div></div>
+            <div class="row"><div class="sk circle" style="width:14px;height:14px"></div><div class="sk line" style="width:50%"></div></div>
+            <div class="row"><div class="sk circle" style="width:14px;height:14px"></div><div class="sk line" style="width:40%"></div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR -->
+  <section class="state">
+    <div class="label">4 · Error <span class="tagnew">Nuevo</span><small>Hoy no hay bloque de error propio en la lista. Propuesta: bloque con «Reintentar» y el texto del servidor</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">‹ Atrás</a>
+          <span class="center">Personas</span>
+          <a class="btn-icon go" href="aj-form-persona.html" aria-label="Nueva persona">+</a>
+        </div>
+        <div class="errbox">
+          <div class="art">⚠</div>
+          <h3>No se pudieron cargar las personas</h3>
+          <p>Mensaje del servidor, si lo hay.</p>
+          <a class="btn sm secondary" style="min-height:40px;padding:0 var(--s6)">Reintentar</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy cae al error de la lista. Propuesta: banner, datos en caché y «+» atenuado</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">‹ Atrás</a>
+          <span class="center">Personas</span>
+          <span class="btn-icon off">+</span>
+        </div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3><span class="badge">3</span></div>
+            <div class="row prow dim"><span class="dot" style="background:var(--person-5)"></span><div class="grow t">Ana</div></div>
+            <div class="row prow dim"><span class="dot" style="background:var(--person-1)"></span><div class="grow t">Familia Demo</div></div>
+            <div class="row prow dim"><span class="dot" style="background:var(--person-4)"></span><div class="grow t">Lucía</div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 6. BORRADO: HOY SIN CONFIRMACIÓN; CONFIRMACIÓN = NUEVO -->
+  <section class="state">
+    <div class="label">6 · Eliminar (papelera) <span class="tagnew">Confirmación Nuevo</span><small>Hoy la papelera borra al instante, sin confirmación. El diálogo de abajo es la propuesta</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">‹ Atrás</a>
+          <span class="center">Personas</span>
+          <a class="btn-icon go" href="aj-form-persona.html" aria-label="Nueva persona">+</a>
+        </div>
+        <div class="stack" style="margin-top:8px">
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3><span class="badge">3</span></div>
+            <div class="row prow"><span class="dot" style="background:var(--person-5)"></span><div class="grow t">Ana</div>
+              <span class="ico-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L19 8l-3-3L5 16z"/></svg></span>
+              <span class="ico-btn del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></span></div>
+            <div class="row prow"><span class="dot" style="background:var(--person-1)"></span><div class="grow t">Familia Demo</div></div>
+            <div class="row prow"><span class="dot" style="background:var(--person-4)"></span><div class="grow t">Lucía</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <h3>¿Eliminar a Ana?</h3>
+        <p>Esta acción no se puede deshacer.</p>
+        <a class="btn danger">Eliminar persona</a>
+        <a class="btn secondary" style="margin-top:8px">Cancelar</a>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 7. CONFIRMAR ELIMINACIÓN (propuesta) -->
+  <section class="state">
+    <div class="label">7 · Confirmar eliminación <span class="tagnew">Nuevo</span><small>Hoy la papelera borra al instante, sin confirmación. Propuesta: diálogo nativo; texto de consecuencia provisional</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">‹ Atrás</a>
+          <span class="center">Personas</span>
+          <a class="btn-icon go" href="aj-form-persona.html" aria-label="Nueva persona">+</a>
+        </div>
+        <div class="stack" style="margin-top:8px">
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3><span class="badge">5</span></div>
+            <div class="row prow"><span class="dot" style="background:var(--person-5)"></span><div class="grow t">Ana</div>
+              <a class="ico-btn go" href="aj-form-persona.html" aria-label="Editar Ana"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L19 8l-3-3L5 16z"/></svg></a>
+              <span class="ico-btn del" aria-label="Eliminar Ana"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></span></div>
+            <div class="row prow"><span class="dot" style="background:var(--person-1)"></span><div class="grow t">Familia Demo</div>
+              <a class="ico-btn go" href="aj-form-persona.html" aria-label="Editar Familia Demo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L19 8l-3-3L5 16z"/></svg></a>
+              <span class="ico-btn del" aria-label="Eliminar Familia Demo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></span></div>
+            <div class="row prow"><span class="dot" style="background:var(--person-4)"></span><div class="grow t">Lucía</div>
+              <a class="ico-btn go" href="aj-form-persona.html" aria-label="Editar Lucía"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L19 8l-3-3L5 16z"/></svg></a>
+              <span class="ico-btn del" aria-label="Eliminar Lucía"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></span></div>
+            <div class="row prow"><span class="dot" style="background:var(--person-2)"></span><div class="grow t">Marcos</div><span class="badge ro">Compartida (solo lectura)</span></div>
+            <div class="row prow"><span class="dot" style="background:var(--person-3)"></span><div class="grow t">Pablo</div><span class="badge ro">Compartida (solo lectura)</span></div>
+          </div>
+          <div class="hint">Marcos y Pablo vienen de otro hogar. Su nombre y color se cambian desde ese hogar.</div>
+        </div>
+      </div>
+      <div class="scrim"></div>
+      <div class="alert"><h4>¿Eliminar a «Ana»?</h4><p>Se quitará de las tareas, eventos y rutinas a los que esté asignada.</p><div class="acts"><div>Cancelar</div><div class="del">Eliminar</div></div></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li><b>Compartidas</b> en la misma sección, con badge «Compartida (solo lectura)» y sin acciones (así está en el código). Marcos y Pablo son ejemplos. La primera pasada las separaba en otra tarjeta con candado: quitado.</li>
+    <li><b>Confirmación al borrar</b> <span class="tagnew">Nuevo</span>: hoy la papelera borra sin confirmar (estado 6). El texto «¿Eliminar a Ana?» y «Esta acción no se puede deshacer.» es propuesta.</li>
+    <li>Confirmación de borrado <span class="tagnew">Nuevo</span>: decisión del usuario (P-19); hoy el borrado por swipe/papelera/botón no confirma. El texto de consecuencia del estado 7 es provisional.</li>
+    <li>Estados 3 (skeleton), 4 (error con «Reintentar») y 5 (sin conexión) son <span class="tagnew">Nuevo</span>. Hoy no hay estado de carga ni error propio en esta lista.</li>
+    <li>Quitado de la primera pasada: el contador como subtítulo bajo el título grande (el código lo muestra en la cabecera de la sección) y la fila entera como botón de edición (el código tiene lápiz).</li>
+    <li>Pull-to-refresh en la lista (ver notas generales de Inicio).</li>
+  </ul>
+  <h2 style="margin-top:12px">Reglas de negocio</h2>
+  <ul>
+    <li>Personas propias: lápiz → editor (AJ-04); papelera → borra la persona.</li>
+    <li>Personas compartidas: solo lectura, sin lápiz ni papelera.</li>
+    <li>Vacío: «Sin personas». «+» abre «Nueva persona».</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Va a: AJ-04 nueva persona («+») y editar persona (lápiz); AJ-01 Ajustes (‹ Atrás).</li>
+    <li>Llega desde: AJ-01, tarjeta Familia, fila Personas.</li>
+  </ul>
+</aside>
+</body>
+</html>

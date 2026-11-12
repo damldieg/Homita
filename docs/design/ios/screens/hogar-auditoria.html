@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOGAR-09 Auditoría</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  .nav .grow { flex: 1; }
+  .card > .row:first-child { border-top: 0; }
+  .card-h + .row { border-top: 1px solid var(--line); }
+  .dis { opacity: .45; }
+  .aud { align-items: flex-start; }
+  .aud .act { font: 600 16px/21px var(--font); color: var(--text); word-break: break-word; }
+  .aud .who { font: 400 13px/18px var(--font); color: var(--text-2); margin-top: 2px; }
+  .aud .pl { font: 400 12px/16px ui-monospace, monospace; color: var(--text-3); margin-top: 4px; word-break: break-word; }
+  .aud .pl div + div { margin-top: 1px; }
+  .aud .sent { font: 600 16px/21px var(--font); color: var(--text); }
+  .aud .tech { font: 500 12px/16px ui-monospace, monospace; color: var(--text-2); margin-top: 4px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chip { font: 600 13px/1 var(--font); min-height: 32px; padding: 0 12px; border-radius: var(--r-pill); display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--line); color: var(--text-2); white-space: nowrap; }
+  .chip.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+  .more { font: var(--t-cap); color: var(--text-2); text-align: center; padding: var(--s3) 0 0; }
+  .btn-more { margin-top: var(--s3); }
+  .alert { position: absolute; left: 50px; right: 50px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+  .alert h4 { font: 600 17px/22px var(--font); } .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+  .alert .acts { display: flex; border-top: 1px solid var(--line); }
+  .alert .acts span { flex: 1; min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .na { font: var(--t-cap); color: var(--text-2); border: 1px dashed var(--line); border-radius: var(--r-md); padding: var(--s3) var(--s4); margin-top: var(--s3); }
+  .offline + .card { margin-top: 0; }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">HOGAR-09 · Administración › Auditoría (solo admin) · épica E4</div>
+  <h1>Auditoría</h1>
+  <p>Registro de cambios del hogar en filas: acción técnica, «actor o Sistema · fecha» y líneas del payload. Páginas de 50 con «Cargar más». Sin vacío, sin filtros y sin contador en el código. Las etiquetas <span class="tagnew">Nuevo</span> señalan lo que el código no tiene.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="hogar-admin-menu.html">← Administración</a>
+    <a href="hogar-miembros.html">Miembros →</a>
+    <a href="hogar-invitaciones.html">Invitaciones →</a>
+    <a href="hogar-accesos.html">Accesos →</a>
+    <a href="hogar-hogar.html">Hogar →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. CON DATOS -->
+  <section class="state" id="f1">
+    <div class="label">1 · Con datos<small>Real: fila = acción técnica, «actor · fecha», payload en líneas. Primera página de 50 (se muestran 4)</small></div>
+    <div class="phone">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Auditoría</div>
+        <div class="stack">
+          <div class="card">
+            <div class="row aud"><div class="grow"><div class="act">home.permission.grant</div><div class="who">Ana · 2026-11-12 18:42</div><div class="pl"><div>permission_code: task.edit</div><div>before: false</div><div>after: true</div><div>source: set</div></div></div></div>
+            <div class="row aud"><div class="grow"><div class="act">home.invitation.create</div><div class="who">Familia Demo · 2026-11-12 17:10</div><div class="pl"><div>invitation_id: 14</div><div>kind: guest</div></div></div></div>
+            <div class="row aud"><div class="grow"><div class="act">home.invitation.revoke</div><div class="who">Familia Demo · 2026-11-11 21:05</div><div class="pl"><div>invitation_id: 13</div><div>kind: relative</div><div>member_id: 4</div></div></div></div>
+            <div class="row aud"><div class="grow"><div class="act">home.permission.revoke</div><div class="who">Sistema · 2026-11-10 19:12</div><div class="pl"><div>permission_code: calendar.view</div><div>before: true</div><div>after: false</div><div>source: kind_change</div></div></div></div>
+          </div>
+        </div>
+        <a class="btn secondary btn-more">Cargar más</a>
+        <div class="more">Página de 50 registros. «Cargar más» pide los siguientes (antes del último id).</div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <span class="anno" style="top:70px;left:8px">1</span>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>No aplica: la auditoría no tiene estado vacío en el código</small></div>
+    <div class="phone">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Auditoría</div>
+        <div class="na">No aplica: sin texto de vacío en el código. Con cero registros solo queda el título.</div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. CARGANDO -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton) <span class="tagnew">Nuevo</span><small>Hoy: <code>HomeLoadingView</code> («Cargando hogar…»). Skeleton con la altura de las filas es propuesta</small></div>
+    <div class="phone">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt">‹ Atrás</a><span></span></div>
+        <div class="large-title">Auditoría</div>
+        <div class="stack">
+          <div class="card">
+            <div class="row"><div class="grow"><div class="sk line" style="width:70%"></div><div class="sk line" style="width:40%;margin-top:6px"></div><div class="sk line" style="width:50%;margin-top:6px"></div></div></div>
+            <div class="row"><div class="grow"><div class="sk line" style="width:80%"></div><div class="sk line" style="width:40%;margin-top:6px"></div><div class="sk line" style="width:50%;margin-top:6px"></div></div></div>
+            <div class="row"><div class="grow"><div class="sk line" style="width:60%"></div><div class="sk line" style="width:40%;margin-top:6px"></div><div class="sk line" style="width:50%;margin-top:6px"></div></div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR PRIMERA CARGA -->
+  <section class="state">
+    <div class="label">4 · Error de carga<small>Real: <code>HomeErrorView</code> sustituye la lista con el texto del servidor y «Reintentar». Ejemplo ilustrativo</small></div>
+    <div class="phone">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Auditoría</div>
+        <div class="errbox">
+          <div class="art">⚠</div>
+          <h3>No se pudo conectar con el servidor.</h3>
+          <p>Texto del servidor (ejemplo).</p>
+          <a class="btn secondary" style="min-height:44px;padding:0 var(--s6)">Reintentar</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. ERROR AL CARGAR MÁS -->
+  <section class="state" id="f5">
+    <div class="label">5 · Error al cargar más (alerta)<small>Real: alerta modal «Aviso / OK». Las filas ya cargadas se conservan. El texto es ilustrativo</small></div>
+    <div class="phone">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Auditoría</div>
+        <div class="stack">
+          <div class="card">
+            <div class="row aud"><div class="grow"><div class="act">home.permission.grant</div><div class="who">Ana · 2026-11-12 18:42</div><div class="pl"><div>permission_code: task.edit</div><div>before: false</div><div>after: true</div><div>source: set</div></div></div></div>
+            <div class="row aud"><div class="grow"><div class="act">home.invitation.create</div><div class="who">Familia Demo · 2026-11-12 17:10</div><div class="pl"><div>invitation_id: 14</div><div>kind: guest</div></div></div></div>
+          </div>
+        </div>
+        <a class="btn secondary btn-more">Cargar más</a>
+      </div>
+      <div class="scrim"></div>
+      <div class="alert">
+        <h4>Aviso</h4>
+        <p>No se pudieron cargar más registros.</p>
+        <div class="acts"><span>OK</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">6 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy cae al error de la pantalla. Propuesta: caché con banner; «Cargar más» desactivado</small></div>
+    <div class="phone">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Auditoría</div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
+        <div class="stack">
+          <div class="card dis">
+            <div class="row aud"><div class="grow"><div class="act">home.permission.grant</div><div class="who">Ana · 2026-11-12 18:42</div><div class="pl"><div>permission_code: task.edit</div><div>before: false</div><div>after: true</div><div>source: set</div></div></div></div>
+            <div class="row aud"><div class="grow"><div class="act">home.invitation.create</div><div class="who">Familia Demo · 2026-11-12 17:10</div><div class="pl"><div>invitation_id: 14</div><div>kind: guest</div></div></div></div>
+          </div>
+        </div>
+        <span class="btn secondary btn-more dis">Cargar más</span>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 7. MIEMBRO -->
+  <section class="state">
+    <div class="label">7 · Miembro (si llega)<small>Real: solo el texto «Solo un administrador puede ver la auditoría». La fila está oculta para miembros (HOGAR-03): ver notas</small></div>
+    <div class="phone">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt">‹ Atrás</a><span></span></div>
+        <div class="large-title">Auditoría</div>
+        <div class="hint" style="padding:var(--s3) var(--s1)">Solo un administrador puede ver la auditoría</div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 8. PROPUESTA DE LEGIBILIDAD -->
+  <section class="state">
+    <div class="label">8 · Propuesta de legibilidad <span class="tagnew">Nuevo</span><small>Frase natural encima de la acción técnica y filtros por tipo y persona. Nada de esto existe hoy</small></div>
+    <div class="phone">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Auditoría</div>
+        <div class="chips"><span class="chip on">Todo</span><span class="chip">Acción ▾</span><span class="chip">Persona ▾</span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="row aud"><div class="grow"><div class="sent">Ana activó «Editar y ordenar tareas» para Lucía</div><div class="who">Ana · 12 nov, 18:42</div><div class="tech">home.permission.grant · task.edit</div></div></div>
+            <div class="row aud"><div class="grow"><div class="sent">Familia Demo creó una invitación de tipo Invitado</div><div class="who">Familia Demo · 12 nov, 17:10</div><div class="tech">home.invitation.create</div></div></div>
+          </div>
+        </div>
+        <a class="btn secondary btn-more">Cargar más</a>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li><b>Quitado de la primera pasada</b>: frases naturales como fila principal (la fila real muestra la acción técnica), chips de filtro «Todo / Tipo / Persona» (no existen), avatares de color (no existen), contador «Mostrando 20 de 46» (no existe) y el aviso de error inventado en línea (ahora es la alerta «Aviso / OK»). Las páginas son de <b>50</b>, no de 20.</li>
+    <li>Fila real: acción técnica, «actor o Sistema · fecha» y líneas del payload en formato <code>clave: valor</code> (las claves nulas no se muestran).</li>
+    <li><span class="tagnew">Nuevo</span> estado 3 (skeleton), estado 6 (sin conexión) y el frame 8 completo (frases, filtros, «Cargar más» con tecnicismo debajo).</li>
+    <li>Estado 4 real (carga inicial) y estado 5 real (error al cargar más = alerta).</li>
+    <li>Solo lectura: no hay acciones de edición ni de borrado.</li>
+  </ul>
+  <h2>Reglas de negocio</h2>
+  <ul>
+    <li>Solo admin ve el registro. Páginas de 50 con «Cargar más» (el siguiente lote se pide por el id más antiguo cargado).</li>
+    <li>Si la página llega completa (50), «Cargar más» aparece; si llega parcial, se oculta.</li>
+    <li>Sin vacío, sin filtros y sin contador en el código.</li>
+    <li>Acción técnica tal cual la guarda el servidor (p. ej. <code>home.permission.grant</code>, <code>home.invitation.create</code>, <code>home.invitation.revoke</code>, <code>home.permission.revoke</code>). Actor vacío = «Sistema».</li>
+    <li>Fecha: se muestra el texto que devuelve el servidor (formato por confirmar en código; aquí «2026-11-12 18:42» es de ejemplo).</li>
+    <li>Miembro: «Solo un administrador puede ver la auditoría».</li>
+  </ul>
+  <h2>Conexiones</h2>
+  <ul>
+    <li>Llega desde hogar-admin-menu (fila «Auditoría», solo admin). Es terminal: no tiene salidas.</li>
+    <li>Endpoint: lectura <code>home/audit</code> (paginada).</li>
+  </ul>
+  <h2>Contradicciones detectadas</h2>
+  <ul>
+    <li>HOGAR-03 dice que «Auditoría» está oculta para miembros, pero HOGAR-09 documenta el texto «Solo un administrador puede ver la auditoría» para miembros. Se muestra en el frame 7; hay que decidir si el texto se ve por navegación normal o solo por enlace directo.</li>
+  </ul>
+</aside>
+</body>
+</html>

@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOGAR-08 Accesos</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  .nav .grow { flex: 1; }
+  .card > .row:first-child { border-top: 0; }
+  .card-h + .row { border-top: 1px solid var(--line); }
+  .dis { opacity: .45; }
+  .chip { font: 600 13px/1 var(--font); min-height: 32px; padding: 0 12px; border-radius: var(--r-pill); display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--line); color: var(--text-2); white-space: nowrap; flex: none; }
+  .chip.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+  .lock { font: var(--t-cap); color: var(--text-2); }
+  .mono { font: 500 11px/14px ui-monospace, monospace; color: var(--text-2); }
+  .sw { width: 51px; height: 31px; border-radius: 16px; background: var(--line); position: relative; flex: none; }
+  .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .sw.on { background: var(--now); } .sw.on::after { left: 22px; }
+  .sw.changed { box-shadow: 0 0 0 2px var(--warn); }
+  .tog { display: flex; align-items: center; gap: var(--s3); padding: 4px 0; border-top: 1px solid var(--line); }
+  .tog:first-of-type { border-top: 0; }
+  .tog .grow { flex: 1; min-width: 0; }
+  .tog .t { font: 500 15px/18px var(--font); }
+  .tog .mono { display: block; margin-top: 1px; }
+  .card-h + .tog { border-top: 1px solid var(--line); }
+  .inline-err { display: flex; gap: var(--s3); align-items: center; background: var(--err-soft); color: var(--err); border-radius: var(--r-md); padding: var(--s3) var(--s4); font: 500 14px/19px var(--font); margin-bottom: var(--s3); }
+  .inline-err .grow { flex: 1; }
+  .btns { display: flex; gap: var(--s3); margin-top: var(--s4); }
+  .btns .btn { flex: 1; min-height: 46px; padding: 0 var(--s3); }
+  .kind { padding: var(--s3) 0; border-top: 1px solid var(--line); }
+  .kind:first-of-type { border-top: 0; }
+  .kind .k { font: 600 16px/22px var(--font); }
+  .kind .d { font: 400 13px/18px var(--font); color: var(--text-2); margin-top: 2px; }
+  .alert { position: absolute; left: 50px; right: 50px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+  .alert h4 { font: 600 17px/22px var(--font); } .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+  .alert .acts { display: flex; border-top: 1px solid var(--line); }
+  .alert .acts span { flex: 1; min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .alert .acts span + span { border-left: 1px solid var(--line); }
+  .na { font: var(--t-cap); color: var(--text-2); border: 1px dashed var(--line); border-radius: var(--r-md); padding: var(--s3) var(--s4); margin-top: var(--s3); }
+  .more { font: var(--t-cap); color: var(--text-2); text-align: center; padding: var(--s3) 0 0; }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">HOGAR-08 · Administración › Accesos (solo admin) · épica E4</div>
+  <h1>Accesos</h1>
+  <p>Panel «Accesos por persona» (nombre, «Administrador: todos los accesos» o «N accesos», motivo de bloqueo y chip «Editar»). Panel «Qué cubre cada tipo». El editor es una hoja por persona con un panel por dominio y un interruptor por permiso. Las etiquetas <span class="tagnew">Nuevo</span> señalan lo que el código no tiene.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="hogar-admin-menu.html">← Administración</a>
+    <a href="hogar-miembros.html">Miembros →</a>
+    <a href="hogar-invitaciones.html">Invitaciones →</a>
+    <a href="hogar-auditoria.html">Auditoría →</a>
+    <a href="hogar-hogar.html">Hogar →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. CON DATOS -->
+  <section class="state" id="f1">
+    <div class="label">1 · Con datos<small>Admin. Filas con «Editar» solo en miembros editables. «Qué cubre cada tipo» en el frame 12</small></div>
+    <div class="phone">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Accesos</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><h3>Accesos por persona</h3><span class="badge">3</span></div>
+            <div class="row"><div class="grow"><div class="t">Familia Demo</div><div class="s">Administrador: todos los accesos</div></div></div>
+            <div class="row"><div class="grow"><div class="t">Ana</div><div class="s">18 accesos</div></div><a class="chip go" href="hogar-accesos.html#f6">Editar</a></div>
+            <div class="row"><div class="grow"><div class="t">Tomás</div><div class="s">10 accesos</div><div class="lock">Este miembro no admite edición de accesos</div></div></div>
+          </div>
+          <div class="more">Sigue en scroll: «Qué cubre cada tipo» (frame 12)</div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <span class="anno" style="top:70px;left:8px">1</span>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>No aplica: el código no tiene texto de vacío. El panel queda con contador 0</small></div>
+    <div class="phone">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Accesos</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><h3>Accesos por persona</h3><span class="badge">0</span></div>
+          </div>
+          <div class="na">No aplica: sin texto de vacío en el código. Un hogar sin miembros con cuenta muestra solo el panel vacío.</div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. CARGANDO -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton) <span class="tagnew">Nuevo</span><small>Hoy: <code>HomeLoadingView</code> («Cargando hogar…»). El skeleton con la geometría de las filas es propuesta</small></div>
+    <div class="phone">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt">‹ Atrás</a><span></span></div>
+        <div class="large-title">Accesos</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="sk title" style="width:55%"></div></div>
+            <div class="row"><div class="grow"><div class="sk line" style="width:50%"></div><div class="sk line" style="width:35%;margin-top:6px"></div></div><div class="sk box" style="width:60px;height:32px"></div></div>
+            <div class="row"><div class="grow"><div class="sk line" style="width:60%"></div><div class="sk line" style="width:40%;margin-top:6px"></div></div><div class="sk box" style="width:60px;height:32px"></div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR -->
+  <section class="state">
+    <div class="label">4 · Error<small>Real: <code>HomeErrorView</code> con el texto del servidor y «Reintentar». Ejemplo ilustrativo</small></div>
+    <div class="phone">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Accesos</div>
+        <div class="errbox">
+          <div class="art">⚠</div>
+          <h3>No se pudieron cargar los accesos.</h3>
+          <p>Texto del servidor (ejemplo).</p>
+          <a class="btn secondary" style="min-height:44px;padding:0 var(--s6)">Reintentar</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy cae al error de la pantalla. Propuesta: caché con banner; «Editar» desactivado</small></div>
+    <div class="phone">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Accesos</div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
+        <div class="stack">
+          <div class="card dis">
+            <div class="card-h"><h3>Accesos por persona</h3><span class="badge">3</span></div>
+            <div class="row"><div class="grow"><div class="t">Familia Demo</div><div class="s">Administrador: todos los accesos</div></div></div>
+            <div class="row"><div class="grow"><div class="t">Ana</div><div class="s">18 accesos</div></div><span class="chip">Editar</span></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 6. EDITOR (HOJA) -->
+  <section class="state" id="f6">
+    <div class="label">6 · Editor de accesos de Ana (hoja)<small>Real: título = nombre; un panel por dominio (en orden: calendar, home, routine, task); interruptor + descripción + código. Vista superior</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-accesos.html#f1">Cancelar</a><span class="center">Ana</span><span></span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><h3>calendar</h3></div>
+            <div class="tog"><div class="grow"><div class="t">Gestionar calendarios (metadatos y usuarios)</div><span class="mono">calendar.manage</span></div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Ver calendarios</div><span class="mono">calendar.view</span></div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Asignar eventos a personas</div><span class="mono">event.assign</span></div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Crear eventos</div><span class="mono">event.create</span></div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Borrar eventos</div><span class="mono">event.delete</span></div><span class="sw changed"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Editar eventos</div><span class="mono">event.edit</span></div><span class="sw on"></span></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>home</h3></div>
+            <div class="tog"><div class="grow"><div class="t">Ver ajustes y miembros del hogar</div><span class="mono">home.view</span></div><span class="sw"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Gestionar miembros del hogar</div><span class="mono">home.members.manage</span></div><span class="sw"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Invitar miembros al hogar</div><span class="mono">home.invite</span></div><span class="sw"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Cambiar permisos de miembros</div><span class="mono">home.permissions.manage</span></div><span class="sw"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Editar ajustes del hogar</div><span class="mono">home.settings.manage</span></div><span class="sw"></span></div>
+          </div>
+          <div class="more">Sigue en scroll: routine, task, «Restablecer a tipo» y «Guardar» (frame 7)</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. EDITOR (FINAL DEL SCROLL) -->
+  <section class="state" id="f7">
+    <div class="label">7 · Editor de accesos de Ana (final del scroll)<small>Real: «Restablecer a tipo» visible en miembros editables. «Guardar» solo con cambios (aquí hay uno: «Borrar eventos»)</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-accesos.html#f1">Cancelar</a><span class="center">Ana</span><span></span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><h3>routine</h3></div>
+            <div class="tog"><div class="grow"><div class="t">Asignar rutinas a personas</div><span class="mono">routine.assign</span></div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Crear rutinas</div><span class="mono">routine.create</span></div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Borrar rutinas</div><span class="mono">routine.delete</span></div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Editar rutinas</div><span class="mono">routine.edit</span></div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Ver rutinas</div><span class="mono">routine.view</span></div><span class="sw on"></span></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>task</h3></div>
+            <div class="tog"><div class="grow"><div class="t">Asignar tareas a personas</div><span class="mono">task.assign</span></div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Completar tareas</div><span class="mono">task.complete</span></div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Crear tareas</div><span class="mono">task.create</span></div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Borrar tareas</div><span class="mono">task.delete</span></div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Editar y ordenar tareas</div><span class="mono">task.edit</span></div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Ver tareas</div><span class="mono">task.view</span></div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Gestionar listas de tareas (metadatos y usuarios)</div><span class="mono">tasklist.manage</span></div><span class="sw on"></span></div>
+          </div>
+        </div>
+        <div class="btns">
+          <a class="btn secondary go" href="hogar-accesos.html#f8">Restablecer a tipo</a>
+          <a class="btn primary go" href="hogar-accesos.html#f1">Guardar</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. CONFIRMAR RESTABLECER -->
+  <section class="state" id="f8">
+    <div class="label">8 · Confirmar «Restablecer a tipo» (diálogo)<small>Real: «Se sobrescribirán los accesos personalizados de Ana con los de su tipo.» con «Restablecer» y «Cancelar»</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt">Cancelar</a><span class="center">Ana</span><span></span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><h3>routine</h3></div>
+            <div class="tog"><div class="grow"><div class="t">Crear rutinas</div><span class="mono">routine.create</span></div><span class="sw on"></span></div>
+          </div>
+        </div>
+        <div class="btns"><span class="btn secondary">Restablecer a tipo</span><span class="btn primary">Guardar</span></div>
+      </div>
+      <div class="scrim"></div>
+      <div class="alert">
+        <p style="font:400 15px/21px var(--font);color:var(--text);margin:8px 0 16px">Se sobrescribirán los accesos personalizados de Ana con los de su tipo.</p>
+        <div class="acts"><span>Restablecer</span><span>Cancelar</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. ACCESOS NO RECONOCIDOS -->
+  <section class="state">
+    <div class="label">9 · Accesos no reconocidos (aviso en el editor)<small>Real: texto de error arriba del editor. El código de ejemplo es ilustrativo; «Guardar» puede fallar</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:16</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt">Cancelar</a><span class="center">Ana</span><span></span></div>
+        <div class="inline-err"><span>⚠</span><span class="grow">Este miembro tiene accesos no reconocidos (task.legacy). Guardar puede fallar.</span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><h3>calendar</h3></div>
+            <div class="tog"><div class="grow"><div class="t">Ver calendarios</div><span class="mono">calendar.view</span></div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow"><div class="t">Crear eventos</div><span class="mono">event.create</span></div><span class="sw on"></span></div>
+          </div>
+        </div>
+        <div class="btns"><span class="btn secondary">Restablecer a tipo</span><span class="btn primary">Guardar</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10. ERROR AL GUARDAR -->
+  <section class="state">
+    <div class="label">10 · Error al guardar (alerta)<small>Real: alerta modal «Aviso / OK» con el mensaje del servidor. El texto es ilustrativo. Los cambios se conservan en el editor</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:16</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt">Cancelar</a><span class="center">Ana</span><span></span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><h3>calendar</h3></div>
+            <div class="tog"><div class="grow"><div class="t">Borrar eventos</div><span class="mono">event.delete</span></div><span class="sw changed"></span></div>
+          </div>
+        </div>
+        <div class="btns"><span class="btn secondary">Restablecer a tipo</span><span class="btn primary">Guardar</span></div>
+      </div>
+      <div class="scrim"></div>
+      <div class="alert">
+        <h4>Aviso</h4>
+        <p>No se pudieron guardar los accesos. (Mensaje del servidor, ejemplo.)</p>
+        <div class="acts"><span>OK</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11. MIEMBRO (SI LLEGA) -->
+  <section class="state">
+    <div class="label">11 · Miembro (si llega)<small>No aplica en uso normal: la fila «Accesos» está oculta para miembros (HOGAR-03). Si se llega por otra vía: filas sin «Editar» y con el motivo</small></div>
+    <div class="phone">
+      <div class="status"><span>20:16</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt">‹ Atrás</a><span></span></div>
+        <div class="large-title">Accesos</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><h3>Accesos por persona</h3><span class="badge">3</span></div>
+            <div class="row"><div class="grow"><div class="t">Familia Demo</div><div class="s">Administrador: todos los accesos</div></div></div>
+            <div class="row"><div class="grow"><div class="t">Ana</div><div class="s">18 accesos</div><div class="lock">Solo un administrador puede editar accesos</div></div></div>
+            <div class="row"><div class="grow"><div class="t">Tomás</div><div class="s">10 accesos</div><div class="lock">Solo un administrador puede editar accesos</div></div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 12. QUÉ CUBRE CADA TIPO (SCROLL) -->
+  <section class="state">
+    <div class="label">12 · «Qué cubre cada tipo» (scroll)<small>Real: resumen solo lectura por tipo, dominios y códigos ordenados. Contenido de ejemplo según la migración 0019 (los datos reales los manda el servidor)</small></div>
+    <div class="phone">
+      <div class="status"><span>20:16</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="stack" style="margin-top:8px">
+          <div class="card">
+            <div class="card-h"><h3>Qué cubre cada tipo</h3></div>
+            <div class="kind"><div class="k">Adulto</div><div class="d">calendar: calendar.manage, calendar.view, event.assign, event.create, event.delete, event.edit · routine: routine.assign, routine.create, routine.delete, routine.edit, routine.view · task: task.assign, task.complete, task.create, task.delete, task.edit, task.view, tasklist.manage</div></div>
+            <div class="kind"><div class="k">Niño</div><div class="d">calendar: calendar.view · home: home.view · routine: routine.view · task: task.complete, task.create, task.view</div></div>
+            <div class="kind"><div class="k">Invitado</div><div class="d">calendar: calendar.view · task: task.complete, task.view</div></div>
+            <div class="kind"><div class="k">Familiar</div><div class="d">calendar: calendar.view, event.create, event.edit · home: home.view · routine: routine.view · task: task.assign, task.complete, task.create, task.edit, task.view</div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li><b>Quitado de la primera pasada</b>: chips de personas (Ana/Lucía/Marcos) y subtítulo «Permisos de Lucía» (Lucía no tiene cuenta, así que no tiene accesos); barra pegada con «N cambios sin guardar», «Descartar» y «Reintentar» inventados (el código guarda desde «Guardar»); dominios traducidos «Tareas / Calendario / Hogar» (el código muestra el nombre del dominio tal cual: <code>calendar</code>, <code>home</code>, <code>routine</code>, <code>task</code>); permisos sueltos de la primera pasada (como <code>event.view</code>, que no existe) y el estado vacío inventado.</li>
+    <li><b>Se mantiene</b>: panel «Qué cubre cada tipo» y editor por dominio con interruptor y código en monoespaciado, «Restablecer a tipo» y aviso de accesos no reconocidos (textos reales).</li>
+    <li><span class="tagnew">Nuevo</span> estado 3 (skeleton) y estado 5 (sin conexión). Estados 4 y 10: real (errbox y alerta «Aviso / OK»).</li>
+    <li><b>Guardar al pie</b> (regla 8 de code-facts). En el código «Guardar» está en la barra superior (toolbar); se decide con el equipo.</li>
+    <li>Sin hojas nuevas: el editor no tiene estado sin conexión propio (desactivado en la lista).</li>
+  </ul>
+  <h2>Reglas de negocio</h2>
+  <ul>
+    <li>Solo admin edita. Un admin ve «Administrador: todos los accesos» en su fila y no tiene «Editar» ni «Restablecer».</li>
+    <li>«Editar» solo en miembros con rol miembro y editables. Motivo de bloqueo visible en otros casos (p. ej. «Este miembro no admite edición de accesos»).</li>
+    <li>«Restablecer a tipo» solo si el miembro es editable y su tipo tiene accesos por defecto. Texto: «Se sobrescribirán los accesos personalizados de X con los de su tipo.» Botón «Restablecer».</li>
+    <li>«Guardar» solo con cambios (si no hay cambios, desactivado).</li>
+    <li>Códigos fuera del catálogo: no se filtran, se advierten con «Este miembro tiene accesos no reconocidos (…). Guardar puede fallar.»</li>
+    <li>Los permisos se agrupan por <code>domain</code> del catálogo (23 códigos en 0012/0019: calendar, home, routine, task).</li>
+    <li>Error de guardado = alerta «Aviso / OK» y los cambios se conservan.</li>
+    <li><b>Por confirmar en código</b>: el texto de descripción de cada permiso lo manda el servidor (aquí se usa el de la migración 0012); el mensaje de error de guardado.</li>
+  </ul>
+  <h2>Conexiones</h2>
+  <ul>
+    <li>Llega desde hogar-admin-menu (fila «Accesos», solo admin). Sin salida a otras pantallas salvo el cierre de la hoja.</li>
+    <li>Endpoint: lectura y escritura <code>home/permission</code> (escritura con el set completo de permisos). El endpoint del restablecer por tipo no está confirmado en code-facts.</li>
+  </ul>
+</aside>
+</body>
+</html>

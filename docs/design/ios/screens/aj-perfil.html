@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AJ-01 Ajustes</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  .nav .grow { flex: 1; }
+  .field .row .val.l { text-align: left; }
+  .field .row .val.muted { color: var(--text-3); }
+  .foot { font: var(--t-cap); color: var(--text-2); text-align: center; padding: 0 var(--s4); }
+  .btn.secondary.red { color: var(--err); border-color: var(--err); }
+  .danger-t { color: var(--err); }
+  .alert { position: absolute; left: 44px; right: 44px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+  .alert h4 { font: 600 17px/22px var(--font); } .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+  .alert .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .alert .ok.red { color: var(--err); }
+  .busy { position: absolute; left: 70px; right: 70px; top: 330px; background: var(--surface); border-radius: 18px; padding: 24px 16px; z-index: 9; box-shadow: var(--shadow-float); display: flex; flex-direction: column; align-items: center; gap: 12px; font: 600 16px/20px var(--font); }
+  .busy .spin { color: var(--accent); width: 22px; height: 22px; }
+  .sk.line.w { width: 60%; }
+  .sk.title.w { width: 40%; }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">AJ-01 · pestaña Ajustes · epic E5</div>
+  <h1>Ajustes</h1>
+  <p>Pestaña raíz de la 5.ª pestaña, que pasa de llamarse «Perfil» a «Ajustes» (decisión del usuario, P-01 cerrada). Tres tarjetas: <b>Cuenta</b> (formulario inline real: nombre, email, nueva contraseña y «Guardar cambios»), <b>Familia</b> (fila «Personas») e <b>Invitaciones</b> (fila «Unirse a un hogar con un código»). «Cerrar sesión» va debajo de las tarjetas y pide confirmación. Sin hogar activo, Personas e Invitaciones siguen visibles.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="aj-personas.html">Personas →</a>
+    <a href="aj-unirse.html">Unirse a un hogar →</a>
+    <a href="aj-editar-cuenta.html">Editar cuenta (propuesta) →</a>
+    <a href="auth-bienvenida.html">Bienvenida (tras cerrar sesión) →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. CON DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos<small>Formulario de cuenta inline (así está hoy) + Familia + Invitaciones + cerrar sesión</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="large-title">Ajustes</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Cuenta</h3></div>
+            <div class="field" style="margin-top:12px">
+              <div class="row"><span class="val l">Familia Demo</span></div>
+              <div class="row"><span class="val l">demo@homita.example</span></div>
+              <div class="row"><span class="val l muted">Nueva contraseña (opcional, mínimo 8)</span></div>
+            </div>
+            <div class="btn primary" style="margin-top:12px">Guardar cambios</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Familia</h3></div>
+            <a class="row go" href="aj-personas.html"><div class="grow t">Personas</div><span class="badge">5</span><span class="chev"></span></a>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">✉</div><h3>Invitaciones</h3></div>
+            <a class="row go" href="aj-unirse.html"><div class="grow t">Unirse a un hogar con un código</div><span class="chev"></span></a>
+          </div>
+          <a class="btn secondary red go" href="#s6">Cerrar sesión</a>
+          <p class="foot">Con firma gratuita la app caduca a los 7 días; reinstálala y vuelve a iniciar sesión.</p>
+          <div class="hint" style="text-align:center">Versión 1.0 (1) <span class="tagnew">Nuevo</span></div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+      <span class="anno" style="top:70px;left:8px">1</span>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO (SIN HOGAR ACTIVO) -->
+  <section class="state">
+    <div class="label">2 · Vacío (sin hogar activo)<small>Personas e Invitaciones siguen visibles (código). Sin hogar no hay cifra en Personas</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="large-title">Ajustes</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Cuenta</h3></div>
+            <div class="field" style="margin-top:12px">
+              <div class="row"><span class="val l">Familia Demo</span></div>
+              <div class="row"><span class="val l">demo@homita.example</span></div>
+              <div class="row"><span class="val l muted">Nueva contraseña (opcional, mínimo 8)</span></div>
+            </div>
+            <div class="btn primary" style="margin-top:12px">Guardar cambios</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Familia</h3></div>
+            <a class="row go" href="aj-personas.html"><div class="grow t">Personas</div><span class="chev"></span></a>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">✉</div><h3>Invitaciones</h3></div>
+            <a class="row go" href="aj-unirse.html"><div class="grow t">Unirse a un hogar con un código</div><span class="chev"></span></a>
+          </div>
+          <a class="btn secondary red">Cerrar sesión</a>
+          <p class="foot">Con firma gratuita la app caduca a los 7 días; reinstálala y vuelve a iniciar sesión.</p>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton) <span class="tagnew">Nuevo</span><small>Hoy no hay estado de carga propio en Ajustes (solo el overlay «Guardando…»). Propuesta: misma geometría que los datos</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="large-title">Ajustes</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="sk box" style="width:36px;height:36px"></div><div class="sk title w"></div></div>
+            <div class="sk" style="height:48px;border-radius:12px;margin-top:12px"></div>
+            <div class="sk" style="height:48px;border-radius:12px;margin-top:8px"></div>
+            <div class="sk" style="height:48px;border-radius:12px;margin-top:8px"></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="sk box" style="width:36px;height:36px"></div><div class="sk title" style="width:30%"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="sk box" style="width:36px;height:36px"></div><div class="sk title" style="width:60%"></div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR (alerta Aviso/OK) -->
+  <section class="state">
+    <div class="label">4 · Error (acción) <span class="tagnew">Nuevo</span><small>Hoy un fallo al guardar cuenta sale como alerta «Aviso / OK». El texto de ejemplo es del servidor (no fijo en el código)</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="large-title">Ajustes</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Cuenta</h3></div>
+            <div class="field" style="margin-top:12px">
+              <div class="row"><span class="val l">Familia Demo</span></div>
+              <div class="row"><span class="val l">demo@homita.example</span></div>
+              <div class="row"><span class="val l muted">Nueva contraseña (opcional, mínimo 8)</span></div>
+            </div>
+            <div class="btn primary" style="margin-top:12px">Guardar cambios</div>
+          </div>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert"><h4>Aviso</h4><p>No se pudo guardar la cuenta. Inténtalo de nuevo.</p><div class="ok">OK</div></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy no hay banner: la acción falla con la alerta. Propuesta: banner y «Guardar cambios» atenuado</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="large-title">Ajustes</div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. No se pueden guardar cambios.</span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Cuenta</h3></div>
+            <div class="field" style="margin-top:12px">
+              <div class="row"><span class="val l">Familia Demo</span></div>
+              <div class="row"><span class="val l">demo@homita.example</span></div>
+              <div class="row"><span class="val l muted">Nueva contraseña (opcional, mínimo 8)</span></div>
+            </div>
+            <div class="btn primary disabled" style="margin-top:12px">Guardar cambios</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Familia</h3></div>
+            <a class="row go" href="aj-personas.html"><div class="grow t">Personas</div><span class="badge">5</span><span class="chev"></span></a>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 6. CERRAR SESIÓN (CONFIRMACIÓN, REAL) -->
+  <section class="state" id="s6">
+    <div class="label">6 · Cerrar sesión (confirmación)<small>Real: «¿Cerrar sesión en este iPhone?» con [Cerrar sesión]. El «Cancelar» del diálogo no está en el código (asumido)</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="large-title">Ajustes</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Cuenta</h3></div>
+            <div class="field" style="margin-top:12px">
+              <div class="row"><span class="val l">Familia Demo</span></div>
+              <div class="row"><span class="val l">demo@homita.example</span></div>
+              <div class="row"><span class="val l muted">Nueva contraseña (opcional, mínimo 8)</span></div>
+            </div>
+          </div>
+          <a class="btn secondary red">Cerrar sesión</a>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert"><h4>¿Cerrar sesión en este iPhone?</h4><p>&nbsp;</p><a class="ok red go" href="auth-bienvenida.html">Cerrar sesión</a><div class="ok" style="color:var(--text)">Cancelar</div></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 7. GUARDANDO (OVERLAY, REAL) -->
+  <section class="state">
+    <div class="label">7 · Guardando (overlay) <small>Real: overlay «Guardando…» mientras se envía el formulario de cuenta</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="large-title">Ajustes</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Cuenta</h3></div>
+            <div class="field" style="margin-top:12px">
+              <div class="row"><span class="val l">Familia Demo</span></div>
+              <div class="row"><span class="val l">demo@homita.example</span></div>
+              <div class="row"><span class="val l muted">Nueva contraseña (opcional, mínimo 8)</span></div>
+            </div>
+            <div class="btn primary" style="margin-top:12px">Guardar cambios</div>
+          </div>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="busy"><span class="spin"></span>Guardando…</div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li><b>Versión 1.0 (1)</b> <span class="tagnew">Nuevo</span>: línea de versión al pie. No existe hoy.</li>
+    <li>Estado 3 (skeleton) y 5 (sin conexión: banner y Guardar atenuado) <span class="tagnew">Nuevo</span>. Hoy el fallo de guardar es la alerta «Aviso / OK» (estado 4).</li>
+    <li>Quitado de la primera pasada: título «Ajustes», grupos «Hogares» y «Sesión», la línea «Con un código de invitación» y el subtítulo «Hogar de Familia Demo». No los tiene el código.</li>
+    <li>«Cerrar sesión» ya no es una fila dentro de una tarjeta: es un botón secundario de ancho completo que abre la confirmación real (estado 6).</li>
+    <li>Avatar y lista agrupada con cabecera: no se dibujan (no están en el código). La edición de cuenta en pantalla propia es propuesta: ver AJ-02.</li>
+  </ul>
+  <h2 style="margin-top:12px">Reglas de negocio</h2>
+  <ul>
+    <li>Cuenta: nombre de 3 a 50 caracteres; contraseña nueva opcional, mínimo 8.</li>
+    <li>Familia: fila «Personas» (AJ-03). Invitaciones: fila «Unirse a un hogar con un código» (AJ-05).</li>
+    <li>Sin hogar activo, Personas e Invitaciones siguen visibles.</li>
+    <li>Pie de firma gratuita: «Con firma gratuita la app caduca a los 7 días; reinstálala y vuelve a iniciar sesión.»</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Va a: AJ-03 Personas (fila Personas), AJ-05 Unirse a un hogar (fila Invitaciones), AUTH-01 bienvenida (tras cerrar sesión), AJ-02 editar cuenta (propuesta).</li>
+    <li>Llega desde: cualquier pantalla con barra de pestañas (5.ª pestaña).</li>
+  </ul>
+</aside>
+</body>
+</html>

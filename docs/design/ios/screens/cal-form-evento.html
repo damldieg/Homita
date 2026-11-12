@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAL-05 Formulario de evento</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Estilos del formulario (no están en components.css) */
+.off { opacity: .4; }
+.card-h + * { margin-top: var(--s3); }
+.field .row .lbl { width: auto; color: var(--text-2); flex: none; }
+.field .val { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
+.field .row .ph { color: var(--text-3); }
+.pill { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: 999px; background: var(--bg-sunken); font: 600 15px/1 var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sub { font: 600 13px/18px var(--font); color: var(--text-2); padding: var(--s3) var(--s1) 0; }
+.radio { display: flex; align-items: center; gap: var(--s3); min-height: 44px; font: var(--t-body); }
+.radio i { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--text-3); flex: none; display: grid; place-items: center; }
+.radio.on i { border-color: var(--accent); }
+.radio.on i::after { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); }
+.cbx { display: flex; align-items: center; gap: var(--s3); min-height: 44px; font: var(--t-body); }
+.cbx i { width: 24px; height: 24px; border-radius: 6px; border: 2px solid var(--text-3); flex: none; display: grid; place-items: center; }
+.cbx.on i { background: var(--accent); border-color: var(--accent); color: #fff; font: 700 14px/1 var(--font); font-style: normal; }
+.cbx .pc { width: 14px; height: 14px; border-radius: 50%; background: var(--c); flex: none; }
+.sw { width: 51px; height: 31px; border-radius: 999px; background: var(--text-3); position: relative; flex: none; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow); }
+.sw.on { background: var(--ok); }
+.sw.on::after { left: 22px; }
+.sum { font: var(--t-sub); color: var(--text-2); padding: var(--s3) var(--s1) 0; }
+.hint.warn-line { color: var(--text-2); }
+.foot { margin-top: var(--s2); display: flex; flex-direction: column; gap: var(--s3); }
+.spin-line { display: flex; align-items: center; gap: 10px; justify-content: center; }
+.sheet h3 { font: var(--t-title); margin-bottom: var(--s2); }
+.sheet p { font: var(--t-sub); color: var(--text-2); margin-bottom: var(--s4); }
+.sheet .btn { margin-top: var(--s2); }
+.alert { position: absolute; left: 50px; right: 50px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+.alert h4 { font: 600 17px/22px var(--font); } .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+.alert .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+.sk-pill { display: inline-block; height: 36px; border-radius: 999px; }
+.sk-line { display: inline-block; height: 14px; border-radius: 8px; }
+.phone.tall { height: 1400px; }
+.phone.tall .scroll { padding-bottom: 24px; }
+.nav .txt.off { color: var(--accent); }
+.badge.info { background: var(--info-soft); color: var(--info); }
+</style>
+</head>
+<body>
+<!-- CAL-05: formulario de evento. Hoja modal sin barra de pestañas. Cancelar a la izquierda; la acción va al pie del formulario. -->
+<header class="wf-head">
+  <div class="id">CAL-05 · formulario de evento · epic E3</div>
+  <h1>Evento (nuevo y edición)</h1>
+  <p>Hoja modal para crear o editar un evento. Panel «Evento»: título, «Fecha y hora» (un solo instante: el modelo no tiene fecha de fin) y calendario (radios al crear; texto fijo al editar). Panel «Aviso» con sus 7 opciones y la nota de fase 3. Panel «Personas» con casillas. «Cancelar» a la izquierda; la acción va al pie con el texto real («Crear evento» / «Guardar»). En edición, «Eliminar evento» con hoja de confirmación. Las etiquetas <span class="tagnew">Nuevo</span> marcan lo que el código no tiene.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="cal-eventos.html">Eventos</a>
+    <a href="home-inicio.html">Inicio</a>
+    <a href="cal-form-rutina.html">Nueva rutina →</a>
+    <a href="cal-form-calendario.html">Nuevo calendario →</a>
+    <a href="aj-personas.html">Ajustes › Personas →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. CON DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos<small>Alta con datos. Aviso desplegado con sus 7 opciones (captura 34); Personas con casillas</small></div>
+    <div class="phone tall">
+      <div class="status"><span>20:09</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-eventos.html">Cancelar</a>
+          <span class="center">Nuevo evento</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Cena con los abuelos</span></div></div>
+            <div class="field"><div class="row"><span class="lbl">Fecha y hora</span><span class="val"><span class="pill">12 Nov 2026</span><span class="pill">20:30</span></span></div></div>
+            <div class="sub">Calendario</div>
+            <div class="radio on"><i></i>Colegio</div>
+            <div class="radio"><i></i>Familia</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◔</div><h3>Aviso</h3></div>
+            <div class="radio"><i></i>Sin aviso</div>
+            <div class="radio"><i></i>Justo antes</div>
+            <div class="radio on"><i></i>10 min antes</div>
+            <div class="radio"><i></i>20 min antes</div>
+            <div class="radio"><i></i>30 min antes</div>
+            <div class="radio"><i></i>40 min antes</div>
+            <div class="radio"><i></i>60 min antes</div>
+            <div class="hint">La alarma se guarda en el servidor. El aviso en este iPhone llegará con las notificaciones (fase 3).</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3></div>
+            <div class="cbx on" style="--c:var(--person-1)"><i>✓</i><span class="pc"></span>Ana</div>
+            <div class="cbx on" style="--c:var(--person-3)"><i>✓</i><span class="pc"></span>Marcos</div>
+            <div class="cbx" style="--c:var(--person-2)"><i></i><span class="pc"></span>Lucía</div>
+          </div>
+          <div class="foot">
+            <a class="btn primary go" href="cal-eventos.html">Crear evento</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío (alta recién abierta)<small>Título vacío. Colegio preseleccionado (primero de la lista, como en la captura 34). Sin título, «Crear evento» muestra la alerta del estado 4</small></div>
+    <div class="phone">
+      <div class="status"><span>20:09</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-eventos.html">Cancelar</a>
+          <span class="center">Nuevo evento</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t ph">Título</span></div></div>
+            <div class="field"><div class="row"><span class="lbl">Fecha y hora</span><span class="val"><span class="pill">12 Nov 2026</span><span class="pill">20:00</span></span></div></div>
+            <div class="sub">Calendario</div>
+            <div class="radio on"><i></i>Colegio</div>
+            <div class="radio"><i></i>Familia</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◔</div><h3>Aviso</h3></div>
+            <div class="radio on"><i></i>Sin aviso</div>
+            <div class="radio"><i></i>Justo antes</div>
+            <div class="radio"><i></i>10 min antes</div>
+            <div class="radio"><i></i>20 min antes</div>
+            <div class="radio"><i></i>30 min antes</div>
+            <div class="radio"><i></i>40 min antes</div>
+            <div class="radio"><i></i>60 min antes</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3></div>
+            <div class="cbx" style="--c:var(--person-1)"><i></i><span class="pc"></span>Ana</div>
+            <div class="cbx" style="--c:var(--person-3)"><i></i><span class="pc"></span>Marcos</div>
+          </div>
+          <div class="foot">
+            <a class="btn primary" href="#errores">Crear evento</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. GUARDANDO -->
+  <section class="state">
+    <div class="label">3 · Guardando <span class="tagnew">Nuevo</span><small>Hoy no hay indicador documentado en el formulario. Propuesta: spinner en el botón y «Cancelar» desactivado mientras se envía</small></div>
+    <div class="phone">
+      <div class="status"><span>20:09</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <span class="txt off">Cancelar</span>
+          <span class="center">Nuevo evento</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Cena con los abuelos</span></div></div>
+            <div class="field"><div class="row"><span class="lbl">Fecha y hora</span><span class="val"><span class="pill">12 Nov 2026</span><span class="pill">20:30</span></span></div></div>
+          </div>
+          <div class="foot">
+            <span class="btn primary"><span class="spin-line">Crear evento <span class="spin"></span></span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. VALIDACIÓN (ALERTA) -->
+  <section class="state" id="errores">
+    <div class="label">4 · Validación: alerta «Aviso / OK»<small>Así valida el código hoy: alerta modal, no mensaje en línea. Textos reales</small></div>
+    <div class="phone">
+      <div class="status"><span>20:09</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-eventos.html">Cancelar</a>
+          <span class="center">Nuevo evento</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t ph">Título</span></div></div>
+            <div class="field"><div class="row"><span class="lbl">Fecha y hora</span><span class="val"><span class="pill">12 Nov 2026</span><span class="pill">20:00</span></span></div></div>
+          </div>
+          <div class="foot"><span class="btn primary">Crear evento</span></div>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert"><h4>Aviso</h4><p>El título es obligatorio</p><div class="ok">OK</div></div>
+    </div>
+  </section>
+
+  <!-- 4b. VALIDACIÓN FECHA -->
+  <section class="state">
+    <div class="label">4b · Validación: fecha <small>Mismo patrón de alerta con el texto real de la fecha</small></div>
+    <div class="phone">
+      <div class="status"><span>20:09</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-eventos.html">Cancelar</a>
+          <span class="center">Nuevo evento</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Cena con los abuelos</span></div></div>
+            <div class="field"><div class="row"><span class="lbl">Fecha y hora</span><span class="val"><span class="pill">—</span><span class="pill">20:30</span></span></div></div>
+          </div>
+          <div class="foot"><span class="btn primary">Crear evento</span></div>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert"><h4>Aviso</h4><p>La fecha es obligatoria</p><div class="ok">OK</div></div>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy el fallo de escritura es la alerta «Aviso / OK» con el mensaje del servidor. Propuesta: aviso fijo y datos conservados</small></div>
+    <div class="phone">
+      <div class="status"><span>20:09</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-eventos.html">Cancelar</a>
+          <span class="center">Nuevo evento</span>
+          <span></span>
+        </div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Conecta para guardar el evento.</span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Cena con los abuelos</span></div></div>
+            <div class="field"><div class="row"><span class="lbl">Fecha y hora</span><span class="val"><span class="pill">12 Nov 2026</span><span class="pill">20:30</span></span></div></div>
+            <div class="sub">Calendario</div>
+            <div class="radio on"><i></i>Colegio</div>
+            <div class="radio"><i></i>Familia</div>
+          </div>
+          <div class="foot"><span class="btn primary off">Crear evento</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. EDITAR EVENTO -->
+  <section class="state" id="editar">
+    <div class="label">6 · Editar evento<small>Calendario fijo (texto, sin radios). Al pie: «Guardar» y «Eliminar evento»</small></div>
+    <div class="phone tall">
+      <div class="status"><span>20:09</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-eventos.html">Cancelar</a>
+          <span class="center">Editar evento</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Desayuno con la vecina</span></div></div>
+            <div class="field"><div class="row"><span class="lbl">Fecha y hora</span><span class="val"><span class="pill">12 Nov 2026</span><span class="pill">09:00</span></span></div></div>
+            <div class="field"><div class="row"><span class="lbl">Calendario</span><span class="val">Familia</span></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◔</div><h3>Aviso</h3></div>
+            <div class="radio"><i></i>Sin aviso</div>
+            <div class="radio"><i></i>Justo antes</div>
+            <div class="radio on"><i></i>10 min antes</div>
+            <div class="radio"><i></i>20 min antes</div>
+            <div class="radio"><i></i>30 min antes</div>
+            <div class="radio"><i></i>40 min antes</div>
+            <div class="radio"><i></i>60 min antes</div>
+            <div class="hint">La alarma se guarda en el servidor. El aviso en este iPhone llegará con las notificaciones (fase 3).</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3></div>
+            <div class="cbx on" style="--c:var(--person-1)"><i>✓</i><span class="pc"></span>Ana</div>
+            <div class="cbx on" style="--c:var(--person-2)"><i>✓</i><span class="pc"></span>Lucía</div>
+            <div class="cbx" style="--c:var(--person-3)"><i></i><span class="pc"></span>Marcos</div>
+          </div>
+          <div class="foot">
+            <a class="btn primary go" href="cal-eventos.html">Guardar</a>
+            <a class="btn danger go" href="#eliminar">Eliminar evento</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. CONFIRMAR ELIMINACIÓN -->
+  <section class="state" id="eliminar">
+    <div class="label">7 · Confirmar eliminación<small>Hoja inferior con los textos reales. «Eliminar evento» en rojo, separado de «Cancelar»</small></div>
+    <div class="phone">
+      <div class="status"><span>20:09</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt">Cancelar</a>
+          <span class="center">Editar evento</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Desayuno con la vecina</span></div></div>
+            <div class="field"><div class="row"><span class="lbl">Fecha y hora</span><span class="val"><span class="pill">12 Nov 2026</span><span class="pill">09:00</span></span></div></div>
+          </div>
+          <div class="foot"><span class="btn primary">Guardar</span><span class="btn danger">Eliminar evento</span></div>
+        </div>
+      </div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <h3>Eliminar evento</h3>
+        <p>Se eliminará el evento.</p>
+        <a class="btn danger go" href="cal-eventos.html">Eliminar evento</a>
+        <a class="btn secondary" href="#editar">Cancelar</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. CONFIRMAR ELIMINACIÓN: SESIÓN DE RUTINA -->
+  <section class="state">
+    <div class="label">8 · Confirmar: sesión de rutina<small>Mismo editor. Si el evento es una sesión de rutina, el texto cambia: solo se cancela esa sesión</small></div>
+    <div class="phone">
+      <div class="status"><span>20:09</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt">Cancelar</a>
+          <span class="center">Editar evento</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Pilates</span></div></div>
+            <div class="field"><div class="row"><span class="lbl">Fecha y hora</span><span class="val"><span class="pill">12 Nov 2026</span><span class="pill">20:00</span></span></div></div>
+          </div>
+          <div class="foot"><span class="btn primary">Guardar</span><span class="btn danger">Eliminar evento</span></div>
+        </div>
+      </div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <h3>Eliminar evento</h3>
+        <p>Solo se cancelará esta sesión de la rutina.</p>
+        <a class="btn danger go" href="cal-eventos.html">Eliminar evento</a>
+        <a class="btn secondary" href="#editar">Cancelar</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. PERSONAS VACÍO -->
+  <section class="state">
+    <div class="label">9 · Personas vacío<small>Textos reales del panel «Personas»; el enlace lleva a Ajustes › Personas</small></div>
+    <div class="phone">
+      <div class="status"><span>20:09</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-eventos.html">Cancelar</a>
+          <span class="center">Nuevo evento</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Cena con los abuelos</span></div></div>
+            <div class="field"><div class="row"><span class="lbl">Fecha y hora</span><span class="val"><span class="pill">12 Nov 2026</span><span class="pill">20:30</span></span></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3></div>
+            <div class="hint" style="padding:var(--s2) 0 0">Aún no tienes personas. Créalas en Ajustes › Personas.</div>
+            <a class="link go" href="aj-personas.html" style="display:inline-block;margin-top:var(--s2)">Ajustes › Personas</a>
+          </div>
+          <div class="foot"><span class="btn primary">Crear evento</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li><b>Fecha y hora</b> es un único instante. Se quitan «Inicio» y «Fin» de la primera pasada: el modelo no tiene fecha de fin.</li>
+    <li><b>Calendario</b>: radios al crear, con el primero preseleccionado (captura 34). En edición es un texto fijo que no se cambia.</li>
+    <li><b>Aviso</b>: las 7 opciones reales en radios (Sin aviso, Justo antes, 10/20/30/40/60 min antes) con su nota de fase 3. Sustituye la fila única de la primera pasada.</li>
+    <li><b>Personas</b>: casillas con el color de cada persona (no chips). Vacío con el texto real y enlace a Ajustes › Personas.</li>
+    <li><b>Acción al pie</b> («Crear evento» / «Guardar»); «Cancelar» a la izquierda. Se quita «Guardar» de la barra, los mensajes en línea bajo los campos y el texto «Elige el calendario…»: el código valida con alerta «Aviso / OK».</li>
+    <li><b>Estado 3 (guardando)</b> y <b>estado 5 (sin conexión)</b> son <span class="tagnew">Nuevo</span>: hoy no hay indicador de guardado documentado en el formulario ni estado de conexión propio.</li>
+    <li>Eliminar: confirmación con los textos reales («Se eliminará el evento.» y la variante de sesión de rutina). El título de la hoja repite la etiqueta del botón porque el código no tiene título propio; el texto del botón en la variante de sesión no está en el código y se usa el mismo.</li>
+  </ul>
+  <h2>Reglas de negocio</h2>
+  <ul>
+    <li>Título y fecha obligatorios: alerta «El título es obligatorio» / «La fecha es obligatoria».</li>
+    <li>Calendario: radios solo al crear; al editar no cambia. En el alta va preseleccionado el primero.</li>
+    <li>Aviso: 7 opciones; la alarma se guarda en el servidor. En este iPhone llega con las notificaciones (fase 3).</li>
+    <li>Eliminar evento: «Se eliminará el evento.». Sesión de rutina: «Solo se cancelará esta sesión de la rutina.».</li>
+  </ul>
+  <h2>Conexiones</h2>
+  <ul>
+    <li>Entra desde: Eventos («Nuevo evento» y tocar un evento para editarlo); Inicio «+ Evento» (sin calendarios, Inicio muestra la alerta «Crea un calendario primero» y no llega aquí).</li>
+    <li>Sale a: Eventos (Cancelar, Crear, Guardar, Eliminar) y Ajustes › Personas (desde el vacío).</li>
+  </ul>
+</aside>
+</body>
+</html>

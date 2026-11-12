@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOME-01 Inicio</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  .nav .grow { flex: 1; }
+  .chev-btn { width: 32px; height: 32px; display: grid; place-items: center; color: var(--text-3); font: 400 22px/1 var(--font); }
+  .alert { position: absolute; left: 50px; right: 50px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+  .alert h4 { font: 600 17px/22px var(--font); } .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+  .alert .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .tabs { }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">HOME-01 · pestaña Inicio · epic E1</div>
+  <h1>Inicio</h1>
+  <p>Resumen del día: eventos de hoy, tareas pendientes, rutinas de hoy y accesos rápidos para crear tarea y evento. Orden real del código: saludo → Eventos → Tareas → Rutinas → Accesos rápidos. La tarjeta «Rutinas de hoy» sigue el diseño del usuario (estados por horario, sin marca manual). Las etiquetas <span class="tagnew">Nuevo</span> señalan lo que el código actual no tiene.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="tasks-lista.html">Tareas →</a>
+    <a href="cal-eventos.html">Eventos →</a>
+    <a href="cal-rutinas.html">Rutinas →</a>
+    <a href="tasks-form-tarea.html">+ Tarea →</a>
+    <a href="cal-form-evento.html">+ Evento →</a>
+    <a href="hogar-hogar.html">Hogar →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos<small>Hora simulada 19:30. Cabecera compacta sin hueco superior</small></div>
+    <div class="phone">
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon go" href="hogar-hogar.html" aria-label="Hogar">⌂</a></div>
+        <div class="large-title">Hola, Familia<small>Jueves, 12 de noviembre</small></div>
+        <div class="stack">
+          <div class="card go" style="border-color:var(--accent)">
+            <div class="card-h"><div class="ico">▦</div><h3>Hoy · Eventos</h3><span class="badge">2</span><a class="chev-btn go" href="cal-eventos.html" aria-label="Ir a Eventos">›</a></div>
+            <div class="row"><div class="bar"></div><div class="grow"><div class="t">Desayuno con la vecina</div><div class="s">Familia</div></div><div class="time">09:00</div></div>
+            <div class="row"><div class="bar"></div><div class="grow"><div class="t">Cena con los abuelos</div><div class="soon">en 22 min</div><div class="s">Familia</div></div><div class="time">20:30</div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☑</div><h3>Tareas pendientes</h3><span class="badge">8</span><a class="chev-btn go" href="tasks-lista.html" aria-label="Ir a Tareas">›</a></div>
+            <div class="dots"><i class="on"></i><i></i></div>
+            <div class="group-h"><span class="dot"></span>Compra</div>
+            <div class="row"><div class="check"></div><div class="grow t">Café</div></div>
+            <div class="row"><div class="check"></div><div class="grow t">Fruta</div></div>
+            <div class="row"><div class="check"></div><div class="grow t">Huevos</div></div>
+            <div class="row"><div class="grow"></div><a class="link go" href="tasks-lista.html">Ver más</a></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <span class="anno" style="top:70px;left:8px">1</span>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>Cada tarjeta conserva su propio vacío (textos reales del código)</small></div>
+    <div class="phone">
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon">⌂</a></div>
+        <div class="large-title">Hola, Familia<small>Jueves, 12 de noviembre</small></div>
+        <div class="stack">
+          <div class="card"><div class="card-h"><div class="ico">▦</div><h3>Hoy · Eventos</h3><a class="chev-btn">›</a></div><div class="row"><div class="grow s">Sin eventos hoy</div></div></div>
+          <div class="card"><div class="card-h"><div class="ico">☑</div><h3>Tareas pendientes</h3><a class="chev-btn">›</a></div><div class="row"><div class="grow s">Sin tareas pendientes</div></div></div>
+          <div class="card rt-card"><div class="card-h"><div class="ico">↻</div><div class="grow"><h3>Rutinas de hoy</h3><div class="s">Jueves, 12 de noviembre</div></div><span class="link">Ver todas ›</span></div><div class="s">Sin rutinas hoy</div></div>
+          <div class="sect" style="padding-top:8px">Accesos rápidos</div>
+          <div class="quick"><a class="btn primary go" href="tasks-form-tarea.html">+ Tarea</a><a class="btn secondary go" href="cal-form-evento.html">+ Evento</a></div>
+        </div>
+      </div>
+      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton) <span class="tagnew">Nuevo</span><small>Hoy: texto «Cargando…» por tarjeta. Propuesta: misma geometría que las tarjetas reales</small></div>
+    <div class="phone">
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon">⌂</a></div>
+        <div class="large-title">Hola, Familia<small>Jueves, 12 de noviembre</small></div>
+        <div class="stack">
+          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
+            <div class="row"><div class="bar sk"></div><div class="grow"><div class="sk line" style="width:70%"></div><div class="sk line" style="width:30%;margin-top:6px"></div></div><div class="sk line" style="width:44px"></div></div>
+            <div class="row"><div class="bar sk"></div><div class="grow"><div class="sk line" style="width:60%"></div><div class="sk line" style="width:35%;margin-top:6px"></div></div><div class="sk line" style="width:44px"></div></div></div>
+          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
+            <div class="row"><div class="check sk"></div><div class="sk line" style="width:40%"></div></div>
+            <div class="row"><div class="check sk"></div><div class="sk line" style="width:50%"></div></div>
+            <div class="row"><div class="check sk"></div><div class="sk line" style="width:35%"></div></div></div>
+          <div class="card rt-card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
+            <div class="rt-prog"><div class="sk line" style="width:40%"></div><div class="sk" style="height:8px;border-radius:99px"></div></div>
+            <div class="sk" style="height:70px;border-radius:20px"></div></div>
+        </div>
+      </div>
+      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR -->
+  <section class="state">
+    <div class="label">4 · Error<small>Hoy cada sección falla sola: mensaje del servidor + «Reintentar»; fallo de escritura = alerta «Aviso / OK»</small></div>
+    <div class="phone">
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon">⌂</a></div>
+        <div class="large-title">Hola, Familia<small>Jueves, 12 de noviembre</small></div>
+        <div class="stack">
+          <div class="card"><div class="card-h"><div class="ico">▦</div><h3>Hoy · Eventos</h3></div>
+            <div class="inline-err"><span>⚠</span><span class="grow">No se pudo conectar con el servidor.</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div></div>
+          <div class="card"><div class="card-h"><div class="ico">☑</div><h3>Tareas pendientes</h3><span class="badge">8</span><a class="chev-btn">›</a></div>
+            <div class="group-h"><span class="dot"></span>Compra</div>
+            <div class="row"><div class="check"></div><div class="grow t">Café</div></div>
+            <div class="row"><div class="check"></div><div class="grow t">Fruta</div></div></div>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert"><h4>Aviso</h4><p>No se pudo completar la tarea. Inténtalo de nuevo.</p><div class="ok">OK</div></div>
+      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy cae al error de cada tarjeta. Propuesta: banner con la hora de los datos y escrituras atenuadas (requiere caché de lectura en la capa repo: por verificar)</small></div>
+    <div class="phone">
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon">⌂</a></div>
+        <div class="large-title">Hola, Familia<small>Jueves, 12 de noviembre</small></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:12.</span><u>Reintentar</u></div>
+        <div class="stack">
+          <div class="card"><div class="card-h"><div class="ico">▦</div><h3>Hoy · Eventos</h3><span class="badge">2</span></div>
+            <div class="row"><div class="bar"></div><div class="grow"><div class="t">Desayuno con la vecina</div><div class="s">Familia</div></div><div class="time">09:00</div></div></div>
+          <div class="card"><div class="card-h"><div class="ico">☑</div><h3>Tareas pendientes</h3><span class="badge">8</span></div>
+            <div class="row" style="opacity:.55"><div class="check"></div><div class="grow t">Café</div></div></div>
+          <div class="quick" style="opacity:.45"><a class="btn primary">+ Tarea</a><a class="btn secondary">+ Evento</a></div>
+        </div>
+      </div>
+      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 6. RUTINAS: ESTADOS -->
+  <section class="state">
+    <div class="label">6 · «Rutinas de hoy»: estados<small>Diseño del usuario. Hora 19:30: dos finalizadas, una en aviso, una aún lejos</small></div>
+    <div class="phone">
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="stack" style="margin-top:8px">
+          <div class="card rt-card">
+            <div class="card-h"><div class="ico">↻</div><div class="grow"><h3>Rutinas de hoy</h3><div class="s">Jueves, 12 de noviembre</div></div><a class="link go" href="cal-rutinas.html">Ver todas ›</a></div>
+            <div class="rt-prog"><div class="top"><span>2 de 4 hechas</span><b>Faltan 2</b></div><div class="rt-track"><i style="width:50%"></i></div></div>
+            <div class="rt-list">
+              <div class="rt soon">
+                <div class="main"><div class="tile">⚠</div><div class="body"><div class="kicker">⚠ Empieza en 30 min</div><div class="name">Pilates</div><div class="who"><span class="av a">A</span>Angie</div></div><div class="at">20:00</div></div>
+                <div class="meter"><div class="t"><i style="width:50%"></i></div><div class="l"><span>Empieza a las 20:00</span><b>Faltan 30 min</b></div></div>
+              </div>
+              <div class="rt">
+                <div class="main"><div class="tile">✱</div><div class="body"><div class="kicker">Siguiente · en 1 h 30 min</div><div class="name">Lavavajillas</div><div class="who"><span class="av d">D</span>Damian</div></div><div class="at">21:00</div></div>
+              </div>
+            </div>
+            <div class="rt-done">
+              <div class="toggle"><span>2 completadas</span><span>⌃</span></div>
+              <div class="d"><span class="ok">✓</span><div style="flex:1"><div class="n">Tomar Sertralina</div><div class="who" style="font-size:12px"><span class="av a" style="width:16px;height:16px;font-size:10px">A</span>Angie</div></div><span class="tm">12:00</span></div>
+              <div class="d"><span class="ok">✓</span><div style="flex:1"><div class="n">Psicóloga</div><div class="who" style="font-size:12px"><span class="av d" style="width:16px;height:16px;font-size:10px">D</span>Damian</div></div><span class="tm">18:00</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 7. RUTINAS: EN CURSO + COMPACTO -->
+  <section class="state">
+    <div class="label">7 · «Rutinas de hoy»: en curso y varias a la vez<small>20:15. Con 2+ activas a la vez se usa la variante compacta (anillo en lugar de barra)</small></div>
+    <div class="phone">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="stack" style="margin-top:8px">
+          <div class="card rt-card">
+            <div class="card-h"><div class="ico">↻</div><div class="grow"><h3>Rutinas de hoy</h3><div class="s">Jueves, 12 de noviembre</div></div><span class="link">Ver todas ›</span></div>
+            <div class="rt-prog"><div class="top"><span>2 de 5 hechas</span><b>2 en curso</b></div><div class="rt-track"><i style="width:40%"></i></div></div>
+            <div class="rt-list">
+              <div class="rt now compact">
+                <div class="ring"><svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="19" fill="none" stroke="var(--now-track)" stroke-width="4"/><circle cx="22" cy="22" r="19" fill="none" stroke="var(--now)" stroke-width="4" stroke-linecap="round" stroke-dasharray="29.8 119.4" transform="rotate(-90 22 22)"/></svg><span style="color:var(--now-strong)">✱</span></div>
+                <div class="body"><div class="name">Pilates</div><div class="who"><span class="av a" style="width:16px;height:16px;font-size:10px">A</span>Angie</div></div>
+                <div class="right"><div class="at">20:00</div><small><i class="pulse"></i>Quedan 45 min</small></div>
+              </div>
+              <div class="rt now compact">
+                <div class="ring"><svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="19" fill="none" stroke="var(--now-track)" stroke-width="4"/><circle cx="22" cy="22" r="19" fill="none" stroke="var(--now)" stroke-width="4" stroke-linecap="round" stroke-dasharray="9.6 119.4" transform="rotate(-90 22 22)"/></svg><span style="color:var(--now-strong)">✱</span></div>
+                <div class="body"><div class="name">Cena</div><div class="who"><span class="av d" style="width:16px;height:16px;font-size:10px">D</span>Damian</div></div>
+                <div class="right"><div class="at">20:10</div><small><i class="pulse"></i>Quedan 55 min</small></div>
+              </div>
+              <div class="rt soon compact">
+                <div class="ring"><svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="19" fill="none" stroke="var(--soon-track)" stroke-width="4"/><circle cx="22" cy="22" r="19" fill="none" stroke="var(--soon-fill)" stroke-width="4" stroke-linecap="round" stroke-dasharray="29.8 119.4" transform="rotate(-90 22 22)"/></svg><span style="color:var(--soon-strong)">✱</span></div>
+                <div class="body"><div class="name">Lavavajillas</div><div class="who"><span class="av d" style="width:16px;height:16px;font-size:10px">D</span>Damian</div></div>
+                <div class="right"><div class="at">21:00</div><small>Empieza en 45 min</small></div>
+              </div>
+            </div>
+            <div class="rt-done"><div class="toggle"><span>2 completadas</span><span>⌄</span></div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 8. TODO HECHO + ACCESOS RÁPIDOS -->
+  <section class="state">
+    <div class="label">8 · Todo hecho y accesos rápidos<small>Fin del scroll de Inicio. Sin listas/calendarios, los accesos abren una alerta</small></div>
+    <div class="phone">
+      <div class="status"><span>22:30</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="stack" style="margin-top:8px">
+          <div class="card rt-card">
+            <div class="card-h"><div class="ico">↻</div><div class="grow"><h3>Rutinas de hoy</h3><div class="s">Jueves, 12 de noviembre</div></div><span class="link">Ver todas ›</span></div>
+            <div class="rt-prog"><div class="top"><span>4 de 4 hechas</span><b>¡Completo!</b></div><div class="rt-track"><i style="width:100%"></i></div></div>
+            <div class="rt-all"><span>✓</span>Todo hecho por hoy</div>
+            <div class="rt-done"><div class="toggle"><span>4 completadas</span><span>⌄</span></div></div>
+          </div>
+          <div class="sect" style="padding-top:8px">Accesos rápidos</div>
+          <div class="quick"><a class="btn primary go" href="tasks-form-tarea.html">+ Tarea</a><a class="btn secondary go" href="cal-form-evento.html">+ Evento</a></div>
+        </div>
+      </div>
+      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li><b>Rutinas de hoy</b> <span class="tagnew">Nuevo</span>: estados por horario (aún no empieza / aviso ≤ 60 min / en curso 60 min / finalizada) con barra o anillo de tiempo y pulso en «En curso». <b>Se elimina la marca manual «hecha»</b> (círculo «Marcar … como hecha» y marcas locales): una rutina pasa sola a «completadas» a los 60 min. Duración fija de 60 min en v1. Fuente: diseño del usuario, artifact «Homita – Rutinas de hoy».</li>
+    <li>Sin hueco superior bajo la barra de estado: título pegado, <span class="tagnew">Nuevo</span> botón ⌂ de hogar a la derecha. El código hoy no muestra hogar en la cabecera.</li>
+    <li>Se conserva lo que ya existe y la primera pasada había quitado: paginación por lista (puntos), máx. 5 tareas, «Ver más» filtrado por lista, cuenta atrás de eventos (solo de 0 a 120 min), <b>ACCESOS RÁPIDOS</b> (+ Tarea, + Evento).</li>
+    <li>La barra reserva su espacio y la 5.ª pestaña pasa de «Perfil» a «Ajustes» (decisión del usuario).</li>
+    <li>Estados 3 y 5 son nuevos; el estado 4 muestra el comportamiento real (error por tarjeta y alerta «Aviso/OK»). Todos los listados admiten pull-to-refresh.</li>
+  </ul>
+  <h2>Conexiones</h2>
+  <ul><li>Chevron de Eventos → CAL-01 · chevron de Tareas / «Ver más» → TASKS-01 (lista desplegada) · «Ver todas ›» → CAL-02 · + Tarea → TASKS-04 · + Evento → CAL-05 · ⌂ → HOGAR-01.</li>
+  <li>Pantallas que sustituyen Inicio (HomeGate): cargando hogar, sin hogar (HOGAR-02), error «No se pudo cargar tu hogar» + «Reintentar».</li></ul>
+</aside>
+</body>
+</html>

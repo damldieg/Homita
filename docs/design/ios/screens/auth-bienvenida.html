@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AUTH-01 Bienvenida</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  .welcome { display: flex; flex-direction: column; }
+  .hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: var(--s2); }
+  /* Palette.warm de la app (captura 01); color de marca de logo, no es token de UI */
+  .logo { --logo: #F5A623; width: 96px; height: 96px; border-radius: 26px; background: var(--logo); color: var(--text); display: grid; place-items: center; font: 800 52px/1 var(--font); box-shadow: var(--shadow); }
+  .name { font: 700 34px/40px var(--font); margin-top: var(--s3); }
+  .sub { font: var(--t-sub); color: var(--text-2); }
+  .actions { display: flex; flex-direction: column; gap: var(--s3); }
+  .na { margin: 0 0 var(--s6); max-width: 300px; text-align: center; border: 1px dashed var(--line); border-radius: var(--r-md); padding: var(--s4); background: var(--surface); font: var(--t-sub); color: var(--text-2); }
+  .na b { color: var(--text); }
+  .closed { text-align: center; font: var(--t-sub); color: var(--text-2); padding: var(--s2) var(--s4); min-height: 50px; display: grid; place-items: center; }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">AUTH-01 · Bienvenida · epic E0 Acceso</div>
+  <h1>Bienvenida</h1>
+  <p>Primera pantalla sin sesión, sin barra de pestañas. Logo «H» de 96 pt, «Homita» y «Tu panel de control familiar». «Iniciar sesión» siempre; «Registrarse» solo si el servidor tiene <code>allow_registration</code> activo. La sesión guardada se restaura de forma síncrona desde el Keychain: no hay pantalla de comprobación de sesión.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="auth-login.html">Iniciar sesión →</a>
+    <a href="auth-registro.html">Registrarse →</a>
+    <a href="home-inicio.html">Inicio (con sesión) →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. NORMAL -->
+  <section class="state">
+    <div class="label">1 · Normal<small>allow_registration activo: dos acciones de igual anchura</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll welcome">
+        <div class="hero">
+          <div class="logo">H</div>
+          <div class="name">Homita</div>
+          <div class="sub">Tu panel de control familiar</div>
+        </div>
+        <div class="actions">
+          <a class="btn primary go" href="auth-login.html">Iniciar sesión</a>
+          <a class="btn secondary go" href="auth-registro.html">Registrarse</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. INICIAL -->
+  <section class="state">
+    <div class="label">2 · Inicial<small>Sin campos ni listas: el estado inicial es el de «1 · Normal»</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll welcome">
+        <div class="hero">
+          <div class="logo">H</div>
+          <div class="name">Homita</div>
+          <div class="sub">Tu panel de control familiar</div>
+        </div>
+        <div class="na"><b>No aplica:</b> no hay botón desactivado en esta pantalla. Las acciones están activas desde el primer frame, porque la sesión se restaura antes de pintar.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. CARGANDO -->
+  <section class="state">
+    <div class="label">3 · Cargando<small>No aplica: sin pantalla de comprobación de sesión</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll welcome">
+        <div class="hero">
+          <div class="logo">H</div>
+          <div class="name">Homita</div>
+          <div class="sub">Tu panel de control familiar</div>
+        </div>
+        <div class="na"><b>No aplica:</b> la restauración de sesión es síncrona desde el Keychain y no muestra «Comprobando tu sesión…». Los botones aparecen ya con su estado final.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. ERROR -->
+  <section class="state">
+    <div class="label">4 · Error<small>No aplica: esta pantalla no llama al servidor. Los errores de login y registro están en sus pantallas</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll welcome">
+        <div class="hero">
+          <div class="logo">H</div>
+          <div class="name">Homita</div>
+          <div class="sub">Tu panel de control familiar</div>
+        </div>
+        <div class="na"><b>No aplica:</b> no hay acción de red en la bienvenida, así que no hay alerta ni reintento aquí. Un fallo de red aparece al pulsar «Iniciar sesión» (AUTH-02, estado 5).</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy no hay aviso en esta pantalla. Propuesta: banner y acciones desactivadas, porque entrar y registrarse necesitan red</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll welcome">
+        <div style="margin-top:var(--s4)">
+          <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Conéctate a internet para entrar.</span></div>
+        </div>
+        <div class="hero">
+          <div class="logo">H</div>
+          <div class="name">Homita</div>
+          <div class="sub">Tu panel de control familiar</div>
+        </div>
+        <div class="actions">
+          <a class="btn primary disabled">Iniciar sesión</a>
+          <a class="btn secondary disabled">Registrarse</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. REGISTRO CERRADO (allow_registration = false) -->
+  <section class="state">
+    <div class="label">6 · Registro cerrado (frame extra)<small>allow_registration = false: no hay botón «Registrarse» ni texto alternativo</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll welcome">
+        <div class="hero">
+          <div class="logo">H</div>
+          <div class="name">Homita</div>
+          <div class="sub">Tu panel de control familiar</div>
+        </div>
+        <div class="actions">
+          <a class="btn primary go" href="auth-login.html">Iniciar sesión</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>Logo «H» de 96 pt con el color de marca de la captura; nombre «Homita» y subtítulo «Tu panel de control familiar» tal cual.</li>
+    <li>«Registrarse» aparece solo si <code>allow_registration</code> está activo (frame 6 sin botón). Antes el botón era fijo.</li>
+    <li><b>Quitado:</b> «Comprobando tu sesión…» y el spinner de restauración. No existe esa pantalla: la sesión se restaura de forma síncrona desde el Keychain.</li>
+    <li><b>Quitado:</b> el texto «El registro está cerrado. Pide una invitación» con enlace a Registro. No está en el código. Si se quiere, es propuesta (Nuevo).</li>
+    <li>Estados 2 (inicial), 3 (cargando) y 4 (error): no aplican, porque esta pantalla no tiene campos ni llamadas al servidor. Cada uno lleva su nota «No aplica».</li>
+    <li><span class="tagnew">Nuevo</span> Estado 5 sin conexión: banner y acciones desactivadas. Hoy el fallo de red se ve al pulsar en login.</li>
+  </ul>
+  <h2 style="margin-top:12px">Reglas de negocio</h2>
+  <ul>
+    <li>«Registrarse» solo si <code>allow_registration</code>. Sin él, no hay botón ni texto.</li>
+    <li>La sesión se restaura de forma síncrona desde el Keychain. No hay pantalla «Comprobando tu sesión».</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>«Iniciar sesión» → AUTH-02 auth-login. «Registrarse» → AUTH-03 auth-registro (solo si allow_registration).</li>
+    <li>Con sesión restaurada → home-inicio (no se muestra aquí).</li>
+    <li>Llega desde: punto de entrada de la app sin sesión. Ninguna otra pantalla lleva aquí.</li>
+  </ul>
+</aside>
+</body>
+</html>

@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAL-07 Formulario de calendario</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Estilos del formulario (no están en components.css) */
+.off { opacity: .4; }
+.card-h + * { margin-top: var(--s3); }
+.field .row .ph { color: var(--text-3); }
+.sw { width: 51px; height: 31px; border-radius: 999px; background: var(--text-3); position: relative; flex: none; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow); }
+.sw.on { background: var(--ok); }
+.sw.on::after { left: 22px; }
+/* Color nativo (captura 33): rueda del sistema */
+.color-well { display: block; width: 30px; height: 30px; border-radius: 50%; position: relative; flex: none; background: conic-gradient(var(--person-2), var(--person-3), var(--person-4), var(--person-5), var(--person-2)); }
+.color-well::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--person-1); border: 2px solid var(--surface); }
+/* Muestras propuestas (Nuevo) */
+.swatches { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: var(--s2) 0; }
+.swatches i { width: 30px; height: 30px; border-radius: 50%; background: var(--c); display: block; flex: none; }
+.swatches i.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--c); }
+.swatches .pers { width: auto; padding: 0 12px; height: 30px; border-radius: 999px; background: var(--surface); border: 1.5px solid var(--line); font: 600 13px/28px var(--font); color: var(--text-2); }
+.spin-line { display: flex; align-items: center; gap: 10px; justify-content: center; }
+.foot { margin-top: var(--s2); display: flex; flex-direction: column; gap: var(--s3); }
+.sheet h3 { font: var(--t-title); margin-bottom: var(--s2); }
+.sheet p { font: var(--t-sub); color: var(--text-2); margin-bottom: var(--s4); }
+.alert { position: absolute; left: 50px; right: 50px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+.alert h4 { font: 600 17px/22px var(--font); } .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+.alert .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+.nav .txt.off { color: var(--accent); }
+</style>
+</head>
+<body>
+<!-- CAL-07: alta de calendario. Hoja modal sin barra de pestañas. Igual que CAL-04 sin los paneles de edición. -->
+<header class="wf-head">
+  <div class="id">CAL-07 · formulario de calendario (alta) · epic E3</div>
+  <h1>Calendario (alta)</h1>
+  <p>Hoja modal para crear un calendario. Panel «Calendario»: «Nombre» y «Color» (en la app actual, el selector de color nativo). Panel «Visible en»: interruptores Widget y Dashboard, ambos activados por defecto. «Cancelar» a la izquierda; «Crear calendario» al pie, con el texto de la captura 33 (desactivado sin nombre). Las muestras de color son <span class="tagnew">Nuevo</span>.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="cal-calendarios.html">Calendarios</a>
+    <a href="cal-detalle-calendario.html">Editor de calendario (CAL-04) →</a>
+    <a href="cal-form-evento.html">Nuevo evento →</a>
+    <a href="cal-form-rutina.html">Nueva rutina →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. CON DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos<small>Nombre «Colegio», color con la rueda del sistema (captura 33), Widget y Dashboard encendidos</small></div>
+    <div class="phone">
+      <div class="status"><span>20:08</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Nuevo calendario</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Colegio</span></div></div>
+            <div class="field"><div class="row"><span class="lbl" style="color:var(--text)">Color</span><span class="val"><span class="color-well"></span></span></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Visible en</h3></div>
+            <div class="row" style="border-top:0"><div class="grow t">Widget</div><span class="sw on"></span></div>
+            <div class="row"><div class="grow t">Dashboard</div><span class="sw on"></span></div>
+          </div>
+          <div class="foot"><a class="btn primary go" href="cal-calendarios.html">Crear calendario</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. INICIAL VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío (alta recién abierta)<small>Nombre vacío; «Crear calendario» desactivado (como en la captura 33)</small></div>
+    <div class="phone">
+      <div class="status"><span>20:08</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Nuevo calendario</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="grow t ph">Nombre</span></div></div>
+            <div class="field"><div class="row"><span class="lbl" style="color:var(--text)">Color</span><span class="val"><span class="color-well"></span></span></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Visible en</h3></div>
+            <div class="row" style="border-top:0"><div class="grow t">Widget</div><span class="sw on"></span></div>
+            <div class="row"><div class="grow t">Dashboard</div><span class="sw on"></span></div>
+          </div>
+          <div class="foot"><span class="btn primary off">Crear calendario</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. GUARDANDO -->
+  <section class="state">
+    <div class="label">3 · Guardando <span class="tagnew">Nuevo</span><small>Hoy no hay indicador documentado en el formulario. Propuesta: spinner en el botón mientras se envía</small></div>
+    <div class="phone">
+      <div class="status"><span>20:08</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <span class="txt off">Cancelar</span>
+          <span class="center">Nuevo calendario</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Colegio</span></div></div>
+            <div class="field"><div class="row"><span class="lbl" style="color:var(--text)">Color</span><span class="val"><span class="color-well"></span></span></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Visible en</h3></div>
+            <div class="row" style="border-top:0"><div class="grow t">Widget</div><span class="sw on"></span></div>
+            <div class="row"><div class="grow t">Dashboard</div><span class="sw on"></span></div>
+          </div>
+          <div class="foot"><span class="btn primary"><span class="spin-line">Crear calendario <span class="spin"></span></span></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. ERROR DE ACCIÓN (ALERTA) -->
+  <section class="state">
+    <div class="label">4 · Error de acción: alerta «Aviso / OK»<small>El código no tiene texto de validación propio para el calendario: el error de guardado es la alerta con el mensaje del servidor (aquí, marcador)</small></div>
+    <div class="phone">
+      <div class="status"><span>20:08</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Nuevo calendario</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Colegio</span></div></div>
+            <div class="field"><div class="row"><span class="lbl" style="color:var(--text)">Color</span><span class="val"><span class="color-well"></span></span></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Visible en</h3></div>
+            <div class="row" style="border-top:0"><div class="grow t">Widget</div><span class="sw on"></span></div>
+            <div class="row"><div class="grow t">Dashboard</div><span class="sw on"></span></div>
+          </div>
+          <div class="foot"><span class="btn primary">Crear calendario</span></div>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert"><h4>Aviso</h4><p>[mensaje del servidor]</p><div class="ok">OK</div></div>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy el fallo de escritura es la alerta «Aviso / OK». Propuesta: aviso fijo y datos conservados</small></div>
+    <div class="phone">
+      <div class="status"><span>20:08</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Nuevo calendario</span>
+          <span></span>
+        </div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Conecta para crear el calendario.</span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Colegio</span></div></div>
+            <div class="field"><div class="row"><span class="lbl" style="color:var(--text)">Color</span><span class="val"><span class="color-well"></span></span></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Visible en</h3></div>
+            <div class="row" style="border-top:0"><div class="grow t">Widget</div><span class="sw on"></span></div>
+            <div class="row"><div class="grow t">Dashboard</div><span class="sw on"></span></div>
+          </div>
+          <div class="foot"><span class="btn primary off">Crear calendario</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. COLOR: MUESTRAS (NUEVO) -->
+  <section class="state">
+    <div class="label">6 · Color: muestras <span class="tagnew">Nuevo</span><small>Propuesta. Hoy es la rueda del sistema (estados 1–5). Las muestras incluyen «Personalizado», que abre la rueda</small></div>
+    <div class="phone">
+      <div class="status"><span>20:08</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Nuevo calendario</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Colegio</span></div></div>
+            <div class="sub" style="font:600 13px/18px var(--font);color:var(--text-2);padding:var(--s3) var(--s1) 0">Color</div>
+            <div class="swatches">
+              <i style="--c:var(--accent)" class="on"></i>
+              <i style="--c:var(--person-1)"></i>
+              <i style="--c:var(--person-2)"></i>
+              <i style="--c:var(--person-3)"></i>
+              <i style="--c:var(--person-5)"></i>
+              <span class="pers">Personalizado</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Visible en</h3></div>
+            <div class="row" style="border-top:0"><div class="grow t">Widget</div><span class="sw on"></span></div>
+            <div class="row"><div class="grow t">Dashboard</div><span class="sw on"></span></div>
+          </div>
+          <div class="foot"><span class="btn primary">Crear calendario</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li><b>Acción al pie</b>: «Crear calendario», como en el resto de formularios y como en la captura 33. «Cancelar» a la izquierda. La primera pasada la había subido a la barra: se revierte.</li>
+    <li><b>Visible en</b>: Widget y Dashboard como interruptores, ambos encendidos por defecto (código y captura). Se quita la nota de ayuda de la primera pasada: no está en el código.</li>
+    <li><b>Color</b>: hoy es la rueda del sistema (captura 33). Las muestras son <span class="tagnew">Nuevo</span> e incluyen «Personalizado».</li>
+    <li><b>Estado 3 (guardando)</b>, <b>estado 5 (sin conexión)</b> y <b>muestras de color</b> son <span class="tagnew">Nuevo</span>.</li>
+    <li>Se quitan la validación en línea bajo el nombre y el texto «Ponle un nombre…»: el código no tiene esa validación.</li>
+  </ul>
+  <h2>Reglas de negocio</h2>
+  <ul>
+    <li>«Crear calendario» desactivado con el nombre vacío (captura 33).</li>
+    <li>Error de acción: alerta «Aviso / OK» con el mensaje del servidor. El texto del mensaje no está en el código.</li>
+    <li>Mismo panel «Calendario» y «Visible en» que la edición (CAL-04), sin «Eventos y rutinas» ni «Personas con acceso» (solo existen al editar).</li>
+  </ul>
+  <h2>Conexiones</h2>
+  <ul>
+    <li>Entra desde: Calendarios («Nuevo calendario», tarjeta al pie).</li>
+    <li>Sale a: Calendarios (Cancelar y Crear).</li>
+    <li>Tras crear, el calendario aparece en la lista; la edición es CAL-04 (cal-detalle-calendario.html).</li>
+  </ul>
+</aside>
+</body>
+</html>
