@@ -60,7 +60,7 @@ struct PersonsView: View {
             }
             if store.persons.isEmpty && !store.isLoading {
                 HomitaCard {
-                    HomitaEmptyNote(text: "Sin personas")
+                    HomitaEmptyNote(text: HomitaEmptyNoteText.persons)
                 }
                 .homitaRow()
             }

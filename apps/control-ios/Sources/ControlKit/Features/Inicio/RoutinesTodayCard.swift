@@ -45,7 +45,7 @@ struct RoutinesTodayCard: View {
                 HomitaButton(title: "Reintentar", kind: .secondary) { Task { await store.loadRoutines() } }
             default:
                 if routines.isEmpty {
-                    HomitaEmptyNote(text: "Sin rutinas hoy")
+                    HomitaEmptyNote(text: HomitaEmptyNoteText.todayRoutines)
                 } else {
                     progress
                     if pendingCount == 0 {

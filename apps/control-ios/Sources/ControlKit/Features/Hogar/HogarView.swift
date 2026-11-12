@@ -105,7 +105,7 @@ public struct HogarView: View {
                 HomitaButton(title: "Reintentar", kind: .secondary) { Task { await store.load() } }
             case .loaded:
                 if store.rows.isEmpty {
-                    HomitaEmptyNote(text: "Sin miembros")
+                    HomitaEmptyNote(text: HomitaEmptyNoteText.members)
                 }
                 ForEach(store.rows) { row in
                     memberRow(row)

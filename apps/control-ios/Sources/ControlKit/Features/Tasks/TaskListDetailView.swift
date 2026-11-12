@@ -101,7 +101,7 @@ struct TaskListDetailView: View {
 
             if listTasks.isEmpty {
                 HomitaCard {
-                    HomitaEmptyNote(text: "Sin tareas")
+                    HomitaEmptyNote(text: HomitaEmptyNoteText.listTasks)
                 }
                 .homitaRow()
             }

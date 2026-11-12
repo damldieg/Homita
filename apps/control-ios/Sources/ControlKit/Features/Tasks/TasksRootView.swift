@@ -155,14 +155,7 @@ struct TasksView: View {
                 HomitaLoadingCard(message: "Cargando tareas…").homitaRow()
             }
             if store.hasLoadedTasks && !hasTasks && !store.isLoading {
-                HomitaEmptyState(
-                    illustration: .tasks,
-                    title: "Sin tareas",
-                    message: store.listFilterId == nil
-                        ? "Crea tu primera tarea y ponle una lista para tenerla a mano."
-                        : "Esta lista no tiene tareas todavía.",
-                    actionTitle: "Nueva tarea"
-                ) {
+                HomitaEmptyState(.tasks(filtered: store.listFilterId != nil)) {
                     showCreateTask = true
                 }
                 .homitaRow()
@@ -251,12 +244,7 @@ struct TaskListsView: View {
                 HomitaLoadingCard(message: "Cargando listas…").homitaRow()
             }
             if store.hasLoadedLists && store.taskLists.isEmpty && !store.isLoading {
-                HomitaEmptyState(
-                    illustration: .lists,
-                    title: "Sin listas",
-                    message: "Las listas agrupan tus tareas: compra, casa, trabajo…",
-                    actionTitle: "Nueva lista"
-                ) {
+                HomitaEmptyState(.taskLists) {
                     showCreateList = true
                 }
                 .homitaRow()

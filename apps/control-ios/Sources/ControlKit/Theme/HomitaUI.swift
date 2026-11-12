@@ -582,6 +582,21 @@ struct HomitaEmptyState: View {
     var actionTitle: String?
     var action: (() -> Void)?
 
+    init(illustration: HomitaIllustrationKind, title: String, message: String,
+         actionTitle: String? = nil, action: (() -> Void)? = nil) {
+        self.illustration = illustration
+        self.title = title
+        self.message = message
+        self.actionTitle = actionTitle
+        self.action = action
+    }
+
+    /// Vacío a partir del contenido probado (`HomitaEmptyContent`, textos reales).
+    init(_ content: HomitaEmptyContent, action: (() -> Void)? = nil) {
+        self.init(illustration: content.illustration, title: content.title, message: content.message,
+                  actionTitle: content.actionTitle, action: action)
+    }
+
     var body: some View {
         HomitaCard {
             VStack(spacing: 14) {
@@ -594,7 +609,8 @@ struct HomitaEmptyState: View {
                     .font(HomitaFont.inter(15, relativeTo: .body))
                     .foregroundStyle(Palette.inkSoft)
                     .multilineTextAlignment(.center)
-                if let actionTitle, let action {
+                if HomitaEmptyContent.showsAction(actionTitle: actionTitle, hasAction: action != nil),
+                   let actionTitle, let action {
                     HomitaButton(title: actionTitle, action: action)
                 }
             }

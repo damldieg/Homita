@@ -12,12 +12,7 @@ struct CalendarListView: View {
                 HomitaSkeletonRows(count: 3, height: 64, label: "Cargando calendarios").homitaRow()
             }
             if store.hasLoaded && store.calendars.isEmpty && !store.isLoading {
-                HomitaEmptyState(
-                    illustration: .calendars,
-                    title: "Sin calendarios",
-                    message: "Los calendarios agrupan eventos y rutinas por color, como Trabajo o Familia.",
-                    actionTitle: "Nuevo calendario"
-                ) {
+                HomitaEmptyState(.calendars) {
                     showCreate = true
                 }
                 .homitaRow()

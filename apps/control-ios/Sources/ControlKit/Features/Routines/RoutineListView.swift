@@ -34,12 +34,7 @@ struct RoutineListView: View {
                 HomitaLoadingCard(message: "Cargando rutinas…").homitaRow()
             }
             if store.hasLoaded && store.routines.isEmpty && !store.isLoading {
-                HomitaEmptyState(
-                    illustration: .routines,
-                    title: "Sin rutinas",
-                    message: "Las rutinas repiten eventos cada día, semana o mes sin que las vuelvas a escribir.",
-                    actionTitle: "Nueva rutina"
-                ) {
+                HomitaEmptyState(.routines) {
                     showCreate = true
                 }
                 .homitaRow()

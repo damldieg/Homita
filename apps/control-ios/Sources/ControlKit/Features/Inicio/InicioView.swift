@@ -95,7 +95,7 @@ public struct InicioView: View {
         sectionCard(title: "Hoy · Eventos", systemImage: "calendar", count: store.todayEvents.count, destination: .events,
                     state: store.eventsState, retry: { await store.loadEvents() }) {
             if store.todayEvents.isEmpty {
-                emptyText("Sin eventos hoy")
+                emptyText(HomitaEmptyNoteText.todayEvents)
             }
             ForEach(store.todayEvents) { event in
                 HStack(spacing: 12) {
@@ -174,7 +174,7 @@ public struct InicioView: View {
                         .foregroundStyle(Palette.accent)
                 }
             } else {
-                emptyText("Sin tareas pendientes")
+                emptyText(HomitaEmptyNoteText.pendingTasks)
             }
         }
     }
