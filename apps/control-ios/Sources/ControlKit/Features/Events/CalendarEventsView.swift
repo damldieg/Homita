@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// Pestaña Eventos (B3): conmutador Mes / Semana / Día / Agenda. «Agenda» es la lista de
-/// Próximos y Pasados con búsqueda (`EventListView`). Tocar un evento abre su detalle en push.
+/// Pestaña Eventos (B3): conmutador Mes / Semana / Día. Tocar un evento abre su detalle en push.
 struct CalendarEventsView: View {
     @Bindable var eventStore: EventStore
     @Bindable var calendarStore: CalendarAgendaStore
@@ -21,11 +20,7 @@ struct CalendarEventsView: View {
             )
             .padding([.horizontal, .top])
 
-            if calendarStore.mode == .agenda {
-                EventListView(store: eventStore, calendars: calendars, persons: persons)
-            } else {
-                calendarContent
-            }
+            calendarContent
         }
         .navigationDestination(isPresented: detailPresented) {
             if let event = selectedEvent {
@@ -34,7 +29,7 @@ struct CalendarEventsView: View {
         }
         .sheet(isPresented: $showCreate, onDismiss: {
             // El alta no pasa por el detalle push: al cerrar la hoja se recarga el rango (R1-02).
-            if calendarStore.mode != .agenda { Task { await calendarStore.load() } }
+            Task { await calendarStore.load() }
         }) {
             NavigationStack {
                 EventDetailView(store: eventStore, calendars: calendars, persons: persons, event: nil,
@@ -42,24 +37,20 @@ struct CalendarEventsView: View {
             }
         }
         .toolbar {
-            if calendarStore.mode != .agenda {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showCreate = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .foregroundStyle(Palette.ink)
-                            .accessibilityLabel("Nuevo evento")
-                    }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showCreate = true
+                } label: {
+                    Image(systemName: "plus")
+                        .foregroundStyle(Palette.ink)
+                        .accessibilityLabel("Nuevo evento")
                 }
             }
         }
         .errorAlert($calendarStore.errorMessage)
         // Al volver del detalle (guardar, eliminar o atrás) se recarga el rango visible.
         .onChange(of: selectedEvent?.id) { _, id in
-            if id == nil, calendarStore.mode != .agenda {
-                Task { await calendarStore.load() }
-            }
+            if id == nil { Task { await calendarStore.load() } }
         }
         .task {
             if !calendarStore.hasLoaded { await calendarStore.load() }
@@ -125,7 +116,7 @@ struct CalendarEventsView: View {
             let days = calendarStore.visibleDays
             guard let first = days.first, let last = days.last else { return "" }
             return "\(Self.format("dMMM", first, grid)) – \(Self.format("dMMM", last, grid))"
-        case .day, .agenda:
+        case .day:
             return Self.format("EEEEdMMMM", anchor, grid).capitalized
         }
     }

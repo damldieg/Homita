@@ -89,33 +89,42 @@ struct HomitaSectionHeader: View {
 
 // MARK: - Segmentos
 
-/// Selector de segmentos (Tareas/Listas, Eventos/Rutinas/Calendarios) con `SUSegmentedControl`.
+/// Selector de segmentos (Tareas/Listas, Eventos/Rutinas/Calendarios) a medida en SwiftUI:
+/// contenedor con fondo de la paleta y segmento activo como pastilla de tarjeta.
 struct HomitaSegmented<ID: Hashable & Sendable>: View {
     @Binding var selection: ID
     let items: [(id: ID, title: String)]
 
     var body: some View {
-        #if canImport(ComponentsKit)
-        SUSegmentedControl(selectedId: $selection, model: segmentModel)
-        #else
-        Picker("", selection: $selection) {
-            ForEach(items, id: \.id) { Text($0.title).tag($0.id) }
-        }
-        .pickerStyle(.segmented)
-        #endif
-    }
-
-    #if canImport(ComponentsKit)
-    private var segmentModel: SegmentedControlVM<ID> {
-        SegmentedControlVM<ID> { vm in
-            vm.isFullWidth = true
-            vm.color = ComponentColor(main: uc("#FFFDF9"), contrast: uc("#221D18"))
-            vm.items = items.map { item in
-                SegmentedControlItemVM(id: item.id) { $0.title = item.title }
+        HStack(spacing: 4) {
+            ForEach(items, id: \.id) { item in
+                let isSelected = item.id == selection
+                Button {
+                    withAnimation(.easeOut(duration: 0.15)) { selection = item.id }
+                } label: {
+                    Text(item.title)
+                        .font(HomitaFont.geist(15, weight: isSelected ? .semibold : .medium, relativeTo: .subheadline))
+                        .foregroundStyle(isSelected ? Palette.ink : Palette.inkSoft)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                        .background {
+                            if isSelected {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Palette.card)
+                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.cardBorder, lineWidth: 1))
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(item.title)
+                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
             }
         }
+        .padding(4)
+        .background(Palette.rail, in: RoundedRectangle(cornerRadius: 16))
     }
-    #endif
 }
 
 // MARK: - Insignia

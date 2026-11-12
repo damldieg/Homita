@@ -1,5 +1,34 @@
 import Foundation
 
+/// Grupo de tareas de una misma lista (sección plegable de la pestaña Tareas).
+public struct TaskGroup: Equatable, Identifiable {
+    public let listId: Int
+    public let name: String
+    public let colorHex: String?
+    public let tasks: [TaskEntry]
+    public var id: Int { listId }
+    public var count: Int { tasks.count }
+
+    /// Agrupa por lista: primero las listas en el orden de `lists`, luego las listas desconocidas
+    /// por orden de aparición. Dentro del grupo, pendientes antes que completadas (estable).
+    /// Las listas sin tareas no generan grupo.
+    public static func group(tasks: [TaskEntry], lists: [TaskListEntry]) -> [TaskGroup] {
+        var order = lists.map(\.id)
+        for task in tasks where !order.contains(task.task_list_id) { order.append(task.task_list_id) }
+        return order.compactMap { id in
+            let items = tasks.filter { $0.task_list_id == id }
+            guard !items.isEmpty else { return nil }
+            let list = lists.first { $0.id == id }
+            return TaskGroup(
+                listId: id,
+                name: list?.name ?? items[0].task_list_name ?? "Sin lista",
+                colorHex: list?.color ?? items[0].task_list_color,
+                tasks: items.filter { !$0.isCompleted } + items.filter { $0.isCompleted }
+            )
+        }
+    }
+}
+
 /// Estado de la pestaña Tareas: listas + tareas (paridad con `TaskViewModel`/`TaskListViewModel`).
 /// Reordenar solo se permite en listas con `sort == "custom"` (como Android) y el aviso de título
 /// duplicado es de cliente (mismo trim/case-insensitive por lista).
@@ -30,6 +59,7 @@ public final class TasksStore {
 
     public var pendingTasks: [TaskEntry] { tasks.filter { !$0.isCompleted } }
     public var completedTasks: [TaskEntry] { tasks.filter { $0.isCompleted } }
+    public var taskGroups: [TaskGroup] { TaskGroup.group(tasks: tasks, lists: taskLists) }
     public var activeSort: String { taskLists.first { $0.id == listFilterId }?.sort ?? "updated_at" }
     /// Reordenar (onMove) solo con orden personalizado y lista activa.
     public var canReorder: Bool { listFilterId != nil && activeSort == "custom" }

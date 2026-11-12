@@ -1,19 +1,31 @@
 import SwiftUI
 
+/// Destino de las flechas de las tarjetas de Inicio.
+public enum InicioDestination: Sendable {
+    case tasks, routines, events
+    /// Pestaña Tareas filtrada por esta lista.
+    case taskList(Int)
+}
+
 /// Pestaña Inicio (versión mínima): saludo y fecha, Hoy · Eventos, Tareas pendientes, Rutinas de
 /// hoy y accesos rápidos. Solo lee `event`, `task` y `routine`; las rutinas se calculan en cliente.
 /// La casilla de las tareas completa/reabre igual que en la pestaña Tareas.
 public struct InicioView: View {
     let services: AppServices
+    /// Navegación a otra pestaña (Tareas, Rutinas, Eventos); la resuelve `MainTabView`.
+    var onOpen: (InicioDestination) -> Void = { _ in }
     @State private var store: InicioStore
     @State private var eventStore: EventStore
     @State private var calendarStore: CalendarStore
     @State private var personStore: PersonStore
     @State private var showTaskEditor = false
     @State private var showEventEditor = false
+    /// Lista mostrada en la tarjeta de tareas (`nil` = la primera).
+    @State private var taskPageId: Int?
 
-    public init(services: AppServices) {
+    public init(services: AppServices, onOpen: @escaping (InicioDestination) -> Void = { _ in }) {
         self.services = services
+        self.onOpen = onOpen
         _store = State(initialValue: InicioStore(
             events: services.events, tasks: services.tasks,
             routines: services.routines, taskLists: services.taskLists
@@ -86,7 +98,7 @@ public struct InicioView: View {
     // MARK: - Secciones
 
     private var eventsCard: some View {
-        sectionCard(title: "Hoy · Eventos", systemImage: "calendar", count: store.todayEvents.count,
+        sectionCard(title: "Hoy · Eventos", systemImage: "calendar", count: store.todayEvents.count, destination: .events,
                     state: store.eventsState, retry: { await store.loadEvents() }) {
             if store.todayEvents.isEmpty {
                 emptyText("Sin eventos hoy")
@@ -117,50 +129,63 @@ public struct InicioView: View {
     }
 
     private var tasksCard: some View {
-        sectionCard(title: "Tareas pendientes", systemImage: "checklist", count: store.pendingTasks.count,
+        let pages = store.pendingTaskPages
+        let page = pages.first { $0.id == taskPageId } ?? pages.first
+        return sectionCard(title: "Tareas pendientes", systemImage: "checklist",
+                    count: store.tasks.filter { !$0.isCompleted }.count, destination: .tasks,
                     state: store.tasksState, retry: { await store.loadTasks() }) {
-            if store.pendingTasks.isEmpty {
-                emptyText("Sin tareas pendientes")
-            }
-            ForEach(store.pendingTasks) { task in
-                HStack(spacing: 12) {
-                    HomitaCheckbox(isOn: task.isCompleted, tintHex: Palette.onlineHex) {
-                        Task { await store.toggleComplete(task) }
+            if let page {
+                // Puntos para cambiar de lista: entre el título y el contenido, sin animación.
+                if pages.count > 1 {
+                    HStack(spacing: 8) {
+                        ForEach(pages) { item in
+                            Button {
+                                var t = Transaction(); t.disablesAnimations = true
+                                withTransaction(t) { taskPageId = item.id }
+                            } label: {
+                                Circle()
+                                    .fill(item.id == page.id ? Palette.ink : Palette.inkMuted.opacity(0.4))
+                                    .frame(width: 8, height: 8)
+                                    .frame(width: 20, height: 20)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Lista \(item.name)")
+                        }
                     }
-                    Text(task.title)
-                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
-                        .foregroundStyle(Palette.ink)
-                    Spacer()
-                    if let name = task.task_list_name {
-                        HomitaBadge(title: name, tintHex: task.task_list_color ?? Palette.accentHex)
+                    .frame(maxWidth: .infinity)
+                }
+                HStack(spacing: 8) {
+                    Circle().fill(Color(hex: page.colorHex)).frame(width: 10, height: 10)
+                    Text(page.name)
+                        .font(HomitaFont.geist(15, weight: .semibold, relativeTo: .subheadline))
+                        .foregroundStyle(Palette.inkSoft)
+                }
+                ForEach(page.tasks) { task in
+                    HStack(spacing: 12) {
+                        HomitaCheckbox(isOn: task.isCompleted, tintHex: Palette.onlineHex) {
+                            Task { await store.toggleComplete(task) }
+                        }
+                        Text(task.title)
+                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .foregroundStyle(Palette.ink)
+                        Spacer()
                     }
                 }
+                HStack {
+                    Spacer()
+                    Button("Ver más") { onOpen(.taskList(page.id)) }
+                        .font(HomitaFont.geist(15, weight: .semibold, relativeTo: .subheadline))
+                        .foregroundStyle(Palette.accent)
+                }
+            } else {
+                emptyText("Sin tareas pendientes")
             }
         }
     }
 
     private var routinesCard: some View {
-        sectionCard(title: "Rutinas de hoy", systemImage: "repeat", count: store.todayRoutines.count,
-                    state: store.routinesState, retry: { await store.loadRoutines() }) {
-            if store.todayRoutines.isEmpty {
-                emptyText("Sin rutinas hoy")
-            }
-            ForEach(store.todayRoutines) { routine in
-                HStack(spacing: 12) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color(hex: routine.calendar_color ?? Palette.fallbackItem))
-                        .frame(width: 4, height: 28)
-                    Text(routine.title)
-                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
-                        .foregroundStyle(Palette.ink)
-                    Spacer()
-                    Text(String(routine.time.prefix(5)))
-                        .font(HomitaFont.geist(15, weight: .semibold, relativeTo: .subheadline))
-                        .foregroundStyle(Palette.inkSoft)
-                }
-                .accessibilityElement(children: .combine)
-            }
-        }
+        RoutinesTodayCard(store: store, dateText: dateText) { onOpen(.routines) }
     }
 
     private var quickActions: some View {
@@ -197,11 +222,22 @@ public struct InicioView: View {
     // MARK: - Piezas
 
     private func sectionCard<Content: View>(
-        title: String, systemImage: String, count: Int, state: InicioSectionState,
+        title: String, systemImage: String, count: Int, destination: InicioDestination, state: InicioSectionState,
         retry: @escaping () async -> Void, @ViewBuilder content: @escaping () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            HomitaSectionHeader(title: title, count: state == .loaded ? count : nil, systemImage: systemImage)
+            HStack(spacing: 8) {
+                HomitaSectionHeader(title: title, count: state == .loaded ? count : nil, systemImage: systemImage)
+                Button { onOpen(destination) } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Palette.inkSoft)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Ir a \(title)")
+            }
             switch state {
             case .idle, .loading:
                 if count == 0 {

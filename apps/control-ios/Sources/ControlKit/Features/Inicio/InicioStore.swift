@@ -45,7 +45,90 @@ public final class InicioStore {
     /// Primeras tareas pendientes.
     public var pendingTasks: [TaskEntry] { TodaySummary.pendingTasks(tasks) }
 
-    /// Rutinas que tocan hoy.
+    /// Páginas de la tarjeta de tareas: una por lista con pendientes (nombre/color de la propia tarea).
+    public struct TaskPage: Identifiable, Equatable, Sendable {
+        public let id: Int
+        public let name: String
+        public let colorHex: String
+        public let tasks: [TaskEntry]
+    }
+
+    /// Pendientes agrupadas por lista (orden de `TodaySummary.pendingTasks`, sin límite global;
+    /// cada página muestra las primeras `taskLimit`).
+    public var pendingTaskPages: [TaskPage] {
+        let all = TodaySummary.pendingTasks(tasks, limit: tasks.count)
+        var order: [Int] = []
+        for task in all where !order.contains(task.task_list_id) { order.append(task.task_list_id) }
+        return order.map { listId in
+            let items = all.filter { $0.task_list_id == listId }
+            let first = items[0]
+            return TaskPage(
+                id: listId, name: first.task_list_name ?? "Tareas",
+                colorHex: first.task_list_color ?? Palette.accentHex,
+                tasks: Array(items.prefix(TodaySummary.taskLimit))
+            )
+        }
+    }
+
+    /// Estado de una rutina de hoy según su hora de inicio de hoy (misma regla que la pestaña Rutinas).
+    public func status(for routine: RoutineEntry) -> RoutineStatus {
+        let current = clock()
+        let start = RoutineStatus.startToday(time: routine.time, now: current.now, timeZone: current.timeZone)
+        return RoutineStatus.evaluate(start: start, now: current.now)
+    }
+
+    /// Marcas manuales de «hecha» de hoy (`true` = hecha, `false` = desmarcada). No hay endpoint de
+    /// completar rutinas: es estado local del dispositivo, por día (se descarta al cambiar de día).
+    public private(set) var routineDoneOverrides: [Int: Bool] = [:]
+    private var overridesDay: String?
+
+    /// ¿Está hecha hoy? La marca manual manda; sin marca, una rutina caducada (pasó su hora + ventana)
+    /// cuenta como hecha, igual que en la pestaña Rutinas. Solo lectura (no muta estado: se llama
+    /// desde `body`); las marcas de un día anterior se ignoran y se descartan al escribir o cargar.
+    public func isRoutineDone(_ routine: RoutineEntry) -> Bool {
+        let override = overridesDay == currentDay() ? routineDoneOverrides[routine.id] : nil
+        return override ?? (status(for: routine) == .expired)
+    }
+
+    /// Marca o desmarca una rutina de hoy como hecha.
+    public func setRoutineDone(_ routine: RoutineEntry, done: Bool) {
+        resetOverridesIfNewDay()
+        routineDoneOverrides[routine.id] = done
+    }
+
+    private func currentDay() -> String {
+        let current = clock()
+        return String(PHPDateTime.format(current.now, timeZone: current.timeZone).prefix(10))
+    }
+
+    /// Descarta las marcas de un día anterior. Solo se llama fuera del render (carga y escritura).
+    private func resetOverridesIfNewDay() {
+        let day = currentDay()
+        if overridesDay != day {
+            overridesDay = day
+            routineDoneOverrides = [:]
+        }
+    }
+
+    /// Hora de inicio de hoy de una rutina (`nil` = sin hora fija).
+    public func startToday(of routine: RoutineEntry) -> Date? {
+        let current = clock()
+        return RoutineStatus.startToday(time: routine.time, now: current.now, timeZone: current.timeZone)
+    }
+
+    /// Rutinas de hoy ordenadas por hora (sin hora al final).
+    public var todayRoutinesByTime: [RoutineEntry] {
+        let list = todayRoutines
+        return list.filter(\.hasFixedTime).sorted { $0.time < $1.time } + list.filter { !$0.hasFixedTime }
+    }
+
+    /// Minutos hasta el inicio de hoy de la rutina (`nil` sin hora fija o si ya empezó).
+    public func minutesUntilStart(of routine: RoutineEntry) -> Int? {
+        guard let start = startToday(of: routine) else { return nil }
+        let diff = Int((start.timeIntervalSince(clock().now) / 60).rounded(.up))
+        return diff > 0 ? diff : nil
+    }
+
     public var todayRoutines: [RoutineEntry] {
         let current = clock()
         return TodaySummary.routines(routines, on: current.now, timeZone: current.timeZone)
@@ -85,6 +168,7 @@ public final class InicioStore {
     }
 
     public func loadRoutines() async {
+        resetOverridesIfNewDay()
         routinesState = .loading
         let current = clock()
         do {
