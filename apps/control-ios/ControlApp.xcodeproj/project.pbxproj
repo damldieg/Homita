@@ -10,9 +10,20 @@
 		B10000000000000000000001 /* ControlKit in Frameworks */ = {isa = PBXBuildFile; productRef = C10000000000000000000001 /* ControlKit */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		D1000000000000000000008 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B1000000000000000000000D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B10000000000000000000008;
+			remoteInfo = ControlApp;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		B10000000000000000000002 /* ControlApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ControlApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B10000000000000000000003 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		D1000000000000000000002 /* ControlAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ControlAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -34,6 +45,11 @@
 			path = ControlApp;
 			sourceTree = "<group>";
 		};
+		D1000000000000000000001 /* ControlAppUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ControlAppUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -45,6 +61,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D1000000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -52,6 +75,7 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000004 /* ControlApp */,
+				D1000000000000000000001 /* ControlAppUITests */,
 				B10000000000000000000003 /* Config.xcconfig */,
 				B10000000000000000000007 /* Products */,
 			);
@@ -61,6 +85,7 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000002 /* ControlApp.app */,
+				D1000000000000000000002 /* ControlAppUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -92,6 +117,27 @@
 			productReference = B10000000000000000000002 /* ControlApp.app */;
 			productType = "com.apple.product-type.application";
 		};
+		D1000000000000000000003 /* ControlAppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D1000000000000000000009 /* Build configuration list for PBXNativeTarget "ControlAppUITests" */;
+			buildPhases = (
+				D1000000000000000000004 /* Sources */,
+				D1000000000000000000005 /* Frameworks */,
+				D1000000000000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D1000000000000000000007 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D1000000000000000000001 /* ControlAppUITests */,
+			);
+			name = ControlAppUITests;
+			productName = ControlAppUITests;
+			productReference = D1000000000000000000002 /* ControlAppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -120,12 +166,20 @@
 			projectRoot = "";
 			targets = (
 				B10000000000000000000008 /* ControlApp */,
+				D1000000000000000000003 /* ControlAppUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		B1000000000000000000000C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D1000000000000000000006 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -164,7 +218,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D1000000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D1000000000000000000007 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B10000000000000000000008 /* ControlApp */;
+			targetProxy = D1000000000000000000008 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		B1000000000000000000000F /* Debug */ = {
@@ -337,6 +406,40 @@
 			};
 			name = Release;
 		};
+		D100000000000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = V2LULDCBSP;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lito.planify.control.ios.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = ControlApp;
+			};
+			name = Debug;
+		};
+		D100000000000000000000C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = V2LULDCBSP;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lito.planify.control.ios.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = ControlApp;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -354,6 +457,15 @@
 			buildConfigurations = (
 				B1000000000000000000000F /* Debug */,
 				B10000000000000000000010 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D1000000000000000000009 /* Build configuration list for PBXNativeTarget "ControlAppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D100000000000000000000A /* Debug */,
+				D100000000000000000000C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
