@@ -59,6 +59,15 @@ struct CalendarListView: View {
             }
         }
         .homitaList()
+        // E3-04 [Nuevo]: alta también desde la cabecera; la tarjeta «Nuevo calendario» se mantiene al pie.
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showCreate = true } label: {
+                    Image(systemName: "plus").foregroundStyle(Palette.ink)
+                }
+                .accessibilityLabel("Nuevo calendario")
+            }
+        }
         .sheet(isPresented: $showCreate) {
             NavigationStack {
                 CalendarDetailView(store: store, calendar: nil)

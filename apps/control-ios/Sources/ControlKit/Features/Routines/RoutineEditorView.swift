@@ -74,6 +74,11 @@ struct RoutineEditorView: View {
                 Stepper("Cada \(interval) \(unitLabel)", value: $interval, in: 1...99)
                     .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
+                // E3-06 [Nuevo]: resumen en lenguaje natural de la regla.
+                Text(RoutineSummary.text(frequency: frequency, interval: interval, days: Array(days), hour: hourText))
+                    .font(HomitaFont.inter(14, relativeTo: .footnote))
+                    .foregroundStyle(Palette.inkSoft)
+                    .accessibilityLabel("Resumen: " + RoutineSummary.text(frequency: frequency, interval: interval, days: Array(days), hour: hourText))
                 if frequency == "weekly" {
                     // Selección múltiple de días: ComponentsKit solo ofrece selección única.
                     HStack(spacing: 6) {
@@ -132,6 +137,12 @@ struct RoutineEditorView: View {
         .errorAlert($store.errorMessage)
         // «Reintentar» que va bien cierra el editor, igual que un guardado correcto.
         .writeFailureToast($store.writeFailure) { dismiss() }
+    }
+
+    /// Hora del editor como «HH:mm».
+    private var hourText: String {
+        let parts = Calendar.current.dateComponents([.hour, .minute], from: time)
+        return String(format: "%02d:%02d", parts.hour ?? 0, parts.minute ?? 0)
     }
 
     private var unitLabel: String {
