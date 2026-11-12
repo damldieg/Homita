@@ -73,4 +73,14 @@ final class RoutineShownStatusTests: XCTestCase {
         XCTAssertEqual(RoutineStatus.evaluateShown(started: now.addingTimeInterval(-7200), next: nil, now: now), .expired)
         XCTAssertEqual(RoutineStatus.evaluateShown(started: nil, next: nil, now: now), .normal)
     }
+
+    /// Aviso (E1-04): aún no empieza y a ≤ 60 min del inicio.
+    func testIsSoonWithinOneHourBeforeStart() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        XCTAssertTrue(RoutineStatus.isSoon(start: start, now: start.addingTimeInterval(-3600)))
+        XCTAssertTrue(RoutineStatus.isSoon(start: start, now: start.addingTimeInterval(-1800)))
+        XCTAssertFalse(RoutineStatus.isSoon(start: start, now: start.addingTimeInterval(-3601)))
+        XCTAssertFalse(RoutineStatus.isSoon(start: start, now: start), "ya empieza: en curso, no aviso")
+        XCTAssertFalse(RoutineStatus.isSoon(start: nil, now: start))
+    }
 }

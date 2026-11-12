@@ -77,37 +77,10 @@ public final class InicioStore {
         return RoutineStatus.evaluate(start: start, now: current.now)
     }
 
-    /// Marcas manuales de «hecha» de hoy (`true` = hecha, `false` = desmarcada). No hay endpoint de
-    /// completar rutinas: es estado local del dispositivo, por día (se descarta al cambiar de día).
-    public private(set) var routineDoneOverrides: [Int: Bool] = [:]
-    private var overridesDay: String?
-
-    /// ¿Está hecha hoy? La marca manual manda; sin marca, una rutina caducada (pasó su hora + ventana)
-    /// cuenta como hecha, igual que en la pestaña Rutinas. Solo lectura (no muta estado: se llama
-    /// desde `body`); las marcas de un día anterior se ignoran y se descartan al escribir o cargar.
-    public func isRoutineDone(_ routine: RoutineEntry) -> Bool {
-        let override = overridesDay == currentDay() ? routineDoneOverrides[routine.id] : nil
-        return override ?? (status(for: routine) == .expired)
-    }
-
-    /// Marca o desmarca una rutina de hoy como hecha.
-    public func setRoutineDone(_ routine: RoutineEntry, done: Bool) {
-        resetOverridesIfNewDay()
-        routineDoneOverrides[routine.id] = done
-    }
-
-    private func currentDay() -> String {
+    /// Aviso (≤ 60 min antes del inicio). El estado se calcula solo por horario (D-1): sin marca manual.
+    public func isSoon(_ routine: RoutineEntry) -> Bool {
         let current = clock()
-        return String(PHPDateTime.format(current.now, timeZone: current.timeZone).prefix(10))
-    }
-
-    /// Descarta las marcas de un día anterior. Solo se llama fuera del render (carga y escritura).
-    private func resetOverridesIfNewDay() {
-        let day = currentDay()
-        if overridesDay != day {
-            overridesDay = day
-            routineDoneOverrides = [:]
-        }
+        return RoutineStatus.isSoon(start: startToday(of: routine), now: current.now)
     }
 
     /// Hora de inicio de hoy de una rutina (`nil` = sin hora fija).
@@ -120,6 +93,29 @@ public final class InicioStore {
     public var todayRoutinesByTime: [RoutineEntry] {
         let list = todayRoutines
         return list.filter(\.hasFixedTime).sorted { $0.time < $1.time } + list.filter { !$0.hasFixedTime }
+    }
+
+    /// Minutos que quedan de la ventana de 60 min de una rutina en curso (`nil` si no está en curso).
+    public func minutesLeftInWindow(of routine: RoutineEntry) -> Int? {
+        guard let start = startToday(of: routine) else { return nil }
+        let now = clock().now
+        let end = start.addingTimeInterval(RoutineStatus.window)
+        guard now >= start, now <= end else { return nil }
+        return max(1, Int((end.timeIntervalSince(now) / 60).rounded(.up)))
+    }
+
+    /// Fracción 0…1 de la barra de tiempo: para «aviso» cuánto falta para empezar (llena al empezar);
+    /// para «en curso», cuánto lleva transcurrido de la ventana. `nil` fuera de esos dos estados.
+    public func windowFraction(of routine: RoutineEntry) -> Double? {
+        guard let start = startToday(of: routine) else { return nil }
+        let now = clock().now
+        if RoutineStatus.isSoon(start: start, now: now) {
+            return 1 - start.timeIntervalSince(now) / RoutineStatus.soonWindow
+        }
+        if RoutineStatus.evaluate(start: start, now: now) == .inProgress {
+            return now.timeIntervalSince(start) / RoutineStatus.window
+        }
+        return nil
     }
 
     /// Minutos hasta el inicio de hoy de la rutina (`nil` sin hora fija o si ya empezó).
@@ -168,7 +164,6 @@ public final class InicioStore {
     }
 
     public func loadRoutines() async {
-        resetOverridesIfNewDay()
         routinesState = .loading
         let current = clock()
         do {

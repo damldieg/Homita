@@ -56,6 +56,7 @@ struct MainTabView: View {
                     case .taskList(let id): taskListRequest = id; selectedTab = 1
                     case .routines: calendarSegment = 1; selectedTab = 2
                     case .events: calendarSegment = 0; selectedTab = 2
+                    case .home: selectedTab = 3
                     }
                 }
             }

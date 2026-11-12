@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Destino de las flechas de las tarjetas de Inicio.
 public enum InicioDestination: Sendable {
-    case tasks, routines, events
+    case tasks, routines, events, home
     /// Pestaña Tareas filtrada por esta lista.
     case taskList(Int)
 }
@@ -70,8 +70,9 @@ public struct InicioView: View {
     // MARK: - Saludo
 
     private var greeting: some View {
-        HomitaHeader(title: greetingText, subtitle: dateText)
-            .accessibilityElement(children: .combine)
+        HomitaHeader(title: greetingText, subtitle: dateText) {
+            HomitaHeaderButton(systemImage: "house", label: "Ir a Hogar") { onOpen(.home) }
+        }
     }
 
     private var greetingText: String {
