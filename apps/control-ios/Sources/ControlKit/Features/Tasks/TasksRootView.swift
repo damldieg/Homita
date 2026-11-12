@@ -57,6 +57,9 @@ struct TasksView: View {
     @State private var showCreateTask = false
     @State private var pendingTaskDelete: [TaskEntry] = []
     @State private var showTaskDelete = false
+    @State private var showCompletedDelete = false
+    @State private var completedListId: Int?
+    @State private var completedNames: [String] = []
     @State private var taskToEdit: TaskEntry?
     /// Listas plegadas; por defecto todas desplegadas.
     @State private var collapsedListIds: Set<Int> = []
@@ -127,6 +130,7 @@ struct TasksView: View {
                         }
                     }
                 } header: {
+                    HStack(spacing: 8) {
                     Button {
                         if collapsedListIds.contains(group.listId) {
                             collapsedListIds.remove(group.listId)
@@ -148,6 +152,24 @@ struct TasksView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(group.name), \(group.count) tareas")
                     .accessibilityValue(collapsedListIds.contains(group.listId) ? "plegada" : "desplegada")
+                    Spacer(minLength: 0)
+                    // Borra solo las completadas de esta lista, con confirmación.
+                    if group.tasks.contains(where: \.isCompleted) {
+                        Button {
+                            completedListId = group.listId
+                            completedNames = group.tasks.filter(\.isCompleted).map(\.title)
+                            showCompletedDelete = true
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Palette.accent)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Eliminar tareas completadas de \(group.name)")
+                    }
+                    }
                 }
             }
 
@@ -231,6 +253,9 @@ struct TasksView: View {
         .homitaConfirm(DeleteConfirmation.message(names: pendingTaskDelete.map(\.title), consequence: "Se eliminará la tarea."), isPresented: $showTaskDelete, confirmTitle: "Eliminar") {
             let tasks = pendingTaskDelete
             Task { for task in tasks { await store.deleteTask(task) } }
+        }
+        .homitaConfirm(DeleteConfirmation.message(names: completedNames, consequence: "Se eliminarán las tareas completadas de esta lista."), isPresented: $showCompletedDelete, confirmTitle: "Eliminar") {
+            if let id = completedListId { Task { await store.deleteCompleted(listId: id) } }
         }
     }
 }

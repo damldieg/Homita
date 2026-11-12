@@ -11,6 +11,7 @@ struct TaskListDetailView: View {
     @State private var newTaskTitle = ""
     @State private var pendingTaskDelete: [TaskEntry] = []
     @State private var showTaskDelete = false
+    @State private var showCompletedDelete = false
     @State private var showEditList = false
     @State private var taskToEdit: TaskEntry?
     #if os(iOS)
@@ -95,7 +96,22 @@ struct TaskListDetailView: View {
                         showTaskDelete = true
                     }
                 } header: {
-                    HomitaSectionHeader(title: "Completadas", count: completed.count, systemImage: "checkmark.circle", tint: Palette.online)
+                    HStack {
+                        HomitaSectionHeader(title: "Completadas", count: completed.count, systemImage: "checkmark.circle", tint: Palette.online)
+                        Spacer(minLength: 0)
+                        // Borra todas las completadas de la lista, con confirmación.
+                        Button {
+                            showCompletedDelete = true
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Palette.accent)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Eliminar todas las completadas")
+                    }
                 }
             }
 
@@ -172,6 +188,10 @@ struct TaskListDetailView: View {
         }
         .errorAlert($store.errorMessage)
         .writeFailureToast($store.writeFailure)
+        .homitaConfirm(DeleteConfirmation.message(names: completed.map(\.title), consequence: "Se eliminarán las tareas completadas de esta lista."), isPresented: $showCompletedDelete, confirmTitle: "Eliminar") {
+            let id = current.id
+            Task { await store.deleteCompleted(listId: id) }
+        }
         .homitaConfirm(DeleteConfirmation.message(names: pendingTaskDelete.map(\.title), consequence: "Se eliminará la tarea."), isPresented: $showTaskDelete, confirmTitle: "Eliminar") {
             let tasks = pendingTaskDelete
             Task { for task in tasks { await store.deleteTask(task) } }

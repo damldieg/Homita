@@ -142,6 +142,14 @@ public final class TasksStore: WriteFailureReporting {
         if !ok { await loadTasks() }
     }
 
+    /// Borra todas las tareas completadas de una lista (botón de la lista, con confirmación).
+    public func deleteCompleted(listId: Int) async {
+        let completed = tasks.filter { $0.task_list_id == listId && $0.isCompleted }
+        for task in completed {
+            await deleteTask(task)
+        }
+    }
+
     public func deleteTask(_ task: TaskEntry) async {
         await performWrite { store in
             _ = try await store.tasksRepo.delete(id: task.id)
