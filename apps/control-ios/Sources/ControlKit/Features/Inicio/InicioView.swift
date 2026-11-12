@@ -233,9 +233,7 @@ public struct InicioView: View {
             switch state {
             case .idle, .loading:
                 if count == 0 {
-                    Text("Cargando…")
-                        .font(HomitaFont.inter(15, relativeTo: .body))
-                        .foregroundStyle(Palette.inkSoft)
+                    HomitaSkeletonRows(count: 2, height: 56, label: "Cargando")
                 } else {
                     content()
                 }

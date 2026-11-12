@@ -19,7 +19,7 @@ struct RoutinesTodayCard: View {
             header
             switch store.routinesState {
             case .idle where routines.isEmpty, .loading where routines.isEmpty:
-                emptyText("Cargando…")
+                HomitaSkeletonRows(count: 2, height: 56, label: "Cargando rutinas")
             case .failed(let message):
                 Text(message)
                     .font(HomitaFont.inter(15, relativeTo: .body))

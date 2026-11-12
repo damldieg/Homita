@@ -9,7 +9,7 @@ struct CalendarListView: View {
     var body: some View {
         List {
             if !store.hasLoaded || (store.isLoading && store.calendars.isEmpty) {
-                HomitaLoadingCard(message: "Cargando calendarios…").homitaRow()
+                HomitaSkeletonRows(count: 3, height: 64, label: "Cargando calendarios").homitaRow()
             }
             if store.hasLoaded && store.calendars.isEmpty && !store.isLoading {
                 HomitaEmptyState(

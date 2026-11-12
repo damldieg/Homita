@@ -97,9 +97,7 @@ public struct HogarView: View {
                                 systemImage: "person.2")
             switch store.state {
             case .idle, .loading:
-                Text("Cargando…")
-                    .font(HomitaFont.inter(15, relativeTo: .body))
-                    .foregroundStyle(Palette.inkSoft)
+                HomitaSkeletonRows(count: 3, height: 52, label: "Cargando hogar")
             case .failed(let message):
                 Text(message)
                     .font(HomitaFont.inter(15, relativeTo: .body))
