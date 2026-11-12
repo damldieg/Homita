@@ -668,7 +668,7 @@ struct MemberEditorView: View {
         HomitaForm {
             HomitaPanel("Miembro", systemImage: "person.crop.circle") {
                 HomitaField(placeholder: "Nombre (1-50)", text: $name)
-                ColorPicker("Color", selection: $color, supportsOpacity: false)
+                HomitaColorField(title: "Color", color: $color)
                     .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
                     .onChange(of: color) { colorTouched = true }

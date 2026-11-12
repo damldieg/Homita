@@ -132,7 +132,7 @@ struct PersonEditorView: View {
                             error: nameTouched ? MemberValidation.nameMessage(name) : nil
                         )
                         .onChange(of: name) { _, _ in nameTouched = true }
-                        ColorPicker("Color", selection: $color, supportsOpacity: false)
+                        HomitaColorField(title: "Color", color: $color)
                             .font(HomitaFont.inter(17, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
                     }

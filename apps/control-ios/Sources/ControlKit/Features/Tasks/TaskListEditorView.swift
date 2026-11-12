@@ -35,7 +35,7 @@ struct TaskListEditorView: View {
         HomitaForm {
             HomitaPanel("Lista", systemImage: "list.bullet") {
                 HomitaField(placeholder: "Nombre", text: $name)
-                ColorPicker("Color", selection: $color, supportsOpacity: false)
+                HomitaColorField(title: "Color", color: $color)
                     .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
             }

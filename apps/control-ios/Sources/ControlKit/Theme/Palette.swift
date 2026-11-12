@@ -65,6 +65,8 @@ enum Palette {
     static let onlineHex = "#3F7D4E"
     /// Color por defecto de calendarios, listas y rutinas sin color del servidor.
     static let fallbackItem = "#6923E2"
+    /// Muestras fijas del selector de color (P-06): acento, personas, estados y azul de calendario.
+    static let swatches = ["#B5313F", "#6D28D9", "#0E9F6E", "#F59E0B", "#E11D48", "#0284C7", "#3B5BDB", "#2F5E3B"]
     static let inkHex = "#1D1612"
     static let inkSoftHex = "#6F655A"
     static let inkMutedHex = "#8F8579"

@@ -20,6 +20,11 @@ public struct ProfileView: View {
         _personStore = State(initialValue: PersonStore(repo: services.persons))
     }
 
+    /// Versión corta del bundle (`CFBundleShortVersionString`); «—» si no se puede leer.
+    static var appVersion: String {
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "—"
+    }
+
     public var body: some View {
         NavigationStack {
             ScrollView {
@@ -40,6 +45,10 @@ public struct ProfileView: View {
                         .font(HomitaFont.inter(13, relativeTo: .footnote))
                         .foregroundStyle(Palette.inkSoft)
                         .multilineTextAlignment(.center)
+                    // E5-01 [Nuevo]: versión de la app al pie de Ajustes.
+                    Text("Versión \(Self.appVersion)")
+                        .font(HomitaFont.inter(12, relativeTo: .caption))
+                        .foregroundStyle(Palette.inkMuted)
                 }
                 .padding(20)
             }
