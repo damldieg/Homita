@@ -15,6 +15,7 @@ public struct RootView: View {
         let tokenStore = KeychainTokenStore()
         let session = SessionStore(store: tokenStore)
         session.restore()
+        ConnectivityMonitor.shared.start()
         // Solo para la suite de UI: arranca siempre sin sesión guardada (el Keychain del simulador persiste entre corridas).
         if ProcessInfo.processInfo.arguments.contains("-uiTestingResetSession") {
             session.signOut()
@@ -47,7 +48,8 @@ struct MainTabView: View {
     var body: some View {
         let state = services.homeContext.state
         // 1.15c: al cambiar de hogar las pestañas se reconstruyen (stores y datos del hogar anterior fuera).
-        let homeKey = services.homeContext.activeHomeId ?? ""
+        // Cambiar de hogar o pulsar «Reintentar» (E0-06) recrea las pestañas y recarga sus datos.
+        let homeKey = (services.homeContext.activeHomeId ?? "") + "#\(DataFreshness.shared.reloadToken)"
         TabView(selection: $selectedTab) {
             HomeGate(services: services, state: state) {
                 InicioView(services: services) { destination in
@@ -88,5 +90,8 @@ struct MainTabView: View {
                 .tag(4)
         }
         .tint(Palette.accent)
+        .safeAreaInset(edge: .top) {
+            HomitaOfflineBanner(freshness: DataFreshness.shared)
+        }
     }
 }

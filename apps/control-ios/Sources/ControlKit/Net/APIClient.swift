@@ -17,12 +17,15 @@ public final class APIClient {
     /// Se llama cuando la sesión caduca (refresh fallido o sin refresher). Lo usa `AppServices`
     /// para cerrar sesión local y volver a Welcome (C3). Puede llamarse desde cualquier hilo.
     public var onSessionExpired: (@Sendable () -> Void)?
+    private let readCache: ReadCache
 
-    public init(baseURL: URL, session: URLSession = .shared, tokenProvider: @escaping () -> String?, homeIdProvider: @escaping () -> String? = { nil }) {
+    public init(baseURL: URL, session: URLSession = .shared, tokenProvider: @escaping () -> String?,
+                homeIdProvider: @escaping () -> String? = { nil }, readCache: ReadCache = .shared) {
         self.baseURL = baseURL
         self.session = session
         self.tokenProvider = tokenProvider
         self.homeIdProvider = homeIdProvider
+        self.readCache = readCache
     }
 
     /// Codifica un body JSON (claves snake_case literales, orden estable).
@@ -30,8 +33,23 @@ public final class APIClient {
         try JSONCoding.encoder().encode(value)
     }
 
+    /// Envía la petición. Los GET de datos se guardan en la caché de lectura; si falla la red o el
+    /// servidor responde 5xx y hay copia, se devuelve la copia y se marca como obsoleta (E0-06).
     public func send(_ request: APIRequest) async throws -> Data {
-        try await perform(request, allowRefresh: true)
+        guard ReadCache.isCacheable(request) else {
+            return try await perform(request, allowRefresh: true)
+        }
+        let key = ReadCache.key(for: request, homeId: homeIdProvider())
+        do {
+            let data = try await perform(request, allowRefresh: true)
+            readCache.save(key: key, body: data)
+            await DataFreshness.shared.markFresh()
+            return data
+        } catch let error as APIError {
+            guard error.isRetryable, let cached = readCache.load(key: key) else { throw error }
+            await DataFreshness.shared.markStale(since: cached.savedAt)
+            return cached.body
+        }
     }
 
     public func send<T: Decodable>(_ request: APIRequest, as type: T.Type) async throws -> T {

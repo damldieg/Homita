@@ -29,6 +29,8 @@ public struct AppServices {
             Task { @MainActor in
                 // Mismo orden que signOut(): primero el hogar activo, luego la sesión (C3).
                 homeContext?.clear()
+                ReadCache.shared.clear()
+                DataFreshness.shared.markFresh()
                 session?.signOut()
             }
         }
@@ -47,6 +49,8 @@ public struct AppServices {
     /// Cierra sesión: limpia primero el hogar activo y luego la sesión. Único camino de logout.
     public func signOut() {
         homeContext.clear()
+        ReadCache.shared.clear()
+        Task { @MainActor in DataFreshness.shared.markFresh() }
         session.signOut()
     }
 }

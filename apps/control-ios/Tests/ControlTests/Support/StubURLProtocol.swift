@@ -114,7 +114,8 @@ func makeTestClient(token: String? = "test-access", refresher: (any TokenRefresh
     let client = APIClient(
         baseURL: URL(string: "https://test.supabase.co/functions/v1/api")!,
         session: StubURLProtocol.session(),
-        tokenProvider: { token }
+        tokenProvider: { token },
+        readCache: ReadCache(directory: FileManager.default.temporaryDirectory.appendingPathComponent("readcache-\(UUID().uuidString)"))
     )
     client.refresher = refresher
     return client
