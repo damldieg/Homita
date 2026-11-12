@@ -9,6 +9,8 @@ struct TaskListDetailView: View {
 
     @Environment(SessionStore.self) private var session
     @State private var newTaskTitle = ""
+    @State private var pendingTaskDelete: [TaskEntry] = []
+    @State private var showTaskDelete = false
     @State private var showEditList = false
     @State private var taskToEdit: TaskEntry?
     #if os(iOS)
@@ -61,8 +63,8 @@ struct TaskListDetailView: View {
                         .homitaRow()
                     }
                     .onDelete { indexSet in
-                        let removed = indexSet.map { pending[$0] }
-                        Task { for task in removed { await store.deleteTask(task) } }
+                        pendingTaskDelete = indexSet.map { pending[$0] }
+                        showTaskDelete = true
                     }
                     .onMove { source, destination in
                         guard canReorder, let from = source.first else { return }
@@ -85,8 +87,8 @@ struct TaskListDetailView: View {
                         .homitaRow()
                     }
                     .onDelete { indexSet in
-                        let removed = indexSet.map { completed[$0] }
-                        Task { for task in removed { await store.deleteTask(task) } }
+                        pendingTaskDelete = indexSet.map { completed[$0] }
+                        showTaskDelete = true
                     }
                 } header: {
                     HomitaSectionHeader(title: "Completadas", count: completed.count, systemImage: "checkmark.circle", tint: Palette.online)
@@ -164,5 +166,9 @@ struct TaskListDetailView: View {
             await store.loadMembers(listId: current.id)
         }
         .errorAlert($store.errorMessage)
+        .homitaConfirm(DeleteConfirmation.message(names: pendingTaskDelete.map(\.title), consequence: "Se eliminará la tarea."), isPresented: $showTaskDelete, confirmTitle: "Eliminar") {
+            let tasks = pendingTaskDelete
+            Task { for task in tasks { await store.deleteTask(task) } }
+        }
     }
 }

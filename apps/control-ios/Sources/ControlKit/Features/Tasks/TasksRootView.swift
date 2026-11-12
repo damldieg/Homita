@@ -54,6 +54,8 @@ struct TasksView: View {
     @Binding var expandRequest: Int?
     @State private var newTaskTitle = ""
     @State private var showCreateTask = false
+    @State private var pendingTaskDelete: [TaskEntry] = []
+    @State private var showTaskDelete = false
     @State private var taskToEdit: TaskEntry?
     /// Listas plegadas; por defecto todas desplegadas.
     @State private var collapsedListIds: Set<Int> = []
@@ -110,8 +112,8 @@ struct TasksView: View {
                             .homitaRow()
                         }
                         .onDelete { indexSet in
-                            let removed = indexSet.map { group.tasks[$0] }
-                            Task { for task in removed { await store.deleteTask(task) } }
+                            pendingTaskDelete = indexSet.map { group.tasks[$0] }
+                            showTaskDelete = true
                         }
                         .onMove { source, destination in
                             // Reordenar solo con lista activa en orden personalizado (un único grupo).
@@ -224,6 +226,10 @@ struct TasksView: View {
         .refreshable {
             await store.loadLists()
             await store.loadTasks()
+        }
+        .homitaConfirm(DeleteConfirmation.message(names: pendingTaskDelete.map(\.title), consequence: "Se eliminará la tarea."), isPresented: $showTaskDelete, confirmTitle: "Eliminar") {
+            let tasks = pendingTaskDelete
+            Task { for task in tasks { await store.deleteTask(task) } }
         }
     }
 }

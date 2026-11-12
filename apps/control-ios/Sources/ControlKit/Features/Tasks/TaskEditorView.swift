@@ -11,6 +11,7 @@ struct TaskEditorView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var title: String
+    @State private var showDeleteConfirm = false
     @State private var listId: Int
     @State private var personIds: [Int]
 
@@ -65,10 +66,13 @@ struct TaskEditorView: View {
             }
             if let onDelete {
                 HomitaButton(title: "Eliminar tarea", kind: .secondary) {
-                    onDelete()
-                    dismiss()
+                    showDeleteConfirm = true
                 }
             }
+        }
+        .homitaConfirm(DeleteConfirmation.message(names: [task?.title ?? title], consequence: "Se eliminará la tarea."), isPresented: $showDeleteConfirm, confirmTitle: "Eliminar") {
+            onDelete?()
+            dismiss()
         }
         .navigationTitle(task == nil ? "Nueva tarea" : "Editar tarea")
         .toolbar {

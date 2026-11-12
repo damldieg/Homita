@@ -9,6 +9,8 @@ struct RoutineListView: View {
 
     @State private var showCreate = false
     @State private var routineToEdit: RoutineEntry?
+    @State private var pendingRoutineDelete: [RoutineEntry] = []
+    @State private var showRoutineDelete = false
 
     var body: some View {
         List {
@@ -21,8 +23,8 @@ struct RoutineListView: View {
                         .homitaRow()
                     }
                     .onDelete { indexSet in
-                        let removed = indexSet.map { section.routines[$0] }
-                        Task { for routine in removed { await store.delete(routine) } }
+                        pendingRoutineDelete = indexSet.map { section.routines[$0] }
+                        showRoutineDelete = true
                     }
                 } header: {
                     HomitaSectionHeader(title: section.group.title, count: section.routines.count, systemImage: "repeat")
@@ -69,6 +71,10 @@ struct RoutineListView: View {
             await store.load()
         }
         .errorAlert($store.errorMessage)
+        .homitaConfirm(DeleteConfirmation.message(names: pendingRoutineDelete.map(\.title), consequence: "Se eliminará la rutina y sus sesiones futuras."), isPresented: $showRoutineDelete, confirmTitle: "Eliminar") {
+            let routines = pendingRoutineDelete
+            Task { for routine in routines { await store.delete(routine) } }
+        }
     }
 }
 

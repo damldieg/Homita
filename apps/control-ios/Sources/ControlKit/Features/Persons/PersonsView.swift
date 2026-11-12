@@ -7,6 +7,8 @@ struct PersonsView: View {
 
     @State private var showCreate = false
     @State private var personToEdit: PersonEntry?
+    @State private var pendingPersonDelete: PersonEntry?
+    @State private var showPersonDelete = false
 
     var body: some View {
         List {
@@ -37,7 +39,8 @@ struct PersonsView: View {
                             }
                             if PersonActions.available(editable: person.isEditable).contains(.delete) {
                                 Button(role: .destructive) {
-                                    Task { await store.delete(person) }
+                                    pendingPersonDelete = person
+                                    showPersonDelete = true
                                 } label: {
                                     Image(systemName: "trash")
                                         .foregroundStyle(Palette.accent)
@@ -86,6 +89,9 @@ struct PersonsView: View {
             await store.load()
         }
         .errorAlert($store.errorMessage)
+        .homitaConfirm(DeleteConfirmation.message(names: pendingPersonDelete.map { [$0.name] } ?? [], consequence: "Se eliminará la persona."), isPresented: $showPersonDelete, confirmTitle: "Eliminar") {
+            if let person = pendingPersonDelete { Task { await store.delete(person) } }
+        }
     }
 }
 
