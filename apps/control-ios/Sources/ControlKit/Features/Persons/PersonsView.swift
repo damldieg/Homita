@@ -109,6 +109,8 @@ struct PersonEditorView: View {
     @State private var name: String
     @State private var color: Color
     @State private var isWorking = false
+    /// El error del nombre aparece solo después de que el usuario toque el campo.
+    @State private var nameTouched = false
 
     init(store: PersonStore, editing: PersonEntry?) {
         self.store = store
@@ -123,7 +125,12 @@ struct PersonEditorView: View {
                 HomitaCard {
                     VStack(alignment: .leading, spacing: 14) {
                         HomitaSectionHeader(title: "Persona", systemImage: "person.crop.circle")
-                        HomitaField(placeholder: "Nombre (1-50)", text: $name)
+                        HomitaFormField(
+                            placeholder: "Nombre (1-50)",
+                            text: $name,
+                            error: nameTouched ? MemberValidation.nameMessage(name) : nil
+                        )
+                        .onChange(of: name) { _, _ in nameTouched = true }
                         ColorPicker("Color", selection: $color, supportsOpacity: false)
                             .font(HomitaFont.inter(17, relativeTo: .body))
                             .foregroundStyle(Palette.ink)

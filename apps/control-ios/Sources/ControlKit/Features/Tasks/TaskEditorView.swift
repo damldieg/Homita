@@ -11,6 +11,8 @@ struct TaskEditorView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var title: String
+    /// El error de título aparece solo después de que el usuario toque el campo.
+    @State private var titleTouched = false
     @State private var showDeleteConfirm = false
     @State private var listId: Int
     @State private var personIds: [Int]
@@ -44,7 +46,12 @@ struct TaskEditorView: View {
     var body: some View {
         HomitaForm {
             HomitaPanel("Tarea", systemImage: "checklist") {
-                HomitaField(placeholder: "Título", text: $title)
+                HomitaFormField(
+                    placeholder: "Título",
+                    text: $title,
+                    error: titleTouched ? TaskTitleValidation.message(for: title) : nil
+                )
+                .onChange(of: title) { _, _ in titleTouched = true }
                 if task == nil {
                     if taskLists.isEmpty {
                         HomitaFootnote(text: "Todavía no tienes listas. Crea una en la pestaña Listas para añadir tareas.")
