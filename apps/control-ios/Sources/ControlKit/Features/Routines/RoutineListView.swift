@@ -31,7 +31,7 @@ struct RoutineListView: View {
                 }
             }
             if !store.hasLoaded || (store.isLoading && store.routines.isEmpty) {
-                HomitaLoadingCard(message: "Cargando rutinas…").homitaRow()
+                HomitaSkeletonRows(count: 3, height: 64, label: "Cargando rutinas").homitaRow()
             }
             if store.hasLoaded && store.routines.isEmpty && !store.isLoading {
                 HomitaEmptyState(.routines) {

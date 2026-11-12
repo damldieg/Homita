@@ -79,7 +79,7 @@ struct CalendarEventsView: View {
             VStack(alignment: .leading, spacing: 16) {
                 header
                 if !calendarStore.hasLoaded {
-                    HomitaLoadingCard(message: "Cargando calendario…")
+                    HomitaSkeletonRows(count: 3, height: 64, label: "Cargando calendario")
                 } else {
                     dayGrid
                     dayList
