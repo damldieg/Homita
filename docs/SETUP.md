@@ -164,7 +164,8 @@ El dashboard no tiene opciones de mantenimiento: todo se hace por ADB, que en es
 La gestora iOS ([apps/control-ios](../apps/control-ios/README.md)) consume la misma Edge Function que el marco. Requisitos: **Xcode 16 o superior** con el SDK de iOS y un **runtime de iOS ≥ 17** (para los tests en simulador) y `~/.homita/supabase.env` (entorno de producción; la demo local no lo usa). Configuración, compilación e instalación:
 
 ```sh
-apps/control-ios/scripts/gen-config.sh                 # Config.xcconfig desde ~/.homita/supabase.env (git-ignorado)
+apps/control-ios/scripts/gen-config.sh prod           # Config.prod.xcconfig desde ~/.homita/supabase.env (Release)
+apps/control-ios/scripts/gen-config.sh local          # Config.local.xcconfig desde supabase status (Debug)
 cd apps/control-ios && swift build && swift test       # compilar y testar el paquete ControlKit
 ```
 

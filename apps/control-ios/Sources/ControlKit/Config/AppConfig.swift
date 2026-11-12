@@ -1,6 +1,6 @@
 import Foundation
 
-/// Configuración inyectada desde `Config.xcconfig` (generado por `scripts/gen-config.sh`) vía
+/// Configuración inyectada desde `Config.local.xcconfig` (Debug) o `Config.prod.xcconfig` (Release), generados por `scripts/gen-config.sh` vía
 /// Info.plist: `PlanifyBaseURL`, `SupabaseURL`, `SupabaseAnonKey`. Validación fail-fast: sin
 /// placeholders, URL https (o http solo en loopback para `supabase functions serve`).
 public struct AppConfig: Equatable {
@@ -49,7 +49,7 @@ public struct AppConfig: Equatable {
         do {
             return try AppConfig(bundle: bundle)
         } catch {
-            fatalError("Configuración ausente o inválida (\(error)). Ejecuta apps/control-ios/scripts/gen-config.sh y compila con Config.xcconfig.")
+            fatalError("Configuración ausente o inválida (\(error)). Ejecuta apps/control-ios/scripts/gen-config.sh y compila con el xcconfig del build.")
         }
     }
 

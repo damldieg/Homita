@@ -12,7 +12,8 @@
 
 /* Begin PBXFileReference section */
 		B10000000000000000000002 /* ControlApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ControlApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		B10000000000000000000003 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		B10000000000000000000003 /* Config.local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.local.xcconfig; sourceTree = "<group>"; };
+		D20000000000000000000001 /* Config.prod.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.prod.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -52,7 +53,8 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000004 /* ControlApp */,
-				B10000000000000000000003 /* Config.xcconfig */,
+				B10000000000000000000003 /* Config.local.xcconfig */,
+				D20000000000000000000001 /* Config.prod.xcconfig */,
 				B10000000000000000000007 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -169,7 +171,7 @@
 /* Begin XCBuildConfiguration section */
 		B1000000000000000000000F /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = B10000000000000000000003 /* Config.xcconfig */;
+			baseConfigurationReference = B10000000000000000000003 /* Config.local.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -228,7 +230,7 @@
 		};
 		B10000000000000000000010 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = B10000000000000000000003 /* Config.xcconfig */;
+			baseConfigurationReference = D20000000000000000000001 /* Config.prod.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
