@@ -11,6 +11,9 @@ docs/photo-frame-dashboard/
 apps/dashboard/planify.properties*
 scripts/config.local
 
+# Basura de Finder en macOS
+.DS_Store
+
 # apps/control (Planify-APP), proyecto Gradle en la raíz; el resto lo ignora su .gitignore
 apps/control/.gradle/
 apps/control/build/
@@ -31,6 +34,9 @@ apps/control/app/debug/
 __pycache__/
 
 # apps/control-ios (paquete Swift + app Xcode): config con secretos y artefactos de Xcode
+apps/control-ios/Config.local.xcconfig
+apps/control-ios/Config.prod.xcconfig
+# Legado: Config.xcconfig único (anterior a Debug/Release); puede seguir en checkouts con prod
 apps/control-ios/Config.xcconfig
 apps/control-ios/.swiftpm/
 apps/control-ios/**/xcuserdata/

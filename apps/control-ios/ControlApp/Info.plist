@@ -3,7 +3,7 @@
 <plist version="1.0">
 <!--
   Info.plist del target ControlApp (GENERATE_INFOPLIST_FILE=YES completa CFBundle* etc.).
-  Configuración inyectada desde Config.xcconfig (baseConfiguration del proyecto) vía
+  Configuración inyectada desde Config.local/prod.xcconfig (baseConfiguration del proyecto, según Debug/Release) vía
   variables de build; AppConfig.load() lee estas claves en Bundle.main.
   Nota: INFOPLIST_KEY_* solo acepta claves conocidas por Xcode, por eso van aquí.
 -->
