@@ -261,7 +261,7 @@ struct TaskListsView: View {
                                     .fill(Color(hex: list.color))
                                     .frame(width: 14, height: 14)
                                 Text(list.name)
-                                    .font(HomitaFont.geist(17, weight: .semibold, relativeTo: .body))
+                                    .font(HomitaFont.inter(17, weight: .semibold, relativeTo: .body))
                                     .foregroundStyle(Palette.ink)
                                 Spacer()
                                 HomitaBadge(title: "\(list.pendingTaskCount)", tintHex: list.color)
@@ -313,7 +313,7 @@ struct TaskRow: View {
                 HomitaCheckbox(isOn: task.isCompleted, tintHex: Palette.onlineHex, onChange: onToggle)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(task.title)
-                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                        .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                         .foregroundStyle(task.isCompleted ? Palette.inkMuted : Palette.ink)
                         .strikethrough(task.isCompleted)
                     AssignedPersonTags(persons: task.persons)
@@ -336,7 +336,7 @@ struct HomitaFloatingAddButton: View {
     var body: some View {
         Button(action: action) {
             Label(title, systemImage: "plus")
-                .font(HomitaFont.geist(17, weight: .semibold, relativeTo: .body))
+                .font(HomitaFont.inter(17, weight: .semibold, relativeTo: .body))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 22)
                 .padding(.vertical, 12)

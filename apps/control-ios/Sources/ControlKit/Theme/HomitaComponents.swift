@@ -7,13 +7,13 @@ import ComponentsKit
 enum HomitaComponents {
     static func applyTheme() {
         var theme = Theme.current
-        theme.colors.background = uc("#F7EEE2")
-        theme.colors.secondaryBackground = uc("#FFFDF9")
-        theme.colors.foreground = uc("#221D18")
-        theme.colors.secondaryForeground = uc("#6E6358")
-        theme.colors.divider = uc("#B9AA96")
-        theme.colors.primary = ComponentColor(main: uc("#C8243B"), contrast: uc("#FFFFFF"))
-        theme.colors.accent = ComponentColor(main: uc("#F5A623"), contrast: uc("#221D18"))
+        theme.colors.background = uc(Palette.backgroundHex)
+        theme.colors.secondaryBackground = uc(Palette.surfaceHex)
+        theme.colors.foreground = uc(Palette.inkHex)
+        theme.colors.secondaryForeground = uc(Palette.inkSoftHex)
+        theme.colors.divider = uc(Palette.lineHex)
+        theme.colors.primary = ComponentColor(main: uc(Palette.accentHex), contrast: uc(Palette.whiteHex))
+        theme.colors.accent = ComponentColor(main: uc(Palette.soonHex), contrast: uc(Palette.inkHex))
         Theme.current = theme
     }
 }
@@ -38,7 +38,7 @@ struct HomitaPrimaryButton: View {
         #else
         Button(action: action) {
             Text(title)
-                .font(HomitaFont.geist(17, weight: .semibold, relativeTo: .body))
+                .font(HomitaFont.inter(17, weight: .semibold, relativeTo: .body))
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)
@@ -50,7 +50,7 @@ struct HomitaPrimaryButton: View {
     private var model: ButtonVM {
         ButtonVM {
             $0.title = title
-            $0.color = ComponentColor(main: uc("#C8243B"), contrast: uc("#FFFFFF"))
+            $0.color = ComponentColor(main: uc(Palette.accentHex), contrast: uc(Palette.whiteHex))
             $0.isFullWidth = true
             $0.size = .large
             $0.isEnabled = isEnabled && !isLoading

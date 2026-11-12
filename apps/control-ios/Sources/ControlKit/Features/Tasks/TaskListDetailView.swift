@@ -96,7 +96,7 @@ struct TaskListDetailView: View {
             if listTasks.isEmpty {
                 HomitaCard {
                     Text("Sin tareas")
-                        .font(HomitaFont.geist(16, relativeTo: .body))
+                        .font(HomitaFont.inter(16, relativeTo: .body))
                         .foregroundStyle(Palette.inkSoft)
                         .frame(maxWidth: .infinity)
                 }

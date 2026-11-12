@@ -122,26 +122,26 @@ struct RoutineRow: View {
                                 .accessibilityLabel("Hecha")
                         }
                         Text(routine.title)
-                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(status == .expired ? Palette.inkMuted : Palette.ink)
                             .strikethrough(status == .expired)
                     }
                     if embedded {
                         Text(timeText)
-                            .font(HomitaFont.geist(13, weight: .semibold, relativeTo: .footnote))
+                            .font(HomitaFont.inter(13, weight: .semibold, relativeTo: .footnote))
                             .foregroundStyle(Palette.inkSoft)
                     }
                     AssignedPersonTags(persons: routine.persons)
                     if let next {
                         Text("PRÓXIMA · \(DateDisplay.dateTime(next.date_at).uppercased())")
-                            .font(HomitaFont.geist(12, weight: .semibold, relativeTo: .caption))
+                            .font(HomitaFont.inter(12, weight: .semibold, relativeTo: .caption))
                             .foregroundStyle(Palette.inkSoft)
                     }
                 }
                 Spacer()
                 HomitaBadge(
                     title: routine.isActive ? "Activa" : "Pausada",
-                    tintHex: routine.isActive ? Palette.onlineHex : "#A6998A"
+                    tintHex: routine.isActive ? Palette.onlineHex : Palette.inkMutedHex
                 )
             }
     }

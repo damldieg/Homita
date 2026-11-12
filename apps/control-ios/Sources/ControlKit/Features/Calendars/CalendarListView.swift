@@ -34,7 +34,7 @@ struct CalendarListView: View {
                                     .fill(Color(hex: calendar.color))
                                     .frame(width: 14, height: 14)
                                 Text(calendar.name)
-                                    .font(HomitaFont.geist(17, weight: .semibold, relativeTo: .body))
+                                    .font(HomitaFont.inter(17, weight: .semibold, relativeTo: .body))
                                     .foregroundStyle(Palette.ink)
                                 Spacer()
                                 HomitaBadge(title: "\(calendar.upcomingEventCount)", tintHex: calendar.color)
@@ -54,7 +54,7 @@ struct CalendarListView: View {
                 } label: {
                     HomitaCard {
                         Label("Nuevo calendario", systemImage: "plus")
-                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.accent)
                     }
                 }

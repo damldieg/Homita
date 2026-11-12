@@ -22,7 +22,7 @@ struct RoutinesTodayCard: View {
                 emptyText("Cargando…")
             case .failed(let message):
                 Text(message)
-                    .font(HomitaFont.geist(15, relativeTo: .body))
+                    .font(HomitaFont.inter(15, relativeTo: .body))
                     .foregroundStyle(Palette.accent)
                 HomitaButton(title: "Reintentar", kind: .secondary) { Task { await store.loadRoutines() } }
             default:
@@ -55,10 +55,10 @@ struct RoutinesTodayCard: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 0) {
                 Text("Rutinas de hoy")
-                    .font(HomitaFont.geist(20, weight: .bold, relativeTo: .title3))
+                    .font(HomitaFont.inter(20, weight: .bold, relativeTo: .title3))
                     .foregroundStyle(Palette.ink)
                 Text(dateText)
-                    .font(HomitaFont.geist(13, relativeTo: .footnote))
+                    .font(HomitaFont.inter(13, relativeTo: .footnote))
                     .foregroundStyle(Palette.inkSoft)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -67,7 +67,7 @@ struct RoutinesTodayCard: View {
                     Text("Ver todas")
                     Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold))
                 }
-                .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .subheadline))
+                .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .subheadline))
                 .foregroundStyle(Palette.accent)
                 .frame(minHeight: 44)
                 .contentShape(Rectangle())
@@ -87,10 +87,10 @@ struct RoutinesTodayCard: View {
                     .foregroundStyle(Palette.inkSoft)
                 Spacer()
                 Text(left == 0 ? "¡Completo!" : (left == 1 ? "Falta 1" : "Faltan \(left)"))
-                    .font(HomitaFont.geist(13, weight: .bold, relativeTo: .footnote))
+                    .font(HomitaFont.inter(13, weight: .bold, relativeTo: .footnote))
                     .foregroundStyle(Palette.accent)
             }
-            .font(HomitaFont.geist(13, weight: .medium, relativeTo: .footnote))
+            .font(HomitaFont.inter(13, weight: .medium, relativeTo: .footnote))
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Palette.line.opacity(0.6))
@@ -117,9 +117,9 @@ struct RoutinesTodayCard: View {
                 HStack(spacing: 12) {
                     Image(systemName: "checkmark.circle").font(.system(size: 22, weight: .semibold))
                     Text("Todo hecho por hoy")
-                        .font(HomitaFont.geist(15, weight: .semibold, relativeTo: .body))
+                        .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .body))
                 }
-                .foregroundStyle(Color(hex: "#2F5E3B"))
+                .foregroundStyle(Color(hex: Palette.okHex))
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Palette.online.opacity(0.14), in: RoundedRectangle(cornerRadius: 20))
@@ -133,7 +133,7 @@ struct RoutinesTodayCard: View {
         return VStack(alignment: .leading, spacing: 4) {
             if isNext {
                 Text("SIGUIENTE\(countdownSuffix(routine))")
-                    .font(HomitaFont.geist(11, weight: .bold, relativeTo: .caption2))
+                    .font(HomitaFont.inter(11, weight: .bold, relativeTo: .caption2))
                     .tracking(0.7)
                     .foregroundStyle(Palette.accent)
                     .padding(.leading, 4)
@@ -171,7 +171,7 @@ struct RoutinesTodayCard: View {
                     Image(systemName: "chevron.down")
                         .rotationEffect(.degrees(showDone ? 180 : 0))
                 }
-                .font(HomitaFont.geist(13, weight: .semibold, relativeTo: .footnote))
+                .font(HomitaFont.inter(13, weight: .semibold, relativeTo: .footnote))
                 .foregroundStyle(Palette.inkSoft)
                 .padding(.horizontal, 4)
                 .frame(minHeight: 44)
@@ -217,7 +217,7 @@ struct RoutinesTodayCard: View {
 
     private func emptyText(_ text: String) -> some View {
         Text(text)
-            .font(HomitaFont.geist(15, relativeTo: .body))
+            .font(HomitaFont.inter(15, relativeTo: .body))
             .foregroundStyle(Palette.inkSoft)
     }
 }

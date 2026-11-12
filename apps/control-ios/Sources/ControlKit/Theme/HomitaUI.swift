@@ -40,8 +40,8 @@ struct HomitaCard<Content: View>: View {
     #if canImport(ComponentsKit)
     private var cardModel: CardVM {
         CardVM {
-            $0.backgroundColor = uc("#FFFDF9")
-            $0.borderColor = uc("#EFE2D0")
+            $0.backgroundColor = uc(Palette.surfaceHex)
+            $0.borderColor = uc(Palette.lineHex)
             $0.borderWidth = .small
             $0.cornerRadius = .large
             $0.contentPaddings = Paddings(padding: 0)
@@ -70,12 +70,12 @@ struct HomitaSectionHeader: View {
                     .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 10))
             }
             Text(title)
-                .font(HomitaFont.geist(19, weight: .bold, relativeTo: .headline))
+                .font(HomitaFont.inter(19, weight: .bold, relativeTo: .headline))
                 .foregroundStyle(Palette.ink)
             Spacer()
             if let count {
                 Text("\(count)")
-                    .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .subheadline))
+                    .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .subheadline))
                     .foregroundStyle(tint)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
@@ -103,7 +103,7 @@ struct HomitaSegmented<ID: Hashable & Sendable>: View {
                     withAnimation(.easeOut(duration: 0.15)) { selection = item.id }
                 } label: {
                     Text(item.title)
-                        .font(HomitaFont.geist(15, weight: isSelected ? .semibold : .medium, relativeTo: .subheadline))
+                        .font(HomitaFont.inter(15, weight: isSelected ? .semibold : .medium, relativeTo: .subheadline))
                         .foregroundStyle(isSelected ? Palette.ink : Palette.inkSoft)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
@@ -139,12 +139,12 @@ struct HomitaBadge: View {
         #if canImport(ComponentsKit)
         SUBadge(model: BadgeVM {
             $0.title = title
-            $0.color = ComponentColor(main: uc(tintHex), contrast: uc("#221D18"))
+            $0.color = ComponentColor(main: uc(tintHex), contrast: uc(Palette.inkHex))
             $0.style = .light
         })
         #else
         Text(title)
-            .font(HomitaFont.geist(12, weight: .semibold, relativeTo: .caption))
+            .font(HomitaFont.inter(12, weight: .semibold, relativeTo: .caption))
             .foregroundStyle(Color(hex: tintHex))
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
@@ -164,7 +164,7 @@ struct HomitaCheckbox: View {
     var body: some View {
         #if canImport(ComponentsKit)
         SUCheckbox(isSelected: Binding(get: { isOn }, set: { _ in onChange() }), model: CheckboxVM {
-            $0.color = ComponentColor(main: uc(tintHex), contrast: uc("#FFFFFF"))
+            $0.color = ComponentColor(main: uc(tintHex), contrast: uc(Palette.whiteHex))
         })
         #else
         Button(action: onChange) {
@@ -196,13 +196,13 @@ struct HomitaLoadingOverlay: View {
             VStack(spacing: 12) {
                 #if canImport(ComponentsKit)
                 SULoading(model: LoadingVM {
-                    $0.color = ComponentColor(main: uc("#C8243B"), contrast: uc("#FFFFFF"))
+                    $0.color = ComponentColor(main: uc(Palette.accentHex), contrast: uc(Palette.whiteHex))
                 })
                 #else
                 ProgressView().controlSize(.large).tint(Palette.accent)
                 #endif
                 Text(message)
-                    .font(HomitaFont.geist(15, weight: .medium, relativeTo: .callout))
+                    .font(HomitaFont.inter(15, weight: .medium, relativeTo: .callout))
                     .foregroundStyle(Palette.inkSoft)
             }
             .padding(28)
@@ -273,8 +273,8 @@ struct HomitaField: View {
             $0.keyboardType = isEmail ? .emailAddress : .default
             $0.cornerRadius = .large
             $0.style = .light
-            $0.tintColor = uc("#221D18")
-            $0.color = ComponentColor(main: uc("#221D18"), contrast: uc("#221D18"), background: uc("#F7EEE2"))
+            $0.tintColor = uc(Palette.inkHex)
+            $0.color = ComponentColor(main: uc(Palette.inkHex), contrast: uc(Palette.inkHex), background: uc(Palette.backgroundHex))
         }
     }
     #endif
@@ -299,7 +299,7 @@ struct HomitaButton: View {
         #else
         Button(action: action) {
             Text(title)
-                .font(HomitaFont.geist(17, weight: .semibold, relativeTo: .body))
+                .font(HomitaFont.inter(17, weight: .semibold, relativeTo: .body))
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)
@@ -318,10 +318,10 @@ struct HomitaButton: View {
             switch kind {
             case .primary:
                 $0.style = .filled
-                $0.color = ComponentColor(main: uc(Palette.accentHex), contrast: uc("#FFFFFF"))
+                $0.color = ComponentColor(main: uc(Palette.accentHex), contrast: uc(Palette.whiteHex))
             case .secondary:
                 $0.style = .bordered(.medium)
-                $0.color = ComponentColor(main: uc("#221D18"), contrast: uc("#221D18"))
+                $0.color = ComponentColor(main: uc(Palette.inkHex), contrast: uc(Palette.inkHex))
             }
         }
     }
@@ -392,7 +392,7 @@ struct HomitaLabeledRow<Trailing: View>: View {
     var body: some View {
         HStack {
             Text(title)
-                .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                 .foregroundStyle(Palette.ink)
             Spacer()
             trailing()
@@ -429,7 +429,7 @@ struct HomitaRadioGroup<ID: Hashable & Sendable>: View {
     #if canImport(ComponentsKit)
     private var radioModel: RadioGroupVM<ID> {
         RadioGroupVM<ID> { vm in
-            vm.color = uc("#C8243B")
+            vm.color = uc(Palette.accentHex)
             vm.items = items.map { item in
                 RadioItemVM(id: item.id) { $0.title = item.title }
             }
@@ -446,7 +446,7 @@ struct HomitaToggle: View {
     var body: some View {
         Toggle(isOn: $isOn) {
             Text(title)
-                .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                 .foregroundStyle(Palette.ink)
         }
         .tint(Palette.online)
@@ -462,7 +462,7 @@ struct HomitaDatePicker: View {
     var body: some View {
         DatePicker(selection: $selection, displayedComponents: components) {
             Text(title)
-                .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                 .foregroundStyle(Palette.ink)
         }
         .tint(Palette.accent)
@@ -474,7 +474,7 @@ struct HomitaFootnote: View {
     let text: String
     var body: some View {
         Text(text)
-            .font(HomitaFont.geist(13, relativeTo: .footnote))
+            .font(HomitaFont.inter(13, relativeTo: .footnote))
             .foregroundStyle(Palette.inkSoft)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -485,7 +485,7 @@ struct HomitaErrorText: View {
     let text: String
     var body: some View {
         Text(text)
-            .font(HomitaFont.geist(14, weight: .medium, relativeTo: .footnote))
+            .font(HomitaFont.inter(14, weight: .medium, relativeTo: .footnote))
             .foregroundStyle(Palette.accent)
     }
 }
@@ -500,7 +500,7 @@ extension View {
                 $0.title = title
                 $0.primaryButton = AlertButtonVM {
                     $0.title = confirmTitle
-                    $0.color = ComponentColor(main: uc("#C8243B"), contrast: uc("#FFFFFF"))
+                    $0.color = ComponentColor(main: uc(Palette.accentHex), contrast: uc(Palette.whiteHex))
                 }
                 $0.secondaryButton = AlertButtonVM { $0.title = "Cancelar" }
             },
@@ -529,7 +529,7 @@ struct HomitaChipButton: View {
             $0.title = title
             $0.size = .small
             $0.style = .bordered(.small)
-            $0.color = ComponentColor(main: uc(kind == .destructive ? Palette.accentHex : "#221D18"), contrast: uc(kind == .destructive ? Palette.accentHex : "#221D18"))
+            $0.color = ComponentColor(main: uc(kind == .destructive ? Palette.accentHex : Palette.inkHex), contrast: uc(kind == .destructive ? Palette.accentHex : Palette.inkHex))
         }, action: action)
         .fixedSize()
         #else
@@ -556,11 +556,11 @@ struct HomitaLinkRow: View {
                     .background(Color(hex: tint).opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                        .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                         .foregroundStyle(Palette.ink)
                     if let subtitle {
                         Text(subtitle)
-                            .font(HomitaFont.geist(13, relativeTo: .footnote))
+                            .font(HomitaFont.inter(13, relativeTo: .footnote))
                             .foregroundStyle(Palette.inkSoft)
                     }
                 }
@@ -586,11 +586,11 @@ struct HomitaEmptyState: View {
             VStack(spacing: 14) {
                 HomitaIllustration(kind: illustration)
                 Text(title)
-                    .font(HomitaFont.geist(20, weight: .bold, relativeTo: .title3))
+                    .font(HomitaFont.inter(20, weight: .bold, relativeTo: .title3))
                     .foregroundStyle(Palette.ink)
                     .multilineTextAlignment(.center)
                 Text(message)
-                    .font(HomitaFont.geist(15, relativeTo: .body))
+                    .font(HomitaFont.inter(15, relativeTo: .body))
                     .foregroundStyle(Palette.inkSoft)
                     .multilineTextAlignment(.center)
                 HomitaButton(title: actionTitle, action: action)
@@ -610,12 +610,12 @@ struct HomitaLoadingCard: View {
         HomitaCard {
             HStack(spacing: 12) {
                 #if canImport(ComponentsKit)
-                SULoading(model: LoadingVM { $0.color = ComponentColor(main: uc(Palette.accentHex), contrast: uc("#FFFFFF")) })
+                SULoading(model: LoadingVM { $0.color = ComponentColor(main: uc(Palette.accentHex), contrast: uc(Palette.whiteHex)) })
                 #else
                 ProgressView()
                 #endif
                 Text(message)
-                    .font(HomitaFont.geist(16, relativeTo: .body))
+                    .font(HomitaFont.inter(16, relativeTo: .body))
                     .foregroundStyle(Palette.inkSoft)
             }
             .frame(maxWidth: .infinity)

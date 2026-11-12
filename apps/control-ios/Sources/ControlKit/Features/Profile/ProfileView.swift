@@ -26,7 +26,7 @@ public struct ProfileView: View {
                 VStack(spacing: 20) {
                     // Título propio: el título grande de la barra no se ve con el scroll de tarjetas.
                     Text("Perfil")
-                        .font(HomitaFont.geist(34, weight: .bold, relativeTo: .largeTitle))
+                        .font(HomitaFont.inter(34, weight: .bold, relativeTo: .largeTitle))
                         .foregroundStyle(Palette.ink)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 8)
@@ -37,7 +37,7 @@ public struct ProfileView: View {
                         showSignOutConfirm = true
                     }
                     Text("Con firma gratuita la app caduca a los 7 días; reinstálala y vuelve a iniciar sesión.")
-                        .font(HomitaFont.geist(13, relativeTo: .footnote))
+                        .font(HomitaFont.inter(13, relativeTo: .footnote))
                         .foregroundStyle(Palette.inkSoft)
                         .multilineTextAlignment(.center)
                 }
@@ -127,7 +127,7 @@ public struct ProfileView: View {
                 .frame(width: 36, height: 36)
                 .background(Color(hex: tint).opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
             Text(title)
-                .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                 .foregroundStyle(Palette.ink)
             Spacer()
             Image(systemName: "chevron.right")

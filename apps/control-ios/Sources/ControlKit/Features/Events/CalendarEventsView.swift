@@ -97,7 +97,7 @@ struct CalendarEventsView: View {
             }
             .accessibilityLabel(calendarStore.mode == .month ? "Mes anterior" : "Anterior")
             Text(rangeTitle)
-                .font(HomitaFont.geist(18, weight: .semibold, relativeTo: .headline))
+                .font(HomitaFont.inter(18, weight: .semibold, relativeTo: .headline))
                 .foregroundStyle(Palette.ink)
                 .frame(maxWidth: .infinity)
             Button { Task { await calendarStore.move(1) } } label: {
@@ -129,7 +129,7 @@ struct CalendarEventsView: View {
             HStack(spacing: 4) {
                 ForEach(Array(Self.weekdayLetters(grid).enumerated()), id: \.offset) { _, letter in
                     Text(letter)
-                        .font(HomitaFont.geist(12, weight: .semibold, relativeTo: .caption))
+                        .font(HomitaFont.inter(12, weight: .semibold, relativeTo: .caption))
                         .foregroundStyle(Palette.inkSoft)
                         .frame(maxWidth: .infinity)
                 }
@@ -155,7 +155,7 @@ struct CalendarEventsView: View {
         } label: {
             VStack(spacing: 4) {
                 Text("\(number)")
-                    .font(HomitaFont.geist(15, weight: isSelected ? .bold : .medium, relativeTo: .body))
+                    .font(HomitaFont.inter(15, weight: isSelected ? .bold : .medium, relativeTo: .body))
                     .foregroundStyle(isSelected ? Palette.card : (inMonth ? Palette.ink : Palette.inkMuted))
                     .frame(width: 34, height: 34)
                     .background(Circle().fill(isSelected ? Palette.accent : Color.clear))
@@ -243,16 +243,16 @@ struct CalendarEventRow: View {
                         .frame(width: 5)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(DateDisplay.dateTime(event.date_at).uppercased())
-                            .font(HomitaFont.geist(12, weight: .semibold, relativeTo: .caption))
+                            .font(HomitaFont.inter(12, weight: .semibold, relativeTo: .caption))
                             .foregroundStyle(Palette.inkSoft)
                         Text(event.title)
-                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
                         EventCountdownLabel(dateAt: event.date_at)
                         AssignedPersonsLine(persons: event.persons)
                         if event.routine_id != nil {
                             Text("Sesión de rutina")
-                                .font(HomitaFont.geist(12, relativeTo: .caption))
+                                .font(HomitaFont.inter(12, relativeTo: .caption))
                                 .foregroundStyle(Palette.inkSoft)
                         }
                     }

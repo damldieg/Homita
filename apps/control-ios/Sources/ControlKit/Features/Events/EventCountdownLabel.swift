@@ -8,7 +8,7 @@ struct EventCountdownLabel: View {
     var body: some View {
         if let text = EventCountdown.label(dateAt: dateAt) {
             Text(text)
-                .font(HomitaFont.geist(12, weight: .semibold, relativeTo: .caption))
+                .font(HomitaFont.inter(12, weight: .semibold, relativeTo: .caption))
                 .foregroundStyle(Palette.accent)
         }
     }

@@ -19,7 +19,7 @@ struct HomeAdminView: View {
                 NavigationLink {
                     HomeSettingsView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Configuración", systemImage: "gearshape", tint: "#6E6358")
+                    HomitaLinkRow(title: "Configuración", systemImage: "gearshape", tint: Palette.inkSoftHex)
                 }
                 .buttonStyle(.plain)
             }
@@ -43,7 +43,7 @@ struct HomeAdminView: View {
                 NavigationLink {
                     HomeInvitationsView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Invitaciones", systemImage: "envelope.badge", tint: "#F5A623")
+                    HomitaLinkRow(title: "Invitaciones", systemImage: "envelope.badge", tint: Palette.soonHex)
                 }
                 .buttonStyle(.plain)
             }
@@ -59,7 +59,7 @@ struct HomeAdminView: View {
                 NavigationLink {
                     HomeAuditView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Auditoría", systemImage: "list.bullet.clipboard", tint: "#6E6358")
+                    HomitaLinkRow(title: "Auditoría", systemImage: "list.bullet.clipboard", tint: Palette.inkSoftHex)
                 }
                 .buttonStyle(.plain)
             }
@@ -115,7 +115,7 @@ struct HomeSettingsView: View {
                                 showZones = true
                             } label: {
                                 HomitaLabeledRow("Zona horaria") {
-                                    Text(timezone).font(HomitaFont.geist(15, relativeTo: .body)).foregroundStyle(Palette.inkSoft)
+                                    Text(timezone).font(HomitaFont.inter(15, relativeTo: .body)).foregroundStyle(Palette.inkSoft)
                                     Image(systemName: "chevron.right").foregroundStyle(Palette.inkMuted)
                                 }
                             }
@@ -255,17 +255,17 @@ struct HomeAdministratorsView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(item.name)
-                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
                 if item.appUserId == callerId {
-                    Text("(tú)").font(HomitaFont.geist(14, relativeTo: .footnote)).foregroundStyle(Palette.inkSoft)
+                    Text("(tú)").font(HomitaFont.inter(14, relativeTo: .footnote)).foregroundStyle(Palette.inkSoft)
                 }
                 Spacer()
                 HomitaBadge(title: item.role == "admin" ? "Administrador" : "Miembro",
-                            tintHex: item.role == "admin" ? Palette.accentHex : "#6E6358")
+                            tintHex: item.role == "admin" ? Palette.accentHex : Palette.inkSoftHex)
             }
             Text(item.email)
-                .font(HomitaFont.geist(13, relativeTo: .footnote))
+                .font(HomitaFont.inter(13, relativeTo: .footnote))
                 .foregroundStyle(Palette.inkSoft)
             if !actions.isEmpty {
                 HStack(spacing: 8) {
@@ -359,15 +359,15 @@ struct MemberPermissionsView: View {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.name)
-                                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                                     .foregroundStyle(Palette.ink)
                                 Text(item.role == "admin" ? "Administrador: todos los accesos" : "\(item.permissions.count) accesos")
-                                    .font(HomitaFont.geist(13, relativeTo: .footnote))
+                                    .font(HomitaFont.inter(13, relativeTo: .footnote))
                                     .foregroundStyle(Palette.inkSoft)
                                 if let reason = PermissionRules.lockReason(callerRole: home.role, item: item),
                                    item.role != "admin" {
                                     Text(reason)
-                                        .font(HomitaFont.geist(12, relativeTo: .caption))
+                                        .font(HomitaFont.inter(12, relativeTo: .caption))
                                         .foregroundStyle(Palette.inkMuted)
                                 }
                             }
@@ -404,11 +404,11 @@ struct MemberPermissionsView: View {
                 ForEach(summary, id: \.kind) { entry in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(MemberRules.kindLabel(entry.kind))
-                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
                         Text(entry.domains.map { "\($0.domain): \($0.codes.joined(separator: ", "))" }
                             .joined(separator: " · "))
-                            .font(HomitaFont.geist(13, relativeTo: .footnote))
+                            .font(HomitaFont.inter(13, relativeTo: .footnote))
                             .foregroundStyle(Palette.inkSoft)
                     }
                 }
@@ -519,14 +519,14 @@ struct HomeAuditView: View {
                         HomitaCard {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(item.action)
-                                    .font(HomitaFont.geist(16, weight: .semibold, relativeTo: .body))
+                                    .font(HomitaFont.inter(16, weight: .semibold, relativeTo: .body))
                                     .foregroundStyle(Palette.ink)
                                 Text("\(item.actorName ?? "Sistema") · \(item.createdAt)")
-                                    .font(HomitaFont.geist(13, relativeTo: .footnote))
+                                    .font(HomitaFont.inter(13, relativeTo: .footnote))
                                     .foregroundStyle(Palette.inkSoft)
                                 ForEach(item.payload.lines, id: \.self) { line in
                                     Text(line)
-                                        .font(HomitaFont.geist(12, relativeTo: .caption))
+                                        .font(HomitaFont.inter(12, relativeTo: .caption))
                                         .foregroundStyle(Palette.inkMuted)
                                 }
                             }
@@ -625,10 +625,10 @@ struct HomeMembersView: View {
                 .frame(width: 14, height: 14)
             VStack(alignment: .leading, spacing: 2) {
                 Text(member.name)
-                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
                 Text("\(MemberRules.kindLabel(member.kind)) · \(MemberRules.statusLabel(member.status)) · \(MemberRules.linkStatusLabel(linked: member.linked))")
-                    .font(HomitaFont.geist(13, relativeTo: .footnote))
+                    .font(HomitaFont.inter(13, relativeTo: .footnote))
                     .foregroundStyle(Palette.inkSoft)
             }
             Spacer()
@@ -670,11 +670,11 @@ struct MemberEditorView: View {
             HomitaPanel("Miembro", systemImage: "person.crop.circle") {
                 HomitaField(placeholder: "Nombre (1-50)", text: $name)
                 ColorPicker("Color", selection: $color, supportsOpacity: false)
-                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
                     .onChange(of: color) { colorTouched = true }
                 Text("Tipo")
-                    .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .footnote))
+                    .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
                     .foregroundStyle(Palette.inkSoft)
                 HomitaRadioGroup(
                     selection: $kind,
@@ -685,7 +685,7 @@ struct MemberEditorView: View {
                 }
                 if let editing {
                     Text("Estado")
-                        .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .footnote))
+                        .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
                         .foregroundStyle(Palette.inkSoft)
                     HomitaRadioGroup(
                         selection: $status,
@@ -819,10 +819,10 @@ struct HomeInvitationsView: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.memberName ?? MemberRules.kindLabel(item.kind))
-                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
                 Text(Self.rowDetail(item))
-                    .font(HomitaFont.geist(13, relativeTo: .footnote))
+                    .font(HomitaFont.inter(13, relativeTo: .footnote))
                     .foregroundStyle(Palette.inkSoft)
             }
             Spacer()
@@ -886,7 +886,7 @@ struct InvitationCreateView: View {
             HomitaButton(title: "Enviar por WhatsApp", kind: .secondary) { openWhatsApp(code) }
             ShareLink(item: Self.inviteMessage(code: code, homeName: homeName)) {
                 Label("Compartir invitación", systemImage: "square.and.arrow.up")
-                    .font(HomitaFont.geist(17, weight: .semibold, relativeTo: .body))
+                    .font(HomitaFont.inter(17, weight: .semibold, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .background(Palette.card, in: RoundedRectangle(cornerRadius: 18))

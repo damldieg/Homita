@@ -35,20 +35,20 @@ struct CalendarDetailView: View {
             ForEach(store.linkedEvents, id: \.id) { event in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(event.title)
-                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                        .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                         .foregroundStyle(Palette.ink)
                     Text(DateDisplay.dateTime(event.date_at))
-                        .font(HomitaFont.geist(13, relativeTo: .footnote))
+                        .font(HomitaFont.inter(13, relativeTo: .footnote))
                         .foregroundStyle(Palette.inkSoft)
                 }
             }
             ForEach(store.linkedRoutines, id: \.id) { routine in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(routine.title)
-                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                        .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                         .foregroundStyle(Palette.ink)
                     Text("Rutina · \(routine.time)")
-                        .font(HomitaFont.geist(13, relativeTo: .footnote))
+                        .font(HomitaFont.inter(13, relativeTo: .footnote))
                         .foregroundStyle(Palette.inkSoft)
                 }
             }
@@ -60,7 +60,7 @@ struct CalendarDetailView: View {
             HomitaPanel("Calendario", systemImage: "calendar") {
                 HomitaField(placeholder: "Nombre", text: $name)
                 ColorPicker("Color", selection: $color, supportsOpacity: false)
-                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
             }
             HomitaPanel("Visible en", systemImage: "eye") {

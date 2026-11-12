@@ -65,6 +65,17 @@ enum Palette {
     static let onlineHex = "#3F7D4E"
     /// Color por defecto de calendarios, listas y rutinas sin color del servidor.
     static let fallbackItem = "#6923E2"
+    static let inkHex = "#1D1612"
+    static let inkSoftHex = "#6F655A"
+    static let inkMutedHex = "#8F8579"
+    static let backgroundHex = "#F4EEE3"
+    static let surfaceHex = "#FDFBF7"
+    static let lineHex = "#EDE5D6"
+    static let okHex = "#2F5E3B"
+    /// Ámbar del diseño (`--soon`), para enlaces de aviso y pendientes.
+    static let soonHex = "#D9A400"
+    /// Contraste sobre acento y sobre tintes oscuros.
+    static let whiteHex = "#FFFFFF"
 
     // MARK: Alias de la paleta anterior (vistas actuales)
 

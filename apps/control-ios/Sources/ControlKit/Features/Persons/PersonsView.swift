@@ -19,10 +19,10 @@ struct PersonsView: View {
                                 .frame(width: 14, height: 14)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(person.name)
-                                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                                     .foregroundStyle(Palette.ink)
                                 if !person.isEditable {
-                                    HomitaBadge(title: "Compartida (solo lectura)", tintHex: "#6E6358")
+                                    HomitaBadge(title: "Compartida (solo lectura)", tintHex: Palette.inkSoftHex)
                                 }
                             }
                             Spacer()
@@ -54,7 +54,7 @@ struct PersonsView: View {
             if store.persons.isEmpty && !store.isLoading {
                 HomitaCard {
                     Text("Sin personas")
-                        .font(HomitaFont.geist(16, relativeTo: .body))
+                        .font(HomitaFont.inter(16, relativeTo: .body))
                         .foregroundStyle(Palette.inkSoft)
                         .frame(maxWidth: .infinity)
                 }
@@ -117,7 +117,7 @@ struct PersonEditorView: View {
                         HomitaSectionHeader(title: "Persona", systemImage: "person.crop.circle")
                         HomitaField(placeholder: "Nombre (1-50)", text: $name)
                         ColorPicker("Color", selection: $color, supportsOpacity: false)
-                            .font(HomitaFont.geist(17, relativeTo: .body))
+                            .font(HomitaFont.inter(17, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
                     }
                 }

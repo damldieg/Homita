@@ -5,7 +5,7 @@ extension View {
     /// de la paleta. Se aplica a cada `List`/`Form` de pantalla principal (B2).
     func homitaList() -> some View {
         self
-            .font(HomitaFont.geist(17, relativeTo: .body))
+            .font(HomitaFont.inter(17, relativeTo: .body))
             .foregroundStyle(Palette.ink)
             .scrollContentBackground(.hidden)
             .background(Palette.background)

@@ -8,7 +8,7 @@ struct AssignedPersonsLine: View {
     var body: some View {
         if let names = persons?.map(\.name), !names.isEmpty {
             Text("Para: \(names.joined(separator: ", "))")
-                .font(HomitaFont.geist(13, relativeTo: .footnote))
+                .font(HomitaFont.inter(13, relativeTo: .footnote))
                 .foregroundStyle(Palette.inkSoft)
                 .lineLimit(2)
         }

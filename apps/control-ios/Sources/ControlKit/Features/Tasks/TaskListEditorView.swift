@@ -36,7 +36,7 @@ struct TaskListEditorView: View {
             HomitaPanel("Lista", systemImage: "list.bullet") {
                 HomitaField(placeholder: "Nombre", text: $name)
                 ColorPicker("Color", selection: $color, supportsOpacity: false)
-                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
             }
             HomitaPanel("Orden de las tareas", systemImage: "arrow.up.arrow.down") {

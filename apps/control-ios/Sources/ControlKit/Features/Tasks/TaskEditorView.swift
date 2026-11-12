@@ -49,7 +49,7 @@ struct TaskEditorView: View {
                         HomitaFootnote(text: "Todavía no tienes listas. Crea una en la pestaña Listas para añadir tareas.")
                     } else {
                         Text("Lista")
-                            .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .footnote))
+                            .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
                             .foregroundStyle(Palette.inkSoft)
                         HomitaRadioGroup(
                             selection: Binding(get: { listId }, set: { listId = $0 ?? listId }),

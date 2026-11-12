@@ -72,10 +72,10 @@ public struct InicioView: View {
     private var greeting: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(greetingText)
-                .font(HomitaFont.geist(34, weight: .bold, relativeTo: .largeTitle))
+                .font(HomitaFont.inter(34, weight: .bold, relativeTo: .largeTitle))
                 .foregroundStyle(Palette.ink)
             Text(dateText)
-                .font(HomitaFont.geist(15, relativeTo: .subheadline))
+                .font(HomitaFont.inter(15, relativeTo: .subheadline))
                 .foregroundStyle(Palette.inkSoft)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -110,18 +110,18 @@ public struct InicioView: View {
                         .frame(width: 4, height: 36)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(event.title)
-                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
                         EventCountdownLabel(dateAt: event.date_at)
                         if let name = event.calendar_name {
                             Text(name)
-                                .font(HomitaFont.geist(13, relativeTo: .footnote))
+                                .font(HomitaFont.inter(13, relativeTo: .footnote))
                                 .foregroundStyle(Palette.inkSoft)
                         }
                     }
                     Spacer()
                     Text(Self.time(of: event.date_at))
-                        .font(HomitaFont.geist(15, weight: .semibold, relativeTo: .subheadline))
+                        .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
                         .foregroundStyle(Palette.inkSoft)
                 }
                 .accessibilityElement(children: .combine)
@@ -159,7 +159,7 @@ public struct InicioView: View {
                 HStack(spacing: 8) {
                     Circle().fill(Color(hex: page.colorHex)).frame(width: 10, height: 10)
                     Text(page.name)
-                        .font(HomitaFont.geist(15, weight: .semibold, relativeTo: .subheadline))
+                        .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
                         .foregroundStyle(Palette.inkSoft)
                 }
                 ForEach(page.tasks) { task in
@@ -168,7 +168,7 @@ public struct InicioView: View {
                             Task { await store.toggleComplete(task) }
                         }
                         Text(task.title)
-                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
                         Spacer()
                     }
@@ -176,7 +176,7 @@ public struct InicioView: View {
                 HStack {
                     Spacer()
                     Button("Ver más") { onOpen(.taskList(page.id)) }
-                        .font(HomitaFont.geist(15, weight: .semibold, relativeTo: .subheadline))
+                        .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
                         .foregroundStyle(Palette.accent)
                 }
             } else {
@@ -192,7 +192,7 @@ public struct InicioView: View {
     private var quickActions: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("ACCESOS RÁPIDOS")
-                .font(HomitaFont.geist(13, weight: .semibold, relativeTo: .footnote))
+                .font(HomitaFont.inter(13, weight: .semibold, relativeTo: .footnote))
                 .foregroundStyle(Palette.inkSoft)
             HStack(spacing: 12) {
                 HomitaButton(title: "+ Tarea") {
@@ -243,14 +243,14 @@ public struct InicioView: View {
             case .idle, .loading:
                 if count == 0 {
                     Text("Cargando…")
-                        .font(HomitaFont.geist(15, relativeTo: .body))
+                        .font(HomitaFont.inter(15, relativeTo: .body))
                         .foregroundStyle(Palette.inkSoft)
                 } else {
                     content()
                 }
             case .failed(let message):
                 Text(message)
-                    .font(HomitaFont.geist(15, relativeTo: .body))
+                    .font(HomitaFont.inter(15, relativeTo: .body))
                     .foregroundStyle(Palette.accent)
                 HomitaButton(title: "Reintentar", kind: .secondary) { Task { await retry() } }
             case .loaded:
@@ -265,7 +265,7 @@ public struct InicioView: View {
 
     private func emptyText(_ text: String) -> some View {
         Text(text)
-            .font(HomitaFont.geist(15, relativeTo: .body))
+            .font(HomitaFont.inter(15, relativeTo: .body))
             .foregroundStyle(Palette.inkSoft)
     }
 

@@ -31,7 +31,7 @@ public struct HogarView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     Text("Hogar")
-                        .font(HomitaFont.geist(34, weight: .bold, relativeTo: .largeTitle))
+                        .font(HomitaFont.inter(34, weight: .bold, relativeTo: .largeTitle))
                         .foregroundStyle(Palette.ink)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 8)
@@ -70,10 +70,10 @@ public struct HogarView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(row.name)
-                                .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                                .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                                 .foregroundStyle(Palette.ink)
                             Text(row.roleLabel)
-                                .font(HomitaFont.geist(13, relativeTo: .footnote))
+                                .font(HomitaFont.inter(13, relativeTo: .footnote))
                                 .foregroundStyle(Palette.inkSoft)
                         }
                         Spacer()
@@ -89,7 +89,7 @@ public struct HogarView: View {
             }
             if let error = services.homeContext.persistenceError {
                 Text(error)
-                    .font(HomitaFont.geist(13, relativeTo: .footnote))
+                    .font(HomitaFont.inter(13, relativeTo: .footnote))
                     .foregroundStyle(Palette.accent)
             }
         }
@@ -102,17 +102,17 @@ public struct HogarView: View {
             switch store.state {
             case .idle, .loading:
                 Text("Cargando…")
-                    .font(HomitaFont.geist(15, relativeTo: .body))
+                    .font(HomitaFont.inter(15, relativeTo: .body))
                     .foregroundStyle(Palette.inkSoft)
             case .failed(let message):
                 Text(message)
-                    .font(HomitaFont.geist(15, relativeTo: .body))
+                    .font(HomitaFont.inter(15, relativeTo: .body))
                     .foregroundStyle(Palette.accent)
                 HomitaButton(title: "Reintentar", kind: .secondary) { Task { await store.load() } }
             case .loaded:
                 if store.rows.isEmpty {
                     Text("Sin miembros")
-                        .font(HomitaFont.geist(15, relativeTo: .body))
+                        .font(HomitaFont.inter(15, relativeTo: .body))
                         .foregroundStyle(Palette.inkSoft)
                 }
                 ForEach(store.rows) { row in
@@ -125,7 +125,7 @@ public struct HogarView: View {
     private func memberRow(_ row: HogarMemberRow) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Text(row.initial)
-                .font(HomitaFont.geist(16, weight: .bold, relativeTo: .body))
+                .font(HomitaFont.inter(16, weight: .bold, relativeTo: .body))
                 .foregroundStyle(Palette.accent)
                 .frame(width: 36, height: 36)
                 .background(Palette.accent.opacity(0.14), in: Circle())
@@ -133,22 +133,22 @@ public struct HogarView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(row.name)
-                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                        .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                         .foregroundStyle(Palette.ink)
                     if row.isMe {
                         HomitaBadge(title: "tú", tintHex: Palette.onlineHex)
                     }
                 }
                 Text([row.kindLabel, row.roleLabel].compactMap { $0 }.joined(separator: " · "))
-                    .font(HomitaFont.geist(13, relativeTo: .footnote))
+                    .font(HomitaFont.inter(13, relativeTo: .footnote))
                     .foregroundStyle(Palette.inkSoft)
                 if !row.permissions.isEmpty {
                     Text(row.permissionsPreview.joined(separator: ", "))
-                        .font(HomitaFont.geist(13, relativeTo: .footnote))
+                        .font(HomitaFont.inter(13, relativeTo: .footnote))
                         .foregroundStyle(Palette.inkMuted)
                     if row.hasMorePermissions {
                         Button("Ver más") { permissionsRow = row }
-                            .font(HomitaFont.geist(13, weight: .medium, relativeTo: .footnote))
+                            .font(HomitaFont.inter(13, weight: .medium, relativeTo: .footnote))
                             .foregroundStyle(Palette.accent)
                             .buttonStyle(.plain)
                             .accessibilityHint("Abre el catálogo completo de permisos")
@@ -168,7 +168,7 @@ public struct HogarView: View {
                     HomitaSectionHeader(title: row.name, count: row.permissions.count, systemImage: "checkmark.shield")
                     ForEach(Array(row.permissions.enumerated()), id: \.offset) { _, permission in
                         Text(permission)
-                            .font(HomitaFont.geist(15, relativeTo: .body))
+                            .font(HomitaFont.inter(15, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.vertical, 2)
@@ -196,13 +196,13 @@ public struct HogarView: View {
         card {
             HomitaSectionHeader(title: "Invitar", systemImage: "envelope.badge")
             Text("Crea un código de invitación y compártelo. Solo se muestra al crearlo.")
-                .font(HomitaFont.geist(13, relativeTo: .footnote))
+                .font(HomitaFont.inter(13, relativeTo: .footnote))
                 .foregroundStyle(Palette.inkSoft)
             HomitaButton(title: "Crear invitación") { showInvite = true }
             NavigationLink {
                 HomeInvitationsView(services: services, home: home)
             } label: {
-                linkRow(title: "Invitaciones pendientes", systemImage: "tray", tint: "#F5A623")
+                linkRow(title: "Invitaciones pendientes", systemImage: "tray", tint: Palette.soonHex)
             }
             .buttonStyle(.plain)
         }
@@ -213,7 +213,7 @@ public struct HogarView: View {
             NavigationLink {
                 HomeAdminView(services: services, home: home)
             } label: {
-                linkRow(title: "Administración", systemImage: "gearshape", tint: "#F5A623")
+                linkRow(title: "Administración", systemImage: "gearshape", tint: Palette.soonHex)
             }
             .buttonStyle(.plain)
         }
@@ -239,7 +239,7 @@ public struct HogarView: View {
                 .frame(width: 36, height: 36)
                 .background(Color(hex: tint).opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
             Text(title)
-                .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                 .foregroundStyle(Palette.ink)
             Spacer()
             Image(systemName: "chevron.right")

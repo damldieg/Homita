@@ -9,12 +9,12 @@ struct HomeLoadingView: View {
         HomitaCard {
             HStack(spacing: 12) {
                 #if canImport(ComponentsKit)
-                SULoading(model: LoadingVM { $0.color = ComponentColor(main: uc(Palette.accentHex), contrast: uc("#FFFFFF")) })
+                SULoading(model: LoadingVM { $0.color = ComponentColor(main: uc(Palette.accentHex), contrast: uc(Palette.whiteHex)) })
                 #else
                 ProgressView()
                 #endif
                 Text("Cargando hogar…")
-                    .font(HomitaFont.geist(16, relativeTo: .body))
+                    .font(HomitaFont.inter(16, relativeTo: .body))
                     .foregroundStyle(Palette.inkSoft)
             }
             .frame(maxWidth: .infinity)
@@ -30,7 +30,7 @@ struct HomeErrorView: View {
     var body: some View {
         HomitaPanel("No se pudo cargar tu hogar", systemImage: "exclamationmark.triangle", tint: Palette.accent) {
             Text(message)
-                .font(HomitaFont.geist(15, relativeTo: .body))
+                .font(HomitaFont.inter(15, relativeTo: .body))
                 .foregroundStyle(Palette.inkSoft)
             HomitaButton(title: "Reintentar", action: retry)
         }
