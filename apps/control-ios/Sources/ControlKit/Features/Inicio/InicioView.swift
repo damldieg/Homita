@@ -196,7 +196,7 @@ public struct InicioView: View {
                 .font(HomitaFont.inter(13, weight: .semibold, relativeTo: .footnote))
                 .foregroundStyle(Palette.inkSoft)
             HStack(spacing: 12) {
-                HomitaButton(title: "+ Tarea", kind: .secondary) {
+                HomitaButton(title: "+ Tarea", kind: .accentOutline) {
                     Task {
                         await store.loadTaskLists()
                         if store.taskLists.isEmpty {

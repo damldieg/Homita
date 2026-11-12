@@ -66,6 +66,8 @@ struct TaskListDetailView: View {
                             taskToEdit = task
                         }
                         .homitaRow()
+                        .listRowSeparator(.visible, edges: .bottom)
+                        .listRowSeparatorTint(Palette.line)
                     }
                     .onDelete { indexSet in
                         pendingTaskDelete = indexSet.map { pending[$0] }
@@ -90,6 +92,8 @@ struct TaskListDetailView: View {
                             taskToEdit = task
                         }
                         .homitaRow()
+                        .listRowSeparator(.visible, edges: .bottom)
+                        .listRowSeparatorTint(Palette.line)
                     }
                     .onDelete { indexSet in
                         pendingTaskDelete = indexSet.map { completed[$0] }

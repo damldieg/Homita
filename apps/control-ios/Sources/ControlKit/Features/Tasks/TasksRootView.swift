@@ -116,6 +116,8 @@ struct TasksView: View {
                                 taskToEdit = task
                             }
                             .homitaRow()
+                            .listRowSeparator(.visible, edges: .bottom)
+                            .listRowSeparatorTint(Palette.line)
                         }
                         .onDelete { indexSet in
                             pendingTaskDelete = indexSet.map { group.tasks[$0] }

@@ -284,7 +284,7 @@ struct HomitaField: View {
 
 /// Botón de Homita: principal (relleno en acento) o secundario (borde en tinta), sobre `SUButton`.
 struct HomitaButton: View {
-    enum Kind { case primary, secondary }
+    enum Kind { case primary, secondary, accentOutline }
 
     let title: String
     var kind: Kind = .primary
@@ -322,6 +322,10 @@ struct HomitaButton: View {
             case .secondary:
                 $0.style = .bordered(.medium)
                 $0.color = ComponentColor(main: uc(Palette.inkHex), contrast: uc(Palette.inkHex))
+            case .accentOutline:
+                // Borde y texto del color de acción (mismo color que el fondo de «+ Evento»).
+                $0.style = .bordered(.medium)
+                $0.color = ComponentColor(main: uc(Palette.accentHex), contrast: uc(Palette.accentHex))
             }
         }
     }
