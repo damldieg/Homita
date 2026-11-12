@@ -42,7 +42,7 @@ public struct InicioView: View {
             .errorAlert($store.errorMessage)
             .sheet(isPresented: $showTaskEditor) {
                 NavigationStack {
-                    TaskEditorView(taskLists: store.taskLists, task: nil) { title, listId in
+                    TaskEditorView(taskLists: store.taskLists, task: nil) { title, listId, _ in
                         Task { await store.createTask(title: title, listId: listId) }
                     }
                 }
