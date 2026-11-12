@@ -52,6 +52,7 @@ public struct InicioView: View {
             .refreshable { await store.load() }
             .task { await store.load() }
             .errorAlert($store.errorMessage)
+            .writeFailureToast($store.writeFailure)
             .sheet(isPresented: $showTaskEditor) {
                 NavigationStack {
                     TaskEditorView(taskLists: store.taskLists, task: nil) { title, listId, _ in

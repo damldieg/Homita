@@ -73,5 +73,6 @@ struct CalendarListView: View {
             await store.load()
         }
         .errorAlert($store.errorMessage)
+        .writeFailureToast($store.writeFailure)
     }
 }

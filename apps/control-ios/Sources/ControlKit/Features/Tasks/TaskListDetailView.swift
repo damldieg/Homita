@@ -166,6 +166,7 @@ struct TaskListDetailView: View {
             await store.loadMembers(listId: current.id)
         }
         .errorAlert($store.errorMessage)
+        .writeFailureToast($store.writeFailure)
         .homitaConfirm(DeleteConfirmation.message(names: pendingTaskDelete.map(\.title), consequence: "Se eliminará la tarea."), isPresented: $showTaskDelete, confirmTitle: "Eliminar") {
             let tasks = pendingTaskDelete
             Task { for task in tasks { await store.deleteTask(task) } }

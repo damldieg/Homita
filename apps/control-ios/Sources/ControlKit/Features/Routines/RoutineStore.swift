@@ -4,13 +4,16 @@ import Foundation
 /// inicio del mes, como Android) para la etiqueta de próxima sesión. Las sesiones individuales
 /// son solo lectura. Guardar actualiza la rutina y, si cambia el aviso, `PATCH routine/alarm`.
 @Observable
-public final class RoutineStore {
+public final class RoutineStore: WriteFailureReporting {
     public private(set) var routines: [RoutineEntry] = []
     public private(set) var sessions: [EventEntry] = []
     public private(set) var isLoading = false
     /// Primera carga completada (loader hasta entonces).
     public private(set) var hasLoaded = false
+    /// Errores de lectura (alerta de la pantalla).
     public var errorMessage: String?
+    /// Última escritura fallida (toast con «Reintentar»).
+    public var writeFailure: WriteFailure?
 
     private let repo: RoutineRepository
     private let events: EventRepository
@@ -131,43 +134,37 @@ public final class RoutineStore {
     /// `PATCH routine/update` y luego, solo si cambió, `PATCH routine/alarm`.
     @discardableResult
     public func save(draft: RoutineDraft, editing: RoutineEntry?) async -> Bool {
-        do {
+        return await performWrite { store in
             if let editing {
-                _ = try await repo.update(
+                _ = try await store.repo.update(
                     UpdateRoutineRequest(
                         id: editing.id, title: draft.title, frequency: draft.frequency, interval: draft.interval,
                         days: draft.days, time: draft.time, start_date: draft.startDate, end_date: draft.endDate,
                         active: draft.active, person_ids: draft.personIds
                     ),
-                    timezone: timezone
+                    timezone: store.timezone
                 )
                 if draft.alarm != editing.alarm {
-                    _ = try await repo.setAlarm(SetRoutineAlarmRequest(id: editing.id, alarm: draft.alarm), timezone: timezone)
+                    _ = try await store.repo.setAlarm(SetRoutineAlarmRequest(id: editing.id, alarm: draft.alarm), timezone: store.timezone)
                 }
             } else {
-                _ = try await repo.create(
+                _ = try await store.repo.create(
                     CreateRoutineRequest(
                         calendar_id: draft.calendarId, title: draft.title, frequency: draft.frequency,
                         interval: draft.interval, days: draft.days, time: draft.time, start_date: draft.startDate,
                         end_date: draft.endDate, active: draft.active, alarm: draft.alarm, person_ids: draft.personIds
                     ),
-                    timezone: timezone
+                    timezone: store.timezone
                 )
             }
-            await load()
-            return true
-        } catch {
-            report(error)
-            return false
+            await store.load()
         }
     }
 
     public func delete(_ routine: RoutineEntry) async {
-        do {
-            _ = try await repo.delete(id: routine.id, timezone: timezone)
-            await load()
-        } catch {
-            report(error)
+        await performWrite { store in
+            _ = try await store.repo.delete(id: routine.id, timezone: store.timezone)
+            await store.load()
         }
     }
 

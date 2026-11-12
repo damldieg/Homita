@@ -110,6 +110,9 @@ struct CalendarDetailView: View {
             Task { await delete() }
         }
         .errorAlert($store.errorMessage)
+        // En alta la única escritura es crear: «Reintentar» que va bien cierra el editor. En edición
+        // también hay invitar/quitar miembro, así que el editor sigue abierto (guardar de nuevo es inocuo).
+        .writeFailureToast($store.writeFailure) { if calendar == nil { dismiss() } }
     }
 
     private func save() async {

@@ -11,7 +11,7 @@ public enum InicioSectionState: Equatable, Sendable {
 /// Estado de Inicio (versión mínima): eventos de hoy, tareas pendientes y rutinas de hoy.
 /// Solo usa `event`, `task` y `routine` (nada de `/home/*`). Las rutinas se calculan en cliente.
 @Observable
-public final class InicioStore {
+public final class InicioStore: WriteFailureReporting {
     public private(set) var events: [EventEntry] = []
     public private(set) var tasks: [TaskEntry] = []
     public private(set) var routines: [RoutineEntry] = []
@@ -19,7 +19,10 @@ public final class InicioStore {
     public private(set) var eventsState: InicioSectionState = .idle
     public private(set) var tasksState: InicioSectionState = .idle
     public private(set) var routinesState: InicioSectionState = .idle
+    /// Errores de lectura (alerta de la pantalla).
     public var errorMessage: String?
+    /// Última escritura fallida (toast con «Reintentar»).
+    public var writeFailure: WriteFailure?
 
     private let eventsRepo: EventRepository
     private let tasksRepo: TaskRepository
@@ -176,10 +179,8 @@ public final class InicioStore {
 
     /// Completa/reabre una tarea (misma llamada que `TasksStore.toggleComplete`) y recarga tareas.
     public func toggleComplete(_ task: TaskEntry) async {
-        do {
-            _ = try await tasksRepo.complete(CompleteTaskRequest(id: task.id, completed: !task.isCompleted))
-        } catch {
-            errorMessage = message(error)
+        await performWrite { store in
+            _ = try await store.tasksRepo.complete(CompleteTaskRequest(id: task.id, completed: !task.isCompleted))
         }
         await loadTasks()
     }
@@ -193,16 +194,16 @@ public final class InicioStore {
         }
     }
 
-    /// Alta rápida de tarea desde Inicio.
-    public func createTask(title: String, listId: Int) async {
+    /// Alta rápida de tarea desde Inicio. Devuelve si se creó (el editor solo se cierra entonces).
+    @discardableResult
+    public func createTask(title: String, listId: Int) async -> Bool {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        do {
-            _ = try await tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed))
-        } catch {
-            errorMessage = message(error)
+        guard !trimmed.isEmpty else { return false }
+        let ok = await performWrite { store in
+            _ = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed))
+            await store.loadTasks()
         }
-        await loadTasks()
+        return ok
     }
 
     private func message(_ error: Error) -> String {

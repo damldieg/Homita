@@ -71,6 +71,7 @@ struct RoutineListView: View {
             await store.load()
         }
         .errorAlert($store.errorMessage)
+        .writeFailureToast($store.writeFailure)
         .homitaConfirm(DeleteConfirmation.message(names: pendingRoutineDelete.map(\.title), consequence: "Se eliminará la rutina y sus sesiones futuras."), isPresented: $showRoutineDelete, confirmTitle: "Eliminar") {
             let routines = pendingRoutineDelete
             Task { for routine in routines { await store.delete(routine) } }

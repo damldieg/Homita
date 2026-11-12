@@ -3,13 +3,16 @@ import Foundation
 /// Estado de la lista de eventos: próximos/pasados con los filtros del contrato (`start_date`/
 /// `end_date` = epoch local de 10 dígitos, `routine=false`, `timezone` IANA), como Android.
 @Observable
-public final class EventStore {
+public final class EventStore: WriteFailureReporting {
     public private(set) var upcoming: [EventEntry] = []
     public private(set) var past: [EventEntry] = []
     public private(set) var isLoading = false
     /// Primera carga completada: hasta entonces la vista muestra el loader, no el estado vacío.
     public private(set) var hasLoaded = false
+    /// Errores de lectura (alerta de la pantalla).
     public var errorMessage: String?
+    /// Última escritura fallida (toast con «Reintentar»).
+    public var writeFailure: WriteFailure?
     public var calendarFilterId: Int?
     public var searchText: String = ""
 
@@ -102,44 +105,36 @@ public final class EventStore {
     @discardableResult
     public func save(draft: EventDraft, editing: EventEntry?) async -> Bool {
         if let problem = EventValidation.validate(title: draft.title, dateAt: draft.dateAt) {
-            errorMessage = problem
+            rejectWrite(problem)
             return false
         }
-        do {
+        return await performWrite { store in
             if let editing {
-                _ = try await repo.update(
+                _ = try await store.repo.update(
                     UpdateEventRequest(id: editing.id, title: draft.title, date_at: draft.dateAt, alarm: draft.alarm, person_ids: draft.personIds),
-                    timezone: timezone
+                    timezone: store.timezone
                 )
             } else {
-                _ = try await repo.create(CreateEventRequest(
+                _ = try await store.repo.create(CreateEventRequest(
                     calendar_id: draft.calendarId, title: draft.title, date_at: draft.dateAt,
                     alarm: draft.alarm, person_ids: draft.personIds
                 ))
             }
-            await load()
-            return true
-        } catch {
-            report(error)
-            return false
+            await store.load()
         }
     }
 
     public func setAlarm(_ event: EventEntry, alarm: Int?) async {
-        do {
-            _ = try await repo.setAlarm(SetEventAlarmRequest(event_id: event.id, alarm: alarm), timezone: timezone)
-            await load()
-        } catch {
-            report(error)
+        await performWrite { store in
+            _ = try await store.repo.setAlarm(SetEventAlarmRequest(event_id: event.id, alarm: alarm), timezone: store.timezone)
+            await store.load()
         }
     }
 
     public func delete(_ event: EventEntry) async {
-        do {
-            _ = try await repo.delete(id: event.id, timezone: timezone)
-            await load()
-        } catch {
-            report(error)
+        await performWrite { store in
+            _ = try await store.repo.delete(id: event.id, timezone: store.timezone)
+            await store.load()
         }
     }
 

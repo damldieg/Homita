@@ -48,6 +48,8 @@ struct CalendarEventsView: View {
             }
         }
         .errorAlert($calendarStore.errorMessage)
+        // Un borrado que falla en el detalle (ya cerrado) se avisa aquí.
+        .writeFailureToast($eventStore.writeFailure)
         // Al volver del detalle (guardar, eliminar o atrás) se recarga el rango visible.
         .onChange(of: selectedEvent?.id) { _, id in
             if id == nil { Task { await calendarStore.load() } }

@@ -54,4 +54,17 @@ extension View {
         }
         .animation(.easeOut(duration: 0.2), value: message.wrappedValue)
     }
+
+    /// Toast del último fallo de escritura de un store (`WriteFailureReporting`). «Reintentar»
+    /// repite la escritura; si esta vez va bien llama a `onRetrySuccess` (p. ej. cerrar el editor).
+    func writeFailureToast(_ failure: Binding<WriteFailure?>, onRetrySuccess: (() -> Void)? = nil) -> some View {
+        let message = Binding<String?>(
+            get: { failure.wrappedValue?.message },
+            set: { if $0 == nil { failure.wrappedValue = nil } }
+        )
+        let retry = failure.wrappedValue?.retry.map { write in
+            { Task { if await write() { onRetrySuccess?() } } } as () -> Void
+        }
+        return homitaToast(message, retry: retry)
+    }
 }

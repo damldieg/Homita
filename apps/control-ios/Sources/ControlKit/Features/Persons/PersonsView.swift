@@ -94,6 +94,7 @@ struct PersonsView: View {
             await store.load()
         }
         .errorAlert($store.errorMessage)
+        .writeFailureToast($store.writeFailure)
         .homitaConfirm(DeleteConfirmation.message(names: pendingPersonDelete.map { [$0.name] } ?? [], consequence: "Se eliminará la persona."), isPresented: $showPersonDelete, confirmTitle: "Eliminar") {
             if let person = pendingPersonDelete { Task { await store.delete(person) } }
         }
@@ -156,6 +157,8 @@ struct PersonEditorView: View {
             }
         }
         .errorAlert($store.errorMessage)
+        // «Reintentar» que va bien cierra el editor, igual que un guardado correcto.
+        .writeFailureToast($store.writeFailure) { dismiss() }
     }
 
     private func save() async {

@@ -43,6 +43,7 @@ public struct TasksRootView: View {
                 }
             }
             .errorAlert($store.errorMessage)
+            .writeFailureToast($store.writeFailure)
         }
     }
 }

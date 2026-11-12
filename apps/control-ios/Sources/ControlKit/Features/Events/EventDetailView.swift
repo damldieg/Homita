@@ -78,6 +78,8 @@ struct EventDetailView: View {
             Task { await delete() }
         }
         .errorAlert($store.errorMessage)
+        // «Reintentar» que va bien cierra el editor, igual que un guardado correcto.
+        .writeFailureToast($store.writeFailure) { dismiss() }
     }
 
     private func save() async {
