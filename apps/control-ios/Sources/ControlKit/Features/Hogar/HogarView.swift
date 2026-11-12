@@ -52,7 +52,7 @@ public struct HogarView: View {
                 permissionsSheet(row)
             }
             .sheet(isPresented: $showInvite) {
-                NavigationStack { InvitationCreateView(store: invitationStore, callerRole: store.callerRole) }
+                NavigationStack { InvitationCreateView(store: invitationStore, callerRole: store.callerRole, homeName: home.name) }
             }
         }
     }
