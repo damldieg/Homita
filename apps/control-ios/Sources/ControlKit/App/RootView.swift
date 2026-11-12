@@ -15,6 +15,10 @@ public struct RootView: View {
         let tokenStore = KeychainTokenStore()
         let session = SessionStore(store: tokenStore)
         session.restore()
+        // Solo para la suite de UI: arranca siempre sin sesión guardada (el Keychain del simulador persiste entre corridas).
+        if ProcessInfo.processInfo.arguments.contains("-uiTestingResetSession") {
+            session.signOut()
+        }
         _session = State(initialValue: session)
         _services = State(initialValue: AppServices(config: config, session: session, tokenStore: tokenStore))
     }

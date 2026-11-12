@@ -14,6 +14,7 @@ final class ControlAppAuditTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = true
         app = XCUIApplication()
+        app.launchArguments = ["-uiTestingResetSession"]
         app.launch()
     }
 
