@@ -30,11 +30,7 @@ public struct HogarView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    Text("Hogar")
-                        .font(HomitaFont.inter(34, weight: .bold, relativeTo: .largeTitle))
-                        .foregroundStyle(Palette.ink)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, 8)
+                    HomitaHeader(title: "Hogar")
                     switcherCard
                     membersCard
                     if store.canInvite {
@@ -45,7 +41,7 @@ public struct HogarView: View {
                 .padding(20)
             }
             .background(Palette.background.ignoresSafeArea())
-            .homitaNavigationBar()
+            .homitaHiddenNavigationBar()
             .refreshable { await store.load() }
             .task { await store.load() }
             .sheet(item: $permissionsRow) { row in

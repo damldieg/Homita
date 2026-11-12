@@ -22,4 +22,13 @@ extension View {
         self
         #endif
     }
+
+    /// Oculta la barra de navegación: la pestaña pinta su propia cabecera (`HomitaHeader`).
+    func homitaHiddenNavigationBar() -> some View {
+        #if os(iOS)
+        self.toolbar(.hidden, for: .navigationBar)
+        #else
+        self
+        #endif
+    }
 }

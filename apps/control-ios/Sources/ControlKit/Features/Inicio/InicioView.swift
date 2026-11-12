@@ -48,7 +48,7 @@ public struct InicioView: View {
                 .padding(20)
             }
             .background(Palette.background.ignoresSafeArea())
-            .homitaNavigationBar()
+            .homitaHiddenNavigationBar()
             .refreshable { await store.load() }
             .task { await store.load() }
             .errorAlert($store.errorMessage)
@@ -70,17 +70,8 @@ public struct InicioView: View {
     // MARK: - Saludo
 
     private var greeting: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(greetingText)
-                .font(HomitaFont.inter(34, weight: .bold, relativeTo: .largeTitle))
-                .foregroundStyle(Palette.ink)
-            Text(dateText)
-                .font(HomitaFont.inter(15, relativeTo: .subheadline))
-                .foregroundStyle(Palette.inkSoft)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 8)
-        .accessibilityElement(children: .combine)
+        HomitaHeader(title: greetingText, subtitle: dateText)
+            .accessibilityElement(children: .combine)
     }
 
     private var greetingText: String {
