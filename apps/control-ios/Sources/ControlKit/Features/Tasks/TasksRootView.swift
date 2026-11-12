@@ -152,7 +152,7 @@ struct TasksView: View {
             }
 
             if !store.hasLoadedTasks || (store.isLoading && !hasTasks) {
-                HomitaLoadingCard(message: "Cargando tareas…").homitaRow()
+                HomitaSkeletonRows(count: 3, height: 56, label: "Cargando tareas").homitaRow()
             }
             if store.hasLoadedTasks && !hasTasks && !store.isLoading {
                 HomitaEmptyState(.tasks(filtered: store.listFilterId != nil)) {
@@ -165,13 +165,15 @@ struct TasksView: View {
         .onChange(of: expandRequest, initial: true) { applyExpandRequest() }
         .onChange(of: store.hasLoadedTasks) { applyExpandRequest() }
         .onChange(of: store.isLoading) { applyExpandRequest() }
-        .safeAreaInset(edge: .bottom) {
-            if hasTasks {
-                HomitaFloatingAddButton(title: "Nueva tarea") { showCreateTask = true }
-                    .accessibilityIdentifier("tareas.alta")
-            }
-        }
         .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showCreateTask = true } label: {
+                    Image(systemName: "plus")
+                        .foregroundStyle(Palette.ink)
+                }
+                .accessibilityLabel("Nueva tarea")
+                .accessibilityIdentifier("tareas.alta")
+            }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button("Todas") {
@@ -241,7 +243,7 @@ struct TaskListsView: View {
     var body: some View {
         List {
             if !store.hasLoadedLists || (store.isLoading && store.taskLists.isEmpty) {
-                HomitaLoadingCard(message: "Cargando listas…").homitaRow()
+                HomitaSkeletonRows(count: 3, height: 64, label: "Cargando listas").homitaRow()
             }
             if store.hasLoadedLists && store.taskLists.isEmpty && !store.isLoading {
                 HomitaEmptyState(.taskLists) {
@@ -251,7 +253,8 @@ struct TaskListsView: View {
             }
             if !store.taskLists.isEmpty {
             Section {
-                ForEach(store.taskLists, id: \.id) { list in
+                // E2-06: orden por nombre (no alfabético de servidor).
+                ForEach(store.taskLists.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }, id: \.id) { list in
                     NavigationLink {
                         TaskListDetailView(store: store, list: list)
                     } label: {
