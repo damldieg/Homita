@@ -55,8 +55,9 @@ public struct InicioView: View {
             .writeFailureToast($store.writeFailure)
             .sheet(isPresented: $showTaskEditor) {
                 NavigationStack {
-                    TaskEditorView(taskLists: store.taskLists, task: nil) { title, listId, _ in
-                        Task { await store.createTask(title: title, listId: listId) }
+                    TaskEditorView(taskLists: store.taskLists, task: nil,
+                                   writeFailure: $store.writeFailure) { title, listId, _ in
+                        await store.createTask(title: title, listId: listId)
                     }
                 }
             }

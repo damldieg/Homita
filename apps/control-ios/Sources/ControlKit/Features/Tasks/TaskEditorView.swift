@@ -2,11 +2,16 @@ import SwiftUI
 
 /// Editor de tarea (alta/edición). En alta elige lista; en edición solo cambia el título
 /// (mover de lista no existe en el contrato v1). El guard de título duplicado lo hace el store.
+/// Se cierra solo si `onSave` devuelve que la escritura fue bien; si falla conserva lo escrito y
+/// muestra el toast del store (`writeFailure`) con «Reintentar», como el editor de persona.
 struct TaskEditorView: View {
     let taskLists: [TaskListEntry]
     let persons: [PersonEntry]
     let task: TaskEntry?
-    let onSave: (String, Int, [Int]) -> Void
+    /// Último fallo de escritura del store, para el toast dentro de la hoja.
+    @Binding var writeFailure: WriteFailure?
+    /// Guarda (título recortado, lista, personas) y devuelve si fue bien.
+    let onSave: (String, Int, [Int]) async -> Bool
     let onDelete: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
@@ -16,17 +21,20 @@ struct TaskEditorView: View {
     @State private var showDeleteConfirm = false
     @State private var listId: Int
     @State private var personIds: [Int]
+    @State private var isSaving = false
 
     init(
         taskLists: [TaskListEntry],
         persons: [PersonEntry] = [],
         task: TaskEntry?,
-        onSave: @escaping (String, Int, [Int]) -> Void,
+        writeFailure: Binding<WriteFailure?>,
+        onSave: @escaping (String, Int, [Int]) async -> Bool,
         onDelete: (() -> Void)? = nil
     ) {
         self.taskLists = taskLists
         self.persons = persons
         self.task = task
+        _writeFailure = writeFailure
         self.onSave = onSave
         self.onDelete = onDelete
         _title = State(initialValue: task?.title ?? "")
@@ -40,7 +48,7 @@ struct TaskEditorView: View {
     }
 
     private var canSave: Bool {
-        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && hasTarget
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && hasTarget && !isSaving
     }
 
     var body: some View {
@@ -67,9 +75,8 @@ struct TaskEditorView: View {
                 }
             }
             PersonSelector(persons: persons, selected: $personIds)
-            HomitaButton(title: task == nil ? "Crear tarea" : "Guardar", isEnabled: canSave) {
-                onSave(title.trimmingCharacters(in: .whitespacesAndNewlines), listId, personIds)
-                dismiss()
+            HomitaButton(title: task == nil ? "Crear tarea" : "Guardar", isEnabled: canSave, isLoading: isSaving) {
+                Task { await save() }
             }
             if let onDelete {
                 HomitaButton(title: "Eliminar tarea", kind: .secondary) {
@@ -81,6 +88,8 @@ struct TaskEditorView: View {
             onDelete?()
             dismiss()
         }
+        // «Reintentar» que va bien cierra el editor, igual que un guardado correcto.
+        .writeFailureToast($writeFailure) { dismiss() }
         .navigationTitle(task == nil ? "Nueva tarea" : "Editar tarea")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -88,5 +97,13 @@ struct TaskEditorView: View {
                     .foregroundStyle(Palette.ink)
             }
         }
+    }
+
+    /// Cierra solo si la escritura fue bien; si falla, el formulario conserva lo escrito.
+    private func save() async {
+        isSaving = true
+        defer { isSaving = false }
+        let ok = await onSave(title.trimmingCharacters(in: .whitespacesAndNewlines), listId, personIds)
+        if ok { dismiss() }
     }
 }

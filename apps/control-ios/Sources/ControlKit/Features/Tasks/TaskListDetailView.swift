@@ -39,7 +39,11 @@ struct TaskListDetailView: View {
                         Button {
                             let title = newTaskTitle
                             newTaskTitle = ""
-                            Task { await store.createTask(title: title, listId: current.id) }
+                            Task {
+                                // Si la escritura falla se devuelve lo escrito al campo (si sigue vacío).
+                                let ok = await store.createTask(title: title, listId: current.id)
+                                if !ok, newTaskTitle.isEmpty { newTaskTitle = title }
+                            }
                         } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.title2)
@@ -153,8 +157,9 @@ struct TaskListDetailView: View {
         }
         .sheet(item: $taskToEdit) { task in
             NavigationStack {
-                TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: task) { title, _, personIds in
-                    Task { await store.updateTask(task, title: title, personIds: personIds) }
+                TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: task,
+                               writeFailure: $store.writeFailure) { title, _, personIds in
+                    await store.updateTask(task, title: title, personIds: personIds)
                 } onDelete: {
                     Task { await store.deleteTask(task) }
                 }

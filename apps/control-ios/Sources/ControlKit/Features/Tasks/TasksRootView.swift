@@ -86,8 +86,10 @@ struct TasksView: View {
                         HomitaField(placeholder: "Nueva tarea", text: $newTaskTitle)
                         Button {
                             Task {
-                                await store.createTask(title: newTaskTitle, listId: store.listFilterId ?? 0)
-                                newTaskTitle = ""
+                                // Si la escritura falla se conserva lo escrito (toast con «Reintentar»).
+                                if await store.createTask(title: newTaskTitle, listId: store.listFilterId ?? 0) {
+                                    newTaskTitle = ""
+                                }
                             }
                         } label: {
                             Image(systemName: "plus.circle.fill")
@@ -211,15 +213,17 @@ struct TasksView: View {
         #endif
         .sheet(isPresented: $showCreateTask) {
             NavigationStack {
-                TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: nil) { title, listId, personIds in
-                    Task { await store.createTask(title: title, listId: listId, personIds: personIds) }
+                TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: nil,
+                               writeFailure: $store.writeFailure) { title, listId, personIds in
+                    await store.createTask(title: title, listId: listId, personIds: personIds)
                 }
             }
         }
         .sheet(item: $taskToEdit) { task in
             NavigationStack {
-                TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: task) { title, _, personIds in
-                    Task { await store.updateTask(task, title: title, personIds: personIds) }
+                TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: task,
+                               writeFailure: $store.writeFailure) { title, _, personIds in
+                    await store.updateTask(task, title: title, personIds: personIds)
                 } onDelete: {
                     Task { await store.deleteTask(task) }
                 }

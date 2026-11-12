@@ -112,6 +112,17 @@ final class WriteFailureTests: XCTestCase {
         XCTAssertNil(store.writeFailure?.retry)
     }
 
+    /// El editor de tarea se cierra solo si la escritura fue bien (T11): el resultado lo da el store.
+    func testTaskWritesReportSuccessForTheEditor() async throws {
+        let store = makeTasksStore(ContractFixtures.response)
+        let task = try decodeFixture(TaskEntry.self, ContractFixtures.task)
+        let updated = await store.updateTask(task, title: "Leche entera")
+        let created = await store.createTask(title: "Pan", listId: 2)
+        XCTAssertTrue(updated)
+        XCTAssertTrue(created)
+        XCTAssertNil(store.writeFailure)
+    }
+
     func testReadFailureStaysInErrorMessage() async {
         let store = makeTasksStore { _ in StubURLProtocol.Stub(status: 500, json: #"{"error":"boom"}"#) }
         await store.loadTasks()
