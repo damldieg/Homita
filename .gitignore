@@ -49,3 +49,6 @@ DerivedData/
 *.p12
 *.mobileprovision
 ExportOptions.plist
+
+# Basura de Finder en macOS
+.DS_Store
