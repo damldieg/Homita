@@ -37,6 +37,8 @@ public struct RootView: View {
 struct MainTabView: View {
     let services: AppServices
     @State private var selectedTab = 0 // 0 Inicio, 1 Tareas, 2 Calendario, 3 Hogar, 4 Perfil
+    @State private var taskListRequest: Int? // lista pedida desde Inicio
+    @State private var calendarSegment = 0 // 0 Eventos, 1 Rutinas, 2 Calendarios
 
     var body: some View {
         let state = services.homeContext.state
@@ -44,19 +46,26 @@ struct MainTabView: View {
         let homeKey = services.homeContext.activeHomeId ?? ""
         TabView(selection: $selectedTab) {
             HomeGate(services: services, state: state) {
-                InicioView(services: services)
+                InicioView(services: services) { destination in
+                    switch destination {
+                    case .tasks: taskListRequest = nil; selectedTab = 1
+                    case .taskList(let id): taskListRequest = id; selectedTab = 1
+                    case .routines: calendarSegment = 1; selectedTab = 2
+                    case .events: calendarSegment = 0; selectedTab = 2
+                    }
+                }
             }
             .id(homeKey)
             .tabItem { Label("Inicio", systemImage: "house") }
             .tag(0)
             HomeGate(services: services, state: state) {
-                TasksRootView(services: services)
+                TasksRootView(services: services, listRequest: $taskListRequest)
             }
             .id(homeKey)
             .tabItem { Label("Tareas", systemImage: "checklist") }
             .tag(1)
             HomeGate(services: services, state: state) {
-                CalendarsRootView(services: services)
+                CalendarsRootView(services: services, segment: $calendarSegment)
             }
             .id(homeKey)
             .tabItem { Label("Calendario", systemImage: "calendar") }

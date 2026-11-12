@@ -5,9 +5,12 @@ public struct TasksRootView: View {
     let services: AppServices
     @State private var store: TasksStore
     @State private var segment = 0
+    /// Lista pedida desde Inicio («Ver más»): se despliega solo esa y se pliegan las demás.
+    @Binding var listRequest: Int?
 
-    public init(services: AppServices) {
+    public init(services: AppServices, listRequest: Binding<Int?> = .constant(nil)) {
         self.services = services
+        _listRequest = listRequest
         _store = State(initialValue: TasksStore(taskLists: services.taskLists, tasks: services.tasks, persons: services.persons))
     }
 
@@ -18,7 +21,7 @@ public struct TasksRootView: View {
                     .padding([.horizontal, .top])
 
                 if segment == 0 {
-                    TasksView(store: store)
+                    TasksView(store: store, expandRequest: $listRequest)
                 } else {
                     TaskListsView(store: store)
                 }
@@ -30,6 +33,15 @@ public struct TasksRootView: View {
                 await store.loadTasks()
                 await store.loadPersons()
             }
+            .onChange(of: listRequest, initial: true) { _, id in
+                // Muestra todas las listas (sin filtro); TasksView pliega las demás.
+                guard id != nil else { return }
+                segment = 0
+                if store.listFilterId != nil {
+                    store.listFilterId = nil
+                    Task { await store.loadTasks() }
+                }
+            }
             .errorAlert($store.errorMessage)
         }
     }
@@ -39,9 +51,12 @@ public struct TasksRootView: View {
 /// `sort=custom` en la lista activa) y alta rápida.
 struct TasksView: View {
     @Bindable var store: TasksStore
+    @Binding var expandRequest: Int?
     @State private var newTaskTitle = ""
     @State private var showCreateTask = false
     @State private var taskToEdit: TaskEntry?
+    /// Listas plegadas; por defecto todas desplegadas.
+    @State private var collapsedListIds: Set<Int> = []
     #if os(iOS)
     // EditMode solo existe en iOS: en macOS el drag de `.onMove` funciona sin modo edición.
     @State private var editMode: EditMode = .inactive
@@ -50,6 +65,14 @@ struct TasksView: View {
     /// Hay alguna tarea visible (pendiente o completada); excluyente con el estado vacío.
     private var hasTasks: Bool {
         !store.pendingTasks.isEmpty || !store.completedTasks.isEmpty
+    }
+
+    /// Despliega solo la lista pedida y pliega el resto (cuando ya hay grupos cargados).
+    private func applyExpandRequest() {
+        // Solo con los grupos completos: tras la primera carga, sin filtro y sin recarga en curso.
+        guard let id = expandRequest, store.hasLoadedTasks, store.listFilterId == nil, !store.isLoading else { return }
+        collapsedListIds = Set(store.taskGroups.map(\.listId)).subtracting([id])
+        expandRequest = nil
     }
 
     var body: some View {
@@ -75,62 +98,51 @@ struct TasksView: View {
                 .homitaRow()
             }
 
-            if !store.pendingTasks.isEmpty {
+            ForEach(store.taskGroups) { group in
                 Section {
-                    ForEach(store.pendingTasks, id: \.id) { task in
-                        TaskRow(task: task, showListName: store.listFilterId == nil) {
-                            Task { await store.toggleComplete(task) }
-                        } onEdit: {
-                            taskToEdit = task
+                    if !collapsedListIds.contains(group.listId) {
+                        ForEach(group.tasks, id: \.id) { task in
+                            TaskRow(task: task, showListName: false) {
+                                Task { await store.toggleComplete(task) }
+                            } onEdit: {
+                                taskToEdit = task
+                            }
+                            .homitaRow()
                         }
-                        .homitaRow()
-                    }
-                    .onDelete { indexSet in
-                        let removed = indexSet.map { store.pendingTasks[$0] }
-                        Task { for task in removed { await store.deleteTask(task) } }
-                    }
-                    .onMove { source, destination in
-                        guard store.canReorder, let from = source.first else { return }
-                        let task = store.pendingTasks[from]
-                        Task { await store.movePendingTask(id: task.id, to: destination) }
+                        .onDelete { indexSet in
+                            let removed = indexSet.map { group.tasks[$0] }
+                            Task { for task in removed { await store.deleteTask(task) } }
+                        }
+                        .onMove { source, destination in
+                            // Reordenar solo con lista activa en orden personalizado (un único grupo).
+                            guard store.canReorder, let from = source.first else { return }
+                            let task = group.tasks[from]
+                            guard !task.isCompleted else { return }
+                            Task { await store.movePendingTask(id: task.id, to: destination) }
+                        }
                     }
                 } header: {
-                    HomitaSectionHeader(title: "Pendientes", count: store.pendingTasks.count, systemImage: "checklist")
-                }
-            }
-
-            if !store.completedTasks.isEmpty {
-                Section {
-                    ForEach(store.completedTasks, id: \.id) { task in
-                        TaskRow(task: task, showListName: store.listFilterId == nil) {
-                            Task { await store.toggleComplete(task) }
-                        } onEdit: {
-                            taskToEdit = task
-                        }
-                        .homitaRow()
-                    }
-                    .onDelete { indexSet in
-                        let removed = indexSet.map { store.completedTasks[$0] }
-                        Task { for task in removed { await store.deleteTask(task) } }
-                    }
-                } header: {
-                    HomitaSectionHeader(title: "Completadas", count: store.completedTasks.count, systemImage: "checkmark.circle", tint: Palette.online)
-                }
-            }
-
-            if hasTasks {
-                Section {
                     Button {
-                        showCreateTask = true
+                        if collapsedListIds.contains(group.listId) {
+                            collapsedListIds.remove(group.listId)
+                        } else {
+                            collapsedListIds.insert(group.listId)
+                        }
                     } label: {
-                        HomitaCard {
-                            Label("Nueva tarea", systemImage: "plus")
-                                .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
-                                .foregroundStyle(Palette.accent)
+                        HStack(spacing: 8) {
+                            Image(systemName: collapsedListIds.contains(group.listId) ? "chevron.right" : "chevron.down")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Palette.inkSoft)
+                            HomitaSectionHeader(
+                                title: group.name,
+                                count: group.count,
+                                tint: Color(hex: group.colorHex ?? Palette.accentHex)
+                            )
                         }
                     }
                     .buttonStyle(.plain)
-                    .homitaRow()
+                    .accessibilityLabel("\(group.name), \(group.count) tareas")
+                    .accessibilityValue(collapsedListIds.contains(group.listId) ? "plegada" : "desplegada")
                 }
             }
 
@@ -152,6 +164,14 @@ struct TasksView: View {
             }
         }
         .homitaList()
+        .onChange(of: expandRequest, initial: true) { applyExpandRequest() }
+        .onChange(of: store.hasLoadedTasks) { applyExpandRequest() }
+        .onChange(of: store.isLoading) { applyExpandRequest() }
+        .safeAreaInset(edge: .bottom) {
+            if hasTasks {
+                HomitaFloatingAddButton(title: "Nueva tarea") { showCreateTask = true }
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
@@ -253,23 +273,14 @@ struct TaskListsView: View {
             } header: {
                 HomitaSectionHeader(title: "Listas", count: store.taskLists.count, systemImage: "list.bullet")
             }
-
-            Section {
-                Button {
-                    showCreateList = true
-                } label: {
-                    HomitaCard {
-                        Label("Nueva lista", systemImage: "plus")
-                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
-                            .foregroundStyle(Palette.accent)
-                    }
-                }
-                .buttonStyle(.plain)
-                .homitaRow()
-            }
             }
         }
         .homitaList()
+        .safeAreaInset(edge: .bottom) {
+            if !store.taskLists.isEmpty {
+                HomitaFloatingAddButton(title: "Nueva lista") { showCreateList = true }
+            }
+        }
         .sheet(isPresented: $showCreateList) {
             NavigationStack {
                 TaskListEditorView(store: store, editing: nil)
@@ -305,7 +316,7 @@ struct TaskRow: View {
                         .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
                         .foregroundStyle(task.isCompleted ? Palette.inkMuted : Palette.ink)
                         .strikethrough(task.isCompleted)
-                    AssignedPersonsLine(persons: task.persons)
+                    AssignedPersonTags(persons: task.persons)
                     if showListName, let name = task.task_list_name {
                         HomitaBadge(title: name, tintHex: task.task_list_color ?? Palette.accentHex)
                             .padding(.top, 2)
@@ -314,5 +325,25 @@ struct TaskRow: View {
                 Spacer()
             }
         }
+    }
+}
+
+/// Botón de añadir fijo al pie de la lista (no obliga a llegar al final del scroll).
+struct HomitaFloatingAddButton: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: "plus")
+                .font(HomitaFont.geist(17, weight: .semibold, relativeTo: .body))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 22)
+                .padding(.vertical, 12)
+                .background(Palette.accent, in: Capsule())
+                .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
+        }
+        .buttonStyle(.plain)
+        .padding(.bottom, 8)
     }
 }

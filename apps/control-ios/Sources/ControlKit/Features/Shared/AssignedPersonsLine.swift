@@ -14,3 +14,19 @@ struct AssignedPersonsLine: View {
         }
     }
 }
+
+/// Personas asignadas como etiquetas de color (`HomitaBadge` con el color de cada persona).
+/// No se muestra si no hay asignados.
+struct AssignedPersonTags: View {
+    let persons: [PersonEntry]?
+
+    var body: some View {
+        if let persons, !persons.isEmpty {
+            HStack(spacing: 6) {
+                ForEach(persons, id: \.id) { person in
+                    HomitaBadge(title: person.name, tintHex: person.color)
+                }
+            }
+        }
+    }
+}
