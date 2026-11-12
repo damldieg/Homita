@@ -112,6 +112,7 @@ public struct InicioView: View {
                         Text(event.title)
                             .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
+                        EventCountdownLabel(dateAt: event.date_at)
                         if let name = event.calendar_name {
                             Text(name)
                                 .font(HomitaFont.geist(13, relativeTo: .footnote))

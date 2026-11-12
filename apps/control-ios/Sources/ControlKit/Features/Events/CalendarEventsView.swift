@@ -248,6 +248,7 @@ struct CalendarEventRow: View {
                         Text(event.title)
                             .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
+                        EventCountdownLabel(dateAt: event.date_at)
                         AssignedPersonsLine(persons: event.persons)
                         if event.routine_id != nil {
                             Text("Sesión de rutina")
