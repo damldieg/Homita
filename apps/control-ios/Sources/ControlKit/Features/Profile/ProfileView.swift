@@ -14,10 +14,20 @@ public struct ProfileView: View {
     @State private var errorMessage: String?
     @State private var isWorking = false
     @State private var showSignOutConfirm = false
+    @AppStorage(AppearancePreference.storageKey) private var appearance = AppearancePreference.system.rawValue
+    @Environment(\.colorScheme) private var colorScheme
 
     public init(services: AppServices) {
         self.services = services
         _personStore = State(initialValue: PersonStore(repo: services.persons))
+    }
+
+    /// Interruptor de modo oscuro: refleja la preferencia (o el sistema si no hay preferencia) y la guarda.
+    private var darkModeBinding: Binding<Bool> {
+        Binding(
+            get: { (AppearancePreference(rawValue: appearance) ?? .system).resolvedIsDark(systemDark: colorScheme == .dark) },
+            set: { appearance = ($0 ? AppearancePreference.dark : AppearancePreference.light).rawValue }
+        )
     }
 
     /// Versión corta del bundle (`CFBundleShortVersionString`); «—» si no se puede leer.
@@ -38,6 +48,9 @@ public struct ProfileView: View {
                     accountCard
                     familyCard
                     invitationsCard
+                    HomitaCard {
+                        HomitaToggle(title: "Modo oscuro", isOn: darkModeBinding)
+                    }
                     HomitaButton(title: "Cerrar sesión", kind: .secondary) {
                         showSignOutConfirm = true
                     }

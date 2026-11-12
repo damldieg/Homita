@@ -234,6 +234,7 @@ public struct InicioView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Ir a \(title)")
             }
+            Divider().overlay(Palette.line)
             switch state {
             case .idle, .loading:
                 if count == 0 {

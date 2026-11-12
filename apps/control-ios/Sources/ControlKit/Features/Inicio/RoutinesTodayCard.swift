@@ -35,6 +35,7 @@ struct RoutinesTodayCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
+            Divider().overlay(Palette.line)
             switch store.routinesState {
             case .idle where routines.isEmpty, .loading where routines.isEmpty:
                 HomitaSkeletonRows(count: 2, height: 56, label: "Cargando rutinas")

@@ -6,6 +6,7 @@ import SwiftUI
 public struct RootView: View {
     @State private var session: SessionStore
     @State private var services: AppServices
+    @AppStorage(AppearancePreference.storageKey) private var appearance = AppearancePreference.system.rawValue
 
     public init() {
         _ = HomitaFont.registered
@@ -36,6 +37,7 @@ public struct RootView: View {
             }
         }
         .environment(session)
+        .preferredColorScheme((AppearancePreference(rawValue: appearance) ?? .system).colorScheme)
     }
 }
 
