@@ -21,7 +21,7 @@ La primera pasada se hizo desde capturas que solo cubren la primera pantalla vis
 | P-02: ¿existen las rutas de escritura de eventos y calendarios? | **Sí**: `event/create\|update\|alarm\|delete`, `calendar/create\|update\|delete\|user`, `routine/create\|update\|delete\|alarm` |
 | Las capturas 52–55 eran todas el menú de Administración | Esas pantallas se diseñaron desde el código |
 
-**Lo que el código no tiene hoy y esta propuesta añade (Nuevo):** estados de carga con skeleton, estado de error de pantalla, estado sin conexión con datos de caché, toasts con reintento, estados por horario de las rutinas, y mejoras visuales. Hoy los estados reales son: texto «Cargando…», alerta modal «Aviso / OK» y `HomeErrorView`. **Riesgo:** el sin conexión requiere una caché de lectura en la capa de repositorio que no se verificó para iOS.
+**Lo que el código no tiene hoy y esta propuesta añade (Nuevo):** estados de carga con skeleton, estado de error de pantalla, estado sin conexión con datos de caché, toasts con reintento, estados por horario de las rutinas, y mejoras visuales. Hoy los estados reales son: texto «Cargando…», alerta modal «Aviso / OK» y `HomeErrorView`. **Dependencia:** el sin conexión requiere una caché de lectura en la capa de repositorio; la decisión D-8 la incluye como trabajo de E0-06.
 
 ## 2. Decisiones tomadas por el usuario (2026-11-12)
 
@@ -31,7 +31,10 @@ La primera pasada se hizo desde capturas que solo cubren la primera pantalla vis
 | D-2 | Duración fija de **60 min** en v1 | Reutiliza la ventana de `RoutineStatus` (3600 s). Duración por rutina queda como mejora futura |
 | D-3 | **Paleta e Inter del diseño** del usuario | `Palette.swift` usa `#C8243B` y Geist; el diseño usa `#B5313F` e Inter. Ver E0-01: hay que migrar paleta y fuente (Inter no está en el bundle) |
 | D-4 | Revisión completa contra el código | Hecha: `code-facts.md` |
-| D-5 | Alcance evolutivo sobre iOS nativo, «Ajustes» = pestaña Perfil, doc en `docs/` | Los wireframes usan «Perfil»; el rename queda como P-01 |
+| D-5 | Alcance evolutivo sobre iOS nativo y doc en `docs/` | Se mantiene la arquitectura de 5 pestañas |
+| D-6 | La 5.ª pestaña se llama **«Ajustes»** (antes «Perfil») | Cambiar el `tabItem` de `RootView`, el título de `ProfileView` y los textos que citan la ruta, p. ej. «Créalas en Perfil › Personas.» → «Créalas en Ajustes › Personas.» y «acepta la invitación desde Perfil». Wireframes ya actualizados |
+| D-7 | **Todo borrado pide confirmación** (incluye swipe de tareas y rutinas, papelera de personas y «Eliminar tarea») | Añadir `homitaConfirm` a esos cuatro puntos con el patrón «¿Eliminar «X»?» + consecuencia. Ver E0-07 |
+| D-8 | La **caché de lectura con hora se implementa** | Pasa a ser trabajo de E0-06 (ya no es una pregunta abierta) |
 
 ## 3. Épica E0: Fundamentos transversales
 
@@ -44,9 +47,9 @@ Prerrequisito de las demás. Todas las historias son **[Nuevo]** salvo indicaci�
 | E0-03 | Skeleton | `.skeleton()` con shimmer, desactivado con *Reduce Motion*. Misma geometría que el contenido; títulos reales, solo los datos en shimmer. Sustituye a «Cargando…» |
 | E0-04 | Estado vacío **[Rediseño]** | Vista con icono, título, texto y **una** acción primaria opcional. Se conservan los textos reales (`Sin tareas`, `Sin eventos este día.`…) |
 | E0-05 | Errores | (a) Error de sección: mensaje del servidor (`APIError.userMessage`) + «Reintentar» (ya existe); (b) error de pantalla completa; (c) toast con «Reintentar» para fallos de escritura en lugar de alerta «Aviso/OK»; (d) distinguir causa: sin conexión, 5xx, 401 (cierra sesión), 403 (mensaje del servidor) |
-| E0-06 | Sin conexión | Banner bajo la cabecera con la hora del dato en caché y «Reintentar»; escrituras atenuadas. **Depende de** una caché de lectura con marca de tiempo (verificar la capa `Repo`) |
-| E0-07 | Confirmación destructiva **[Rediseño]** | Hoy `homitaConfirm` (diálogo nativo). Unificar textos y nombrar el elemento. Hay borrados **sin confirmación** (swipe en tareas y rutinas, papelera de personas, «Eliminar tarea»): decidir P-19 |
-| E0-08 | Barra de pestañas | Reserva su espacio; el contenido nunca queda debajo. La 5.ª pestaña sigue «Perfil» hasta resolver P-01 |
+| E0-06 | Sin conexión y caché de lectura (D-8) | **Historia técnica a implementar.** (1) Capa de caché en disco por recurso (clave = ruta + `X-Home-Id` + parámetros) con marca de tiempo de la última lectura correcta, patrón stale-if-error: ante fallo de red o 5xx se devuelve el dato en caché marcado como «obsoleto». (2) Los stores exponen `lastUpdated` y un flag `isStale`. (3) Monitor de conectividad (`NWPathMonitor`) para anticipar el estado. (4) Banner bajo la cabecera con la hora del dato («Sin conexión. Mostrando datos de las 19:12.») y «Reintentar»; se oculta solo al recuperar red. (5) Las escrituras se atenúan sin conexión y al tocarlas explican por qué. (6) La caché se limpia en `signOut()` y al cambiar de hogar. (7) No se cachea nada sensible (el código de invitación sigue solo en memoria). Criterios: con red cortada Inicio, Tareas, Calendario, Hogar y Ajustes muestran datos con el banner; sin caché previa se muestra el error de pantalla. Se verifica con tests de unidad del repositorio y con el backend apagado |
+| E0-07 | Confirmación destructiva **[Rediseño]** | Hoy `homitaConfirm` (diálogo nativo). Unificar textos con el patrón «¿Eliminar «X»?» + una línea de consecuencia, «Cancelar» y «Eliminar» (D-7). **Se añade confirmación [Nuevo]** a lo que hoy borra directo: swipe en tareas (lista y detalle) y en rutinas, papelera de personas y «Eliminar tarea». Wireframes: frame «Confirmar eliminación» en `TASKS-01`, `TASKS-03`, `TASKS-04`, `CAL-02` y `AJ-03` |
+| E0-08 | Barra de pestañas | Reserva su espacio; el contenido nunca queda debajo. La 5.ª pestaña se llama «Ajustes» (D-6) |
 | E0-09 | `accessibilityIdentifier` | Identificadores estables `<pantalla>.<elemento>`; hoy solo existe la etiqueta «Nueva persona». Actualizar `ControlAppUITests` para dejar de localizar por texto visible. Etiquetas VoiceOver en lápiz y papelera de Personas |
 | E0-10 | Formularios modales **[Rediseño]** | Se conserva «Cancelar» a la izquierda y el botón de acción al pie. Validación en línea sustituye a la alerta (**Nuevo**); error de servidor conserva lo escrito |
 | E0-11 | Pull-to-refresh | Ya existe en todas las listas; mantener |
@@ -76,7 +79,7 @@ Wireframes `TASKS-01` a `TASKS-05`.
 | E2-01 | Lista agrupada **[Rediseño]** | Grupos por lista con color, nombre, contador (pendientes + completadas). **Toda la cabecera pliega, no navega.** Dentro: pendientes y luego completadas tachadas. Fila con casilla, título y **etiquetas de persona**; tocar edita |
 | E2-02 | Filtro y orden **[Existente]** | Menú de filtro **solo por lista** («Todas» + una por lista). «Editar/OK» reordena solo con lista filtrada y orden «Personalizado». Alta rápida con campo «Nueva tarea» cuando hay filtro de lista |
 | E2-03 | Botón de alta **[Rediseño]** | Hoy: botón flotante «Nueva tarea» sobre las filas. Propuesta: moverlo a la cabecera para no tapar contenido **[Nuevo]** |
-| E2-04 | Swipe y reorden **[Existente]** | Deslizar elimina (sin confirmación hoy: P-19); arrastrar reordena |
+| E2-04 | Swipe y reorden **[Existente]** | Deslizar elimina **con confirmación [Nuevo]** (D-7, hoy sin ella); arrastrar reordena |
 | E2-05 | Estados | Vacío «Sin tareas» / «Crea tu primera tarea y ponle una lista para tenerla a mano.» y la variante con filtro; skeleton, error y sin conexión **[Nuevo]** |
 | E2-06 | Listas **[Rediseño]** | Tarjeta con punto de color, nombre y badge de **pendientes**; orden por nombre; botón flotante «Nueva lista». Vacío «Sin listas» / «Las listas agrupan tus tareas: compra, casa, trabajo…» |
 | E2-07 | Detalle de lista **[Rediseño]** | Título inline, «Editar lista» y «Reordenar/OK»; alta rápida; «Pendientes» y «Completadas» con swipe; panel **«Personas con acceso»** (propietario: invitar por email y quitar; otros: solo lectura). No tiene «Eliminar» (vive en el editor) |
@@ -91,7 +94,7 @@ Wireframes `CAL-01` a `CAL-08`. Segmentos Eventos / Rutinas / Calendarios.
 |---|---|---|
 | E3-01 | Eventos Mes/Semana/Día **[Rediseño]** | Conmutador Mes/Semana/Día (defecto Mes), cabecera `‹ rango ›`, cuadrícula L M X J V S D (lunes primero) con hasta 3 puntos de color por día, día seleccionado en círculo de acento, lista del día debajo. «+» en la barra, fecha por defecto = día seleccionado a la hora en punto |
 | E3-02 | Fila de evento | Barra de color, fecha-hora, título, cuenta atrás (0–120 min), personas asignadas, marca «Sesión de rutina» |
-| E3-03 | Rutinas **[Rediseño]** | Separadores «Hoy», «Mañana», «Próxima semana» con contador. Estados por horario: **caducada** (gris, tachada, ✓ «Hecha»), **en curso**, normal; badge «Activa»/«Pausada»; «PRÓXIMA · fecha-hora». Toque = editor. Swipe elimina. **Sin casilla «Marcar hecha»** |
+| E3-03 | Rutinas **[Rediseño]** | Swipe elimina con confirmación **[Nuevo]** (D-7). Separadores «Hoy», «Mañana», «Próxima semana» con contador. Estados por horario: **caducada** (gris, tachada, ✓ «Hecha»), **en curso**, normal; badge «Activa»/«Pausada»; «PRÓXIMA · fecha-hora». Toque = editor. **Sin casilla «Marcar hecha»** |
 | E3-04 | Calendarios | Tarjeta con punto, nombre y nº de próximos eventos; tarjeta «Nuevo calendario» al pie (el «+» en cabecera es **[Nuevo]**) |
 | E3-05 | Evento (editor) | «Título», «Fecha y hora» (sin fin), «Calendario» (radios al crear; fijo al editar), panel «Aviso» con 7 opciones y su nota, panel «Personas». Eliminar: «Se eliminará el evento.» o, si es sesión de rutina, «Solo se cancelará esta sesión de la rutina.» |
 | E3-06 | Rutina (editor) | «Frecuencia» (radios Diaria/Semanal/Mensual), «Cada N» (1–99), círculos de días solo en Semanal (≥1), «Horario», «Estado» (Activa), «Aviso», «Personas». Resumen en lenguaje natural **[Nuevo]**. Validación (alerta): «Revisa la frecuencia, el intervalo, los días y el rango de fechas» |
@@ -116,15 +119,15 @@ Wireframes `HOGAR-01` a `HOGAR-09`.
 | E4-10 | Auditoría | Páginas de 50, «Cargar más»; mejoras de legibilidad (frases naturales, filtros) **[Nuevo]** y a decidir con el backend |
 | E4-11 | Estados de administración | Skeleton, error y sin conexión **[Nuevo]** en las pantallas |
 
-## 8. Épica E5: Ajustes (pestaña «Perfil» actual) y acceso
+## 8. Épica E5: Ajustes (antes «Perfil») y acceso
 
 Wireframes `AJ-01` a `AJ-05` y `AUTH-01` a `AUTH-03`.
 
 | Id | Historia | Criterios de aceptación |
 |---|---|---|
-| E5-01 | Perfil **[Rediseño]** | Tarjetas Cuenta (edición inline), Familia (Personas) e Invitaciones («Unirse a un hogar con un código»); «Cerrar sesión» con confirmación «¿Cerrar sesión en este iPhone?»; pie de firma gratuita. Sin hogar activo, Personas e Invitaciones siguen visibles. Avatar, versión y lista agrupada son **[Nuevo]** |
+| E5-01 | Ajustes **[Rediseño]** | Título «Ajustes» (D-6). Tarjetas Cuenta (edición inline), Familia (Personas) e Invitaciones («Unirse a un hogar con un código»); «Cerrar sesión» con confirmación «¿Cerrar sesión en este iPhone?»; pie de firma gratuita. Sin hogar activo, Personas e Invitaciones siguen visibles. Avatar, versión y lista agrupada son **[Nuevo]** |
 | E5-02 | Editar cuenta **[Nuevo como pantalla]** | Hoy el formulario es inline (nombre 3-50, email, contraseña ≥ 8 opcional). Extraerlo a hoja es propuesta |
-| E5-03 | Personas | Fila con lápiz y papelera (hoy sin confirmación al borrar), compartidas de solo lectura, vacío «Sin personas» |
+| E5-03 | Personas | Fila con lápiz y papelera (borrar con confirmación **[Nuevo]**, D-7), compartidas de solo lectura, vacío «Sin personas» |
 | E5-04 | Persona (hoja) | «Nombre (1-50)», «Color» (ColorPicker; muestras fijas = **[Nuevo]**), «Crear persona»/«Guardar» |
 | E5-05 | Unirse | Código de 32 caracteres, nota «Solo sirve una vez y caduca a los 7 días», éxito inline «Te has unido a <hogar>» |
 | E5-06 | Bienvenida | «Registrarse» solo si `allow_registration`; sin pantalla de comprobación de sesión (restauración síncrona) |
@@ -133,20 +136,17 @@ Wireframes `AJ-01` a `AJ-05` y `AUTH-01` a `AUTH-03`.
 
 ## 9. Decisiones y preguntas abiertas
 
-Cerradas: P-02 (rutas de escritura existen), P-03 (borrar lista borra sus tareas), P-08 (el contador de próximos de calendarios es un número suelto), P-12 (la auditoría no filtra en servidor: es parámetro `before_id`/`limit` solamente).
+Cerradas: P-01 (la pestaña pasa a «Ajustes», D-6), P-02 (rutas de escritura existen), P-03 (borrar lista borra sus tareas), P-08 (el contador de próximos de calendarios es un número suelto), P-12 (la auditoría no filtra en servidor: es parámetro `before_id`/`limit` solamente), P-19 (confirmación en todos los borrados, D-7), P-21 (la caché de lectura se implementa, D-8).
 
 | Id | Pregunta | Supuesto en los wireframes | Afecta |
 |---|---|---|---|
-| P-01 | ¿Renombrar «Perfil» a «Ajustes»? | Se mantiene «Perfil» en los frames; propuesta pendiente | E0-08, E5 |
 | P-05 | ¿Badge numérico en pestañas? | No | E0-08 |
 | P-06 | ¿Muestras de color fijas o solo `ColorPicker`? | Muestras + «Personalizado», marcado Nuevo | E2-09, E3-07, E5-04 |
 | P-10 | Aviso de hogar activo: ¿se descarta solo? | Toast descartable | E4-02 |
 | P-13 | ¿Pedir contraseña actual al cambiarla? | No (el código no lo hace) | E5-02 |
 | P-15 | ¿Cerrar sesión sin conexión? | Sí, es local | E5-01 |
 | P-17 | Login con error: ¿se conserva la contraseña? | El código no la limpia | E5-07 |
-| P-19 | Borrados sin confirmación (swipe de tareas y rutinas, papelera de personas, «Eliminar tarea»): ¿se añade confirmación? | Se propone añadirla **[Nuevo]** | E0-07 |
 | P-20 | Inter no está en el bundle (hoy Geist): ¿se incorpora Inter o se usa SF Pro? | Inter, según el diseño | E0-01 |
-| P-21 | Sin conexión exige caché de lectura con marca de tiempo en iOS: ¿existe? | Se asume por construir | E0-06 |
 | P-22 | Al quitar la marca manual de rutinas (D-1): ¿se migra o se descarta el estado local existente? | Se descarta (es local por día) | E1-04 |
 | P-23 | Auditoría con frases naturales: ¿lo genera el cliente o el servidor? | Cliente, sobre `action` y `payload` | E4-10 |
 

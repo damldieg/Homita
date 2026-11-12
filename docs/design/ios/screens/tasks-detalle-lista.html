@@ -37,6 +37,10 @@
   .alert h4 { font: 600 17px/22px var(--font); }
   .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
   .alert .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .alert .acts { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); margin: 0 -16px; }
+  .alert .acts > div { min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .alert .acts > div + div { border-left: 1px solid var(--line); }
+  .alert .acts .del { color: var(--err); }
 </style>
 </head>
 <body>
@@ -82,7 +86,7 @@
           </div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
     </div>
   </section>
 
@@ -104,7 +108,7 @@
           </div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
     </div>
   </section>
 
@@ -123,7 +127,7 @@
           </div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
     </div>
   </section>
 
@@ -142,7 +146,7 @@
           <a class="btn secondary" style="padding:0 var(--s6)">Reintentar</a>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
     </div>
   </section>
 
@@ -164,7 +168,7 @@
           </div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
     </div>
   </section>
 
@@ -189,7 +193,7 @@
           </div>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
     </div>
   </section>
 
@@ -208,7 +212,41 @@
       </div>
       <div class="scrim" style="z-index:8"></div>
       <div class="alert"><h4>Aviso</h4><p>&lt;mensaje del servidor&gt;</p><div class="ok">OK</div></div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 8. CONFIRMAR ELIMINACIÓN (propuesta) -->
+  <section class="state">
+    <div class="label">8 · Confirmar eliminación <span class="tagnew">Nuevo</span><small>Hoy se borra sin confirmación (deslizar una tarea). Propuesta: diálogo nativo antes de borrar</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="tasks-listas.html">‹ Atrás</a><span style="display:flex;gap:var(--s4)"><a class="txt">Reordenar</a><a class="txt go" href="tasks-form-lista.html">Editar lista</a></span></div>
+        <div class="large-title"><span class="lh"><span class="list-dot" style="background:var(--warn)"></span>Compra</span></div>
+        <div class="qa"><b>+</b><span>Nueva tarea</span></div>
+        <div class="stack" style="margin-top:var(--s3)">
+          <div class="card grp">
+            <div class="gh"><span>Pendientes</span><span class="badge warn n">3</span></div>
+            <div class="r"><span class="hit"><span class="check"></span></span><div class="grow t">Café</div></div>
+            <div class="r"><span class="hit"><span class="check"></span></span><div class="grow t">Fruta</div></div>
+            <div class="r"><span class="hit"><span class="check"></span></span><div class="grow t">Huevos</div></div>
+          </div>
+          <div class="card grp">
+            <div class="gh"><span>Completadas</span><span class="badge n">1</span></div>
+            <div class="r done"><span class="hit"><span class="check done"></span></span><div class="grow t">Leche</div></div>
+          </div>
+          <div class="card grp people">
+            <div class="gh"><span>Personas con acceso</span><span class="badge n">2</span></div>
+            <div class="ph"><div class="who"><div class="t">Angie</div><div class="e">angie@ejemplo.com</div></div><span class="role">Propietario</span></div>
+            <div class="ph"><div class="who"><div class="t">Damian</div><div class="e">damian@ejemplo.com</div></div><span class="role ro">Solo lectura</span><span class="rm">Quitar</span></div>
+            <div class="invite"><span class="field-in">Email a invitar</span><a class="btn sm secondary" style="min-height:44px">Invitar</a></div>
+          </div>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert"><h4>¿Eliminar la tarea «Café»?</h4><p>Se eliminará de la lista «Compra».</p><div class="acts"><div>Cancelar</div><div class="del">Eliminar</div></div></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
     </div>
   </section>
 
@@ -223,6 +261,7 @@
     <li><b>«Reordenar» en la barra</b>: solo con orden «Personalizado», reordena las pendientes.</li>
     <li><b>Panel «Personas con acceso» añadido</b> (es real): propietario con «Quitar» por fila (no en la propia) y «Email a invitar» + «Invitar»; solo lectura sin controles. Sustituye a los textos inventados de la primera pasada.</li>
     <li><span class="tagnew">Nuevo</span> Skeleton (3) y sin conexión (5). El error (4) es el patrón real.</li>
+    <li>Confirmación de borrado <span class="tagnew">Nuevo</span>: decisión del usuario (P-19); hoy el borrado por swipe/papelera/botón no confirma.</li>
   </ul>
   <h2 style="margin-top:12px">Reglas de negocio</h2>
   <ul>

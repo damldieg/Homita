@@ -37,6 +37,10 @@
   .alert-s { position: absolute; left: 50px; right: 50px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
   .alert-s h4 { font: 600 17px/22px var(--font); } .alert-s p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
   .alert-s .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .alert-s .acts { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); margin: 0 -16px; }
+  .alert-s .acts > div { min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .alert-s .acts > div + div { border-left: 1px solid var(--line); }
+  .alert-s .acts .del { color: var(--err); }
   .dim { opacity: .45; }
   .sk-row { display: flex; gap: 12px; align-items: center; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); margin-bottom: 10px; }
 </style>
@@ -83,7 +87,7 @@
         <a class="rr go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-3)"></span><div class="grow"><div class="top"><span class="hr">19:30</span></div><div class="t">Sacar al perro</div><div class="chips"><span class="chip" style="--c:var(--person-4)">Marcos</span></div><div class="next">Próxima · sáb, 14 nov, 19:30</div></div><div class="side"><span class="badge pause">Pausada</span></div></a>
         <a class="rr go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-5)"></span><div class="grow"><div class="top"><span class="hr">17:00</span></div><div class="t">Fútbol</div><div class="chips"><span class="chip" style="--c:var(--person-3)">Pablo</span></div><div class="next">Próxima · lun, 16 nov, 17:00</div></div><div class="side"><span class="badge ok">Activa</span></div></a>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
       <span class="anno" style="top:70px;left:8px">1</span>
     </div>
   </section>
@@ -104,7 +108,7 @@
           <a class="btn primary go" href="cal-form-rutina.html" style="padding:0 24px">Nueva rutina</a>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
     </div>
   </section>
 
@@ -122,7 +126,7 @@
         <div class="sk-row"><span class="sk" style="width:5px;height:56px;border-radius:3px"></span><div style="flex:1"><div class="sk line" style="width:50%"></div><div class="sk line" style="width:35%;margin-top:8px"></div></div><div class="sk" style="width:56px;height:24px;border-radius:999px"></div></div>
         <div class="sk-row"><span class="sk" style="width:5px;height:56px;border-radius:3px"></span><div style="flex:1"><div class="sk line" style="width:70%"></div><div class="sk line" style="width:45%;margin-top:8px"></div></div><div class="sk" style="width:56px;height:24px;border-radius:999px"></div></div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
     </div>
   </section>
 
@@ -141,7 +145,7 @@
       </div>
       <div class="scrim" style="z-index:8"></div>
       <div class="alert-s"><h4>Aviso</h4><p>No se pudo eliminar la rutina. Inténtalo de nuevo.</p><div class="ok">OK</div></div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
     </div>
   </section>
 
@@ -159,7 +163,7 @@
         <div class="rr dim"><span class="bar5" style="--c:var(--person-2)"></span><div class="grow"><div class="top"><span class="hr">19:00</span></div><div class="t">Cena</div><div class="next">Próxima · jue, 12 nov, 19:00</div></div><div class="side"><span class="badge ok">Activa</span></div></div>
         <div class="rr dim"><span class="bar5" style="--c:var(--person-5)"></span><div class="grow"><div class="top"><span class="hr">20:00</span></div><div class="t">Pilates</div><div class="next">Próxima · jue, 12 nov, 20:00</div></div><div class="side"><span class="badge ok">Activa</span></div></div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
     </div>
   </section>
 
@@ -176,7 +180,7 @@
         <div class="rr"><span class="bar5" style="--c:var(--person-3)"></span><div class="grow"><div class="top"><span class="hr">21:00</span></div><div class="t">Lavavajillas</div><div class="next">Próxima · jue, 12 nov, 21:00</div></div><div class="side"><span class="badge pause">Pausada</span></div></div>
         <div class="rr past"><span class="bar5" style="--c:var(--person-1)"></span><div class="grow"><div class="top"><span class="hr">18:00</span></div><div class="t">Psicóloga</div><span class="hecha">✓ Hecha</span></div><div class="side"><span class="badge ok">Activa</span></div></div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
     </div>
   </section>
 
@@ -195,7 +199,38 @@
           <span class="act">Eliminar</span>
         </div>
       </div>
-      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Perfil</a></nav>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 8. CONFIRMAR ELIMINACIÓN (propuesta) -->
+  <section class="state">
+    <div class="label">8 · Confirmar eliminación <span class="tagnew">Nuevo</span><small>Hoy se borra sin confirmación (deslizar una rutina). Propuesta: diálogo nativo antes de borrar</small></div>
+    <div class="phone">
+      <div class="status"><span>19:30</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon go" href="cal-form-rutina.html" aria-label="Nueva rutina">+</a></div>
+        <div class="large-title">Rutinas</div>
+        <div class="seg"><a class="go" href="cal-eventos.html">Eventos</a><a class="on">Rutinas</a><a class="go" href="cal-calendarios.html">Calendarios</a></div>
+
+        <div class="sh">Hoy<span class="cnt">5</span></div>
+        <a class="rr now go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-2)"></span><div class="grow"><div class="top"><span class="hr">19:00</span></div><div class="t">Cena</div><div class="chips"><span class="chip" style="--c:var(--person-1)">Damian</span></div><div class="next">Próxima · jue, 12 nov, 19:00</div></div><div class="side"><span class="badge ok">Activa</span></div></a>
+        <a class="rr go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-5)"></span><div class="grow"><div class="top"><span class="hr">20:00</span></div><div class="t">Pilates</div><div class="chips"><span class="chip" style="--c:var(--person-2)">Ana</span></div><div class="next">Próxima · jue, 12 nov, 20:00</div></div><div class="side"><span class="badge ok">Activa</span></div></a>
+        <a class="rr go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-3)"></span><div class="grow"><div class="top"><span class="hr">21:00</span></div><div class="t">Lavavajillas</div><div class="chips"><span class="chip" style="--c:var(--person-1)">Damian</span></div><div class="next">Próxima · jue, 12 nov, 21:00</div></div><div class="side"><span class="badge pause">Pausada</span></div></a>
+        <a class="rr go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-1)"></span><div class="grow"><div class="top"><span class="hr">Sin hora</span></div><div class="t">Lavar la ropa</div><div class="chips"><span class="chip" style="--c:var(--person-2)">Ana</span></div><div class="next">Próxima · jue, 12 nov</div></div><div class="side"><span class="badge ok">Activa</span></div></a>
+        <a class="rr past go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-2)"></span><div class="grow"><div class="top"><span class="hr">08:00</span></div><div class="t">Tomar Sertralina</div><div class="chips"><span class="chip" style="--c:var(--person-2)">Ana</span></div><span class="hecha">✓ Hecha</span><div class="next">Próxima · jue, 12 nov, 08:00</div></div><div class="side"><span class="badge ok">Activa</span></div></a>
+        <a class="rr past go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-1)"></span><div class="grow"><div class="top"><span class="hr">18:00</span></div><div class="t">Psicóloga</div><div class="chips"><span class="chip" style="--c:var(--person-1)">Damian</span></div><span class="hecha">✓ Hecha</span><div class="next">Próxima · jue, 12 nov, 18:00</div></div><div class="side"><span class="badge ok">Activa</span></div></a>
+
+        <div class="sh">Mañana<span class="cnt">1</span></div>
+        <a class="rr go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-5)"></span><div class="grow"><div class="top"><span class="hr">10:00</span></div><div class="t">Paseo en bici</div><div class="chips"><span class="chip" style="--c:var(--person-2)">Ana</span></div><div class="next">Próxima · vie, 13 nov, 10:00</div></div><div class="side"><span class="badge ok">Activa</span></div></a>
+
+        <div class="sh">Próxima semana<span class="cnt">2</span></div>
+        <a class="rr go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-3)"></span><div class="grow"><div class="top"><span class="hr">19:30</span></div><div class="t">Sacar al perro</div><div class="chips"><span class="chip" style="--c:var(--person-4)">Marcos</span></div><div class="next">Próxima · sáb, 14 nov, 19:30</div></div><div class="side"><span class="badge pause">Pausada</span></div></a>
+        <a class="rr go" href="cal-detalle-rutina.html"><span class="bar5" style="--c:var(--person-5)"></span><div class="grow"><div class="top"><span class="hr">17:00</span></div><div class="t">Fútbol</div><div class="chips"><span class="chip" style="--c:var(--person-3)">Pablo</span></div><div class="next">Próxima · lun, 16 nov, 17:00</div></div><div class="side"><span class="badge ok">Activa</span></div></a>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert-s"><h4>¿Eliminar la rutina «Pilates»?</h4><p>Se eliminará la rutina y sus sesiones futuras.</p><div class="acts"><div>Cancelar</div><div class="del">Eliminar</div></div></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
     </div>
   </section>
 
@@ -208,6 +243,7 @@
     <li><b>Estados por horario</b> (ventana 60 min): caducada = gris, opacidad .7, título tachado y «✓ Hecha»; en curso = fondo de acento suave; normal = superficie. El aspecto verde/ámbar del diseño «Rutinas de hoy» no se aplica aquí: la lista respeta lo real.</li>
     <li><span class="tagnew">Nuevo</span> Skeleton de carga (estado 3). Hoy: texto «Cargando…».</li>
     <li><span class="tagnew">Nuevo</span> Banner «Sin conexión» (estado 5).</li>
+    <li>Confirmación de borrado <span class="tagnew">Nuevo</span>: decisión del usuario (P-19); hoy el borrado por swipe/papelera/botón no confirma.</li>
     <li>Badge <b>Pausada</b> en gris. La primera pasada quitaba «Activa» salvo en rutinas pausadas; ahora «Activa» y «Pausada» van siempre, como pide el código.</li>
     <li>Orden de «Hoy»: con hora fija primero, sin hora después y las caducadas al final. Es una lectura de la regla del código; conviene confirmarla.</li>
     <li>Estado 4: el error real es mensaje del servidor + «Reintentar». El texto del servidor del frame es un ejemplo.</li>

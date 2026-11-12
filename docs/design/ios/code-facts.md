@@ -114,4 +114,4 @@ Resuelve P-02: **existen** las rutas de escritura: `event/create|update|alarm|de
 
 ## 6. Pestañas
 
-Pestañas reales: Inicio (`house`), Tareas (`checklist`), Calendario (`calendar`), Hogar (`person.2`), **Perfil** (`person.crop.circle`). «Ajustes» es propuesta (P-01).
+Pestañas reales: Inicio (`house`), Tareas (`checklist`), Calendario (`calendar`), Hogar (`person.2`), **Perfil** (`person.crop.circle`). **Decisión del usuario: la 5.ª pestaña pasa a llamarse «Ajustes»** (los wireframes ya la muestran así). Los textos del código que citan «Perfil» (p. ej. «Créalas en Perfil › Personas.») deben actualizarse a «Ajustes».

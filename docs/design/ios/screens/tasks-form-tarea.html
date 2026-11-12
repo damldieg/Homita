@@ -33,6 +33,10 @@
   .alert h4 { font: 600 17px/22px var(--font); }
   .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
   .alert .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .alert .acts { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); margin: 0 -16px; }
+  .alert .acts > div { min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .alert .acts > div + div { border-left: 1px solid var(--line); }
+  .alert .acts .del { color: var(--err); }
   .foot { margin-top: var(--s6); display: flex; flex-direction: column; gap: var(--s2); }
   .sec-l { font: var(--t-over); text-transform: uppercase; letter-spacing: .06em; color: var(--text-2); padding: var(--s4) var(--s1) var(--s2); }
   .hint.ok-hint { color: var(--text-2); }
@@ -95,7 +99,7 @@
         </div>
         <div class="card panel" style="margin-top:var(--s4)">
           <div class="panel-h"><span class="ico">âº</span>Personas<span class="badge">0</span></div>
-          <p class="empty-p">Aún no tienes personas. Créalas en Perfil › Personas.</p>
+          <p class="empty-p">Aún no tienes personas. Créalas en Ajustes › Personas.</p>
         </div>
         <div class="foot"><a class="btn primary dis" style="opacity:.45">Crear tarea</a></div>
       </div>
@@ -201,7 +205,7 @@
         <p class="hint">Todavía no tienes listas. Crea una en la pestaña Listas para añadir tareas.</p>
         <div class="card panel" style="margin-top:var(--s4)">
           <div class="panel-h"><span class="ico">âº</span>Personas<span class="badge">0</span></div>
-          <p class="empty-p">Aún no tienes personas. Créalas en Perfil › Personas.</p>
+          <p class="empty-p">Aún no tienes personas. Créalas en Ajustes › Personas.</p>
         </div>
         <div class="foot"><a class="btn primary dis" style="opacity:.45">Crear tarea</a></div>
       </div>
@@ -229,6 +233,31 @@
     </div>
   </section>
 
+  <!-- 9. CONFIRMAR ELIMINACIÓN (edición) -->
+  <section class="state">
+    <div class="label">9 · Confirmar eliminación (edición) <span class="tagnew">Nuevo</span><small>Hoy «Eliminar tarea» borra sin confirmación. Propuesta: diálogo sobre el formulario; «Cancelar» no borra</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="tasks-lista.html">Cancelar</a><span></span></div>
+        <div class="large-title" style="font:var(--t-title);padding:var(--s2) 0 var(--s4)">Editar tarea</div>
+        <div class="sec-l">Título</div>
+        <div class="ttl">Café</div>
+        <div class="card panel" style="margin-top:var(--s4)">
+          <div class="panel-h"><span class="ico">☺☺</span>Personas<span class="badge">1</span></div>
+          <div class="pr"><span class="ck on"></span><span class="dot-p" style="background:var(--person-1)"></span><span class="name">Angie</span></div>
+          <div class="pr"><span class="ck"></span><span class="dot-p" style="background:var(--person-2)"></span><span class="name">Damian</span></div>
+        </div>
+        <div class="foot">
+          <a class="btn primary go" href="tasks-lista.html">Guardar</a>
+          <a class="btn danger-t">Eliminar tarea</a>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert"><h4>¿Eliminar la tarea «Café»?</h4><p>Se eliminará de la lista «Compra».</p><div class="acts"><div>Cancelar</div><div class="del">Eliminar</div></div></div>
+    </div>
+  </section>
+
 </div>
 
 <aside class="notes">
@@ -240,12 +269,13 @@
     <li><b>Quitados</b>: mensajes de validación en línea («El título no puede estar vacío.») y el texto de error de servidor arriba en bloque. El error es una alerta «Aviso / OK».</li>
     <li><b>Quitado</b> «Crear desactivado sin título»: el código no lo documenta. Queda como por confirmar en frame 2.</li>
     <li><span class="tagnew">Nuevo</span> Skeleton de opciones (3) y sin conexión (5). Edición con «Eliminar tarea» sin confirmación: la confirmación sería Nuevo.</li>
+    <li>Confirmación de borrado <span class="tagnew">Nuevo</span>: decisión del usuario (P-19); hoy el borrado por swipe/papelera/botón no confirma.</li>
   </ul>
   <h2 style="margin-top:12px">Reglas de negocio</h2>
   <ul>
     <li>Hoja «Nueva tarea» / «Editar tarea». «Título»; «Lista» solo al crear, con radios; preselecciona la primera.</li>
     <li>Sin listas: «Todavía no tienes listas. Crea una en la pestaña Listas para añadir tareas.»</li>
-    <li>Panel «Personas» con contador; vacío: «Aún no tienes personas. Créalas en Perfil › Personas.»</li>
+    <li>Panel «Personas» con contador; vacío: «Aún no tienes personas. Créalas en Ajustes › Personas.»</li>
     <li>Aviso al crear: «Ya existe una tarea con ese título en la lista».</li>
     <li>Edición: «Eliminar tarea» (sin confirmación hoy).</li>
     <li>Errores de acción: alerta «Aviso / OK».</li>
@@ -253,7 +283,7 @@
   <h2 style="margin-top:12px">Conexiones</h2>
   <ul>
     <li>Llega desde: tasks-lista («+» flotante y estado vacío), tasks-detalle-lista («Nueva tarea» y alta rápida, por confirmar), home-inicio («+ Tarea»).</li>
-    <li>Sale a: tasks-lista al cancelar o al guardar. «Perfil › Personas» (aj-personas) desde el aviso de personas.</li>
+    <li>Sale a: tasks-lista al cancelar o al guardar. «Ajustes › Personas» (aj-personas) desde el aviso de personas.</li>
     <li>Por confirmar: estado de «Crear tarea» sin título y sin listas; forma del aviso de título duplicado.</li>
   </ul>
 </aside>
