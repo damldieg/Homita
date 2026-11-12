@@ -97,7 +97,8 @@ public struct InicioView: View {
             if store.todayEvents.isEmpty {
                 emptyText(HomitaEmptyNoteText.todayEvents)
             }
-            ForEach(store.todayEvents) { event in
+            ForEach(Array(store.todayEvents.enumerated()), id: \.element.id) { index, event in
+                if index > 0 { Divider().overlay(Palette.line) }
                 HStack(spacing: 12) {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(Color(hex: event.calendar_color ?? Palette.fallbackItem))
@@ -107,6 +108,7 @@ public struct InicioView: View {
                             .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
                         EventCountdownLabel(dateAt: event.date_at)
+                        AssignedPersonsLine(persons: event.persons)
                         if let name = event.calendar_name {
                             Text(name)
                                 .font(HomitaFont.inter(13, relativeTo: .footnote))
@@ -157,14 +159,18 @@ public struct InicioView: View {
                         .foregroundStyle(Palette.inkSoft)
                 }
                 // E1-03: máximo 5 pendientes por página; el resto se ve en «Ver más».
-                ForEach(page.tasks.prefix(5)) { task in
+                ForEach(Array(page.tasks.prefix(5).enumerated()), id: \.element.id) { index, task in
+                    if index > 0 { Divider().overlay(Palette.line) }
                     HStack(spacing: 12) {
                         HomitaCheckbox(isOn: task.isCompleted, tintHex: Palette.onlineHex) {
                             Task { await store.toggleComplete(task) }
                         }
-                        Text(task.title)
-                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
-                            .foregroundStyle(Palette.ink)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(task.title)
+                                .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
+                                .foregroundStyle(Palette.ink)
+                            AssignedPersonsLine(persons: task.persons)
+                        }
                         Spacer()
                     }
                 }
@@ -190,7 +196,7 @@ public struct InicioView: View {
                 .font(HomitaFont.inter(13, weight: .semibold, relativeTo: .footnote))
                 .foregroundStyle(Palette.inkSoft)
             HStack(spacing: 12) {
-                HomitaButton(title: "+ Tarea") {
+                HomitaButton(title: "+ Tarea", kind: .secondary) {
                     Task {
                         await store.loadTaskLists()
                         if store.taskLists.isEmpty {
@@ -200,7 +206,7 @@ public struct InicioView: View {
                         }
                     }
                 }
-                HomitaButton(title: "+ Evento", kind: .secondary) {
+                HomitaButton(title: "+ Evento") {
                     Task {
                         await calendarStore.load()
                         await personStore.load()
