@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAL-05 Formulario de evento</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Añadido en línea para este lote (no está en components.css) */
+.off { opacity: .4; }
+.card-h + * { margin-top: var(--s3); }
+.field .val { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.field .row .lbl { width: auto; }
+.field.err { border-color: var(--err); }
+.pill { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: 999px; background: var(--bg-sunken); font: 600 15px/1 var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill.err { background: var(--err-soft); color: var(--err); }
+.radio { display: flex; align-items: center; gap: var(--s3); min-height: 44px; font: var(--t-body); }
+.radio i { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--text-3); flex: none; display: grid; place-items: center; }
+.radio.on i { border-color: var(--accent); }
+.radio.on i::after { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.chip { --c: var(--person-1); display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface); color: var(--text-2); font: 600 15px/1 var(--font); }
+.chip::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.chip.on { border-color: var(--c); color: var(--text); background: color-mix(in srgb, var(--c) 14%, var(--surface)); }
+.chip.p2 { --c: var(--person-2); } .chip.p3 { --c: var(--person-3); } .chip.p4 { --c: var(--person-4); } .chip.p5 { --c: var(--person-5); }
+.sw { width: 51px; height: 31px; border-radius: 999px; background: var(--text-3); position: relative; flex: none; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow); }
+.sw.on { background: var(--ok); }
+.sw.on::after { left: 22px; }
+.sheet h3 { font: var(--t-title); margin-bottom: var(--s2); }
+.sheet p { font: var(--t-sub); color: var(--text-2); margin-bottom: var(--s4); }
+.sheet .btn { margin-top: var(--s2); }
+.sk-pill { display: inline-block; height: 36px; border-radius: 999px; }
+</style>
+</head>
+<body>
+<!-- CAL-05: formulario de evento (hoja modal, sin barra de pestañas) -->
+<header class="wf-head">
+  <div class="id">CAL-05 · formulario de evento · epic E3</div>
+  <h1>Evento (nuevo y edición)</h1>
+  <p>Hoja modal para crear un evento del calendario. Título, inicio y fin (el backend ya admite fecha de fin), calendario y personas asignadas como chips de color. En edición aparece «Eliminar evento» con hoja de confirmación. Cancelar a la izquierda, Guardar a la derecha; Guardar queda desactivado hasta que el alta es válida.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="cal-eventos.html">Eventos</a>
+    <a href="home-inicio.html">Inicio</a>
+    <a href="cal-form-rutina.html">Nueva rutina →</a>
+    <a href="cal-form-calendario.html">Nuevo calendario →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. RELLENO -->
+  <section class="state">
+    <div class="label">1 · Relleno<small>Alta con datos: Guardar activo</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-eventos.html">Cancelar</a>
+          <span class="center">Nuevo evento</span>
+          <a class="txt strong go" href="cal-eventos.html">Guardar</a>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Cena con los abuelos</span></div></div>
+            <div class="field">
+              <div class="row"><span class="lbl">Inicio</span><span class="val"><span class="pill">12 nov 2026</span><span class="pill">20:30</span></span></div>
+              <div class="row"><span class="lbl">Fin</span><span class="val"><span class="pill">12 nov 2026</span><span class="pill">22:00</span></span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="radio on"><i></i>Familia</div>
+            <div class="radio"><i></i>Colegio</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3></div>
+            <div class="chips">
+              <span class="chip on" style="--c:var(--person-1)">Ana</span>
+              <span class="chip on p3">Marcos</span>
+              <span class="chip p2">Lucía</span>
+              <span class="chip p4">Pablo</span>
+              <span class="chip p5">Familia Demo</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◔</div><h3>Aviso</h3></div>
+            <div class="row"><div class="grow t">Aviso</div><span class="link">10 min antes ›</span></div>
+            <div class="hint">La alarma se guarda en el servidor. El aviso en este iPhone llegará con las notificaciones (fase 3).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. INICIAL VACÍO -->
+  <section class="state">
+    <div class="label">2 · Inicial vacío<small>Alta recién abierta: Guardar desactivado hasta tener título y calendario</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-eventos.html">Cancelar</a>
+          <span class="center">Nuevo evento</span>
+          <span class="txt strong off">Guardar</span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t ph">Título</span></div></div>
+            <div class="field">
+              <div class="row"><span class="lbl">Inicio</span><span class="val"><span class="pill">12 nov 2026</span><span class="pill">20:00</span></span></div>
+              <div class="row"><span class="lbl">Fin</span><span class="val"><span class="pill">12 nov 2026</span><span class="pill">21:00</span></span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="radio"><i></i>Familia</div>
+            <div class="radio"><i></i>Colegio</div>
+            <div class="hint">Elige el calendario al que va el evento.</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3></div>
+            <div class="chips">
+              <span class="chip">Ana</span><span class="chip p3">Marcos</span><span class="chip p2">Lucía</span><span class="chip p4">Pablo</span><span class="chip p5">Familia Demo</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◔</div><h3>Aviso</h3></div>
+            <div class="row"><div class="grow t">Aviso</div><span class="link">Sin aviso ›</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. CARGANDO OPCIONES / GUARDANDO -->
+  <section class="state">
+    <div class="label">3 · Cargando opciones / guardando<small>Selectores en skeleton; .spin en Guardar mientras se envía</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt off">Cancelar</a>
+          <span class="center">Nuevo evento</span>
+          <span class="txt strong">Guardar <span class="spin"></span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Cena con los abuelos</span></div></div>
+            <div class="field">
+              <div class="row"><span class="lbl">Inicio</span><span class="val"><span class="pill">12 nov 2026</span><span class="pill">20:30</span></span></div>
+              <div class="row"><span class="lbl">Fin</span><span class="val"><span class="pill">12 nov 2026</span><span class="pill">22:00</span></span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="sk line" style="width:45%;margin-top:14px"></div>
+            <div class="sk line" style="width:35%;margin-top:18px"></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3></div>
+            <div class="chips">
+              <span class="sk sk-pill" style="width:84px"></span><span class="sk sk-pill" style="width:96px"></span><span class="sk sk-pill" style="width:76px"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. VALIDACIÓN + ERROR DE SERVIDOR -->
+  <section class="state">
+    <div class="label">4 · Validación y error de servidor<small>Error arriba (.inline-err) y avisos en línea bajo cada campo</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-eventos.html">Cancelar</a>
+          <span class="center">Nuevo evento</span>
+          <a class="txt strong">Guardar</a>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="inline-err"><span>⚠</span><span class="grow">No se pudo guardar. El servidor no respondió: revisa la conexión y reintenta.</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field err"><div class="row"><span class="grow t ph">Título</span></div></div>
+            <div class="hint err">Pon un título para el evento.</div>
+            <div class="field">
+              <div class="row"><span class="lbl">Inicio</span><span class="val"><span class="pill">12 nov 2026</span><span class="pill">20:30</span></span></div>
+              <div class="row"><span class="lbl">Fin</span><span class="val"><span class="pill err">12 nov 2026</span><span class="pill err">19:00</span></span></div>
+            </div>
+            <div class="hint err">La hora de fin es anterior a la de inicio.</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="radio on"><i></i>Familia</div>
+            <div class="radio"><i></i>Colegio</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Datos del formulario conservados; Guardar desactivado con aviso</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-eventos.html">Cancelar</a>
+          <span class="center">Nuevo evento</span>
+          <span class="txt strong off">Guardar</span>
+        </div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Conecta para guardar el evento.</span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Cena con los abuelos</span></div></div>
+            <div class="field">
+              <div class="row"><span class="lbl">Inicio</span><span class="val"><span class="pill">12 nov 2026</span><span class="pill">20:30</span></span></div>
+              <div class="row"><span class="lbl">Fin</span><span class="val"><span class="pill">12 nov 2026</span><span class="pill">22:00</span></span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="radio on"><i></i>Familia</div>
+            <div class="radio"><i></i>Colegio</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. EDITAR EVENTO EXISTENTE -->
+  <section class="state" id="editar">
+    <div class="label">6 · Editar evento existente<small>Mismos campos rellenos; «Eliminar evento» al pie, en rojo</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-eventos.html">Cancelar</a>
+          <span class="center">Editar evento</span>
+          <a class="txt strong go" href="cal-eventos.html">Guardar</a>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Desayuno con la vecina</span></div></div>
+            <div class="field">
+              <div class="row"><span class="lbl">Inicio</span><span class="val"><span class="pill">12 nov 2026</span><span class="pill">09:00</span></span></div>
+              <div class="row"><span class="lbl">Fin</span><span class="val"><span class="pill">12 nov 2026</span><span class="pill">10:00</span></span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="radio on"><i></i>Familia</div>
+            <div class="radio"><i></i>Colegio</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3></div>
+            <div class="chips">
+              <span class="chip on">Ana</span><span class="chip on p2">Lucía</span><span class="chip p3">Marcos</span><span class="chip p4">Pablo</span><span class="chip p5">Familia Demo</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◔</div><h3>Aviso</h3></div>
+            <div class="row"><div class="grow t">Aviso</div><span class="link">10 min antes ›</span></div>
+          </div>
+          <a class="btn danger" href="#eliminar">Eliminar evento</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. CONFIRMAR ELIMINACIÓN -->
+  <section class="state" id="eliminar">
+    <div class="label">7 · Confirmar eliminación<small>Hoja inferior con acción destructiva separada de Cancelar</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt">Cancelar</a>
+          <span class="center">Editar evento</span>
+          <span class="txt strong">Guardar</span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Evento</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Desayuno con la vecina</span></div></div>
+            <div class="field">
+              <div class="row"><span class="lbl">Inicio</span><span class="val"><span class="pill">12 nov 2026</span><span class="pill">09:00</span></span></div>
+            </div>
+          </div>
+          <a class="btn danger">Eliminar evento</a>
+        </div>
+      </div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <h3>¿Eliminar este evento?</h3>
+        <p>«Desayuno con la vecina» del 12 nov se borra del calendario Familia. No se puede deshacer.</p>
+        <a class="btn danger go" href="cal-eventos.html">Eliminar evento</a>
+        <a class="btn secondary" href="#editar">Cancelar</a>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>El alta de evento solo muestra «Fecha y hora» (un instante). Se pasa a inicio y fin, con el mismo patrón de fecha y hora en dos filas; el backend ya tiene fecha de fin (change event-end-date).</li>
+    <li>Las personas asignadas no aparecen en la captura del alta. Se muestran como chips con el color de cada persona (uno por persona, toque para asignar), con «Familia Demo» como persona del hogar.</li>
+    <li>Cancelar a la izquierda y Guardar a la derecha, en la barra de la hoja; Guardar se desactiva hasta que hay título y calendario, con el motivo visible en el campo.</li>
+    <li>«Aviso» pasa a una sola fila con su valor actual (hoy son 7 radios en lista). El texto sobre fase 3 se mantiene porque la captura lo muestra.</li>
+    <li>Edición: «Eliminar evento» al pie en rojo, con hoja de confirmación. La eliminación no se capturó en la auditoría; el texto de la hoja es propuesta.</li>
+  </ul>
+  <p style="margin-top:10px"><b>Conexiones:</b> desde <a class="go" href="cal-eventos.html" style="text-decoration:underline">Eventos</a> («Nuevo evento» y tocar un evento para editar) y desde <a class="go" href="home-inicio.html" style="text-decoration:underline">Inicio</a> («Añadir un evento»). Cancelar, Guardar y Eliminar vuelven a <a class="go" href="cal-eventos.html" style="text-decoration:underline">Eventos</a>.</p>
+</aside>
+</body>
+</html>

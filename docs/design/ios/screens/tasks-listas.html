@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TASKS-02 Listas</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Añadidos de este lote (no están en components.css) */
+.grow { flex: 1; min-width: 0; }
+.seg a { flex: 1; text-align: center; font: 600 14px/32px var(--font); color: var(--text-2); border-radius: 9px; }
+.dis { opacity: .4; pointer-events: none; }
+.list-card { display: flex; align-items: center; gap: var(--s3); }
+.list-dot { width: 14px; height: 14px; border-radius: 50%; flex: none; }
+.flags { display: flex; gap: var(--s3); font: var(--t-cap); color: var(--text-2); margin-top: 2px; }
+.flags .on { color: var(--ok); font-weight: 600; }
+.flags .off { color: var(--text-3); }
+.sect-h { display: flex; align-items: center; gap: var(--s3); padding: var(--s4) var(--s1) var(--s2); }
+.sect-h .ico { width: 36px; height: 36px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-size: 17px; }
+.sect-h h3 { font: var(--t-title); flex: 1; }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">TASKS-02 · pestaña Tareas › segmento Listas · epic E2</div>
+  <h1>Tareas › Listas</h1>
+  <p>Gestión de listas: color, contador de tareas y los flags Widget y Dashboard a la vista. «+» en la cabecera crea una lista nueva. Tocar una lista abre su detalle.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="tasks-lista.html">← Segmento Tareas</a>
+    <a href="tasks-detalle-lista.html">Detalle de lista →</a>
+    <a href="tasks-form-lista.html">Nueva lista →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos<small>Cada lista es una tarjeta completa; flags visibles como texto, no como badges</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon go" href="tasks-form-lista.html" style="color:var(--accent);font-weight:700">+</a></div>
+        <div class="large-title">Tareas<small>Listas del hogar</small></div>
+        <div class="seg"><a class="go" href="tasks-lista.html">Tareas</a><span class="on">Listas</span></div>
+        <div class="sect-h"><span class="ico">☰</span><h3>Listas</h3><span class="badge">2</span></div>
+        <div class="stack">
+          <a class="card go list-card" href="tasks-detalle-lista.html">
+            <span class="list-dot" style="background:var(--ok)"></span>
+            <div class="grow"><div class="t" style="font:var(--t-body-b)">Casa</div><div class="flags"><span class="on">✓ Widget</span><span class="on">✓ Dashboard</span></div></div>
+            <span class="badge ok">3</span>
+          </a>
+          <a class="card go list-card" href="tasks-detalle-lista.html">
+            <span class="list-dot" style="background:var(--warn)"></span>
+            <div class="grow"><div class="t" style="font:var(--t-body-b)">Compra</div><div class="flags"><span class="off">Widget: no</span><span class="on">✓ Dashboard</span></div></div>
+            <span class="badge warn">5</span>
+          </a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>Sin listas: explica para qué sirven y una sola acción</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon" style="color:var(--accent);font-weight:700">+</a></div>
+        <div class="large-title">Tareas<small>Listas del hogar</small></div>
+        <div class="seg"><a>Tareas</a><span class="on">Listas</span></div>
+        <div class="empty">
+          <div class="art">☰</div>
+          <h3>Aún no hay listas</h3>
+          <p>Las listas agrupan tus tareas, como Casa o Compra.</p>
+          <a class="btn primary go" href="tasks-form-lista.html">Nueva lista</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que con datos: tarjetas con color, nombre, flags y contador en shimmer</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon">+</a></div>
+        <div class="large-title">Tareas<small>Listas del hogar</small></div>
+        <div class="seg"><a>Tareas</a><span class="on">Listas</span></div>
+        <div class="sect-h"><span class="sk box" style="width:36px;height:36px"></span><div class="sk title" style="width:30%"></div></div>
+        <div class="stack">
+          <div class="card list-card">
+            <span class="sk circle" style="width:14px;height:14px"></span>
+            <div class="grow"><div class="sk line" style="width:40%"></div><div class="sk line" style="width:60%;margin-top:8px"></div></div>
+            <span class="sk box" style="width:36px;height:24px"></span>
+          </div>
+          <div class="card list-card">
+            <span class="sk circle" style="width:14px;height:14px"></span>
+            <div class="grow"><div class="sk line" style="width:45%"></div><div class="sk line" style="width:55%;margin-top:8px"></div></div>
+            <span class="sk box" style="width:36px;height:24px"></span>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR -->
+  <section class="state">
+    <div class="label">4 · Error<small>No se pudieron cargar las listas: bloque con «Reintentar». Las tareas siguen en su segmento</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon" style="color:var(--accent);font-weight:700">+</a></div>
+        <div class="large-title">Tareas<small>Listas del hogar</small></div>
+        <div class="seg"><a class="go" href="tasks-lista.html">Tareas</a><span class="on">Listas</span></div>
+        <div class="errbox">
+          <div class="art">⚠</div>
+          <h3>No pudimos cargar las listas</h3>
+          <p>Revisa la conexión y vuelve a intentarlo.</p>
+          <a class="btn secondary" style="padding:0 var(--s6)">Reintentar</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Listas en caché, navegables; «+» desactivado</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon dis" style="color:var(--accent);font-weight:700">+</a></div>
+        <div class="large-title">Tareas<small>Listas del hogar</small></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
+        <div class="seg"><a class="go" href="tasks-lista.html">Tareas</a><span class="on">Listas</span></div>
+        <div class="stack">
+          <a class="card go list-card" href="tasks-detalle-lista.html" style="opacity:.6">
+            <span class="list-dot" style="background:var(--ok)"></span>
+            <div class="grow"><div class="t" style="font:var(--t-body-b)">Casa</div><div class="flags"><span class="on">✓ Widget</span><span class="on">✓ Dashboard</span></div></div>
+            <span class="badge ok">3</span>
+          </a>
+          <a class="card go list-card" href="tasks-detalle-lista.html" style="opacity:.6">
+            <span class="list-dot" style="background:var(--warn)"></span>
+            <div class="grow"><div class="t" style="font:var(--t-body-b)">Compra</div><div class="flags"><span class="off">Widget: no</span><span class="on">✓ Dashboard</span></div></div>
+            <span class="badge warn">5</span>
+          </a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>«Nueva lista» pasa de botón flotante que tapa la segunda tarjeta a «+» en la cabecera, igual que en Tareas.</li>
+    <li>Cada lista muestra el color, el contador y los flags Widget y Dashboard. Hoy los flags no se ven en la lista: se ven solo al entrar en el formulario.</li>
+    <li>Se quita el chevron redundante: toda la tarjeta navega al detalle.</li>
+    <li>El encabezado de sección «Listas 2» se conserva como dato útil, pero con contador en badge neutro.</li>
+    <li>Sin conexión, las listas siguen abiertas en caché y «+» queda desactivado; el error de carga ocupa el bloque, no la pantalla.</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Llega desde: tasks-lista (segmento Listas).</li>
+    <li>Sale a: tasks-detalle-lista (tocar una lista) y tasks-form-lista («+» y estado vacío).</li>
+    <li>Por confirmar: el orden de las listas (en la app actual no se ve un criterio).</li>
+  </ul>
+</aside>
+</body>
+</html>

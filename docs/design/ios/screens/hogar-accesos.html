@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOGAR-08 Accesos</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Añadido en este wireframe (no está en components.css) */
+.inline-err { display: flex; gap: var(--s3); align-items: center; background: var(--err-soft); color: var(--err); border-radius: var(--r-md); padding: var(--s3) var(--s4); font: 500 14px/19px var(--font); }
+.inline-err .grow { flex: 1; }
+.dis { opacity: .45; }
+.sw { width: 51px; height: 31px; border-radius: 16px; background: var(--line); position: relative; flex: none; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.sw.on { background: var(--ok); }
+.sw.on::after { left: 22px; }
+.sw.changed { box-shadow: 0 0 0 2px var(--warn); }
+.chips { display: flex; gap: var(--s2); margin-bottom: var(--s3); }
+.chip { font: 600 13px/1 var(--font); min-height: 32px; padding: 0 12px; border-radius: var(--r-pill); display: flex; align-items: center; background: var(--surface); border: 1px solid var(--line); color: var(--text-2); white-space: nowrap; }
+.chip.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.perm .grow .code { font: 500 12px/16px ui-monospace, monospace; color: var(--text-3); }
+.actionbar { position: absolute; left: 0; right: 0; bottom: var(--tabbar-h); background: var(--surface); border-top: 1px solid var(--line); padding: var(--s3) var(--gutter) var(--s4); z-index: 6; box-shadow: var(--shadow-float); display: flex; flex-direction: column; gap: var(--s2); }
+.actionbar .btns { display: flex; gap: var(--s3); }
+.actionbar .btns .btn { flex: 1; min-height: 46px; white-space: nowrap; }
+.actionbar .msg { font: var(--t-cap); color: var(--text-2); }
+.phone .scroll { padding-bottom: 176px; }
+.phone.no-tabs .scroll { padding-bottom: 24px; }
+.phone .sect + .card { margin-top: 0; }
+</style>
+</head>
+<body>
+<!-- HOGAR-08: permisos por miembro, agrupados por área. Solo admin edita. Guardado con barra pegada abajo. -->
+<header class="wf-head">
+  <div class="id">HOGAR-08 · pestaña Hogar · épica E4</div>
+  <h1>Accesos</h1>
+  <p>Qué puede hacer cada miembro, por área, con interruptores. Solo el admin cambia accesos; un miembro sin permiso de admin no ve este menú. Los cambios se guardan de una vez con la barra de abajo; si falla, se conservan para reintentar.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="hogar-admin-menu.html">← Administración</a>
+    <a href="hogar-miembros.html">Miembros →</a>
+    <a href="hogar-invitaciones.html">Invitaciones →</a>
+    <a href="hogar-auditoria.html">Auditoría →</a>
+    <a href="hogar-hogar.html">Hogar →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos<small>Interruptores por área; barra pegada con cambios pendientes</small></div>
+    <div class="phone">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Accesos<small>Permisos de Lucía</small></div>
+        <div class="chips"><span class="chip">Ana</span><span class="chip on">Lucía</span><span class="chip">Marcos</span></div>
+        <div class="sect">Tareas</div>
+        <div class="card" style="padding:0 var(--s4)">
+          <div class="row perm"><div class="grow"><div class="t">Ver tareas</div><div class="code">task.view</div></div><span class="sw on"></span></div>
+          <div class="row perm"><div class="grow"><div class="t">Completar tareas</div><div class="code">task.complete</div></div><span class="sw on"></span></div>
+          <div class="row perm"><div class="grow"><div class="t">Crear y editar tareas</div><div class="code">task.edit</div></div><span class="sw changed on"></span></div>
+        </div>
+        <div class="sect">Calendario</div>
+        <div class="card" style="padding:0 var(--s4)">
+          <div class="row perm"><div class="grow"><div class="t">Ver eventos y rutinas</div><div class="code">event.view</div></div><span class="sw on"></span></div>
+          <div class="row perm"><div class="grow"><div class="t">Crear eventos</div><div class="code">event.create</div></div><span class="sw"></span></div>
+        </div>
+        <div class="sect">Hogar</div>
+        <div class="card" style="padding:0 var(--s4)">
+          <div class="row perm"><div class="grow"><div class="t">Invitar miembros</div><div class="code">home.invite</div></div><span class="sw changed"></span></div>
+        </div>
+      </div>
+      <div class="actionbar">
+        <div class="msg">2 cambios sin guardar</div>
+        <div class="btns"><a class="btn secondary">Descartar</a><a class="btn primary">Guardar</a></div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <span class="anno" style="top:70px;left:8px">1</span>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>No hay miembros a los que dar accesos: una acción</small></div>
+    <div class="phone">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Accesos<small>Permisos por miembro</small></div>
+        <div class="empty">
+          <div class="art">☺</div>
+          <h3>No hay miembros con accesos</h3>
+          <p>Los accesos se asignan a personas con cuenta. Agrega a quien vaya a usar la app.</p>
+          <a class="btn primary go" href="hogar-miembros.html">Ir a Miembros</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que los interruptores; barra en gris</small></div>
+    <div class="phone">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt">‹ Atrás</a><span></span></div>
+        <div class="large-title">Accesos<small><span class="sk line" style="display:inline-block;width:150px"></span></small></div>
+        <div class="chips"><span class="sk box" style="width:70px;height:32px"></span><span class="sk box" style="width:80px;height:32px"></span><span class="sk box" style="width:76px;height:32px"></span></div>
+        <div class="sect"><span class="sk line" style="width:80px;display:inline-block"></span></div>
+        <div class="card" style="padding:0 var(--s4)">
+          <div class="row"><div class="grow"><div class="sk line" style="width:50%"></div><div class="sk line" style="width:35%;margin-top:6px"></div></div><span class="sk box" style="width:51px;height:31px;border-radius:16px"></span></div>
+          <div class="row"><div class="grow"><div class="sk line" style="width:60%"></div><div class="sk line" style="width:40%;margin-top:6px"></div></div><span class="sk box" style="width:51px;height:31px;border-radius:16px"></span></div>
+          <div class="row"><div class="grow"><div class="sk line" style="width:45%"></div><div class="sk line" style="width:30%;margin-top:6px"></div></div><span class="sk box" style="width:51px;height:31px;border-radius:16px"></span></div>
+        </div>
+      </div>
+      <div class="actionbar">
+        <div class="msg"><span class="sk line" style="display:inline-block;width:120px"></span></div>
+        <div class="btns"><span class="btn secondary dis">Descartar</span><span class="btn primary dis">Guardar</span></div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR AL GUARDAR -->
+  <section class="state">
+    <div class="label">4 · Error al guardar<small>Los cambios siguen marcados; la barra explica y permite reintentar</small></div>
+    <div class="phone">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Accesos<small>Permisos de Lucía</small></div>
+        <div class="chips"><span class="chip">Ana</span><span class="chip on">Lucía</span><span class="chip">Marcos</span></div>
+        <div class="sect">Tareas</div>
+        <div class="card" style="padding:0 var(--s4)">
+          <div class="row perm"><div class="grow"><div class="t">Ver tareas</div><div class="code">task.view</div></div><span class="sw on"></span></div>
+          <div class="row perm"><div class="grow"><div class="t">Crear y editar tareas</div><div class="code">task.edit</div></div><span class="sw changed on"></span></div>
+        </div>
+        <div class="sect">Hogar</div>
+        <div class="card" style="padding:0 var(--s4)">
+          <div class="row perm"><div class="grow"><div class="t">Invitar miembros</div><div class="code">home.invite</div></div><span class="sw changed"></span></div>
+        </div>
+      </div>
+      <div class="actionbar">
+        <div class="inline-err"><span>⚠</span><span class="grow">No se guardaron los cambios. Revisa la conexión y reintenta.</span></div>
+        <div class="btns"><a class="btn secondary">Descartar</a><a class="btn primary">Reintentar</a></div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Caché + banner. Interruptores y guardado desactivados</small></div>
+    <div class="phone">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Accesos<small>Permisos de Lucía</small></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
+        <div class="sect">Tareas</div>
+        <div class="card dis" style="padding:0 var(--s4)">
+          <div class="row perm"><div class="grow"><div class="t">Ver tareas</div><div class="code">task.view</div></div><span class="sw on"></span></div>
+          <div class="row perm"><div class="grow"><div class="t">Crear y editar tareas</div><div class="code">task.edit</div></div><span class="sw"></span></div>
+        </div>
+      </div>
+      <div class="actionbar">
+        <div class="msg">Sin conexión: no se pueden guardar cambios.</div>
+        <div class="btns"><a class="btn secondary">Descartar</a><span class="btn primary dis">Guardar</span></div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>La captura 54 muestra solo el menú de Administración, no esta pantalla. El contenido sale de docs/ios-funcional.md (4.6 y 6): repetir la captura con Accesos abierto.</li>
+    <li>Los permisos se agrupan por área (Tareas, Calendario, Hogar) con su código visible (p. ej. <code>home.invite</code>), en vez de una lista plana.</li>
+    <li>Guardado explícito con barra pegada abajo y contador de cambios, en lugar de guardar al tocar cada interruptor.</li>
+    <li>Error de guardado con los cambios conservados y «Reintentar»; sin conexión se desactiva todo.</li>
+    <li>Un miembro sin permiso de admin no ve el menú; el cliente oculta y el servidor decide.</li>
+  </ul>
+  <p style="margin-top:10px"><b>Conexiones.</b> Llega desde hogar-admin-menu (fila «Accesos»). Sin salida a otras pantallas salvo Miembros si no hay personas. Endpoints: lectura <code>home/permission</code>; escritura <code>home/permission</code> (set). Restablecer por tipo queda fuera de este wireframe.</p>
+</aside>
+</body>
+</html>

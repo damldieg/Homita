@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AJ-02 Editar cuenta</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Propios de esta página (no están en components.css) */
+.txt.off, .off { opacity: .4; }
+.dim { opacity: .6; }
+.val.l { text-align: left; }
+.field .row .val.muted { color: var(--text-3); }
+.meter { display: flex; gap: 4px; padding: var(--s2) var(--s4) 0; }
+.meter i { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
+.meter i.w { background: var(--err); }
+.meter i.m { background: var(--warn); }
+.meter i.k { background: var(--ok); }
+.hint.err + .hint.err { padding-top: 0; }
+</style>
+</head>
+<body>
+<!-- AJ-02: hoja modal de edición de cuenta (sin barra de pestañas) -->
+<header class="wf-head">
+  <div class="id">AJ-02 · editar cuenta · epic E5</div>
+  <h1>Editar cuenta</h1>
+  <p>Hoja modal con nombre, email y contraseña. La contraseña es opcional: se deja vacía para no cambiarla, y si se escribe debe tener al menos 8 caracteres, con indicador de fuerza. Un email ya usado se marca en su campo; los errores de servidor aparecen arriba sin borrar lo escrito.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="aj-perfil.html">← Ajustes</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. RELLENO -->
+  <section class="state">
+    <div class="label">1 · Relleno<small>Datos cargados; contraseña nueva escrita con indicador fuerte</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">Cancelar</a>
+          <span class="center">Editar cuenta</span>
+          <a class="txt strong go" href="aj-perfil.html">Guardar</a>
+        </div>
+        <div class="stack">
+          <div class="sect">Datos de la cuenta</div>
+          <div class="field">
+            <div class="row"><span class="lbl">Nombre</span><span class="val l">Familia Demo</span></div>
+            <div class="row"><span class="lbl">Email</span><span class="val l">demo@homita.example</span></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val l">••••••••••</span></div>
+          </div>
+          <div class="meter"><i class="k"></i><i class="k"></i><i class="k"></i><i class="k"></i></div>
+          <div class="hint">Contraseña fuerte. Déjala vacía para no cambiarla.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. SIN CAMBIOS (inicial) -->
+  <section class="state">
+    <div class="label">2 · Sin cambios (inicial)<small>Campos con datos actuales; Guardar desactivado hasta que cambie algo</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">Cancelar</a>
+          <span class="center">Editar cuenta</span>
+          <span class="txt strong off">Guardar</span>
+        </div>
+        <div class="stack">
+          <div class="sect">Datos de la cuenta</div>
+          <div class="field">
+            <div class="row"><span class="lbl">Nombre</span><span class="val l">Familia Demo</span></div>
+            <div class="row"><span class="lbl">Email</span><span class="val l">demo@homita.example</span></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val l muted">Nueva (opcional)</span></div>
+          </div>
+          <div class="hint">Déjala vacía para no cambiarla. Mínimo 8 caracteres.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. GUARDANDO -->
+  <section class="state">
+    <div class="label">3 · Guardando<small>Spin en el botón; campos en solo lectura mientras se envía. No hay selectores que cargar</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <span class="txt off">Cancelar</span>
+          <span class="center">Editar cuenta</span>
+          <span class="txt strong"><span class="spin"></span></span>
+        </div>
+        <div class="stack">
+          <div class="sect">Datos de la cuenta</div>
+          <div class="field dim">
+            <div class="row"><span class="lbl">Nombre</span><span class="val l">Familia Demo</span></div>
+            <div class="row"><span class="lbl">Email</span><span class="val l">demo@homita.example</span></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val l">••••••••••</span></div>
+          </div>
+          <div class="hint">Guardando los cambios…</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. VALIDACIÓN EN LÍNEA + ERROR DE SERVIDOR -->
+  <section class="state">
+    <div class="label">4 · Validación + error de servidor<small>Error arriba (no borra lo escrito) y errores en línea bajo cada campo</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">Cancelar</a>
+          <span class="center">Editar cuenta</span>
+          <span class="txt strong">Guardar</span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="inline-err"><span>⚠</span><span class="grow">No pudimos guardar. Revisa los campos marcados e inténtalo otra vez.</span></div>
+          </div>
+          <div class="sect">Datos de la cuenta</div>
+          <div class="field">
+            <div class="row"><span class="lbl">Nombre</span><span class="val l">Familia Demo</span></div>
+            <div class="row"><span class="lbl">Email</span><span class="val l" style="color:var(--err)">demo@homita.example</span></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val l">abc</span></div>
+          </div>
+          <div class="hint err">Ese email ya lo usa otra cuenta. Escribe otro.</div>
+          <div class="meter"><i class="w"></i><i></i><i></i><i></i></div>
+          <div class="hint err">Mínimo 8 caracteres. Te faltan 5.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Banner; Guardar desactivado. Los datos se ven, pero no se envían</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">Cancelar</a>
+          <span class="center">Editar cuenta</span>
+          <span class="txt strong off">Guardar</span>
+        </div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. No se pueden guardar cambios.</span></div>
+        <div class="stack">
+          <div class="sect">Datos de la cuenta</div>
+          <div class="field dim">
+            <div class="row"><span class="lbl">Nombre</span><span class="val l">Familia Demo</span></div>
+            <div class="row"><span class="lbl">Email</span><span class="val l">demo@homita.example</span></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val l muted">Nueva (opcional)</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>Hoja modal con Cancelar y Guardar en la cabecera, en vez de un formulario inline dentro de la pestaña Perfil.</li>
+    <li>Contraseña: mínimo 8 caracteres con indicador de fuerza de 4 segmentos; hoy el campo solo muestra «mínimo 8» como placeholder.</li>
+    <li>Email ya usado: error en línea bajo el campo con qué hacer, en lugar de un fallo genérico al guardar.</li>
+    <li>Error de servidor arriba del formulario; lo escrito se conserva.</li>
+    <li>Sin conexión: Guardar atenuado y banner, sin perder los datos cargados.</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Va a: AJ-01 Ajustes (Cancelar y Guardar al cerrar).</li>
+    <li>Llega desde: AJ-01, fila Cuenta.</li>
+  </ul>
+  <h2 style="margin-top:12px">Duda de diseño</h2>
+  <ul>
+    <li>¿Pedir la contraseña actual para cambiar la contraseña? No aparece en la app actual; no lo dibujo para no añadir un campo sin decidirlo.</li>
+  </ul>
+</aside>
+</body>
+</html>

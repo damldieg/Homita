@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AJ-01 Ajustes</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Propios de esta página (no están en components.css) */
+.prof { flex: 1; min-width: 0; }
+.prof .s { font: var(--t-sub); color: var(--text-2); }
+.avatar.lg { width: 52px; height: 52px; font-size: 20px; }
+.danger-t { color: var(--err); font: var(--t-body-b); }
+.dim { opacity: .55; }
+.sheet h3 { font: var(--t-title); text-align: center; }
+.sheet p { font: var(--t-sub); color: var(--text-2); text-align: center; margin: 6px 0 16px; }
+</style>
+</head>
+<body>
+<!-- AJ-01: pestaña Ajustes (antes «Perfil»). Agrupada tipo lista iOS: Cuenta · Familia · Hogares · Sesión -->
+<header class="wf-head">
+  <div class="id">AJ-01 · pestaña Ajustes · epic E5</div>
+  <h1>Ajustes</h1>
+  <p>Pantalla raíz de la 5.ª pestaña (propuesta: renombrar «Perfil» a «Ajustes»). Agrupa la cuenta del usuario, las personas del hogar, la entrada por código a otro hogar y cerrar sesión. Cada grupo es una tarjeta con cabecera de sección; el resto de acciones se abren en pantalla propia.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="aj-editar-cuenta.html">Editar cuenta →</a>
+    <a href="aj-personas.html">Personas →</a>
+    <a href="aj-unirse.html">Unirse a un hogar →</a>
+    <a href="hogar-sin-hogar.html">Sin hogar →</a>
+    <a href="auth-bienvenida.html">Bienvenida (tras cerrar sesión) →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. DATOS -->
+  <section class="state" id="s1">
+    <div class="label">1 · Con datos<small>Grupos iOS: Cuenta · Familia · Hogares · Sesión</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span></div>
+        <div class="large-title">Ajustes<small>Hogar de Familia Demo</small></div>
+        <div class="stack">
+          <div class="sect">Cuenta</div>
+          <a class="card go" href="aj-editar-cuenta.html">
+            <div class="card-h"><div class="avatar lg">FD</div><div class="prof"><h3>Familia Demo</h3><div class="s">demo@homita.example</div></div><span class="chev"></span></div>
+          </a>
+          <div class="sect">Familia</div>
+          <a class="card go" href="aj-personas.html">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3><span class="badge">5</span><span class="chev"></span></div>
+          </a>
+          <div class="sect">Hogares</div>
+          <a class="card go" href="aj-unirse.html">
+            <div class="card-h"><div class="ico">✉</div><h3>Unirse a un hogar</h3><span class="chev"></span></div>
+            <div class="hint" style="padding:0">Con un código de invitación.</div>
+          </a>
+          <div class="sect">Sesión</div>
+          <div class="card">
+            <div class="row"><a class="grow go danger-t" href="#s6">Cerrar sesión</a></div>
+            <div class="row"><div class="grow t">Versión de la app</div><div class="s">1.0 (1)</div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>⚙</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO (sin hogar activo) -->
+  <section class="state" id="s2">
+    <div class="label">2 · Vacío<small>Sin hogar activo: Familia muestra un único estado vacío; Hogares se oculta</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span></div>
+        <div class="large-title">Ajustes<small>Sin hogar activo</small></div>
+        <div class="stack">
+          <div class="sect">Cuenta</div>
+          <a class="card go" href="aj-editar-cuenta.html">
+            <div class="card-h"><div class="avatar lg">FD</div><div class="prof"><h3>Familia Demo</h3><div class="s">demo@homita.example</div></div><span class="chev"></span></div>
+          </a>
+          <div class="sect">Familia</div>
+          <div class="card">
+            <div class="empty">
+              <div class="art">☺</div>
+              <h3>Aún no tienes hogar</h3>
+              <p>Crea uno o únete con un código para ver a las personas.</p>
+              <a class="btn primary go" href="hogar-sin-hogar.html">Crear o unirse a un hogar</a>
+            </div>
+          </div>
+          <div class="sect">Sesión</div>
+          <div class="card">
+            <div class="row"><a class="grow go danger-t" href="#s6">Cerrar sesión</a></div>
+            <div class="row"><div class="grow t">Versión de la app</div><div class="s">1.0 (1)</div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>⚙</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state" id="s3">
+    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que el estado con datos</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span></div>
+        <div class="large-title">Ajustes<small><span class="sk line" style="display:inline-block;width:170px"></span></small></div>
+        <div class="stack">
+          <div class="sect">Cuenta</div>
+          <div class="card"><div class="card-h"><div class="sk circle" style="width:52px;height:52px"></div><div class="prof"><div class="sk title" style="width:55%"></div><div class="sk line" style="width:70%;margin-top:8px"></div></div></div></div>
+          <div class="sect">Familia</div>
+          <div class="card"><div class="card-h"><div class="sk box" style="width:36px;height:36px"></div><div class="sk title" style="width:40%"></div></div></div>
+          <div class="sect">Hogares</div>
+          <div class="card"><div class="card-h"><div class="sk box" style="width:36px;height:36px"></div><div class="sk title" style="width:60%"></div></div></div>
+          <div class="sect">Sesión</div>
+          <div class="card"><div class="row"><div class="sk line" style="width:35%"></div></div><div class="row"><div class="sk line" style="width:45%"></div></div></div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>⚙</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR (parcial: solo la tarjeta de cuenta) -->
+  <section class="state" id="s4">
+    <div class="label">4 · Error<small>Fallo parcial: solo Cuenta falla; el resto de grupos sigue usable</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span></div>
+        <div class="large-title">Ajustes<small>Hogar de Familia Demo</small></div>
+        <div class="stack">
+          <div class="sect">Cuenta</div>
+          <div class="card">
+            <div class="inline-err"><span>⚠</span><span class="grow">No pudimos cargar tu cuenta.</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div>
+          </div>
+          <div class="sect">Familia</div>
+          <a class="card go" href="aj-personas.html">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3><span class="badge">5</span><span class="chev"></span></div>
+          </a>
+          <div class="sect">Hogares</div>
+          <a class="card go" href="aj-unirse.html">
+            <div class="card-h"><div class="ico">✉</div><h3>Unirse a un hogar</h3><span class="chev"></span></div>
+          </a>
+          <div class="sect">Sesión</div>
+          <div class="card">
+            <div class="row"><a class="grow go danger-t" href="#s6">Cerrar sesión</a></div>
+            <div class="row"><div class="grow t">Versión de la app</div><div class="s">1.0 (1)</div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>⚙</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state" id="s5">
+    <div class="label">5 · Sin conexión<small>Caché + banner. Unirse a un hogar queda atenuado (escritura); cerrar sesión sigue disponible</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span></div>
+        <div class="large-title">Ajustes<small>Hogar de Familia Demo</small></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
+        <div class="stack">
+          <div class="sect">Cuenta</div>
+          <a class="card go" href="aj-editar-cuenta.html">
+            <div class="card-h"><div class="avatar lg">FD</div><div class="prof"><h3>Familia Demo</h3><div class="s">demo@homita.example</div></div><span class="chev"></span></div>
+          </a>
+          <div class="sect">Familia</div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas</h3><span class="badge">5</span></div>
+          </div>
+          <div class="sect">Hogares</div>
+          <div class="card dim">
+            <div class="card-h"><div class="ico">✉</div><h3>Unirse a un hogar</h3></div>
+            <div class="hint" style="padding:0">Necesitas conexión para unirte.</div>
+          </div>
+          <div class="sect">Sesión</div>
+          <div class="card">
+            <div class="row"><a class="grow go danger-t" href="#s6">Cerrar sesión</a></div>
+            <div class="row"><div class="grow t">Versión de la app</div><div class="s">1.0 (1)</div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>⚙</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 6. CONFIRMAR CERRAR SESIÓN (hoja sobre datos) -->
+  <section class="state" id="s6">
+    <div class="label">6 · Cerrar sesión (hoja)<small>Confirmación en hoja inferior; la acción destructiva va arriba</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span></div>
+        <div class="large-title">Ajustes<small>Hogar de Familia Demo</small></div>
+        <div class="stack">
+          <div class="sect">Cuenta</div>
+          <a class="card" href="aj-editar-cuenta.html">
+            <div class="card-h"><div class="avatar lg">FD</div><div class="prof"><h3>Familia Demo</h3><div class="s">demo@homita.example</div></div><span class="chev"></span></div>
+          </a>
+          <div class="sect">Familia</div>
+          <div class="card"><div class="card-h"><div class="ico">☺</div><h3>Personas</h3><span class="badge">5</span><span class="chev"></span></div></div>
+          <div class="sect">Hogares</div>
+          <div class="card"><div class="card-h"><div class="ico">✉</div><h3>Unirse a un hogar</h3><span class="chev"></span></div></div>
+          <div class="sect">Sesión</div>
+          <div class="card">
+            <div class="row"><div class="grow danger-t">Cerrar sesión</div></div>
+            <div class="row"><div class="grow t">Versión de la app</div><div class="s">1.0 (1)</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <h3>¿Cerrar sesión?</h3>
+        <p>Tus datos se quedan en el hogar. Para volver a entrar necesitarás tu email y contraseña.</p>
+        <a class="btn danger go" href="auth-bienvenida.html">Cerrar sesión</a>
+        <a class="btn secondary" style="margin-top:8px">Cancelar</a>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>⚙</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>La 5.ª pestaña pasa de «Perfil» a «Ajustes» (propuesta, por confirmar) con título grande pegado arriba, sin el hueco superior de la captura 60.</li>
+    <li>El formulario de cuenta (nombre, email, contraseña y «Guardar cambios») sale de la pantalla principal: la fila Cuenta abre AJ-02. Así la lista deja de mezclar edición con navegación.</li>
+    <li>Agrupación tipo lista iOS con cabecera de sección: Cuenta · Familia · Hogares · Sesión. Hoy «Invitaciones» agrupa «Unirse a un hogar con un código» y no tiene cabecera propia de hogares.</li>
+    <li>«Cerrar sesión» deja de salir directo: fila en rojo que abre hoja de confirmación (frame 6). La versión de la app va al pie de Sesión.</li>
+    <li>Sin hogar activo, Familia muestra un estado vacío con una sola acción y se oculta Hogares; el acceso a «Unirse» queda por la pantalla de hogar sin hogar.</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Va a: AJ-02 editar cuenta, AJ-03 personas, AJ-05 unirse a un hogar, hogar sin hogar (HOGAR), bienvenida tras cerrar sesión (AUTH).</li>
+    <li>Llega desde: la pestaña Ajustes, desde cualquier pantalla con barra de pestañas.</li>
+  </ul>
+</aside>
+</body>
+</html>

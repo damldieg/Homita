@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOGAR-03 Administración</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Extras de esta página (no existen en components.css) */
+.menu { display: flex; flex-direction: column; gap: var(--s3); }
+.menu-row { display: flex; align-items: center; gap: var(--s3); min-height: 68px; padding: var(--s3) var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+.menu-row .ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 18px; flex: none; background: var(--bg-sunken); color: var(--text-2); }
+.menu-row .ico.acc { background: var(--accent-soft); color: var(--accent); }
+.menu-row .ico.ok { background: var(--ok-soft); color: var(--ok); }
+.menu-row .ico.warn { background: var(--warn-soft); color: var(--warn); }
+.menu-row .txt { flex: 1; min-width: 0; }
+.menu-row .txt b { display: block; font: var(--t-body-b); }
+.menu-row .txt span { display: block; font: var(--t-sub); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu-row .chev { flex: none; }
+.menu-row .chev::after { content: "›"; color: var(--text-3); font: 400 22px/1 var(--font); }
+.menu-row.sk-row { box-shadow: none; }
+.noaplica { border: 1.5px dashed var(--line); border-radius: var(--r-lg); background: var(--surface); padding: var(--s6); font: var(--t-sub); color: var(--text-2); height: 100%; }
+.noaplica b { display: block; color: var(--text); font: var(--t-body-b); margin-bottom: var(--s2); }
+.frame-foot { margin-top: var(--s3); }
+.ro-note { font: var(--t-cap); color: var(--text-2); padding: var(--s1) var(--s1) 0; }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">HOGAR-03 · Administración (menú) · epic E4</div>
+  <h1>Administración</h1>
+  <p>Menú con las seis secciones de gestión del hogar. Cada fila muestra su icono y un resumen de una línea. El miembro ve la versión de solo lectura: solo las secciones que le corresponden, sin acciones de administración.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="hogar-hogar.html">← Hogar</a>
+    <a href="hogar-config.html">Configuración →</a>
+    <a href="hogar-admins.html">Administradores →</a>
+    <a href="hogar-miembros.html">Miembros →</a>
+    <a href="hogar-invitaciones.html">Invitaciones →</a>
+    <a href="hogar-accesos.html">Accesos →</a>
+    <a href="hogar-auditoria.html">Auditoría →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. CON DATOS (admin) -->
+  <section class="state">
+    <div class="label">1 · Con datos (admin)<small>Seis secciones, cada una con icono y resumen</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="btn-icon go" href="hogar-hogar.html">‹</a><span class="center">Hogar de Familia Demo</span><span></span></div>
+        <div class="large-title">Administración<small>Hogar de Familia Demo</small></div>
+        <div class="menu">
+          <a class="menu-row go" href="hogar-config.html"><div class="ico">⚙</div><div class="txt"><b>Configuración</b><span>Nombre y zona horaria</span></div><span class="chev"></span></a>
+          <a class="menu-row go" href="hogar-admins.html"><div class="ico acc">♙</div><div class="txt"><b>Administradores</b><span>2 administradores</span></div><span class="chev"></span></a>
+          <a class="menu-row go" href="hogar-miembros.html"><div class="ico ok">☺☺</div><div class="txt"><b>Miembros</b><span>5 personas · 1 sin cuenta activa</span></div><span class="chev"></span></a>
+          <a class="menu-row go" href="hogar-invitaciones.html"><div class="ico warn">✉</div><div class="txt"><b>Invitaciones</b><span>1 pendiente</span></div><span class="chev"></span></a>
+          <a class="menu-row go" href="hogar-accesos.html"><div class="ico acc">⛨</div><div class="txt"><b>Accesos</b><span>Permisos de cada miembro</span></div><span class="chev"></span></a>
+          <a class="menu-row go" href="hogar-auditoria.html"><div class="ico">☰</div><div class="txt"><b>Auditoría</b><span>Últimos cambios del hogar</span></div><span class="chev"></span></a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>No aplica: el menú es fijo</small></div>
+    <div class="noaplica">
+      <b>No aplica: las seis secciones existen siempre</b>
+      Un hogar siempre tiene administrador, configuración y registro. Los resúmenes en cero se muestran como «0 pendientes», no como vacío.
+      <div class="frame-foot"><a class="link go" href="hogar-hogar.html">Volver a HOGAR-01 →</a></div>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton)<small>Mismas seis filas; el resumen llega en shimmer</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="btn-icon go" href="hogar-hogar.html">‹</a><span class="center">Hogar de Familia Demo</span><span></span></div>
+        <div class="large-title">Administración<small>Hogar de Familia Demo</small></div>
+        <div class="menu">
+          <div class="menu-row sk-row"><div class="ico sk"></div><div class="txt"><div class="sk line" style="width:45%;height:16px"></div><div class="sk line" style="width:70%;margin-top:6px"></div></div></div>
+          <div class="menu-row sk-row"><div class="ico sk"></div><div class="txt"><div class="sk line" style="width:50%;height:16px"></div><div class="sk line" style="width:40%;margin-top:6px"></div></div></div>
+          <div class="menu-row sk-row"><div class="ico sk"></div><div class="txt"><div class="sk line" style="width:40%;height:16px"></div><div class="sk line" style="width:60%;margin-top:6px"></div></div></div>
+          <div class="menu-row sk-row"><div class="ico sk"></div><div class="txt"><div class="sk line" style="width:55%;height:16px"></div><div class="sk line" style="width:45%;margin-top:6px"></div></div></div>
+          <div class="menu-row sk-row"><div class="ico sk"></div><div class="txt"><div class="sk line" style="width:45%;height:16px"></div><div class="sk line" style="width:65%;margin-top:6px"></div></div></div>
+          <div class="menu-row sk-row"><div class="ico sk"></div><div class="txt"><div class="sk line" style="width:40%;height:16px"></div><div class="sk line" style="width:50%;margin-top:6px"></div></div></div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR (resúmenes) -->
+  <section class="state">
+    <div class="label">4 · Error<small>Las secciones siguen navegables; solo el resumen que falló muestra error</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="btn-icon go" href="hogar-hogar.html">‹</a><span class="center">Hogar de Familia Demo</span><span></span></div>
+        <div class="large-title">Administración<small>Hogar de Familia Demo</small></div>
+        <div class="menu">
+          <a class="menu-row go" href="hogar-config.html"><div class="ico">⚙</div><div class="txt"><b>Configuración</b><span>Nombre y zona horaria</span></div><span class="chev"></span></a>
+          <a class="menu-row go" href="hogar-admins.html"><div class="ico acc">♙</div><div class="txt"><b>Administradores</b><span>2 administradores</span></div><span class="chev"></span></a>
+          <a class="menu-row go" href="hogar-miembros.html"><div class="ico ok">☺☺</div><div class="txt"><b>Miembros</b><span>5 personas</span></div><span class="chev"></span></a>
+          <div class="card" style="padding:var(--s3)">
+            <div class="inline-err"><span>⚠</span><span class="grow">Invitaciones: no pudimos cargar el resumen.</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div>
+          </div>
+          <a class="menu-row go" href="hogar-accesos.html"><div class="ico acc">⛨</div><div class="txt"><b>Accesos</b><span>Permisos de cada miembro</span></div><span class="chev"></span></a>
+          <a class="menu-row go" href="hogar-auditoria.html"><div class="ico">☰</div><div class="txt"><b>Auditoría</b><span>Últimos cambios del hogar</span></div><span class="chev"></span></a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Resúmenes de caché; las secciones abren con los datos guardados</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="btn-icon go" href="hogar-hogar.html">‹</a><span class="center">Hogar de Familia Demo</span><span></span></div>
+        <div class="large-title">Administración<small>Hogar de Familia Demo</small></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
+        <div class="menu">
+          <a class="menu-row go" href="hogar-config.html"><div class="ico">⚙</div><div class="txt"><b>Configuración</b><span>Nombre y zona horaria</span></div><span class="chev"></span></a>
+          <a class="menu-row go" href="hogar-admins.html"><div class="ico acc">♙</div><div class="txt"><b>Administradores</b><span>2 administradores</span></div><span class="chev"></span></a>
+          <a class="menu-row go" href="hogar-miembros.html"><div class="ico ok">☺☺</div><div class="txt"><b>Miembros</b><span>5 personas</span></div><span class="chev"></span></a>
+          <a class="menu-row go" href="hogar-invitaciones.html"><div class="ico warn">✉</div><div class="txt"><b>Invitaciones</b><span>1 pendiente</span></div><span class="chev"></span></a>
+          <a class="menu-row go" href="hogar-accesos.html"><div class="ico acc">⛨</div><div class="txt"><b>Accesos</b><span>Permisos de cada miembro</span></div><span class="chev"></span></a>
+          <a class="menu-row go" href="hogar-auditoria.html"><div class="ico">☰</div><div class="txt"><b>Auditoría</b><span>Últimos cambios del hogar</span></div><span class="chev"></span></a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 6. VISTA DE MIEMBRO (solo lectura) -->
+  <section class="state">
+    <div class="label">6 · Vista de miembro (solo lectura)<small>Sin acciones de administración: solo Configuración y Administradores, en lectura</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="btn-icon go" href="hogar-hogar.html">‹</a><span class="center">Hogar de Familia Demo</span><span></span></div>
+        <div class="large-title">Administración<small>Hogar de Familia Demo · Miembro</small></div>
+        <div class="menu">
+          <a class="menu-row go" href="hogar-config.html"><div class="ico">⚙</div><div class="txt"><b>Configuración</b><span>Solo lectura</span></div><span class="chev"></span></a>
+          <a class="menu-row go" href="hogar-admins.html"><div class="ico acc">♙</div><div class="txt"><b>Administradores</b><span>2 administradores · solo lectura</span></div><span class="chev"></span></a>
+        </div>
+        <div class="ro-note">Miembros, Invitaciones, Accesos y Auditoría se ocultan: solo los administradores las ven.</div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>Cada una de las seis secciones gana un resumen de una línea («2 administradores», «1 pendiente») para no abrir cada una solo para saber el estado.</li>
+    <li>Iconos con color por tipo de sección (acento para gestión de permisos, verde para personas, ámbar para lo pendiente). El color sirve de pista, el texto manda.</li>
+    <li>Filas de 68 pt con toda la fila como gesto único (antes el chevron era la única señal). Área táctil amplia.</li>
+    <li>La cabecera usa «‹» con el nombre del hogar centrado, en vez del título de la sección; el título grande «Administración» queda pegado arriba.</li>
+    <li>Versión de miembro: solo Configuración y Administradores, en lectura. Las secciones de gestión se ocultan (no se deshabilitan).</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Llega desde: HOGAR-01 («Administración»).</li>
+    <li>Lleva a: HOGAR-04 (Configuración), HOGAR-05 (Administradores), Miembros, Invitaciones, Accesos y Auditoría. Vuelve a HOGAR-01 con «‹».</li>
+  </ul>
+  <h2 style="margin-top:12px">Dudas de diseño</h2>
+  <ul>
+    <li>Estado 6: el doc funcional dice que el miembro ve Configuración y Administradores en solo lectura, y el encargo pide ocultar todo lo de administración. Este frame sigue el doc. Confirmar.</li>
+    <li>«Miembros» no aparece en el frame de miembro. Decidir si el miembro puede ver la lista en lectura.</li>
+  </ul>
+</aside>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOME-01 Inicio</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+</head>
+<body>
+<!-- PLANTILLA DE REFERENCIA: toda pantalla = wf-head + .states (5 estados) + .notes -->
+<header class="wf-head">
+  <div class="id">HOME-01 · pestaña Inicio · epic E1</div>
+  <h1>Inicio</h1>
+  <p>Resumen del día: eventos de hoy, tareas pendientes y rutinas de hoy. Lectura rápida; cada tarjeta lleva a su pestaña.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="tasks-lista.html">Tareas →</a>
+    <a href="cal-eventos.html">Eventos →</a>
+    <a href="cal-rutinas.html">Rutinas →</a>
+    <a href="hogar-hogar.html">Cambiar de hogar →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos<small>Cabecera compacta, sin hueco superior</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon go" data-go="hogar-hogar" href="hogar-hogar.html">⌂</a></div>
+        <div class="large-title">Hola, Familia<small>Jueves, 12 de noviembre · Hogar Demo</small></div>
+        <div class="stack">
+          <!-- Próximo evento: tarjeta destacada con cuenta atrás -->
+          <a class="card go" href="cal-eventos.html" style="border-color:var(--accent)">
+            <div class="card-h"><div class="ico">▦</div><h3>Hoy · Eventos</h3><span class="badge">2</span></div>
+            <div class="row"><div class="bar"></div><div class="grow"><div class="t">Desayuno con la vecina</div><div class="s">Familia</div></div><div class="time">09:00</div></div>
+            <div class="row"><div class="bar"></div><div class="grow"><div class="t">Cena con los abuelos</div><div class="s"><span class="soon">en 22 min</span> · Familia</div></div><div class="time">20:30</div></div>
+          </a>
+          <a class="card go" href="tasks-lista.html">
+            <div class="card-h"><div class="ico">☑</div><h3>Tareas pendientes</h3><span class="badge">8</span></div>
+            <div class="group-h"><span class="dot"></span>Compra</div>
+            <div class="row"><div class="check"></div><div class="grow t">Café</div></div>
+            <div class="row"><div class="check"></div><div class="grow t">Fruta</div></div>
+            <div class="row"><div class="check"></div><div class="grow t">Huevos</div></div>
+            <div class="row"><div class="grow"></div><span class="link">Ver las 8</span></div>
+          </a>
+          <a class="card go" href="cal-rutinas.html">
+            <div class="card-h"><div class="ico">↻</div><h3>Rutinas de hoy</h3><span class="badge ok">1/3</span></div>
+            <div class="row"><div class="check done"></div><div class="grow"><div class="t">Sacar la basura</div><div class="s">19:00 · Hecha</div></div></div>
+            <div class="row"><div class="check"></div><div class="grow"><div class="t">Revisar medicación</div><div class="s">21:00</div></div></div>
+          </a>
+        </div>
+      </div>
+      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <span class="anno" style="top:70px;left:8px">1</span>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>Día sin nada: un solo mensaje y una acción</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon">⌂</a></div>
+        <div class="large-title">Hola, Familia<small>Jueves, 12 de noviembre · Hogar Demo</small></div>
+        <div class="empty">
+          <div class="art">☀</div>
+          <h3>Hoy no hay nada pendiente</h3>
+          <p>Sin eventos, tareas ni rutinas para hoy. Disfruta, o añade algo.</p>
+          <a class="btn primary go" href="cal-form-evento.html">Añadir un evento</a>
+          <a class="btn ghost go" href="tasks-form-tarea.html">Nueva tarea</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que el estado con datos; título real, datos en shimmer</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon">⌂</a></div>
+        <div class="large-title">Hola, Familia<small><span class="sk line" style="display:inline-block;width:180px"></span></small></div>
+        <div class="stack">
+          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
+            <div class="row"><div class="bar sk"></div><div class="grow"><div class="sk line" style="width:70%"></div><div class="sk line" style="width:30%;margin-top:6px"></div></div><div class="sk line" style="width:44px"></div></div>
+            <div class="row"><div class="bar sk"></div><div class="grow"><div class="sk line" style="width:60%"></div><div class="sk line" style="width:35%;margin-top:6px"></div></div><div class="sk line" style="width:44px"></div></div></div>
+          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
+            <div class="row"><div class="check sk"></div><div class="sk line" style="width:40%"></div></div>
+            <div class="row"><div class="check sk"></div><div class="sk line" style="width:50%"></div></div>
+            <div class="row"><div class="check sk"></div><div class="sk line" style="width:35%"></div></div></div>
+          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
+            <div class="row"><div class="check sk"></div><div class="sk line" style="width:55%"></div></div></div>
+        </div>
+      </div>
+      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR (servidor / parcial) -->
+  <section class="state">
+    <div class="label">4 · Error<small>Fallo parcial: solo la tarjeta afectada muestra error, el resto sigue útil</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon">⌂</a></div>
+        <div class="large-title">Hola, Familia<small>Jueves, 12 de noviembre · Hogar Demo</small></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Hoy · Eventos</h3></div>
+            <div class="inline-err"><span>⚠</span><span class="grow">No pudimos cargar los eventos.</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☑</div><h3>Tareas pendientes</h3><span class="badge">8</span></div>
+            <div class="group-h"><span class="dot"></span>Compra</div>
+            <div class="row"><div class="check"></div><div class="grow t">Café</div></div>
+            <div class="row"><div class="check"></div><div class="grow t">Fruta</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="toast"><span>⚠</span><span>No se pudo marcar «Café». Reintenta.</span><b>Reintentar</b></div>
+      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Datos en caché + banner; no bloquea. Los toques de escritura quedan desactivados</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon">⌂</a></div>
+        <div class="large-title">Hola, Familia<small>Jueves, 12 de noviembre · Hogar Demo</small></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Hoy · Eventos</h3><span class="badge">2</span></div>
+            <div class="row"><div class="bar"></div><div class="grow"><div class="t">Desayuno con la vecina</div><div class="s">Familia</div></div><div class="time">09:00</div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☑</div><h3>Tareas pendientes</h3><span class="badge">8</span></div>
+            <div class="row" style="opacity:.6"><div class="check"></div><div class="grow t">Café</div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a class="on"><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>① Se elimina el hueco superior (~170 pt): título grande pegado a la barra de estado, con acción de hogar a la derecha.</li>
+    <li>La tarjeta de eventos con la cuenta atrás pasa a ser la destacada (borde de acento). Se quita el carrusel de dos páginas de «Tareas pendientes»: un solo grupo y «Ver las N».</li>
+    <li>Un solo gesto por tarjeta: toda la tarjeta navega; se quita el chevron redundante.</li>
+    <li>La barra de pestañas reserva su espacio (padding inferior): no tapa contenido. Propuesta: etiqueta de la 5.ª pestaña «Perfil» → «Ajustes», porque ya agrupa cuenta, personas y unirse a un hogar (el usuario llamó «ajustes» a este ámbito; por confirmar).</li>
+    <li>Errores locales por tarjeta y toast para fallos de escritura; sin conexión = banner global + caché.</li>
+  </ul>
+</aside>
+</body>
+</html>

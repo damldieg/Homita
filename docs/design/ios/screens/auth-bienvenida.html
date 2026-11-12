@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AUTH-01 Bienvenida</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Específico de esta pantalla (no está en components.css) */
+.welcome { height: 100%; display: flex; flex-direction: column; }
+.hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: var(--s2); }
+.logo { width: 88px; height: 88px; border-radius: 24px; background: var(--warn); color: var(--text); display: grid; place-items: center; font: 800 46px/1 var(--font); box-shadow: var(--shadow); }
+.name { font: 700 34px/40px var(--font); margin-top: var(--s3); }
+.sub { font: var(--t-sub); color: var(--text-2); }
+.actions { display: flex; flex-direction: column; gap: var(--s3); }
+.inline-err-top .inline-err { display: flex; gap: var(--s3); align-items: center; background: var(--err-soft); color: var(--err); border-radius: var(--r-md); padding: var(--s3); font: 500 14px/19px var(--font); }
+.na { margin: 0 0 var(--s6); max-width: 300px; text-align: center; border: 1px dashed var(--line); border-radius: var(--r-md); padding: var(--s4); background: var(--surface); font: var(--t-sub); color: var(--text-2); }
+.na b { color: var(--text); }
+.closed { text-align: center; font: var(--t-sub); color: var(--text-2); padding: var(--s2) var(--s4); }
+.closed .link { display: inline; }
+.spinner-row { display: flex; align-items: center; justify-content: center; gap: var(--s2); font: var(--t-sub); color: var(--text-2); min-height: 44px; }
+.spinner-row .spin { color: var(--accent); width: 20px; height: 20px; }
+</style>
+</head>
+<body>
+<!-- PLANTILLA DE REFERENCIA: toda pantalla = wf-head + .states (5 estados) + .notes -->
+<header class="wf-head">
+  <div class="id">AUTH-01 · Bienvenida · epic E0 Acceso</div>
+  <h1>Bienvenida</h1>
+  <p>Primera pantalla sin sesión. Presenta Homita y ofrece entrar o registrarse. Al abrir la app, mientras se restaura una sesión guardada, muestra su estado de carga. Si el registro está cerrado en producción, el botón Registrarse se sustituye por un texto que pide una invitación.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="auth-login.html">Iniciar sesión →</a>
+    <a href="auth-registro.html">Registrarse →</a>
+    <a href="home-inicio.html">Inicio (con sesión) →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. NORMAL -->
+  <section class="state">
+    <div class="label">1 · Normal<small>Logo, nombre, subtítulo y dos acciones de igual anchura</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll welcome">
+        <div class="hero">
+          <div class="logo">H</div>
+          <div class="name">Homita</div>
+          <div class="sub">Tu panel de control familiar</div>
+        </div>
+        <div class="actions">
+          <a class="btn primary go" href="auth-login.html">Iniciar sesión</a>
+          <a class="btn secondary go" href="auth-registro.html">Registrarse</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO / INICIAL -->
+  <section class="state">
+    <div class="label">2 · Vacío / inicial<small>Sin campos en esta pantalla</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll welcome">
+        <div class="hero">
+          <div class="logo">H</div>
+          <div class="name">Homita</div>
+          <div class="sub">Tu panel de control familiar</div>
+        </div>
+        <div class="na"><b>No aplica:</b> la bienvenida no tiene campos ni listas. Su estado inicial es el de «1 · Normal» mientras no se haya comprobado la sesión.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. CARGANDO (restauración de sesión) -->
+  <section class="state">
+    <div class="label">3 · Cargando<small>Restauración de sesión al abrir la app: botones desactivados hasta saber el resultado</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll welcome">
+        <div class="hero">
+          <div class="logo">H</div>
+          <div class="name">Homita</div>
+          <div class="sub">Tu panel de control familiar</div>
+        </div>
+        <div class="spinner-row"><span class="spin"></span>Comprobando tu sesión…</div>
+        <div class="actions" style="margin-top:var(--s3)">
+          <a class="btn primary disabled">Iniciar sesión</a>
+          <a class="btn secondary disabled">Registrarse</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. ERROR -->
+  <section class="state">
+    <div class="label">4 · Error<small>Fallo al restaurar la sesión (servidor): aviso y reintento; las dos acciones siguen activas</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll welcome">
+        <div style="margin-top:var(--s4)" class="inline-err-top">
+          <div class="inline-err"><span>⚠</span><span class="grow">No pudimos comprobar tu sesión. Inicia sesión de nuevo o reintenta.</span></div>
+        </div>
+        <div class="hero">
+          <div class="logo">H</div>
+          <div class="name">Homita</div>
+          <div class="sub">Tu panel de control familiar</div>
+        </div>
+        <div class="actions">
+          <a class="btn primary go" href="auth-login.html">Iniciar sesión</a>
+          <a class="btn secondary go" href="auth-registro.html">Registrarse</a>
+          <a class="btn ghost" style="min-height:36px">Reintentar</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Aviso arriba; el inicio de sesión y el registro requieren red, así que quedan desactivados</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll welcome">
+        <div style="margin-top:var(--s4)">
+          <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Conéctate a internet para entrar.</span></div>
+        </div>
+        <div class="hero">
+          <div class="logo">H</div>
+          <div class="name">Homita</div>
+          <div class="sub">Tu panel de control familiar</div>
+        </div>
+        <div class="actions">
+          <a class="btn primary disabled">Iniciar sesión</a>
+          <a class="btn secondary disabled">Registrarse</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. REGISTRO CERRADO EN PRODUCCIÓN (allow_registration=false) -->
+  <section class="state">
+    <div class="label">6 · Registro cerrado (producción)<small>allow_registration=false: Registrarse se sustituye por texto; el acceso por invitación sigue en registro</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll welcome">
+        <div class="hero">
+          <div class="logo">H</div>
+          <div class="name">Homita</div>
+          <div class="sub">Tu panel de control familiar</div>
+        </div>
+        <div class="actions">
+          <a class="btn primary go" href="auth-login.html">Iniciar sesión</a>
+          <div class="closed">El registro está cerrado. <a class="link go" href="auth-registro.html">Pide una invitación</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>La captura muestra la bienvenida tal cual: logo, nombre y dos botones fijos abajo. Se mantiene la composición; se añade el estado de restauración de sesión (spinner y botones desactivados), que hoy no se ve en pantalla.</li>
+    <li>«Registrarse» deja de ser siempre una acción: con el registro cerrado en producción (allow_registration=false) se sustituye por el texto «El registro está cerrado. Pide una invitación». Hoy el botón aparece siempre.</li>
+    <li>Se añade el estado sin conexión: aviso arriba y botones desactivados, en vez de dejar que el toque falle al llamar al servidor.</li>
+    <li>Fallo al restaurar la sesión: aviso inline con «Reintentar» y las dos acciones siguen disponibles, para no bloquear el acceso manual.</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Va a: AUTH-02 Iniciar sesión (auth-login), AUTH-03 Registrarse (auth-registro). Con sesión restaurada, pasa a home-inicio (no mostrado aquí).</li>
+    <li>Llega desde: punto de entrada de la app sin sesión. Ninguna otra pantalla lleva aquí.</li>
+    <li>Decisión abierta: en el estado 6 el enlace «Pide una invitación» lleva a auth-registro (que tiene el campo de código). Confirmar si la invitación debe tener otro destino.</li>
+  </ul>
+</aside>
+</body>
+</html>

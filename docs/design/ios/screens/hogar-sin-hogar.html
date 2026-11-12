@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOGAR-02 Sin hogar</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Extras de esta página (no existen en components.css) */
+.noaplica { border: 1.5px dashed var(--line); border-radius: var(--r-lg); background: var(--surface); padding: var(--s6); font: var(--t-sub); color: var(--text-2); height: 100%; }
+.noaplica b { display: block; color: var(--text); font: var(--t-body-b); margin-bottom: var(--s2); }
+.frame-foot { margin-top: var(--s3); }
+.ctas { display: flex; flex-direction: column; gap: var(--s3); padding: 0 var(--s4); }
+.ctas .btn { width: 100%; }
+.empty .ctas { width: 100%; }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">HOGAR-02 · pestaña Hogar sin hogares · epic E4</div>
+  <h1>Sin hogar</h1>
+  <p>Para quien aún no pertenece a ningún hogar. Ofrece dos caminos: crear un hogar propio o unirse con un código de invitación. Tareas y Calendario muestran este mismo estado cuando no hay hogar.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="aj-unirse.html">Unirse con código →</a>
+    <a href="hogar-hogar.html">Hogar con datos →</a>
+    <a href="aj-perfil.html">Perfil →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. CON DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos<small>Sin hogares no hay datos que mostrar</small></div>
+    <div class="noaplica">
+      <b>No aplica: con al menos un hogar, la pestaña muestra HOGAR-01</b>
+      Esta pantalla es el estado de «cero hogares». Con hogar activo, la pestaña Hogar nunca cae aquí.
+      <div class="frame-foot"><a class="link go" href="hogar-hogar.html">Ver HOGAR-01 →</a></div>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO (es el contenido real de la pantalla) -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>Sin hogares: dos acciones, una primaria</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><span></span></div>
+        <div class="large-title">Hogar<small>Todavía no perteneces a ningún hogar</small></div>
+        <div class="empty">
+          <div class="art">⌂</div>
+          <h3>Crea tu hogar o únete a uno</h3>
+          <p>Tareas, calendario y rutinas se organizan por hogar. Podés crear el tuyo o usar un código que te compartieron.</p>
+          <div class="ctas">
+            <a class="btn primary">Crear hogar</a>
+            <a class="btn secondary go" href="aj-unirse.html">Unirse con código</a>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton)<small>Mientras se comprueba si hay hogares; mismas dos acciones en gris</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><span></span></div>
+        <div class="large-title">Hogar<small><span class="sk line" style="display:inline-block;width:200px"></span></small></div>
+        <div class="empty">
+          <div class="art sk"></div>
+          <div class="sk title" style="width:70%"></div>
+          <div class="sk line" style="width:90%"></div>
+          <div class="sk line" style="width:70%"></div>
+          <div class="ctas" style="margin-top:var(--s3)">
+            <div class="sk box" style="min-height:50px;border-radius:999px"></div>
+            <div class="sk box" style="min-height:50px;border-radius:999px"></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR -->
+  <section class="state">
+    <div class="label">4 · Error<small>No se pudo comprobar si hay hogares: se ofrece reintentar, no se asume «sin hogar»</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><span></span></div>
+        <div class="large-title">Hogar</div>
+        <div class="errbox">
+          <div class="art">⚠</div>
+          <h3>No pudimos cargar tus hogares</h3>
+          <p>Revisá la conexión y volvé a intentar.</p>
+          <a class="btn primary" style="width:100%">Reintentar</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Sin caché que mostrar: las acciones que escriben quedan desactivadas</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><span></span></div>
+        <div class="large-title">Hogar<small>Sin conexión</small></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Conectate para crear o unirte a un hogar.</span><u>Reintentar</u></div>
+        <div class="empty">
+          <div class="art">⌂</div>
+          <h3>Crea tu hogar o únete a uno</h3>
+          <p>Cuando vuelva la conexión podrás crear o unirte a un hogar.</p>
+          <div class="ctas">
+            <span class="btn primary disabled">Crear hogar</span>
+            <span class="btn secondary disabled" style="border-color:var(--accent);color:var(--accent)">Unirse con código</span>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  </div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>Hoy «Sin hogares» es un mensaje suelto en Tareas y Calendario con «Crear hogar». Pasa a una pantalla propia con dos caminos claros: crear o unirse.</li>
+    <li>«Unirse con código» es la acción secundaria y lleva a AJ-unirse; «Crear hogar» es la primaria. Las dos ocupan el ancho completo (áreas táctiles ≥44 pt).</li>
+    <li>Error al comprobar hogares: se muestra «No pudimos cargar tus hogares» con «Reintentar». No se asume que el usuario no tiene hogar cuando la consulta falló.</li>
+    <li>Sin conexión: las dos acciones quedan desactivadas con aviso. No hay caché que mostrar porque nunca hubo hogar.</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Llega desde: pestaña Hogar (sin hogares); Tareas y Calendario cuando no hay hogar activo.</li>
+    <li>Lleva a: AJ-unirse («Unirse con código»). «Crear hogar» no tiene pantalla propia en el listado: ver dudas.</li>
+  </ul>
+  <h2 style="margin-top:12px">Dudas de diseño</h2>
+  <ul>
+    <li>«Crear hogar» no tiene pantalla en el listado de wireframes. Propuesta: formulario modal con nombre y zona horaria (mismos campos que HOGAR-04). Confirmar antes de maquetarlo.</li>
+    <li>Tareas y Calendario, sin hogar activo, reutilizan el bloque de este estado 2 (con sus estados 4 y 5 para fallos). Estado 1: no aplica, ver nota en el frame.</li>
+  </ul>
+</aside>
+</body>
+</html>

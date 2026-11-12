@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAL-06 Formulario de rutina</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Añadido en línea para este lote (no está en components.css) */
+.off { opacity: .4; }
+.card-h + * { margin-top: var(--s3); }
+.field .val { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.field .row .lbl { width: auto; }
+.field.err { border-color: var(--err); }
+.pill { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: 999px; background: var(--bg-sunken); font: 600 15px/1 var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill.err { background: var(--err-soft); color: var(--err); }
+.radio { display: flex; align-items: center; gap: var(--s3); min-height: 44px; font: var(--t-body); }
+.radio i { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--text-3); flex: none; display: grid; place-items: center; }
+.radio.on i { border-color: var(--accent); }
+.radio.on i::after { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); }
+.stepper { display: flex; align-items: center; background: var(--bg-sunken); border-radius: 999px; }
+.stepper span { width: 44px; height: 36px; display: grid; place-items: center; font: 600 20px/1 var(--font); }
+.stepper b { min-width: 24px; text-align: center; font: 600 17px/1 var(--font); }
+.sw { width: 51px; height: 31px; border-radius: 999px; background: var(--text-3); position: relative; flex: none; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow); }
+.sw.on { background: var(--ok); }
+.sw.on::after { left: 22px; }
+.seg span.on { color: var(--text); }
+.sum { font: var(--t-sub); color: var(--text-2); padding: var(--s3) var(--s1) 0; }
+.sum b { color: var(--text); font-weight: 600; }
+.sk-pill { display: inline-block; height: 36px; border-radius: 999px; }
+.sheet h3 { font: var(--t-title); margin-bottom: var(--s2); }
+</style>
+</head>
+<body>
+<!-- CAL-06: formulario de rutina (hoja modal, sin barra de pestañas) -->
+<header class="wf-head">
+  <div class="id">CAL-06 · formulario de rutina · epic E3</div>
+  <h1>Rutina (nueva y edición)</h1>
+  <p>Hoja modal para crear o editar una rutina. La frecuencia es un segmento (Diaria, Semanal, Mensual) con un stepper «Cada N» y un resumen en lenguaje natural debajo, para que se vea qué se va a repetir antes de guardar. Cancelar y Guardar en la barra de la hoja.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="cal-rutinas.html">Rutinas</a>
+    <a href="cal-detalle-rutina.html">Detalle de rutina</a>
+    <a href="cal-form-evento.html">Nuevo evento →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. RELLENO -->
+  <section class="state">
+    <div class="label">1 · Relleno<small>Rutina con datos; resumen natural bajo la frecuencia</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-rutinas.html">Cancelar</a>
+          <span class="center">Rutina</span>
+          <a class="txt strong go" href="cal-rutinas.html">Guardar</a>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">↻</div><h3>Rutina</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Sacar la basura</span></div></div>
+            <div class="card-h" style="margin-top:12px"><div class="ico">▦</div><h3 style="font:var(--t-body-b)">Calendario</h3></div>
+            <div class="radio on"><i></i>Familia</div>
+            <div class="radio"><i></i>Colegio</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☰</div><h3>Frecuencia</h3></div>
+            <div class="seg"><span>Diaria</span><span class="on">Semanal</span><span>Mensual</span></div>
+            <div class="row"><div class="grow t">Cada 2 semanas</div>
+              <div class="stepper"><span>−</span><b>2</b><span>+</span></div></div>
+            <div class="sum">Se repite: <b>Cada 2 semanas a las 19:00</b></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◷</div><h3>Horario</h3></div>
+            <div class="field">
+              <div class="row"><span class="lbl">Hora</span><span class="val"><span class="pill">19:00</span></span></div>
+              <div class="row"><span class="lbl">Inicio</span><span class="val"><span class="pill">12 nov 2026</span></span></div>
+              <div class="row"><span class="lbl">Fecha fin</span><span class="val"><span class="sw"></span></span></div>
+            </div>
+            <div class="hint">Sin fecha fin: la rutina se repite hasta que la desactives.</div>
+            <div class="row"><div class="grow t">Activa</div><span class="sw on"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. INICIAL VACÍO -->
+  <section class="state">
+    <div class="label">2 · Inicial vacío<small>Alta nueva: Diaria por defecto, Guardar desactivado sin título ni calendario</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-rutinas.html">Cancelar</a>
+          <span class="center">Rutina</span>
+          <span class="txt strong off">Guardar</span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">↻</div><h3>Rutina</h3></div>
+            <div class="field"><div class="row"><span class="grow t ph">Título</span></div></div>
+            <div class="card-h" style="margin-top:12px"><div class="ico">▦</div><h3 style="font:var(--t-body-b)">Calendario</h3></div>
+            <div class="radio"><i></i>Familia</div>
+            <div class="radio"><i></i>Colegio</div>
+            <div class="hint">Elige el calendario al que va la rutina.</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☰</div><h3>Frecuencia</h3></div>
+            <div class="seg"><span class="on">Diaria</span><span>Semanal</span><span>Mensual</span></div>
+            <div class="row"><div class="grow t">Cada 1 día</div>
+              <div class="stepper"><span>−</span><b>1</b><span>+</span></div></div>
+            <div class="sum">Se repite: <b>Cada día a las 09:00</b></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◷</div><h3>Horario</h3></div>
+            <div class="field">
+              <div class="row"><span class="lbl">Hora</span><span class="val"><span class="pill">09:00</span></span></div>
+              <div class="row"><span class="lbl">Inicio</span><span class="val"><span class="pill">12 nov 2026</span></span></div>
+              <div class="row"><span class="lbl">Fecha fin</span><span class="val"><span class="sw"></span></span></div>
+            </div>
+            <div class="row"><div class="grow t">Activa</div><span class="sw on"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. CARGANDO OPCIONES / GUARDANDO -->
+  <section class="state">
+    <div class="label">3 · Cargando opciones / guardando<small>Calendarios en skeleton; .spin en Guardar mientras se envía</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt off">Cancelar</a>
+          <span class="center">Rutina</span>
+          <span class="txt strong">Guardar <span class="spin"></span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">↻</div><h3>Rutina</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Sacar la basura</span></div></div>
+            <div class="card-h" style="margin-top:12px"><div class="ico">▦</div><h3 style="font:var(--t-body-b)">Calendario</h3></div>
+            <div class="sk line" style="width:45%;margin-top:14px"></div>
+            <div class="sk line" style="width:35%;margin-top:18px"></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☰</div><h3>Frecuencia</h3></div>
+            <div class="seg"><span>Diaria</span><span class="on">Semanal</span><span>Mensual</span></div>
+            <div class="row"><div class="grow t">Cada 2 semanas</div>
+              <div class="stepper"><span>−</span><b>2</b><span>+</span></div></div>
+            <div class="sum">Se repite: <b>Cada 2 semanas a las 19:00</b></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◷</div><h3>Horario</h3></div>
+            <div class="sk line" style="width:70%;margin-top:14px"></div>
+            <div class="sk line" style="width:60%;margin-top:18px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. VALIDACIÓN + ERROR DE SERVIDOR -->
+  <section class="state">
+    <div class="label">4 · Validación y error de servidor<small>Error arriba (.inline-err) y avisos en línea bajo cada campo</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-rutinas.html">Cancelar</a>
+          <span class="center">Rutina</span>
+          <a class="txt strong">Guardar</a>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="inline-err"><span>⚠</span><span class="grow">No se pudo guardar la rutina. El servidor no respondió.</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">↻</div><h3>Rutina</h3></div>
+            <div class="field err"><div class="row"><span class="grow t ph">Título</span></div></div>
+            <div class="hint err">Pon un título para la rutina.</div>
+            <div class="card-h" style="margin-top:12px"><div class="ico">▦</div><h3 style="font:var(--t-body-b)">Calendario</h3></div>
+            <div class="radio on"><i></i>Familia</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☰</div><h3>Frecuencia</h3></div>
+            <div class="seg"><span>Diaria</span><span class="on">Semanal</span><span>Mensual</span></div>
+            <div class="row"><div class="grow t">Cada 2 semanas</div>
+              <div class="stepper"><span>−</span><b>2</b><span>+</span></div></div>
+            <div class="sum">Se repite: <b>Cada 2 semanas a las 19:00</b></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◷</div><h3>Horario</h3></div>
+            <div class="field">
+              <div class="row"><span class="lbl">Hora</span><span class="val"><span class="pill">19:00</span></span></div>
+              <div class="row"><span class="lbl">Inicio</span><span class="val"><span class="pill">12 nov 2026</span></span></div>
+              <div class="row"><span class="lbl">Fecha fin</span><span class="val"><span class="pill err">1 oct 2026</span></span></div>
+            </div>
+            <div class="hint err">La fecha fin es anterior al inicio.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Datos conservados; Guardar desactivado con aviso</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-rutinas.html">Cancelar</a>
+          <span class="center">Rutina</span>
+          <span class="txt strong off">Guardar</span>
+        </div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Conecta para guardar la rutina.</span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">↻</div><h3>Rutina</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Sacar la basura</span></div></div>
+            <div class="card-h" style="margin-top:12px"><div class="ico">▦</div><h3 style="font:var(--t-body-b)">Calendario</h3></div>
+            <div class="radio on"><i></i>Familia</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☰</div><h3>Frecuencia</h3></div>
+            <div class="seg"><span>Diaria</span><span class="on">Semanal</span><span>Mensual</span></div>
+            <div class="sum">Se repite: <b>Cada 2 semanas a las 19:00</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>Frecuencia en segmento (Diaria, Semanal, Mensual) con stepper «Cada N» y el resumen «Cada 2 semanas a las 19:00» debajo, en vez de leer la regla en el stepper.</li>
+    <li>Hora, Inicio y Fecha fin en un solo bloque. Fecha fin desactivada por defecto y con su nota («sin fecha fin: se repite»); la captura no dice qué pasa sin fecha fin.</li>
+    <li>«Activa» como interruptor al pie del horario, para poder pausar una rutina sin borrarla.</li>
+    <li>Cancelar y Guardar en la barra de la hoja, como el resto de formularios; el alta sin título o calendario deja Guardar desactivado.</li>
+    <li>Calendario como lista de radios, igual que en Evento, para que el patrón se repita en todos los formularios.</li>
+  </ul>
+  <p style="margin-top:10px"><b>Conexiones:</b> desde <a class="go" href="cal-rutinas.html" style="text-decoration:underline">Rutinas</a> («Nueva rutina») y desde <a class="go" href="cal-detalle-rutina.html" style="text-decoration:underline">Detalle de rutina</a> («Editar»). Cancelar y Guardar vuelven a <a class="go" href="cal-rutinas.html" style="text-decoration:underline">Rutinas</a>.</p>
+</aside>
+</body>
+</html>

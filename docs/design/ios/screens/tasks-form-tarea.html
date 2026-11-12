@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TASKS-04 Nueva tarea</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Añadidos de este lote (no están en components.css) */
+.grow { flex: 1; min-width: 0; }
+.radio { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--text-3); flex: none; }
+.radio.on { border-color: var(--accent); background: radial-gradient(circle, var(--accent) 45%, transparent 50%); }
+.field .row.err-f { border-color: var(--err); }
+.field.err-f { border-color: var(--err); border-width: 1.5px; }
+.nav .txt.dis { opacity: .4; }
+.opt { min-height: 48px; padding: 0 var(--s4); display: flex; align-items: center; gap: var(--s3); }
+.opt + .opt { border-top: 1px solid var(--line); }
+.val.ph { color: var(--text-3); }
+.form-gap { display: flex; flex-direction: column; gap: var(--s2); }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">TASKS-04 · pestaña Tareas › Nueva tarea (hoja) · epic E2</div>
+  <h1>Nueva tarea</h1>
+  <p>Formulario de alta de tarea en hoja modal: Título y Lista. Crear queda desactivado hasta tener título y lista. Errores de validación en la propia línea; errores de servidor arriba, en un bloque.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="tasks-lista.html">Volver a Tareas</a>
+    <a href="tasks-listas.html">Listas</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. RELLENO -->
+  <section class="state">
+    <div class="label">1 · Relleno<small>Título y lista elegidos; Crear activo</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="tasks-lista.html">Cancelar</a><a class="txt strong go" href="tasks-lista.html">Crear</a></div>
+        <div class="large-title" style="font:var(--t-title);padding:var(--s2) 0 var(--s4)">Nueva tarea</div>
+        <div class="field">
+          <div class="row"><span class="lbl">Título</span><span class="val" style="text-align:left">Llamar al fontanero</span></div>
+        </div>
+        <div class="sect" style="padding-left:var(--s1)">Lista</div>
+        <div class="field">
+          <div class="opt"><span class="radio on"></span><span class="grow t">Casa</span></div>
+          <div class="opt"><span class="radio"></span><span class="grow t">Compra</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. INICIAL VACÍO -->
+  <section class="state">
+    <div class="label">2 · Inicial vacío<small>Sin título ni lista; Crear desactivado</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="tasks-lista.html">Cancelar</a><a class="txt strong dis">Crear</a></div>
+        <div class="large-title" style="font:var(--t-title);padding:var(--s2) 0 var(--s4)">Nueva tarea</div>
+        <div class="field">
+          <div class="row"><span class="lbl">Título</span><span class="val ph" style="text-align:left">Título</span></div>
+        </div>
+        <div class="sect" style="padding-left:var(--s1)">Lista</div>
+        <div class="field">
+          <div class="opt"><span class="radio"></span><span class="grow t">Casa</span></div>
+          <div class="opt"><span class="radio"></span><span class="grow t">Compra</span></div>
+        </div>
+        <p class="hint">Escribe un título y elige una lista para crear la tarea.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. GUARDANDO / CARGANDO OPCIONES -->
+  <section class="state">
+    <div class="label">3 · Guardando / cargando opciones<small>Selector de listas en skeleton; Crear con .spin mientras guarda</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt dis">Cancelar</a><a class="txt strong dis"><span class="spin"></span> Crear</a></div>
+        <div class="large-title" style="font:var(--t-title);padding:var(--s2) 0 var(--s4)">Nueva tarea</div>
+        <div class="field">
+          <div class="row"><span class="lbl">Título</span><span class="val" style="text-align:left">Llamar al fontanero</span></div>
+        </div>
+        <div class="sect" style="padding-left:var(--s1)">Lista</div>
+        <div class="field">
+          <div class="opt"><div class="sk circle" style="width:22px;height:22px"></div><div class="sk line" style="width:40%"></div></div>
+          <div class="opt"><div class="sk circle" style="width:22px;height:22px"></div><div class="sk line" style="width:55%"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. VALIDACIÓN + ERROR DE SERVIDOR -->
+  <section class="state">
+    <div class="label">4 · Validación y error de servidor<small>Error del servidor arriba; validación en línea bajo el campo</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="tasks-lista.html">Cancelar</a><a class="txt strong go" href="tasks-lista.html">Crear</a></div>
+        <div class="inline-err" style="border-radius:var(--r-md);margin-bottom:var(--s3)"><span>⚠</span><span class="grow">No se pudo crear la tarea. Revisa los datos e inténtalo de nuevo.</span></div>
+        <div class="large-title" style="font:var(--t-title);padding:var(--s2) 0 var(--s4)">Nueva tarea</div>
+        <div class="field err-f">
+          <div class="row" style="border-top:0"><span class="lbl">Título</span><span class="val ph" style="text-align:left">Título</span></div>
+        </div>
+        <p class="hint err">El título no puede estar vacío.</p>
+        <div class="sect" style="padding-left:var(--s1)">Lista</div>
+        <div class="field">
+          <div class="opt"><span class="radio on"></span><span class="grow t">Casa</span></div>
+          <div class="opt"><span class="radio"></span><span class="grow t">Compra</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Aviso arriba; Crear desactivado, el texto se conserva</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:14</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="tasks-lista.html">Cancelar</a><a class="txt strong dis">Crear</a></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. No podemos crear la tarea ahora.</span></div>
+        <div class="large-title" style="font:var(--t-title);padding:var(--s2) 0 var(--s4)">Nueva tarea</div>
+        <div class="field">
+          <div class="row"><span class="lbl">Título</span><span class="val" style="text-align:left">Llamar al fontanero</span></div>
+        </div>
+        <div class="sect" style="padding-left:var(--s1)">Lista</div>
+        <div class="field">
+          <div class="opt"><span class="radio on"></span><span class="grow t">Casa</span></div>
+          <div class="opt"><span class="radio"></span><span class="grow t">Compra</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>Crear queda desactivado hasta que hay título y lista; hoy el formulario admite el envío vacío.</li>
+    <li>La lista se elige con opciones visibles (radio) en lugar de una lista de selección sin contexto; el estado de carga usa skeleton en las opciones.</li>
+    <li>El formulario va en hoja modal con Cancelar a la izquierda y Crear a la derecha; sin botón repetido al pie.</li>
+    <li>Los errores de servidor llegan arriba, en bloque; los de validación, bajo el campo. Sin conexión, el texto escrito se conserva.</li>
+    <li>Se quita «Personas» del alta: ios-funcional.md (§5) lista solo Título y Lista para task/create, pero la captura muestra además la sección Personas (0 seleccionadas). Por confirmar antes de implementar.</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Llega desde: tasks-lista («+» y estado vacío), tasks-detalle-lista («Nueva tarea»).</li>
+    <li>Sale a: tasks-lista al cancelar o crear.</li>
+    <li>Por confirmar: la lista preseleccionada (¿la lista activa del detalle, o ninguna?). Hoy la captura muestra Casa marcada por defecto.</li>
+  </ul>
+</aside>
+</body>
+</html>

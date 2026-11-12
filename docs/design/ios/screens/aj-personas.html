@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AJ-03 Personas</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Propios de esta página (no están en components.css) */
+.prow .dot { width: 14px; height: 14px; flex: none; }
+.lock { color: var(--text-3); display: grid; place-items: center; width: 24px; height: 24px; flex: none; }
+.lock svg { width: 18px; height: 18px; }
+.dim { opacity: .55; }
+.off { opacity: .4; }
+.empty .art { font-size: 38px; }
+</style>
+</head>
+<body>
+<!-- AJ-03: pantalla empujada (con barra de pestañas y ‹ Atrás). Antes: lápiz + papelera en cada fila -->
+<header class="wf-head">
+  <div class="id">AJ-03 · personas del hogar · epic E5</div>
+  <h1>Personas</h1>
+  <p>Personas del hogar, cada una con su color. Tocar una persona propia abre su edición (AJ-04), donde también está «Eliminar persona». Las personas compartidas llegan de otro hogar: se ven con candado y explicación, sin acciones de edición.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="aj-perfil.html">← Ajustes</a>
+    <a href="aj-form-persona.html">Nueva persona / editar →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. DATOS -->
+  <section class="state" id="s1">
+    <div class="label">1 · Con datos<small>Fila entera = un gesto; compartidas en solo lectura con candado</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">‹ Atrás</a>
+          <span class="center">Personas</span>
+          <a class="btn-icon go" href="aj-form-persona.html">+</a>
+        </div>
+        <div class="large-title">Personas<small>5 en este hogar</small></div>
+        <div class="stack">
+          <div class="card">
+            <a class="row prow go" href="aj-form-persona.html"><span class="dot" style="background:var(--person-5)"></span><div class="grow t">Ana</div><span class="chev"></span></a>
+            <a class="row prow go" href="aj-form-persona.html"><span class="dot" style="background:var(--person-1)"></span><div class="grow t">Familia Demo</div><span class="chev"></span></a>
+            <a class="row prow go" href="aj-form-persona.html"><span class="dot" style="background:var(--person-4)"></span><div class="grow t">Lucía</div><span class="chev"></span></a>
+          </div>
+          <div class="sect">Compartidas</div>
+          <div class="card">
+            <div class="row prow"><span class="dot" style="background:var(--person-2)"></span><div class="grow"><div class="t">Marcos</div><div class="s">Compartida · solo lectura</div></div><span class="lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></div>
+            <div class="row prow"><span class="dot" style="background:var(--person-3)"></span><div class="grow"><div class="t">Pablo</div><div class="s">Compartida · solo lectura</div></div><span class="lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></div>
+          </div>
+          <div class="hint">Marcos y Pablo vienen de otro hogar. Su nombre y color se cambian desde ese hogar.</div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>⚙</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state" id="s2">
+    <div class="label">2 · Vacío<small>Sin personas: un mensaje y una acción primaria</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">‹ Atrás</a>
+          <span class="center">Personas</span>
+          <a class="btn-icon go" href="aj-form-persona.html">+</a>
+        </div>
+        <div class="large-title">Personas<small>0 en este hogar</small></div>
+        <div class="empty">
+          <div class="art">☺</div>
+          <h3>Todavía no hay personas</h3>
+          <p>Añade a quien vive en casa. Cada persona tiene su color en tareas y eventos.</p>
+          <a class="btn primary go" href="aj-form-persona.html">Nueva persona</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>⚙</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state" id="s3">
+    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que los datos: mismas filas y alturas</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">‹ Atrás</a>
+          <span class="center">Personas</span>
+          <span class="btn-icon off">+</span>
+        </div>
+        <div class="large-title">Personas<small><span class="sk line" style="display:inline-block;width:110px"></span></small></div>
+        <div class="stack">
+          <div class="card">
+            <div class="row"><div class="sk circle" style="width:14px;height:14px"></div><div class="sk line" style="width:35%"></div></div>
+            <div class="row"><div class="sk circle" style="width:14px;height:14px"></div><div class="sk line" style="width:50%"></div></div>
+            <div class="row"><div class="sk circle" style="width:14px;height:14px"></div><div class="sk line" style="width:40%"></div></div>
+          </div>
+          <div class="sect">Compartidas</div>
+          <div class="card">
+            <div class="row"><div class="sk circle" style="width:14px;height:14px"></div><div class="grow"><div class="sk line" style="width:30%"></div><div class="sk line" style="width:55%;margin-top:6px"></div></div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>⚙</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR -->
+  <section class="state" id="s4">
+    <div class="label">4 · Error<small>Lista completa no cargó: bloque de error con Reintentar</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">‹ Atrás</a>
+          <span class="center">Personas</span>
+          <a class="btn-icon go" href="aj-form-persona.html">+</a>
+        </div>
+        <div class="large-title">Personas<small>Hogar de Familia Demo</small></div>
+        <div class="errbox">
+          <div class="art">⚠</div>
+          <h3>No pudimos cargar las personas</h3>
+          <p>Revisa tu conexión e inténtalo de nuevo.</p>
+          <a class="btn sm secondary" style="min-height:40px;padding:0 var(--s6)">Reintentar</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>⚙</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state" id="s5">
+    <div class="label">5 · Sin conexión<small>Caché + banner; filas no navegan y «+» queda atenuado</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-perfil.html">‹ Atrás</a>
+          <span class="center">Personas</span>
+          <span class="btn-icon off">+</span>
+        </div>
+        <div class="large-title">Personas<small>5 en este hogar</small></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
+        <div class="stack">
+          <div class="card">
+            <div class="row prow dim"><span class="dot" style="background:var(--person-5)"></span><div class="grow t">Ana</div></div>
+            <div class="row prow dim"><span class="dot" style="background:var(--person-1)"></span><div class="grow t">Familia Demo</div></div>
+            <div class="row prow dim"><span class="dot" style="background:var(--person-4)"></span><div class="grow t">Lucía</div></div>
+          </div>
+          <div class="sect">Compartidas</div>
+          <div class="card">
+            <div class="row prow"><span class="dot" style="background:var(--person-2)"></span><div class="grow"><div class="t">Marcos</div><div class="s">Compartida · solo lectura</div></div><span class="lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>⚙</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>Cada fila pierde el lápiz y la papelera: toda la fila abre la edición (AJ-04) y el borrado queda dentro de ella, con confirmación.</li>
+    <li>Las personas compartidas (Marcos, Pablo) se separan en su propio grupo con candado y explicación, en lugar de mostrar acciones que no pueden usarse.</li>
+    <li>El contador «5» pasa a subtítulo bajo el título grande; «+» queda en la cabecera.</li>
+    <li>Nuevos estados vacío, de carga y de error para la lista; hoy la captura solo muestra el caso con datos.</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Va a: AJ-04 nueva persona (+) y editar persona (fila propia); AJ-01 Ajustes (‹ Atrás).</li>
+    <li>Llega desde: AJ-01, fila Personas.</li>
+  </ul>
+</aside>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAL-03 Calendario · Calendarios</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Añadido en línea (no está en components.css): segmento con enlaces, tarjeta como enlace, atenuado */
+.seg a { flex: 1; text-align: center; font: 600 14px/32px var(--font); color: var(--text-2); border-radius: 9px; }
+.seg a.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+a.card { display: block; }
+.btn-icon.disabled, .dim { opacity: .45; }
+</style>
+</head>
+<body>
+<!-- CAL-03: lista de calendarios con color y contador de próximos eventos. -->
+<header class="wf-head">
+  <div class="id">CAL-03 · pestaña Calendario · segmento Calendarios · epic E3</div>
+  <h1>Calendario · Calendarios</h1>
+  <p>Lista de calendarios del hogar. Cada uno lleva su color y cuántos eventos próximos tiene. Tocar uno abre su detalle; «+» crea un calendario nuevo.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="cal-eventos.html">Segmento Eventos →</a>
+    <a href="cal-rutinas.html">Segmento Rutinas →</a>
+    <a href="cal-detalle-calendario.html">Detalle de calendario →</a>
+    <a href="cal-form-calendario.html">Nuevo calendario →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos<small>Filas con color, nombre y contador; toda la fila navega</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon go" href="cal-form-calendario.html" aria-label="Nuevo calendario">+</a></div>
+        <div class="large-title">Calendarios<small>Colores y próximos eventos</small></div>
+        <div class="seg"><a class="go" href="cal-eventos.html">Eventos</a><a class="go" href="cal-rutinas.html">Rutinas</a><a class="on">Calendarios</a></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendarios</h3><span class="badge">2</span></div>
+            <a class="row go" href="cal-detalle-calendario.html"><span class="dot" style="background:var(--person-5)"></span><div class="grow t">Colegio</div><span class="badge info">2 próximos</span><span class="chev"></span></a>
+            <a class="row go" href="cal-detalle-calendario.html"><span class="dot" style="background:var(--person-1)"></span><div class="grow t">Familia</div><span class="badge">7 próximos</span><span class="chev"></span></a>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <span class="anno" style="top:70px;left:8px">1</span>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>Sin calendarios: un mensaje y una acción</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon go" href="cal-form-calendario.html" aria-label="Nuevo calendario">+</a></div>
+        <div class="large-title">Calendarios<small>Colores y próximos eventos</small></div>
+        <div class="seg"><a class="go" href="cal-eventos.html">Eventos</a><a class="go" href="cal-rutinas.html">Rutinas</a><a class="on">Calendarios</a></div>
+        <div class="empty">
+          <div class="art">▦</div>
+          <h3>No hay calendarios</h3>
+          <p>Crea uno por tema, como el colegio, para separar sus eventos.</p>
+          <a class="btn primary go" href="cal-form-calendario.html">Crear calendario</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que el estado con datos</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon">+</a></div>
+        <div class="large-title">Calendarios<small>Colores y próximos eventos</small></div>
+        <div class="seg"><a>Eventos</a><a>Rutinas</a><a class="on">Calendarios</a></div>
+        <div class="stack">
+          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
+            <div class="row"><div class="dot sk circle"></div><div class="sk line" style="width:40%;flex:1"></div><div class="sk line" style="width:70px"></div></div>
+            <div class="row"><div class="dot sk circle"></div><div class="sk line" style="width:30%;flex:1"></div><div class="sk line" style="width:80px"></div></div></div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR -->
+  <section class="state">
+    <div class="label">4 · Error<small>Fallo de carga: errbox con Reintentar</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon go" href="cal-form-calendario.html" aria-label="Nuevo calendario">+</a></div>
+        <div class="large-title">Calendarios<small>Colores y próximos eventos</small></div>
+        <div class="seg"><a class="go" href="cal-eventos.html">Eventos</a><a class="go" href="cal-rutinas.html">Rutinas</a><a class="on">Calendarios</a></div>
+        <div class="errbox">
+          <div class="art">⚠</div>
+          <h3>No pudimos cargar los calendarios</h3>
+          <p>Revisa la conexión y vuelve a intentarlo.</p>
+          <a class="btn sm secondary">Reintentar</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Banner + calendarios en caché; «+» atenuado</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><span class="btn-icon disabled" aria-disabled="true">+</span></div>
+        <div class="large-title">Calendarios<small>Colores y próximos eventos</small></div>
+        <div class="seg"><a class="go" href="cal-eventos.html">Eventos</a><a class="go" href="cal-rutinas.html">Rutinas</a><a class="on">Calendarios</a></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendarios</h3><span class="badge">2</span></div>
+            <a class="row go" href="cal-detalle-calendario.html"><span class="dot" style="background:var(--person-5)"></span><div class="grow t">Colegio</div><span class="badge info">2 próximos</span><span class="chev"></span></a>
+            <a class="row go" href="cal-detalle-calendario.html"><span class="dot" style="background:var(--person-1)"></span><div class="grow t">Familia</div><span class="badge">7 próximos</span><span class="chev"></span></a>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>El botón «Nuevo calendario» de píldora dentro de la lista pasa a «+» en la cabecera, igual que en Eventos y Rutinas: una sola ubicación para crear.</li>
+    <li>Cada calendario muestra su color como punto y un contador de «próximos eventos» con texto explícito («2 próximos»), en lugar de un número suelto.</li>
+    <li>Toda la fila navega al detalle; el chevron queda como señal visual, sin segunda acción.</li>
+    <li>Se quita el bloque de eventos de debajo: esa información está en el segmento Eventos.</li>
+    <li>Sin conexión: se mantiene la lista en caché con banner, y «+» queda atenuado.</li>
+  </ul>
+  <h2>Conexiones</h2>
+  <ul>
+    <li>Sale a: cal-detalle-calendario (tocar fila), cal-form-calendario («+» y «Crear calendario»).</li>
+    <li>Entra desde: cal-eventos y cal-rutinas (segmentos), home-inicio (acceso desde Calendario).</li>
+    <li>Pregunta: ¿el contador cuenta eventos de los próximos 7 días o todos los futuros? Por confirmar.</li>
+  </ul>
+</aside>
+</body>
+</html>

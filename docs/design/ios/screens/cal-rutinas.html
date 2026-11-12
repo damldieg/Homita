@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAL-02 Calendario · Rutinas</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Añadido en línea (no está en components.css): segmento con enlaces, tarjeta como enlace, atenuado */
+.seg a { flex: 1; text-align: center; font: 600 14px/32px var(--font); color: var(--text-2); border-radius: 9px; }
+.seg a.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+a.card { display: block; }
+.btn-icon.disabled, .check.disabled, .dim { opacity: .45; }
+</style>
+</head>
+<body>
+<!-- CAL-02: vista de lectura de rutinas con próxima ocurrencia y casilla «Hecha». -->
+<header class="wf-head">
+  <div class="id">CAL-02 · pestaña Calendario · segmento Rutinas · epic E3</div>
+  <h1>Calendario · Rutinas</h1>
+  <p>Rutinas con su próxima ocurrencia («PRÓXIMA · fecha») y la casilla para marcar la de hoy como hecha. Tocar la fila abre la rutina; la casilla marca la ocurrencia sin entrar en ella. «+» crea una rutina nueva.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="cal-eventos.html">Segmento Eventos →</a>
+    <a href="cal-calendarios.html">Segmento Calendarios →</a>
+    <a href="cal-detalle-rutina.html">Detalle de rutina →</a>
+    <a href="cal-form-rutina.html">Nueva rutina →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos<small>Hoy y próximas; cada fila lleva su próxima fecha</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon go" href="cal-form-rutina.html" aria-label="Nueva rutina">+</a></div>
+        <div class="large-title">Rutinas<small>Próximas ocurrencias</small></div>
+        <div class="seg"><a class="go" href="cal-eventos.html">Eventos</a><a class="on">Rutinas</a><a class="go" href="cal-calendarios.html">Calendarios</a></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">↻</div><h3>Hoy</h3><span class="badge ok">1/2</span></div>
+            <a class="row go" href="cal-detalle-rutina.html"><span class="check done" aria-label="Hecha"></span><div class="grow"><div class="t">Sacar la basura</div><div class="s">19:00 · Hecha</div></div><span class="badge info">Ana</span></a>
+            <a class="row go" href="cal-detalle-rutina.html"><span class="check" aria-label="Marcar hecha"></span><div class="grow"><div class="t">Revisar medicación</div><div class="s">PRÓXIMA · JUE, 12 NOV, 21:00</div></div><span class="badge">Lucía</span></a>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">↻</div><h3>Próximas</h3><span class="badge">3</span></div>
+            <a class="row go" href="cal-detalle-rutina.html"><span class="check" aria-label="Marcar hecha"></span><div class="grow"><div class="t">Recoger a los niños</div><div class="s">PRÓXIMA · VIE, 13 NOV, 16:00</div></div><span class="badge info">Ana</span></a>
+            <a class="row go" href="cal-detalle-rutina.html"><span class="check" aria-label="Marcar hecha"></span><div class="grow"><div class="t">Fútbol</div><div class="s">PRÓXIMA · VIE, 13 NOV, 17:00</div></div><span class="badge">Pablo</span></a>
+            <a class="row go" href="cal-detalle-rutina.html"><span class="check" aria-label="Marcar hecha"></span><div class="grow"><div class="t">Sacar al perro</div><div class="s">PRÓXIMA · VIE, 13 NOV, 19:30</div></div><span class="badge">Marcos</span></a>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <span class="anno" style="top:70px;left:8px">1</span>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>Sin rutinas: explicación corta y una acción</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon go" href="cal-form-rutina.html" aria-label="Nueva rutina">+</a></div>
+        <div class="large-title">Rutinas<small>Próximas ocurrencias</small></div>
+        <div class="seg"><a class="go" href="cal-eventos.html">Eventos</a><a class="on">Rutinas</a><a class="go" href="cal-calendarios.html">Calendarios</a></div>
+        <div class="empty">
+          <div class="art">↻</div>
+          <h3>Todavía no hay rutinas</h3>
+          <p>Una rutina repite algo cada día, semana o mes, como sacar la basura.</p>
+          <a class="btn primary go" href="cal-form-rutina.html">Crear una rutina</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que el estado con datos</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon">+</a></div>
+        <div class="large-title">Rutinas<small>Próximas ocurrencias</small></div>
+        <div class="seg"><a>Eventos</a><a class="on">Rutinas</a><a>Calendarios</a></div>
+        <div class="stack">
+          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
+            <div class="row"><div class="check sk"></div><div class="grow"><div class="sk line" style="width:50%"></div><div class="sk line" style="width:65%;margin-top:6px"></div></div></div>
+            <div class="row"><div class="check sk"></div><div class="grow"><div class="sk line" style="width:45%"></div><div class="sk line" style="width:60%;margin-top:6px"></div></div></div></div>
+          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
+            <div class="row"><div class="check sk"></div><div class="grow"><div class="sk line" style="width:55%"></div><div class="sk line" style="width:70%;margin-top:6px"></div></div></div>
+            <div class="row"><div class="check sk"></div><div class="grow"><div class="sk line" style="width:40%"></div><div class="sk line" style="width:65%;margin-top:6px"></div></div></div></div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR -->
+  <section class="state">
+    <div class="label">4 · Error<small>Fallo de carga: errbox con Reintentar; un fallo al marcar «Hecha» usa toast</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><a class="btn-icon go" href="cal-form-rutina.html" aria-label="Nueva rutina">+</a></div>
+        <div class="large-title">Rutinas<small>Próximas ocurrencias</small></div>
+        <div class="seg"><a class="go" href="cal-eventos.html">Eventos</a><a class="on">Rutinas</a><a class="go" href="cal-calendarios.html">Calendarios</a></div>
+        <div class="errbox">
+          <div class="art">⚠</div>
+          <h3>No pudimos cargar las rutinas</h3>
+          <p>Revisa la conexión y vuelve a intentarlo.</p>
+          <a class="btn sm secondary">Reintentar</a>
+        </div>
+      </div>
+      <div class="toast"><span>⚠</span><span>No se pudo marcar «Sacar la basura». Reintenta.</span><b>Reintentar</b></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Banner + rutinas en caché; las casillas quedan desactivadas</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><span class="btn-icon disabled" aria-disabled="true">+</span></div>
+        <div class="large-title">Rutinas<small>Próximas ocurrencias</small></div>
+        <div class="seg"><a class="go" href="cal-eventos.html">Eventos</a><a class="on">Rutinas</a><a class="go" href="cal-calendarios.html">Calendarios</a></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">↻</div><h3>Hoy</h3><span class="badge ok">1/2</span></div>
+            <a class="row go" href="cal-detalle-rutina.html"><span class="check done dim" aria-label="Hecha"></span><div class="grow"><div class="t">Sacar la basura</div><div class="s">19:00 · Hecha</div></div><span class="badge info">Ana</span></a>
+            <a class="row go" href="cal-detalle-rutina.html"><span class="check disabled dim" aria-disabled="true"></span><div class="grow"><div class="t">Revisar medicación</div><div class="s">PRÓXIMA · JUE, 12 NOV, 21:00</div></div><span class="badge">Lucía</span></a>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a class="on"><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>Las rutinas se agrupan en «Hoy» y «Próximas» en lugar de una lista plana por «Mañana» y «Próxima semana»: se ve primero lo que toca hoy.</li>
+    <li>Cada fila muestra su próxima ocurrencia con el formato «PRÓXIMA · día, fecha, hora». La rutina ya hecha hoy lleva «Hecha» y casilla marcada.</li>
+    <li>Un solo gesto por fila: tocar la fila abre la rutina; la casilla marca la ocurrencia de hoy. Quitamos el «Activa» verde de cada fila: solo se muestra cuando la rutina está pausada (por confirmar).</li>
+    <li>El chip de persona es la única etiqueta por fila; no se repite el calendario, que ya está en el detalle.</li>
+    <li>Sin conexión: las casillas quedan atenuadas y no se pueden marcar. Un fallo al marcar se avisa con toast y permite reintentar.</li>
+  </ul>
+  <h2>Conexiones</h2>
+  <ul>
+    <li>Sale a: cal-detalle-rutina (tocar fila), cal-form-rutina («+» y «Crear una rutina»).</li>
+    <li>Entra desde: cal-eventos y cal-calendarios (segmentos), home-inicio («Rutinas de hoy» abre este segmento).</li>
+    <li>Lo que muestra el segmento viene del servidor; «Próxima ocurrencia» se calcula en cliente (ver docs/ios-funcional.md, sección 6).</li>
+  </ul>
+</aside>
+</body>
+</html>

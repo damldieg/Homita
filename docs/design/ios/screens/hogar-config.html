@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOGAR-04 Configuración del hogar</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Extras de esta página (no existen en components.css) */
+.fld { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); }
+.fld.focus { border: 1.5px solid var(--accent); }
+.fld.err { border: 1.5px solid var(--err); }
+.fld.dis { background: var(--bg-sunken); opacity: .7; }
+.fld-in { display: flex; align-items: center; gap: var(--s3); min-height: 52px; padding: 0 var(--s4); }
+.fld-in .lbl { font: var(--t-cap); color: var(--text-2); }
+.fld-in .val { font: var(--t-body); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fld-in .val.ph { color: var(--text-3); }
+.fld-in .chev { flex: none; }
+.fld-in .chev::after { content: "›"; color: var(--text-3); font: 400 22px/1 var(--font); }
+.fld-stack { display: flex; flex-direction: column; gap: var(--s2); }
+.fld-cap { font: var(--t-cap); color: var(--text-2); padding: 0 var(--s1); }
+.navm { display: flex; align-items: center; justify-content: space-between; min-height: var(--hit); margin: 0 calc(var(--gutter) * -1); padding: 0 var(--gutter); }
+.navm .txt { font: var(--t-body); color: var(--accent); }
+.navm .txt.off { color: var(--text-3); }
+.navm .txt.strong { font: var(--t-body-b); }
+.navm .center { font: var(--t-body-b); }
+.zone-skel { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); }
+.noaplica { border: 1.5px dashed var(--line); border-radius: var(--r-lg); background: var(--surface); padding: var(--s6); font: var(--t-sub); color: var(--text-2); height: 100%; }
+.noaplica b { display: block; color: var(--text); font: var(--t-body-b); margin-bottom: var(--s2); }
+.frame-foot { margin-top: var(--s3); }
+.inline-err.plain { margin-bottom: var(--s3); }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">HOGAR-04 · Configuración del hogar · epic E4</div>
+  <h1>Configuración del hogar</h1>
+  <p>Nombre del hogar y zona horaria (IANA, con selector con búsqueda). Solo el administrador edita un hogar compartido. En el hogar personal solo se puede renombrar. Presentada como hoja modal con Cancelar y Guardar.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="hogar-admin-menu.html">← Administración</a>
+    <a href="hogar-hogar.html">Hogar →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. RELLENO -->
+  <section class="state">
+    <div class="label">1 · Relleno<small>Admin, hogar compartido: nombre y zona editables; Guardar activo solo con cambios</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="navm"><a class="txt go" href="hogar-admin-menu.html">Cancelar</a><span class="center">Hogar</span><a class="txt strong go" href="hogar-admin-menu.html">Guardar</a></div>
+        <div class="large-title" style="padding-top:var(--s3)">Configuración</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">⌂</div><h3>Hogar</h3></div>
+            <div class="fld-stack" style="margin-top:var(--s3)">
+              <span class="fld-cap">Nombre del hogar</span>
+              <div class="fld focus"><div class="fld-in"><span class="val">Hogar de Familia Demo</span></div></div>
+              <span class="hint">Se ve en el selector y en Administración.</span>
+            </div>
+            <div class="fld-stack" style="margin-top:var(--s3)">
+              <span class="fld-cap">Zona horaria</span>
+              <!-- Abre hoja con buscador de zonas IANA (Europe/Madrid, America/Argentina/Buenos_Aires…) -->
+              <div class="fld"><div class="fld-in"><span class="val">Europe/Madrid</span><span class="chev"></span></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◷</div><h3>Registro</h3></div>
+            <div class="row"><div class="t" style="font:var(--t-sub);color:var(--text-2)">Creado</div><div class="grow"></div><div class="s">2026-11-12 18:55</div></div>
+            <div class="row"><div class="t" style="font:var(--t-sub);color:var(--text-2)">Actualizado</div><div class="grow"></div><div class="s">2026-11-12 18:55</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. INICIAL VACÍO (sin cambios) -->
+  <section class="state">
+    <div class="label">2 · Inicial vacío<small>Sin cambios todavía: Guardar desactivado; el campo nombre no puede quedar en blanco</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="navm"><a class="txt go" href="hogar-admin-menu.html">Cancelar</a><span class="center">Hogar</span><span class="txt strong off">Guardar</span></div>
+        <div class="large-title" style="padding-top:var(--s3)">Configuración</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">⌂</div><h3>Hogar</h3></div>
+            <div class="fld-stack" style="margin-top:var(--s3)">
+              <span class="fld-cap">Nombre del hogar</span>
+              <div class="fld"><div class="fld-in"><span class="val">Hogar de Familia Demo</span></div></div>
+            </div>
+            <div class="fld-stack" style="margin-top:var(--s3)">
+              <span class="fld-cap">Zona horaria</span>
+              <div class="fld"><div class="fld-in"><span class="val">Europe/Madrid</span><span class="chev"></span></div></div>
+            </div>
+            <span class="hint">Cambiá el nombre o la zona para habilitar Guardar.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. GUARDANDO / CARGANDO OPCIONES -->
+  <section class="state">
+    <div class="label">3 · Guardando / cargando opciones<small>Selector de zonas en skeleton; el botón muestra .spin y los campos quedan bloqueados</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="navm"><a class="txt off">Cancelar</a><span class="center">Hogar</span><span class="txt strong off" style="display:flex;align-items:center;gap:var(--s2)"><span class="spin"></span>Guardando</span></div>
+        <div class="large-title" style="padding-top:var(--s3)">Configuración</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">⌂</div><h3>Hogar</h3></div>
+            <div class="fld-stack" style="margin-top:var(--s3)">
+              <span class="fld-cap">Nombre del hogar</span>
+              <div class="fld dis"><div class="fld-in"><span class="val">Hogar de Familia Demo</span></div></div>
+            </div>
+            <div class="fld-stack" style="margin-top:var(--s3)">
+              <span class="fld-cap">Zona horaria</span>
+              <div class="fld dis zone-skel" style="padding:var(--s3) var(--s4)"><div class="sk line" style="width:55%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. VALIDACIÓN + ERROR DE SERVIDOR -->
+  <section class="state">
+    <div class="label">4 · Validación y error de servidor<small>Error en línea bajo el campo y aviso arriba si el servidor rechaza el guardado</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="navm"><a class="txt go" href="hogar-admin-menu.html">Cancelar</a><span class="center">Hogar</span><a class="txt strong go" href="hogar-admin-menu.html">Guardar</a></div>
+        <div class="large-title" style="padding-top:var(--s3)">Configuración</div>
+        <div class="inline-err plain" style="display:flex;gap:var(--s3);align-items:center;background:var(--err-soft);color:var(--err);border-radius:var(--r-md);padding:var(--s3);font:500 14px/19px var(--font)"><span>⚠</span><span class="grow" style="flex:1">No pudimos guardar el hogar. Revisá los datos y probá otra vez.</span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">⌂</div><h3>Hogar</h3></div>
+            <div class="fld-stack" style="margin-top:var(--s3)">
+              <span class="fld-cap">Nombre del hogar</span>
+              <div class="fld err"><div class="fld-in"><span class="val"></span></div></div>
+              <span class="hint err">Escribí un nombre. Es obligatorio (hasta 60 caracteres).</span>
+            </div>
+            <div class="fld-stack" style="margin-top:var(--s3)">
+              <span class="fld-cap">Zona horaria</span>
+              <div class="fld"><div class="fld-in"><span class="val">Europe/Madrid</span><span class="chev"></span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Aviso arriba; Guardar desactivado. Los campos se conservan para no perder lo escrito</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="navm"><a class="txt go" href="hogar-admin-menu.html">Cancelar</a><span class="center">Hogar</span><span class="txt strong off">Guardar</span></div>
+        <div class="large-title" style="padding-top:var(--s3)">Configuración</div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. No se puede guardar ahora.</span><u>Reintentar</u></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">⌂</div><h3>Hogar</h3></div>
+            <div class="fld-stack" style="margin-top:var(--s3)">
+              <span class="fld-cap">Nombre del hogar</span>
+              <div class="fld"><div class="fld-in"><span class="val">Hogar de Familia Demo Nueva</span></div></div>
+            </div>
+            <div class="fld-stack" style="margin-top:var(--s3)">
+              <span class="fld-cap">Zona horaria</span>
+              <div class="fld dis"><div class="fld-in"><span class="val">Europe/Madrid</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>La zona horaria pasa de texto suelto a fila de campo con chevron que abre un selector con búsqueda (zonas IANA). Se evita escribir a mano un valor que el servidor rechace.</li>
+    <li>Presentación como hoja modal con Cancelar y Guardar en la barra superior, en vez del botón «Guardar cambios» al pie de una pantalla empujada. Guardar queda visible y se activa solo con cambios.</li>
+    <li>Errores: en línea bajo el campo (validación) y aviso arriba si el servidor rechaza el guardado. Sin conexión, Guardar se desactiva y el texto escrito se conserva.</li>
+    <li>Los bloques «Registro» (creado y actualizado) pasan al pie, como datos de solo lectura. Antes ocupaban una tarjeta completa.</li>
+    <li>Hogar personal: solo se renombra. La zona horaria se muestra fija, sin chevron. Transferir, quitar y salir no se ofrecen.</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Llega desde: HOGAR-03 («Configuración»). Cancelar y Guardar vuelven a HOGAR-03.</li>
+    <li>Miembro sin permisos de administración: la fila «Configuración» se ve en solo lectura desde HOGAR-03; este formulario no se abre en edición para el miembro (ver dudas).</li>
+  </ul>
+  <h2 style="margin-top:12px">Dudas de diseño</h2>
+  <ul>
+    <li>Estado 2 «Inicial vacío»: en un nombre de hogar siempre hay valor. Se interpreta como «sin cambios» (Guardar desactivado). Confirmar.</li>
+    <li>El selector de zona horaria (hoja con buscador) no tiene frame propio por el límite de cinco estados. Se puede agregar si se quiere revisar el listado de zonas.</li>
+    <li>Confirmar si el miembro que entra a Configuración ve el formulario en solo lectura, o solo la fila de HOGAR-03.</li>
+  </ul>
+</aside>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOGAR-09 Auditoría</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Añadido en este wireframe (no está en components.css) */
+.inline-err { display: flex; gap: var(--s3); align-items: center; background: var(--err-soft); color: var(--err); border-radius: var(--r-md); padding: var(--s3) var(--s4); font: 500 14px/19px var(--font); margin-bottom: var(--s3); }
+.inline-err .grow { flex: 1; }
+.dis { opacity: .45; }
+.chips { display: flex; gap: var(--s2); margin-bottom: var(--s3); }
+.chip { font: 600 13px/1 var(--font); min-height: 32px; padding: 0 12px; border-radius: var(--r-pill); display: flex; align-items: center; background: var(--surface); border: 1px solid var(--line); color: var(--text-2); white-space: nowrap; }
+.chip.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.avc { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 700 14px/1 var(--font); flex: none; }
+.ent { font: 600 12px/16px var(--font); color: var(--info); }
+.pager { text-align: center; font: var(--t-cap); color: var(--text-2); margin: var(--s3) 0 var(--s2); }
+.phone .scroll { padding-bottom: 96px; }
+.phone .row { align-items: flex-start; }
+</style>
+</head>
+<body>
+<!-- HOGAR-09: registro de cambios del hogar, paginado. Filtro opcional por tipo y persona. Solo lectura. -->
+<header class="wf-head">
+  <div class="id">HOGAR-09 · pestaña Hogar · épica E4</div>
+  <h1>Auditoría</h1>
+  <p>Registro de cambios del hogar: quién hizo qué, cuándo y sobre qué entidad, del más reciente al más antiguo. Se carga por páginas con «Cargar más». Filtros opcionales por tipo de entidad y persona. Es solo lectura.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="hogar-admin-menu.html">← Administración</a>
+    <a href="hogar-miembros.html">Miembros →</a>
+    <a href="hogar-invitaciones.html">Invitaciones →</a>
+    <a href="hogar-accesos.html">Accesos →</a>
+    <a href="hogar-hogar.html">Hogar →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos<small>Primera página de 20; «Cargar más» al final</small></div>
+    <div class="phone">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Auditoría<small>Cambios del hogar · más recientes primero</small></div>
+        <div class="chips"><span class="chip on">Todo</span><span class="chip">Tipo ▾</span><span class="chip">Persona ▾</span></div>
+        <div class="card" style="padding:0 var(--s4)">
+          <div class="row"><span class="avc" style="background:var(--person-2)">A</span><div class="grow"><div class="t">Ana activó «Crear y editar tareas» para Lucía</div><div class="s">Hoy 18:42</div><div class="ent">Accesos · Lucía</div></div></div>
+          <div class="row"><span class="avc" style="background:var(--person-1)">F</span><div class="grow"><div class="t">Familia Demo creó una invitación para invitado@ejemplo.com</div><div class="s">Hoy 17:10</div><div class="ent">Invitación</div></div></div>
+          <div class="row"><span class="avc" style="background:var(--person-1)">F</span><div class="grow"><div class="t">Familia Demo revocó una invitación</div><div class="s">Ayer 21:05</div><div class="ent">Invitación</div></div></div>
+          <div class="row"><span class="avc" style="background:var(--person-2)">A</span><div class="grow"><div class="t">Ana cambió el nombre del hogar</div><div class="s">Ayer 09:30</div><div class="ent">Configuración</div></div></div>
+          <div class="row"><span class="avc" style="background:var(--person-1)">F</span><div class="grow"><div class="t">Familia Demo agregó a Pipo (mascota)</div><div class="s">10 nov, 19:12</div><div class="ent">Miembro · Pipo</div></div></div>
+        </div>
+        <div class="pager">Mostrando 20 de 46</div>
+        <a class="btn secondary">Cargar más</a>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+      <span class="anno" style="top:70px;left:8px">1</span>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO (con filtro) -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>Ningún cambio cumple el filtro: una acción para quitarlo</small></div>
+    <div class="phone">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Auditoría<small>Cambios del hogar · más recientes primero</small></div>
+        <div class="chips"><span class="chip">Todo</span><span class="chip on">Tipo: Miembro ▾</span><span class="chip">Persona ▾</span></div>
+        <div class="empty">
+          <div class="art">☰</div>
+          <h3>Ningún cambio con este filtro</h3>
+          <p>No hay cambios de miembros con los filtros elegidos.</p>
+          <a class="btn primary">Quitar filtros</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton)<small>Filas con la misma altura que las reales</small></div>
+    <div class="phone">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt">‹ Atrás</a><span></span></div>
+        <div class="large-title">Auditoría<small><span class="sk line" style="display:inline-block;width:200px"></span></small></div>
+        <div class="chips"><span class="sk box" style="width:64px;height:32px"></span><span class="sk box" style="width:86px;height:32px"></span><span class="sk box" style="width:94px;height:32px"></span></div>
+        <div class="card" style="padding:0 var(--s4)">
+          <div class="row"><span class="avc sk"></span><div class="grow"><div class="sk line" style="width:85%"></div><div class="sk line" style="width:30%;margin-top:6px"></div><div class="sk line" style="width:40%;margin-top:6px"></div></div></div>
+          <div class="row"><span class="avc sk"></span><div class="grow"><div class="sk line" style="width:75%"></div><div class="sk line" style="width:25%;margin-top:6px"></div><div class="sk line" style="width:35%;margin-top:6px"></div></div></div>
+          <div class="row"><span class="avc sk"></span><div class="grow"><div class="sk line" style="width:80%"></div><div class="sk line" style="width:30%;margin-top:6px"></div><div class="sk line" style="width:40%;margin-top:6px"></div></div></div>
+          <div class="row"><span class="avc sk"></span><div class="grow"><div class="sk line" style="width:65%"></div><div class="sk line" style="width:28%;margin-top:6px"></div><div class="sk line" style="width:38%;margin-top:6px"></div></div></div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR AL CARGAR MÁS -->
+  <section class="state" id="f4">
+    <div class="label">4 · Error al cargar más<small>Las filas ya cargadas se quedan; solo falla el bloque final</small></div>
+    <div class="phone">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Auditoría<small>Cambios del hogar · más recientes primero</small></div>
+        <div class="chips"><span class="chip on">Todo</span><span class="chip">Tipo ▾</span><span class="chip">Persona ▾</span></div>
+        <div class="card" style="padding:0 var(--s4)">
+          <div class="row"><span class="avc" style="background:var(--person-2)">A</span><div class="grow"><div class="t">Ana activó «Crear y editar tareas» para Lucía</div><div class="s">Hoy 18:42</div><div class="ent">Accesos · Lucía</div></div></div>
+          <div class="row"><span class="avc" style="background:var(--person-1)">F</span><div class="grow"><div class="t">Familia Demo creó una invitación para invitado@ejemplo.com</div><div class="s">Hoy 17:10</div><div class="ent">Invitación</div></div></div>
+          <div class="row"><span class="avc" style="background:var(--person-2)">A</span><div class="grow"><div class="t">Ana cambió el nombre del hogar</div><div class="s">Ayer 09:30</div><div class="ent">Configuración</div></div></div>
+        </div>
+        <div class="pager">Mostrando 20 de 46</div>
+        <div class="inline-err"><span>⚠</span><span class="grow">No pudimos cargar más registros.</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Caché + banner. «Cargar más» desactivado</small></div>
+    <div class="phone">
+      <div class="status"><span>20:15</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="hogar-admin-menu.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Auditoría<small>Cambios del hogar · más recientes primero</small></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
+        <div class="card" style="padding:0 var(--s4)">
+          <div class="row"><span class="avc" style="background:var(--person-2)">A</span><div class="grow"><div class="t">Ana activó «Crear y editar tareas» para Lucía</div><div class="s">Hoy 18:42</div><div class="ent">Accesos · Lucía</div></div></div>
+          <div class="row"><span class="avc" style="background:var(--person-1)">F</span><div class="grow"><div class="t">Familia Demo creó una invitación para invitado@ejemplo.com</div><div class="s">Hoy 17:10</div><div class="ent">Invitación</div></div></div>
+        </div>
+        <div class="pager">Mostrando 2 de 20 en caché</div>
+        <span class="btn secondary dis">Cargar más</span>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>La captura 55 muestra solo el menú de Administración, no el registro. El contenido sale de docs/ios-funcional.md (4.6 y 6): repetir la captura con Auditoría abierta.</li>
+    <li>Cada fila responde quién, qué, cuándo y entidad: la entidad va como línea propia en lugar de quedar implícita en el texto.</li>
+    <li>Filtros por tipo y persona como chips, opcionales; si el filtro vacía la lista se ofrece «Quitar filtros».</li>
+    <li>Paginación explícita con «Cargar más» y contador. Si falla, solo el bloque final muestra error y las filas ya cargadas se conservan.</li>
+    <li>El registro es de solo lectura: no hay acciones de edición ni de borrado en la pantalla.</li>
+  </ul>
+  <p style="margin-top:10px"><b>Conexiones.</b> Llega desde hogar-admin-menu (fila «Auditoría»). Sin salidas: es terminal. Endpoint: lectura <code>home/audit</code> (paginado). Los filtros por tipo y persona se resuelven en el cliente o con parámetros de la misma ruta; por confirmar.</p>
+</aside>
+</body>
+</html>

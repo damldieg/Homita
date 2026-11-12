@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAL-07 Formulario de calendario</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Añadido en línea para este lote (no está en components.css) */
+.off { opacity: .4; }
+.card-h + * { margin-top: var(--s3); }
+.field.err { border-color: var(--err); }
+.swatches { display: flex; gap: 10px; align-items: center; }
+.swatches i { width: 28px; height: 28px; border-radius: 50%; background: var(--c); display: block; flex: none; }
+.swatches i.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--c); }
+.sw { width: 51px; height: 31px; border-radius: 999px; background: var(--text-3); position: relative; flex: none; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow); }
+.sw.on { background: var(--ok); }
+.sw.on::after { left: 22px; }
+.sk-dot { width: 28px; height: 28px; border-radius: 50%; flex: none; }
+</style>
+</head>
+<body>
+<!-- CAL-07: formulario de calendario (hoja modal, sin barra de pestañas) -->
+<header class="wf-head">
+  <div class="id">CAL-07 · formulario de calendario · epic E3</div>
+  <h1>Calendario (alta)</h1>
+  <p>Hoja modal para crear un calendario: nombre, color y en qué superficies se muestra (widget, dashboard). «Crear» pasa a la barra de la hoja, a la derecha, como en Evento y Rutina; la captura lo tenía como botón al pie.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="cal-calendarios.html">Calendarios</a>
+    <a href="cal-detalle-calendario.html">Detalle de calendario</a>
+    <a href="cal-form-evento.html">Nuevo evento →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. RELLENO -->
+  <section class="state">
+    <div class="label">1 · Relleno<small>Nombre, color y visibilidad; Crear activo</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Nuevo calendario</span>
+          <a class="txt strong go" href="cal-calendarios.html">Crear</a>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Colegio</span></div></div>
+            <div class="row"><div class="grow t">Color</div>
+              <div class="swatches">
+                <i style="--c:var(--accent)" class="on"></i><i style="--c:var(--person-1)"></i><i style="--c:var(--person-2)"></i><i style="--c:var(--person-3)"></i><i style="--c:var(--person-5)"></i>
+              </div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Visible en</h3></div>
+            <div class="row"><div class="grow t">Widget</div><span class="sw on"></span></div>
+            <div class="row"><div class="grow t">Dashboard</div><span class="sw on"></span></div>
+            <div class="hint">Lo que activas aquí aparece en el widget y en el dashboard del hogar.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. INICIAL VACÍO -->
+  <section class="state">
+    <div class="label">2 · Inicial vacío<small>Nombre vacío; color y visibilidad con los valores por defecto; Crear desactivado</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Nuevo calendario</span>
+          <span class="txt strong off">Crear</span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="grow t ph">Nombre</span></div></div>
+            <div class="row"><div class="grow t">Color</div>
+              <div class="swatches">
+                <i style="--c:var(--accent)" class="on"></i><i style="--c:var(--person-1)"></i><i style="--c:var(--person-2)"></i><i style="--c:var(--person-3)"></i><i style="--c:var(--person-5)"></i>
+              </div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Visible en</h3></div>
+            <div class="row"><div class="grow t">Widget</div><span class="sw on"></span></div>
+            <div class="row"><div class="grow t">Dashboard</div><span class="sw on"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. CARGANDO OPCIONES / GUARDANDO -->
+  <section class="state">
+    <div class="label">3 · Cargando opciones / guardando<small>Colores en skeleton; .spin en Crear mientras se envía</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt off">Cancelar</a>
+          <span class="center">Nuevo calendario</span>
+          <span class="txt strong">Crear <span class="spin"></span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Colegio</span></div></div>
+            <div class="row"><div class="grow t">Color</div>
+              <div class="swatches">
+                <span class="sk sk-dot"></span><span class="sk sk-dot"></span><span class="sk sk-dot"></span><span class="sk sk-dot"></span><span class="sk sk-dot"></span>
+              </div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Visible en</h3></div>
+            <div class="row"><div class="sk line" style="width:40%"></div></div>
+            <div class="row"><div class="sk line" style="width:50%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. VALIDACIÓN + ERROR DE SERVIDOR -->
+  <section class="state">
+    <div class="label">4 · Validación y error de servidor<small>Error arriba (.inline-err) y aviso bajo el nombre</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Nuevo calendario</span>
+          <a class="txt strong">Crear</a>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="inline-err"><span>⚠</span><span class="grow">No se pudo crear el calendario. Revisa la conexión y reintenta.</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field err"><div class="row"><span class="grow t ph">Nombre</span></div></div>
+            <div class="hint err">Ponle un nombre para poder identificarlo.</div>
+            <div class="row"><div class="grow t">Color</div>
+              <div class="swatches">
+                <i style="--c:var(--accent)" class="on"></i><i style="--c:var(--person-1)"></i><i style="--c:var(--person-2)"></i><i style="--c:var(--person-3)"></i><i style="--c:var(--person-5)"></i>
+              </div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Visible en</h3></div>
+            <div class="row"><div class="grow t">Widget</div><span class="sw on"></span></div>
+            <div class="row"><div class="grow t">Dashboard</div><span class="sw on"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Datos conservados; Crear desactivado con aviso</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Nuevo calendario</span>
+          <span class="txt strong off">Crear</span>
+        </div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Conecta para crear el calendario.</span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="grow t">Colegio</span></div></div>
+            <div class="row"><div class="grow t">Color</div>
+              <div class="swatches">
+                <i style="--c:var(--accent)" class="on"></i><i style="--c:var(--person-1)"></i><i style="--c:var(--person-2)"></i><i style="--c:var(--person-3)"></i><i style="--c:var(--person-5)"></i>
+              </div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Visible en</h3></div>
+            <div class="row"><div class="grow t">Widget</div><span class="sw on"></span></div>
+            <div class="row"><div class="grow t">Dashboard</div><span class="sw on"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>«Crear calendario» deja de ser un botón grande al pie y pasa a la barra de la hoja (Crear a la derecha), igual que el resto de altas.</li>
+    <li>El color se elige con muestras (5 colores de persona más el acento), en vez del selector de color del sistema con su rueda.</li>
+    <li>«Visible en» agrupa Widget y Dashboard en una tarjeta con su nota; los interruptores se mantienen como en la captura.</li>
+    <li>Validación en línea bajo el nombre y error de servidor arriba, con Reintentar; sin conexión deja Crear desactivado con el aviso.</li>
+  </ul>
+  <p style="margin-top:10px"><b>Conexiones:</b> desde <a class="go" href="cal-calendarios.html" style="text-decoration:underline">Calendarios</a> («Nuevo calendario»). Cancelar y Crear vuelven a <a class="go" href="cal-calendarios.html" style="text-decoration:underline">Calendarios</a>.</p>
+</aside>
+</body>
+</html>

@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOGAR-01 Hogar</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Extras de esta página (no existen en components.css) */
+.home-sel { display: flex; align-items: center; gap: var(--s3); min-height: 52px; }
+.home-sel .grow { flex: 1; min-width: 0; }
+.perm-sum { font: var(--t-cap); color: var(--text-2); display: flex; align-items: center; gap: var(--s2); padding-left: 52px; margin-top: 2px; }
+.perm-sum .link { font: 600 13px/18px var(--font); }
+.memb .row { align-items: flex-start; }
+.memb .row .grow { padding-top: 2px; }
+.nameline { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.tagline { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; }
+.noaplica { border: 1.5px dashed var(--line); border-radius: var(--r-lg); background: var(--surface); padding: var(--s6); font: var(--t-sub); color: var(--text-2); height: 100%; }
+.noaplica b { display: block; color: var(--text); font: var(--t-body-b); margin-bottom: var(--s2); }
+.frame-foot { margin-top: var(--s3); }
+.muted-row { opacity: .55; }
+</style>
+</head>
+<body>
+<!-- PLANTILLA: toda pantalla = wf-head + .states (estados) + .notes -->
+<header class="wf-head">
+  <div class="id">HOGAR-01 · pestaña Hogar · epic E4</div>
+  <h1>Hogar</h1>
+  <p>Hogar activo, miembros con su tipo, estado y rol, e invitar. «Administración» agrupa la gestión del hogar. El miembro sin permisos de administración ve el mismo hogar, sin acciones de administración (ocultas, no deshabilitadas).</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="hogar-admin-menu.html">Administración →</a>
+    <a href="hogar-invitaciones.html">Invitar →</a>
+    <a href="hogar-accesos.html">Permisos (Accesos) →</a>
+    <a href="hogar-sin-hogar.html">Sin hogar →</a>
+    <a href="aj-personas.html">Personas (Ajustes) →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. CON DATOS (admin) -->
+  <section class="state">
+    <div class="label">1 · Con datos (admin)<small>Hogar activo + miembros; permisos en una línea, «Invitar» al pie</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><span></span></div>
+        <div class="large-title">Hogar<small>Hogar de Familia Demo</small></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">⌂</div><h3>Hogar activo</h3></div>
+            <!-- Selector: con varios hogares la fila abre una hoja con la lista; con uno es fija -->
+            <div class="row home-sel">
+              <div class="grow"><div class="t">Hogar de Familia Demo</div><div class="s">Administrador</div></div>
+              <span class="badge ok">Activo</span>
+            </div>
+          </div>
+          <div class="card memb">
+            <div class="card-h"><div class="ico">☺☺</div><h3>Miembros</h3><span class="badge">5</span></div>
+            <div class="row"><div class="avatar">F</div><div class="grow">
+              <div class="nameline"><span class="t">Familia Demo</span><span class="badge ok">tú</span></div>
+              <div class="s">Adulto · Administrador</div>
+              <div class="perm-sum"><span>Permisos 6 de 6</span></div>
+            </div></div>
+            <div class="row"><div class="avatar">A</div><div class="grow">
+              <div class="nameline"><span class="t">Ana</span><span class="badge ok">Vinculada</span></div>
+              <div class="s">Adulto · Administradora</div>
+              <a class="perm-sum go" href="hogar-accesos.html"><span>Permisos 4 de 6</span><span class="link">Ver ›</span></a>
+            </div></div>
+            <div class="row"><div class="avatar">L</div><div class="grow">
+              <div class="nameline"><span class="t">Lucía</span><span class="badge ok">Vinculada</span></div>
+              <div class="s">Adulto · Miembro</div>
+              <a class="perm-sum go" href="hogar-accesos.html"><span>Permisos 2 de 6</span><span class="link">Ver ›</span></a>
+            </div></div>
+            <div class="row"><div class="avatar">M</div><div class="grow">
+              <div class="nameline"><span class="t">Marcos</span><span class="badge warn">Sin cuenta</span></div>
+              <div class="s">Adulto · Miembro</div>
+              <div class="perm-sum"><span>Sin cuenta: no entra a la app</span></div>
+            </div></div>
+            <div class="row"><div class="avatar">P</div><div class="grow">
+              <div class="nameline"><span class="t">Pablo</span><span class="badge warn">Sin cuenta</span></div>
+              <div class="s">Menor · Miembro</div>
+            </div></div>
+            <div class="row" style="justify-content:flex-end"><a class="btn sm secondary go" href="hogar-invitaciones.html" style="min-height:40px;padding:0 var(--s5)">Invitar</a></div>
+          </div>
+          <a class="card go" href="hogar-admin-menu.html">
+            <div class="card-h"><div class="ico">⚙</div><h3>Administración</h3><span class="chev"></span></div>
+            <div class="s" style="font:var(--t-sub);color:var(--text-2);padding-left:52px">Configuración, administradores, miembros, invitaciones, accesos y auditoría</div>
+          </a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>No aplica como estado de esta pantalla</small></div>
+    <div class="noaplica">
+      <b>No aplica: el hogar siempre tiene al menos una persona (tú)</b>
+      Sin hogares, la pestaña muestra HOGAR-02 (crear o unirse). Con hogar, la lista nunca queda vacía.
+      <div class="frame-foot"><a class="link go" href="hogar-sin-hogar.html">Ver HOGAR-02 →</a></div>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que con datos; título real</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><span></span></div>
+        <div class="large-title">Hogar<small><span class="sk line" style="display:inline-block;width:170px"></span></small></div>
+        <div class="stack">
+          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
+            <div class="row"><div class="grow"><div class="sk line" style="width:65%"></div><div class="sk line" style="width:35%;margin-top:6px"></div></div><div class="sk line" style="width:64px;height:26px;border-radius:999px"></div></div></div>
+          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title"></div></div>
+            <div class="row"><div class="avatar sk"></div><div class="grow"><div class="sk line" style="width:45%"></div><div class="sk line" style="width:60%;margin-top:6px"></div></div></div>
+            <div class="row"><div class="avatar sk"></div><div class="grow"><div class="sk line" style="width:35%"></div><div class="sk line" style="width:50%;margin-top:6px"></div></div></div>
+            <div class="row"><div class="avatar sk"></div><div class="grow"><div class="sk line" style="width:40%"></div><div class="sk line" style="width:55%;margin-top:6px"></div></div></div></div>
+          <div class="card"><div class="card-h"><div class="ico sk"></div><div class="sk title" style="width:40%"></div></div></div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR (parcial + escritura) -->
+  <section class="state">
+    <div class="label">4 · Error<small>Miembros falla solo en su tarjeta; el fallo al guardar el hogar activo va en toast, no fijo en la tarjeta</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><span></span></div>
+        <div class="large-title">Hogar<small>Hogar de Familia Demo</small></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">⌂</div><h3>Hogar activo</h3></div>
+            <div class="row home-sel">
+              <div class="grow"><div class="t">Hogar de Familia Demo</div><div class="s">Administrador</div></div>
+              <span class="badge ok">Activo</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺☺</div><h3>Miembros</h3></div>
+            <div class="inline-err"><span>⚠</span><span class="grow">No pudimos cargar los miembros. Revisá la conexión.</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div>
+          </div>
+          <a class="card go" href="hogar-admin-menu.html">
+            <div class="card-h"><div class="ico">⚙</div><h3>Administración</h3><span class="chev"></span></div>
+          </a>
+        </div>
+      </div>
+      <div class="toast"><span>⚠</span><span>No se pudo guardar el hogar activo. Reintenta.</span><b>Reintentar</b></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Datos en caché + banner; Invitar y el cambio de hogar quedan desactivados</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><span></span></div>
+        <div class="large-title">Hogar<small>Hogar de Familia Demo</small></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">⌂</div><h3>Hogar activo</h3></div>
+            <div class="row home-sel muted-row">
+              <div class="grow"><div class="t">Hogar de Familia Demo</div><div class="s">Administrador</div></div>
+              <span class="badge ok">Activo</span>
+            </div>
+          </div>
+          <div class="card memb">
+            <div class="card-h"><div class="ico">☺☺</div><h3>Miembros</h3><span class="badge">5</span></div>
+            <div class="row"><div class="avatar">F</div><div class="grow">
+              <div class="nameline"><span class="t">Familia Demo</span><span class="badge ok">tú</span></div>
+              <div class="s">Adulto · Administrador</div>
+            </div></div>
+            <div class="row"><div class="avatar">A</div><div class="grow">
+              <div class="nameline"><span class="t">Ana</span><span class="badge ok">Vinculada</span></div>
+              <div class="s">Adulto · Administradora</div>
+            </div></div>
+            <div class="row" style="justify-content:flex-end"><span class="btn sm disabled" style="min-height:40px;padding:0 var(--s5);border:1.5px solid var(--accent);color:var(--accent);background:var(--surface)">Invitar</span></div>
+          </div>
+          <a class="card go" href="hogar-admin-menu.html">
+            <div class="card-h"><div class="ico">⚙</div><h3>Administración</h3><span class="chev"></span></div>
+          </a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 6. VISTA DE MIEMBRO SIN PERMISOS -->
+  <section class="state">
+    <div class="label">6 · Vista de miembro sin permisos<small>«Invitar» oculto. «Administración» visible en solo lectura (comportamiento actual, doc funcional §2). Sin permisos de otros</small></div>
+    <div class="phone">
+      <div class="status"><span>20:10</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><span></span></div>
+        <div class="large-title">Hogar<small>Hogar de Familia Demo</small></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">⌂</div><h3>Hogar activo</h3></div>
+            <div class="row home-sel">
+              <div class="grow"><div class="t">Hogar de Familia Demo</div><div class="s">Miembro</div></div>
+              <span class="badge ok">Activo</span>
+            </div>
+          </div>
+          <div class="card memb">
+            <div class="card-h"><div class="ico">☺☺</div><h3>Miembros</h3><span class="badge">5</span></div>
+            <div class="row"><div class="avatar">F</div><div class="grow">
+              <div class="nameline"><span class="t">Familia Demo</span><span class="badge ok">Administrador</span></div>
+              <div class="s">Adulto · Vinculada</div>
+            </div></div>
+            <div class="row"><div class="avatar">A</div><div class="grow">
+              <div class="nameline"><span class="t">Ana</span><span class="badge ok">Vinculada</span></div>
+              <div class="s">Adulto · Miembro</div>
+            </div></div>
+            <div class="row"><div class="avatar">L</div><div class="grow">
+              <div class="nameline"><span class="t">Lucía</span><span class="badge ok">tú</span></div>
+              <div class="s">Adulto · Miembro</div>
+              <div class="perm-sum"><span>Tus permisos: ver calendarios, asignar eventos</span></div>
+            </div></div>
+            <div class="row"><div class="avatar">M</div><div class="grow">
+              <div class="nameline"><span class="t">Marcos</span><span class="badge warn">Sin cuenta</span></div>
+              <div class="s">Adulto · Miembro</div>
+            </div></div>
+          </div>
+          <a class="card go" href="hogar-admin-menu.html">
+            <div class="card-h"><div class="ico">⚙</div><h3>Administración</h3><span class="badge">Solo lectura</span><span class="chev"></span></div>
+          </a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a class="on"><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>① El error «No se pudo guardar el hogar activo» deja de ir fijo dentro de la tarjeta: pasa a toast descartable con «Reintentar» (estado 4). En reposo no hay ningún aviso.</li>
+    <li>Permisos compactos: en vez de la descripción larga con «Ver más», una línea «Permisos 4 de 6 ›» que lleva a Accesos. El detalle vive en HOGAR-accesos, no aquí.</li>
+    <li>Cada miembro muestra tipo, estado («Vinculada» / «Sin cuenta») y rol como badges solo si aportan; la persona que usa la app lleva «tú».</li>
+    <li>«Administración» pasa a fila de navegación con resumen (ver HOGAR-03); «Invitar» queda como acción secundaria al pie de la tarjeta de miembros.</li>
+    <li>Estado 6: el miembro sin permisos no ve «Administración» ni «Invitar». Son ocultos, no deshabilitados. Hay que confirmar si el miembro ve Administración en solo lectura (ver dudas).</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Llega desde: pestaña Hogar (raíz tras login con hogar); HOGAR-02 cuando el usuario tiene hogar.</li>
+    <li>Lleva a: HOGAR-03 (Administración), HOGAR-accesos (permisos de cada miembro), HOGAR-invitaciones (Invitar), AJ-personas (si se gestionan personas desde Ajustes).</li>
+    <li>Selector de hogar: solo si hay varios hogares; abre una hoja con la lista (no tiene pantalla propia). Sin hogar, Tareas y Calendario muestran el estado de HOGAR-02.</li>
+  </ul>
+  <h2 style="margin-top:12px">Dudas de diseño</h2>
+  <ul>
+    <li>Estado 6: la app actual muestra «Administración» en solo lectura al miembro (doc funcional, sección 2). Este frame la oculta según el encargo. Decidir cuál aplica.</li>
+    <li>El aviso de «hogar activo no guardado» se muestra como toast. Confirmar si debe sobrevivir al cambio de pestaña o desaparecer a los pocos segundos.</li>
+  </ul>
+</aside>
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TASKS-01 Tareas</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Añadidos de este lote (no están en components.css) */
+.grow { flex: 1; min-width: 0; }
+.hit { width: 44px; height: 44px; display: grid; place-items: center; margin: -9px; flex: none; }
+.hit.fold { font-size: 18px; color: var(--text-2); }
+.grp { padding: var(--s2) var(--s4); }
+.grp .group-h { padding: var(--s2) 0; }
+.grp .row { padding-left: 0; }
+.seg a { flex: 1; text-align: center; font: 600 14px/32px var(--font); color: var(--text-2); border-radius: 9px; }
+.dis { opacity: .4; pointer-events: none; }
+.radio { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--text-3); flex: none; }
+.radio.on { border-color: var(--accent); background: radial-gradient(circle, var(--accent) 45%, transparent 50%); }
+.fbtns { display: flex; flex-direction: column; gap: var(--s2); margin-top: var(--s4); }
+.sheet .sect { padding-top: var(--s2); }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">TASKS-01 · pestaña Tareas · epic E2</div>
+  <h1>Tareas (lista)</h1>
+  <p>Lista de tareas agrupadas por lista con contador y grupos plegables. Casilla para completar, filtro por estado y lista en una hoja inferior, y «+» en la cabecera para crear una tarea. Ningún botón flotante tapa filas. El segmento «Listas» lleva a la gestión de listas.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="home-inicio.html">Origen: Inicio (Tareas pendientes)</a>
+    <a href="tasks-form-tarea.html">Nueva tarea →</a>
+    <a href="tasks-listas.html">Segmento Listas →</a>
+    <a href="tasks-detalle-lista.html">Detalle de lista →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos<small>Cabecera con filtro y «+» (sin FAB). Grupos plegables con contador</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span>
+          <span style="display:flex;gap:8px">
+            <a class="btn-icon go" href="#filtros" title="Filtrar">⚲</a>
+            <a class="btn-icon go" data-go="tasks-form-tarea" href="tasks-form-tarea.html" style="color:var(--accent);font-weight:700">+</a>
+          </span>
+        </div>
+        <div class="large-title">Tareas<small>Pendientes · Todas las listas</small></div>
+        <div class="seg"><span class="on">Tareas</span><a class="go" href="tasks-listas.html">Listas</a></div>
+        <div class="stack">
+          <div class="card grp">
+            <div class="group-h"><span class="hit fold">⌄</span><span class="dot" style="background:var(--ok)"></span><a class="grow go" href="tasks-detalle-lista.html">Casa</a><span class="badge ok">3</span></div>
+            <div class="row"><span class="hit"><span class="check"></span></span><span class="grow t">Regar las plantas</span></div>
+            <div class="row"><span class="hit"><span class="check"></span></span><span class="grow t">Llamar al fontanero</span></div>
+            <div class="row"><span class="hit"><span class="check"></span></span><span class="grow t">Cambiar la bombilla del pasillo</span></div>
+          </div>
+          <div class="card grp">
+            <div class="group-h"><span class="hit fold">⌄</span><span class="dot"></span><a class="grow go" href="tasks-detalle-lista.html">Compra</a><span class="badge warn">5</span></div>
+            <div class="row"><span class="hit"><span class="check"></span></span><span class="grow t">Café</span></div>
+            <div class="row"><span class="hit"><span class="check"></span></span><span class="grow t">Fruta</span></div>
+            <div class="row"><span class="hit"><span class="check"></span></span><span class="grow t">Huevos</span></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>Sin tareas pendientes: un mensaje y una acción</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span>
+          <span style="display:flex;gap:8px">
+            <a class="btn-icon">⚲</a>
+            <a class="btn-icon" style="color:var(--accent);font-weight:700">+</a>
+          </span>
+        </div>
+        <div class="large-title">Tareas<small>Pendientes · Todas las listas</small></div>
+        <div class="seg"><span class="on">Tareas</span><a class="go" href="tasks-listas.html">Listas</a></div>
+        <div class="empty">
+          <div class="art">☑</div>
+          <h3>No tienes tareas pendientes</h3>
+          <p>Crea una tarea y se agrupará en su lista.</p>
+          <a class="btn primary go" data-go="tasks-form-tarea" href="tasks-form-tarea.html">Nueva tarea</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que con datos; segmento y título reales</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span>
+          <span style="display:flex;gap:8px"><a class="btn-icon">⚲</a><a class="btn-icon">+</a></span>
+        </div>
+        <div class="large-title">Tareas<small><span class="sk line" style="display:inline-block;width:170px"></span></small></div>
+        <div class="seg"><span class="on">Tareas</span><a>Listas</a></div>
+        <div class="stack">
+          <div class="card grp">
+            <div class="group-h"><span class="sk circle" style="width:10px;height:10px"></span><div class="sk title" style="width:30%"></div></div>
+            <div class="row"><div class="check sk"></div><div class="sk line" style="width:60%"></div></div>
+            <div class="row"><div class="check sk"></div><div class="sk line" style="width:45%"></div></div>
+            <div class="row"><div class="check sk"></div><div class="sk line" style="width:70%"></div></div>
+          </div>
+          <div class="card grp">
+            <div class="group-h"><span class="sk circle" style="width:10px;height:10px"></span><div class="sk title" style="width:35%"></div></div>
+            <div class="row"><div class="check sk"></div><div class="sk line" style="width:40%"></div></div>
+            <div class="row"><div class="check sk"></div><div class="sk line" style="width:50%"></div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR (parcial por grupo + toast de escritura) -->
+  <section class="state">
+    <div class="label">4 · Error<small>Fallo parcial: el grupo afectado muestra su error; un fallo al completar sale en toast</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span>
+          <span style="display:flex;gap:8px"><a class="btn-icon">⚲</a><a class="btn-icon" style="color:var(--accent);font-weight:700">+</a></span>
+        </div>
+        <div class="large-title">Tareas<small>Pendientes · Todas las listas</small></div>
+        <div class="seg"><span class="on">Tareas</span><a>Listas</a></div>
+        <div class="stack">
+          <div class="card grp">
+            <div class="group-h"><span class="hit fold">⌄</span><span class="dot" style="background:var(--ok)"></span><span class="grow">Casa</span><span class="badge ok">3</span></div>
+            <div class="row"><span class="hit"><span class="check"></span></span><span class="grow t">Regar las plantas</span></div>
+            <div class="row"><span class="hit"><span class="check"></span></span><span class="grow t">Llamar al fontanero</span></div>
+          </div>
+          <div class="card grp">
+            <div class="group-h"><span class="hit fold">⌄</span><span class="dot"></span><span class="grow">Compra</span></div>
+            <div class="inline-err"><span>⚠</span><span class="grow">No pudimos cargar esta lista.</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div>
+          </div>
+        </div>
+      </div>
+      <div class="toast"><span>⚠</span><span>No se pudo marcar «Regar las plantas». Reintenta.</span><b>Reintentar</b></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Datos en caché; casillas, «+» y filtro de lista desactivados en lo que escribe</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span>
+          <span style="display:flex;gap:8px"><a class="btn-icon">⚲</a><a class="btn-icon dis" style="color:var(--accent);font-weight:700">+</a></span>
+        </div>
+        <div class="large-title">Tareas<small>Pendientes · Todas las listas</small></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
+        <div class="seg"><span class="on">Tareas</span><a>Listas</a></div>
+        <div class="stack">
+          <div class="card grp">
+            <div class="group-h"><span class="hit fold">⌄</span><span class="dot" style="background:var(--ok)"></span><span class="grow">Casa</span><span class="badge ok">3</span></div>
+            <div class="row dis"><span class="hit"><span class="check"></span></span><span class="grow t">Regar las plantas</span></div>
+            <div class="row dis"><span class="hit"><span class="check"></span></span><span class="grow t">Llamar al fontanero</span></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 6. HOJA DE FILTROS (extra propuesto: estado + lista) -->
+  <section class="state" id="filtros">
+    <div class="label">6 · Filtros (hoja)<small>Extra: estado y lista en una hoja inferior; el resumen de filtro queda bajo el título</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><span></span><span style="display:flex;gap:8px"><a class="btn-icon">⚲</a><a class="btn-icon" style="color:var(--accent);font-weight:700">+</a></span></div>
+        <div class="large-title">Tareas<small>Pendientes · Todas las listas</small></div>
+        <div class="seg"><span class="on">Tareas</span><a>Listas</a></div>
+      </div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <div class="large-title" style="font:var(--t-title);padding:0 0 var(--s2)">Filtrar tareas</div>
+        <div class="sect">Estado</div>
+        <div class="field">
+          <div class="row"><span class="radio on"></span><span class="grow t">Pendientes</span></div>
+          <div class="row"><span class="radio"></span><span class="grow t">Completadas</span></div>
+        </div>
+        <div class="sect">Lista</div>
+        <div class="field">
+          <div class="row"><span class="radio on"></span><span class="grow t">Todas las listas</span></div>
+          <div class="row"><span class="radio"></span><span class="grow t">Casa</span></div>
+          <div class="row"><span class="radio"></span><span class="grow t">Compra</span></div>
+        </div>
+        <div class="fbtns">
+          <a class="btn primary go" href="tasks-lista.html">Aplicar</a>
+          <a class="btn ghost">Restablecer</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>① El botón flotante «+ Nueva tarea» (tapa la última fila) pasa a «+» en la cabecera. El filtro también sube a la cabecera: no queda nada flotando sobre el contenido.</li>
+    <li>El filtro, que hoy es un icono sin contexto, abre una hoja con Estado (Pendientes / Completadas) y Lista. El resumen «Pendientes · Todas las listas» queda visible bajo el título.</li>
+    <li>Grupos plegables con contador: el chevron pliega, el nombre de la lista abre su detalle. Un gesto por zona, sin filas de más.</li>
+    <li>Casillas con área táctil de 44 pt (hoy se ven 26 pt) y filas de 52 pt mínimo.</li>
+    <li>Fallos: un grupo puede fallar sin tirar la pantalla entera; un fallo al completar sale en toast con «Reintentar». Sin conexión, las casillas quedan desactivadas.</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Llega desde: home-inicio (tarjeta «Tareas pendientes» y «Ver las N») y desde la barra de pestañas.</li>
+    <li>Sale a: tasks-form-tarea («+» y estado vacío), tasks-listas (segmento), tasks-detalle-lista (nombre de grupo).</li>
+    <li>Por confirmar: si «Completadas» debe ser un grupo aparte en la misma lista o solo se ve con el filtro.</li>
+  </ul>
+</aside>
+</body>
+</html>

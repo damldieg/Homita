@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AUTH-03 Registrarse</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Específico de esta pantalla (no está en components.css) */
+.ph { color: var(--text-3); }
+.field.dis { opacity: .5; }
+.field .row.err-row { box-shadow: inset 0 0 0 1.5px var(--err); border-radius: var(--r-md); }
+.card .inline-err { margin-bottom: var(--s3); }
+.card .hint { padding: var(--s1) 0 0; }
+.card .field + .hint { padding-left: 0; }
+.kbd { position: absolute; left: 0; right: 0; bottom: 0; height: 268px; background: var(--bg-sunken); border-top: 1px solid var(--line); display: grid; place-items: center; font: var(--t-cap); color: var(--text-2); z-index: 6; }
+.pw-toggle { color: var(--accent); font: var(--t-body-b); }
+.btn-row { display: flex; gap: var(--s2); align-items: center; justify-content: center; }
+.help { font: var(--t-cap); color: var(--text-2); padding: var(--s2) var(--s1) 0; }
+</style>
+</head>
+<body>
+<!-- PLANTILLA DE REFERENCIA: toda pantalla = wf-head + .states (5 estados) + .notes -->
+<header class="wf-head">
+  <div class="id">AUTH-03 · Registrarse · epic E0 Acceso</div>
+  <h1>Registrarse</h1>
+  <p>Alta de cuenta con nombre, email y contraseña (mínimo 8). El código de invitación es opcional y va al final. Las validaciones se muestran en línea junto al campo; un fallo del servidor se muestra arriba del formulario.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="auth-bienvenida.html">← Bienvenida</a>
+    <a href="auth-login.html">Ya tengo cuenta →</a>
+    <a href="home-inicio.html">Inicio (con sesión) →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. RELLENO -->
+  <section class="state">
+    <div class="label">1 · Relleno<small>Todos los campos válidos, Crear cuenta activo</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="btn-icon go" href="auth-bienvenida.html">‹</a><span class="center">Registrarse</span><span style="width:44px"></span></div>
+        <div class="large-title">Crear cuenta<small>Solo necesitas un email y una contraseña</small></div>
+        <div class="card">
+          <div class="field">
+            <div class="row"><span class="lbl">Nombre</span><span class="val">Ana</span></div>
+            <div class="row"><span class="lbl">Email</span><span class="val">ana@homita.example</span></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val">••••••••••</span><a class="pw-toggle">Mostrar</a></div>
+          </div>
+          <div class="hint">Mínimo 8 caracteres.</div>
+        </div>
+        <div class="card" style="margin-top:var(--s4)">
+          <div class="field">
+            <div class="row"><span class="lbl">Código</span><span class="val">HOGAR-7K2P</span></div>
+          </div>
+          <div class="hint">Opcional. Si te invitaron a un hogar, usa el email de la invitación. Sin código, se crea una cuenta nueva.</div>
+        </div>
+        <div style="margin-top:var(--s4)">
+          <a class="btn primary go" href="home-inicio.html">Crear cuenta</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. INICIAL VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>Campos vacíos, Crear cuenta desactivado</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="btn-icon go" href="auth-bienvenida.html">‹</a><span class="center">Registrarse</span><span style="width:44px"></span></div>
+        <div class="large-title">Crear cuenta<small>Solo necesitas un email y una contraseña</small></div>
+        <div class="card">
+          <div class="field">
+            <div class="row"><span class="lbl">Nombre</span><span class="val ph">Nombre</span></div>
+            <div class="row"><span class="lbl">Email</span><span class="val ph">Email</span></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val ph">Mínimo 8 caracteres</span></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:var(--s4)">
+          <div class="field">
+            <div class="row"><span class="lbl">Código</span><span class="val ph">Opcional</span></div>
+          </div>
+          <div class="hint">Opcional. Si te invitaron a un hogar, usa el email de la invitación. Sin código, se crea una cuenta nueva.</div>
+        </div>
+        <div style="margin-top:var(--s4)">
+          <a class="btn primary disabled">Crear cuenta</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. CARGANDO -->
+  <section class="state">
+    <div class="label">3 · Cargando<small>Botón con .spin y campos desactivados mientras se crea la cuenta. Sin selectores: no hay skeleton</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="btn-icon">‹</a><span class="center">Registrarse</span><span style="width:44px"></span></div>
+        <div class="large-title">Crear cuenta<small>Solo necesitas un email y una contraseña</small></div>
+        <div class="card">
+          <div class="field dis">
+            <div class="row"><span class="lbl">Nombre</span><span class="val">Ana</span></div>
+            <div class="row"><span class="lbl">Email</span><span class="val">ana@homita.example</span></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val">••••••••••</span></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:var(--s4)">
+          <div class="field dis">
+            <div class="row"><span class="lbl">Código</span><span class="val">HOGAR-7K2P</span></div>
+          </div>
+        </div>
+        <div style="margin-top:var(--s4)">
+          <a class="btn primary disabled btn-row"><span class="spin"></span>Creando cuenta…</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. ERROR (validación en línea + servidor) -->
+  <section class="state">
+    <div class="label">4 · Error<small>Validación en línea (.hint.err) bajo cada campo + error de servidor arriba (.inline-err)</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="btn-icon go" href="auth-bienvenida.html">‹</a><span class="center">Registrarse</span><span style="width:44px"></span></div>
+        <div class="large-title">Crear cuenta<small>Solo necesitas un email y una contraseña</small></div>
+        <div class="inline-err" style="margin-bottom:var(--s3)"><span>⚠</span><span class="grow">No pudimos crear la cuenta. Revisa los campos marcados e inténtalo de nuevo.</span></div>
+        <div class="card">
+          <div class="field">
+            <div class="row"><span class="lbl">Nombre</span><span class="val">Ana</span></div>
+            <div class="row err-row"><span class="lbl">Email</span><span class="val">ana@homita.example</span></div>
+            <div class="row err-row"><span class="lbl">Contraseña</span><span class="val">Corta</span></div>
+          </div>
+          <div class="hint err">Ese email ya tiene una cuenta. <a class="link go" href="auth-login.html">Iniciar sesión</a></div>
+          <div class="hint err">La contraseña tiene 5 caracteres. Mínimo 8.</div>
+        </div>
+        <div class="card" style="margin-top:var(--s4)">
+          <div class="field">
+            <div class="row"><span class="lbl">Código</span><span class="val ph">Opcional</span></div>
+          </div>
+        </div>
+        <div style="margin-top:var(--s4)">
+          <a class="btn primary disabled">Crear cuenta</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Aviso arriba; Crear cuenta desactivado; lo escrito se conserva</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="btn-icon">‹</a><span class="center">Registrarse</span><span style="width:44px"></span></div>
+        <div class="large-title">Crear cuenta<small>Solo necesitas un email y una contraseña</small></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Conéctate para crear tu cuenta.</span></div>
+        <div class="card">
+          <div class="field">
+            <div class="row"><span class="lbl">Nombre</span><span class="val">Ana</span></div>
+            <div class="row"><span class="lbl">Email</span><span class="val">ana@homita.example</span></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val">••••••••••</span></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:var(--s4)">
+          <div class="field">
+            <div class="row"><span class="lbl">Código</span><span class="val ph">Opcional</span></div>
+          </div>
+        </div>
+        <div style="margin-top:var(--s4)">
+          <a class="btn primary disabled">Crear cuenta</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>La captura separa «Cuenta» y «Código de invitación» en dos tarjetas con icono. Se unifican en una tarjeta de datos y se deja el código como último campo opcional, con su texto de ayuda.</li>
+    <li>«Contraseña (mínimo 8)» hoy va solo en el placeholder. Pasa a etiqueta visible y hint («Mínimo 8 caracteres»), con error en línea si no llega.</li>
+    <li>«Crear cuenta» aparece atenuado sin datos (captura 03) y no explica por qué. Con el hint en línea, el usuario sabe qué falta.</li>
+    <li>Un email ya registrado se marca bajo su campo con enlace a Iniciar sesión, en vez de un error genérico.</li>
+    <li>Sin conexión: aviso arriba y botón desactivado. Con el registro cerrado en producción, esta pantalla solo se alcanza con invitación (ver AUTH-01 estado 6).</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Va a: home-inicio al crear la cuenta correctamente. «Iniciar sesión» (en el hint de email ya registrado) va a AUTH-02. Atrás vuelve a AUTH-01.</li>
+    <li>Llega desde: AUTH-01 Bienvenida, botón «Registrarse» (estados 1 y 4 de esa pantalla) y enlace «Pide una invitación» (estado 6).</li>
+    <li>Decisión abierta: si con registro cerrado el código de invitación es la única vía, hace falta confirmar que esta pantalla sigue visible sin el botón Registrarse. Ver AUTH-01.</li>
+  </ul>
+</aside>
+</body>
+</html>

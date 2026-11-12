@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TASKS-03 Detalle de lista</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Añadidos de este lote (no están en components.css) */
+.grow { flex: 1; min-width: 0; }
+.hit { width: 44px; height: 44px; display: grid; place-items: center; margin: -9px; flex: none; }
+.dis { opacity: .4; pointer-events: none; }
+.grp { padding: var(--s2) var(--s4); }
+.list-dot { width: 14px; height: 14px; border-radius: 50%; flex: none; }
+.lh { display: flex; align-items: center; gap: var(--s3); }
+.lh .title-txt { font: var(--t-large); }
+.actions { display: flex; flex-direction: column; gap: var(--s3); margin-top: var(--s6); }
+.btn.danger-line { background: var(--surface); color: var(--err); border: 1.5px solid var(--err); }
+.hint-note { font: var(--t-cap); color: var(--text-2); text-align: center; padding: 0 var(--s4); }
+.radio-free { }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">TASKS-03 · pestaña Tareas › detalle de lista · epic E2</div>
+  <h1>Detalle de lista</h1>
+  <p>Una lista con sus tareas. «Editar lista» abre el formulario de lista; «Eliminar lista» pide confirmación en una hoja inferior, porque borra la lista y lo que contiene. La barra de pestañas se mantiene; la navegación es «‹ Atrás».</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="tasks-listas.html">← Listas</a>
+    <a href="tasks-form-lista.html">Editar lista →</a>
+    <a href="tasks-form-tarea.html">Nueva tarea →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos<small>Tareas de la lista, acciones de administración al final</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="tasks-listas.html">‹ Atrás</a><span></span></div>
+        <div class="large-title"><span class="lh"><span class="list-dot" style="background:var(--ok)"></span>Casa</span><small>3 pendientes · 1 completada</small></div>
+        <div class="stack">
+          <div class="card grp">
+            <div class="group-h"><span>Pendientes</span></div>
+            <div class="row"><span class="hit"><span class="check"></span></span><span class="grow t">Regar las plantas</span></div>
+            <div class="row"><span class="hit"><span class="check"></span></span><span class="grow t">Llamar al fontanero</span></div>
+            <div class="row"><span class="hit"><span class="check"></span></span><span class="grow t">Cambiar la bombilla del pasillo</span></div>
+            <a class="row go" href="tasks-form-tarea.html"><span class="hit" style="color:var(--accent);font:700 22px/1 var(--font)">+</span><span class="grow link">Nueva tarea en Casa</span></a>
+          </div>
+          <div class="card grp">
+            <div class="group-h"><span>Completadas</span></div>
+            <div class="row"><span class="hit"><span class="check done"></span></span><span class="grow t" style="text-decoration:line-through;color:var(--text-2)">Sacar la basura</span></div>
+          </div>
+        </div>
+        <div class="actions">
+          <a class="btn secondary go" href="tasks-form-lista.html">Editar lista</a>
+          <a class="btn danger-line">Eliminar lista</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>Lista sin tareas: una acción primaria; editar y eliminar siguen visibles</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="tasks-listas.html">‹ Atrás</a><span></span></div>
+        <div class="large-title"><span class="lh"><span class="list-dot" style="background:var(--ok)"></span>Casa</span><small>Sin tareas</small></div>
+        <div class="empty">
+          <div class="art">☑</div>
+          <h3>Esta lista está vacía</h3>
+          <p>Añade la primera tarea de Casa.</p>
+          <a class="btn primary go" href="tasks-form-tarea.html">Nueva tarea</a>
+        </div>
+        <div class="actions">
+          <a class="btn secondary go" href="tasks-form-lista.html">Editar lista</a>
+          <a class="btn danger-line">Eliminar lista</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton)<small>Misma geometría que con datos; título y acciones con forma</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt">‹ Atrás</a><span></span></div>
+        <div class="large-title"><span class="lh"><span class="sk circle" style="width:14px;height:14px"></span><span class="sk line" style="width:120px;height:28px"></span></span><small><span class="sk line" style="display:inline-block;width:150px"></span></small></div>
+        <div class="stack">
+          <div class="card grp">
+            <div class="row"><div class="check sk"></div><div class="sk line" style="width:60%"></div></div>
+            <div class="row"><div class="check sk"></div><div class="sk line" style="width:45%"></div></div>
+            <div class="row"><div class="check sk"></div><div class="sk line" style="width:70%"></div></div>
+          </div>
+        </div>
+        <div class="actions">
+          <div class="sk box" style="height:50px;border-radius:999px"></div>
+          <div class="sk box" style="height:50px;border-radius:999px"></div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR -->
+  <section class="state">
+    <div class="label">4 · Error<small>No se pudo cargar la lista: bloque con «Reintentar»; no hay datos parciales que mostrar</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="tasks-listas.html">‹ Atrás</a><span></span></div>
+        <div class="large-title">Casa</div>
+        <div class="errbox">
+          <div class="art">⚠</div>
+          <h3>No pudimos cargar esta lista</h3>
+          <p>Revisa la conexión y vuelve a intentarlo.</p>
+          <a class="btn secondary" style="padding:0 var(--s6)">Reintentar</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión<small>Lectura desde caché; editar y eliminar atenuados (escritura)</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="tasks-listas.html">‹ Atrás</a><span></span></div>
+        <div class="large-title"><span class="lh"><span class="list-dot" style="background:var(--ok)"></span>Casa</span><small>3 pendientes · 1 completada</small></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span><u>Reintentar</u></div>
+        <div class="stack">
+          <div class="card grp">
+            <div class="row dis"><span class="hit"><span class="check"></span></span><span class="grow t">Regar las plantas</span></div>
+            <div class="row dis"><span class="hit"><span class="check"></span></span><span class="grow t">Llamar al fontanero</span></div>
+            <div class="row dis"><span class="hit"><span class="check"></span></span><span class="grow t">Cambiar la bombilla del pasillo</span></div>
+          </div>
+        </div>
+        <div class="actions">
+          <span class="btn secondary dis">Editar lista</span>
+          <span class="btn danger-line dis">Eliminar lista</span>
+          <p class="hint-note">Editar y eliminar necesitan conexión.</p>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 6. CONFIRMAR ELIMINACIÓN -->
+  <section class="state">
+    <div class="label">6 · Confirmar eliminación<small>Hoja inferior sobre el detalle; acción destructiva con salida clara</small></div>
+    <div class="phone">
+      <div class="status"><span>20:13</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt">‹ Atrás</a><span></span></div>
+        <div class="large-title"><span class="lh"><span class="list-dot" style="background:var(--ok)"></span>Casa</span><small>3 pendientes · 1 completada</small></div>
+        <div class="stack">
+          <div class="card grp">
+            <div class="row"><span class="hit"><span class="check"></span></span><span class="grow t">Regar las plantas</span></div>
+            <div class="row"><span class="hit"><span class="check"></span></span><span class="grow t">Llamar al fontanero</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <h3 style="font:var(--t-title);text-align:center">¿Eliminar la lista «Casa»?</h3>
+        <p style="font:var(--t-sub);color:var(--text-2);text-align:center;margin:var(--s2) 0 var(--s4)">Se borran también sus 4 tareas. Esta acción no se puede deshacer.</p>
+        <div class="actions" style="margin-top:0">
+          <a class="btn danger">Eliminar lista</a>
+          <a class="btn ghost">Cancelar</a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a class="on"><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>Título de lista grande con color y resumen («3 pendientes · 1 completada»), pegado arriba y con «‹ Atrás» como única acción de cabecera.</li>
+    <li>«Editar lista» y «Eliminar lista» pasan a acciones explícitas al final del contenido, no escondidas; «Eliminar» es rojo y pide confirmación en hoja inferior.</li>
+    <li>Pendientes y Completadas en grupos separados; «+ Nueva tarea en Casa» como fila dentro del grupo, sin botón flotante.</li>
+    <li>Sin conexión, editar y eliminar quedan atenuados con su motivo; la lectura sigue desde caché.</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Llega desde: tasks-listas (tocar una lista) y tasks-lista (nombre de grupo).</li>
+    <li>Sale a: tasks-form-lista («Editar lista»), tasks-form-tarea («Nueva tarea» y estado vacío).</li>
+    <li>Por confirmar: al eliminar, ¿las tareas se borran con la lista o pasan a otra lista? La hoja asume borrado; el texto debe coincidir con el backend (task-list/delete).</li>
+  </ul>
+</aside>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Control iOS — wireframes</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<style>
+  .idx { max-width: 1400px; margin: 0 auto; }
+  .idx h1 { font: 700 30px/36px var(--font); }
+  .idx > p { font: 400 15px/22px var(--font); color: #4d443a; max-width: 90ch; margin: 6px 0 18px; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font: 500 13px/1 var(--font); margin: 0 0 14px; color: #4d443a; }
+  .legend i { display: inline-block; width: 22px; border-top: 2px solid; vertical-align: middle; margin-right: 6px; }
+  .map { position: relative; background: #fff; border: 1px solid #c8bfb0; border-radius: 16px; padding: 20px 16px 28px; overflow-x: auto; }
+  .cols { display: grid; grid-template-columns: repeat(7, minmax(158px, 1fr)); gap: 26px; position: relative; z-index: 2; min-width: 1240px; }
+  .col h2 { font: 700 12px/16px var(--font); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 3px solid var(--c, #999); }
+  .col.e0 { --c: #6a5f52; } .col.e1 { --c: #C41E3A; } .col.e2 { --c: #B45309; } .col.e3 { --c: #3B5BDB; } .col.e4 { --c: #1F8A4C; } .col.e5 { --c: #6D28D9; }
+  .node { display: block; background: var(--surface); border: 1.5px solid var(--c, #999); border-radius: 12px; padding: 8px 10px; margin-bottom: 14px; font: 600 13px/17px var(--font); }
+  .node small { display: block; font: 500 11px/14px ui-monospace, monospace; color: #6a5f52; }
+  .node.modal { border-style: dashed; }
+  .node:hover { background: #fff4e0; }
+  svg.edges { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+  .tabs-bar { background: #1c1815; color: #fff; border-radius: 14px; padding: 10px 16px; margin: 0 0 14px; font: 600 13px/1 var(--font); display: flex; gap: 22px; flex-wrap: wrap; }
+  table { width: 100%; border-collapse: collapse; font: 400 14px/20px var(--font); background: #fff; border: 1px solid #c8bfb0; border-radius: 12px; overflow: hidden; margin-top: 8px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #eadfcd; vertical-align: top; }
+  th { background: #efe6d6; font: 700 12px/16px var(--font); text-transform: uppercase; letter-spacing: .05em; }
+  h2.sec { font: 700 20px/26px var(--font); margin: 30px 0 4px; }
+  code { font: 12px ui-monospace, monospace; background: #efe6d6; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<main class="idx">
+  <h1>Control iOS · wireframes y flujo</h1>
+  <p>Propuesta evolutiva sobre la app actual (5 pestañas, SwiftUI/HIG). Cada pantalla se muestra en 5 estados: con datos, vacío, skeleton de carga, error y sin conexión. Las cajas con borde discontinuo son hojas modales. Haz clic en una caja para abrir su wireframe. Sistema de diseño: <code>tokens.css</code> y <code>components.css</code>.</p>
+
+  <div class="tabs-bar"><span>Barra de pestañas:</span><span>⌂ Inicio</span><span>☑ Tareas</span><span>▦ Calendario</span><span>☺☺ Hogar</span><span>● Ajustes (hoy «Perfil»)</span></div>
+  <div class="legend"><span><i style="border-color:#3B5BDB"></i>navega a</span><span><i style="border-color:#B45309;border-top-style:dashed"></i>abre hoja modal / acción</span></div>
+
+  <div class="map" id="map">
+    <svg class="edges" id="edges"></svg>
+    <div class="cols">
+      <div class="col e0"><h2>E0 · Acceso (sin sesión)</h2>
+        <a class="node" id="auth-bienvenida" href="screens/auth-bienvenida.html"><small>AUTH-01</small>Bienvenida</a>
+        <a class="node" id="auth-login" href="screens/auth-login.html"><small>AUTH-02</small>Iniciar sesión</a>
+        <a class="node" id="auth-registro" href="screens/auth-registro.html"><small>AUTH-03</small>Registro</a>
+      </div>
+      <div class="col e1"><h2>E1 · Inicio</h2>
+        <a class="node" id="home-inicio" href="screens/home-inicio.html"><small>HOME-01</small>Inicio (resumen del día)</a>
+      </div>
+      <div class="col e2"><h2>E2 · Tareas</h2>
+        <a class="node" id="tasks-lista" href="screens/tasks-lista.html"><small>TASKS-01</small>Tareas</a>
+        <a class="node" id="tasks-listas" href="screens/tasks-listas.html"><small>TASKS-02</small>Listas</a>
+        <a class="node" id="tasks-detalle-lista" href="screens/tasks-detalle-lista.html"><small>TASKS-03</small>Detalle de lista</a>
+        <a class="node modal" id="tasks-form-tarea" href="screens/tasks-form-tarea.html"><small>TASKS-04</small>Nueva / editar tarea</a>
+        <a class="node modal" id="tasks-form-lista" href="screens/tasks-form-lista.html"><small>TASKS-05</small>Nueva / editar lista</a>
+      </div>
+      <div class="col e3"><h2>E3 · Calendario</h2>
+        <a class="node" id="cal-eventos" href="screens/cal-eventos.html"><small>CAL-01</small>Eventos</a>
+        <a class="node" id="cal-rutinas" href="screens/cal-rutinas.html"><small>CAL-02</small>Rutinas</a>
+        <a class="node" id="cal-calendarios" href="screens/cal-calendarios.html"><small>CAL-03</small>Calendarios</a>
+        <a class="node" id="cal-detalle-calendario" href="screens/cal-detalle-calendario.html"><small>CAL-04</small>Detalle de calendario</a>
+        <a class="node" id="cal-detalle-rutina" href="screens/cal-detalle-rutina.html"><small>CAL-08</small>Detalle de rutina</a>
+        <a class="node modal" id="cal-form-evento" href="screens/cal-form-evento.html"><small>CAL-05</small>Nuevo / editar evento</a>
+        <a class="node modal" id="cal-form-rutina" href="screens/cal-form-rutina.html"><small>CAL-06</small>Nueva / editar rutina</a>
+        <a class="node modal" id="cal-form-calendario" href="screens/cal-form-calendario.html"><small>CAL-07</small>Nuevo / editar calendario</a>
+      </div>
+      <div class="col e4"><h2>E4 · Hogar</h2>
+        <a class="node" id="hogar-hogar" href="screens/hogar-hogar.html"><small>HOGAR-01</small>Hogar</a>
+        <a class="node" id="hogar-sin-hogar" href="screens/hogar-sin-hogar.html"><small>HOGAR-02</small>Sin hogar</a>
+        <a class="node" id="hogar-admin-menu" href="screens/hogar-admin-menu.html"><small>HOGAR-03</small>Administración</a>
+        <a class="node" id="hogar-config" href="screens/hogar-config.html"><small>HOGAR-04</small>Configuración</a>
+        <a class="node" id="hogar-admins" href="screens/hogar-admins.html"><small>HOGAR-05</small>Administradores</a>
+        <a class="node" id="hogar-miembros" href="screens/hogar-miembros.html"><small>HOGAR-06</small>Miembros</a>
+        <a class="node" id="hogar-invitaciones" href="screens/hogar-invitaciones.html"><small>HOGAR-07</small>Invitaciones</a>
+        <a class="node" id="hogar-accesos" href="screens/hogar-accesos.html"><small>HOGAR-08</small>Accesos</a>
+        <a class="node" id="hogar-auditoria" href="screens/hogar-auditoria.html"><small>HOGAR-09</small>Auditoría</a>
+      </div>
+      <div class="col e5"><h2>E5 · Ajustes</h2>
+        <a class="node" id="aj-perfil" href="screens/aj-perfil.html"><small>AJ-01</small>Ajustes (Perfil)</a>
+        <a class="node" id="aj-editar-cuenta" href="screens/aj-editar-cuenta.html"><small>AJ-02</small>Editar cuenta</a>
+        <a class="node" id="aj-personas" href="screens/aj-personas.html"><small>AJ-03</small>Personas</a>
+        <a class="node modal" id="aj-form-persona" href="screens/aj-form-persona.html"><small>AJ-04</small>Nueva / editar persona</a>
+        <a class="node" id="aj-unirse" href="screens/aj-unirse.html"><small>AJ-05</small>Unirse a un hogar</a>
+      </div>
+      <div class="col"></div>
+    </div>
+  </div>
+
+  <h2 class="sec">Conexiones entre pantallas</h2>
+  <table id="conn"><thead><tr><th>Desde</th><th>Elemento</th><th>Hacia</th></tr></thead><tbody></tbody></table>
+
+  <h2 class="sec">Estados transversales</h2>
+  <table>
+    <tr><th>Estado</th><th>Patrón</th><th>Componente</th></tr>
+    <tr><td>Carga</td><td>Skeleton con la misma geometría; títulos reales, datos en shimmer; sin spinner a pantalla completa</td><td><code>.sk</code></td></tr>
+    <tr><td>Vacío</td><td>Ilustración de icono, título, una línea y una sola acción primaria</td><td><code>.empty</code></td></tr>
+    <tr><td>Error parcial</td><td>El error vive en la tarjeta o sección afectada, con «Reintentar»; el resto de la pantalla sigue usable</td><td><code>.inline-err</code></td></tr>
+    <tr><td>Error de pantalla</td><td>Cuando no hay nada que mostrar: ilustración + causa + «Reintentar»</td><td><code>.errbox</code></td></tr>
+    <tr><td>Error de escritura</td><td>Toast con reintento; el formulario conserva lo escrito</td><td><code>.toast</code></td></tr>
+    <tr><td>Sin conexión</td><td>Banner bajo el título con hora de los datos en caché (stale-if-error); escrituras atenuadas</td><td><code>.offline</code></td></tr>
+    <tr><td>Destructivo</td><td>Confirmación en hoja inferior con el nombre del elemento</td><td><code>.sheet</code> + <code>.scrim</code></td></tr>
+  </table>
+</main>
+
+<script>
+/* Tabla de conexiones: [desde, elemento, hacia, tipo] — tipo "m" = hoja modal */
+var EDGES = [
+ ["auth-bienvenida","Iniciar sesión","auth-login"],["auth-bienvenida","Registrarse","auth-registro"],
+ ["auth-login","Sesión iniciada","home-inicio"],["auth-registro","Cuenta creada","home-inicio"],
+ ["home-inicio","Tarjeta Tareas pendientes","tasks-lista"],["home-inicio","Tarjeta Hoy · Eventos","cal-eventos"],
+ ["home-inicio","Tarjeta Rutinas de hoy","cal-rutinas"],["home-inicio","Botón de hogar","hogar-hogar"],
+ ["tasks-lista","Segmento Listas","tasks-listas"],["tasks-lista","+ Nueva tarea","tasks-form-tarea","m"],
+ ["tasks-listas","Abrir lista","tasks-detalle-lista"],["tasks-listas","+ Nueva lista","tasks-form-lista","m"],
+ ["tasks-detalle-lista","Editar lista","tasks-form-lista","m"],["tasks-detalle-lista","+ Tarea","tasks-form-tarea","m"],
+ ["cal-eventos","+ Nuevo evento","cal-form-evento","m"],["cal-eventos","Segmento Rutinas","cal-rutinas"],
+ ["cal-rutinas","Abrir rutina","cal-detalle-rutina"],["cal-rutinas","+ Nueva rutina","cal-form-rutina","m"],
+ ["cal-rutinas","Segmento Calendarios","cal-calendarios"],
+ ["cal-calendarios","Abrir calendario","cal-detalle-calendario"],["cal-calendarios","+ Nuevo calendario","cal-form-calendario","m"],
+ ["cal-detalle-calendario","Editar","cal-form-calendario","m"],["cal-detalle-rutina","Editar","cal-form-rutina","m"],
+ ["hogar-hogar","Administración","hogar-admin-menu"],["hogar-hogar","Invitar","hogar-invitaciones"],
+ ["hogar-sin-hogar","Unirse con código","aj-unirse"],
+ ["hogar-admin-menu","Configuración","hogar-config"],["hogar-admin-menu","Administradores","hogar-admins"],
+ ["hogar-admin-menu","Miembros","hogar-miembros"],["hogar-admin-menu","Invitaciones","hogar-invitaciones"],
+ ["hogar-admin-menu","Accesos","hogar-accesos"],["hogar-admin-menu","Auditoría","hogar-auditoria"],
+ ["aj-perfil","Editar cuenta","aj-editar-cuenta"],["aj-perfil","Personas","aj-personas"],["aj-perfil","Unirse a un hogar","aj-unirse"],
+ ["aj-personas","+ Nueva persona","aj-form-persona","m"],["aj-unirse","Unido con éxito","hogar-hogar"],
+ ["aj-perfil","Cerrar sesión","auth-bienvenida"]
+];
+var tb = document.querySelector("#conn tbody"), names = {};
+document.querySelectorAll(".node").forEach(function(n){ names[n.id] = n.textContent.replace(/^[A-Z]+-\d+/, ""); });
+EDGES.forEach(function(e){ var r = tb.insertRow(); r.insertCell().textContent = names[e[0]]; r.insertCell().textContent = e[1] + (e[3] ? " (hoja modal)" : ""); r.insertCell().textContent = names[e[2]]; });
+function draw(){
+  var map = document.getElementById("map"), svg = document.getElementById("edges"), mb = map.getBoundingClientRect();
+  svg.setAttribute("viewBox", "0 0 " + map.scrollWidth + " " + map.scrollHeight);
+  svg.style.width = map.scrollWidth + "px"; svg.style.height = map.scrollHeight + "px";
+  var out = '<defs><marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#3B5BDB"/></marker><marker id="am" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#B45309"/></marker></defs>';
+  EDGES.forEach(function(e){
+    var a = document.getElementById(e[0]).getBoundingClientRect(), b = document.getElementById(e[2]).getBoundingClientRect();
+    var ax = a.left - mb.left + map.scrollLeft, ay = a.top - mb.top + a.height/2, bx = b.left - mb.left + map.scrollLeft, by = b.top - mb.top + b.height/2, x1, x2;
+    if (Math.abs(a.left - b.left) < 20) { x1 = ax + a.width; x2 = bx + b.width; var cx = x1 + 22; out += '<path d="M'+x1+' '+ay+' C'+cx+' '+ay+' '+cx+' '+by+' '+x2+' '+by+'" fill="none" stroke="'+(e[3]?'#B45309':'#3B5BDB')+'" stroke-width="1.4" '+(e[3]?'stroke-dasharray="5 3"':'')+' opacity=".7" marker-end="url(#'+(e[3]?'am':'a')+')"/>'; return; }
+    if (bx > ax) { x1 = ax + a.width; x2 = bx; } else { x1 = ax; x2 = bx + b.width; }
+    var mx = (x1 + x2) / 2;
+    out += '<path d="M'+x1+' '+ay+' C'+mx+' '+ay+' '+mx+' '+by+' '+x2+' '+by+'" fill="none" stroke="'+(e[3]?'#B45309':'#3B5BDB')+'" stroke-width="1.4" '+(e[3]?'stroke-dasharray="5 3"':'')+' opacity=".7" marker-end="url(#'+(e[3]?'am':'a')+')"/>';
+  });
+  svg.innerHTML = out;
+}
+window.addEventListener("load", draw); window.addEventListener("resize", draw);
+</script>
+</body>
+</html>
