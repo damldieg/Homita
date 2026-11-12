@@ -25,7 +25,7 @@ public struct ProfileView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     // Título propio: el título grande de la barra no se ve con el scroll de tarjetas.
-                    Text("Perfil")
+                    Text("Ajustes")
                         .font(HomitaFont.inter(34, weight: .bold, relativeTo: .largeTitle))
                         .foregroundStyle(Palette.ink)
                         .frame(maxWidth: .infinity, alignment: .leading)

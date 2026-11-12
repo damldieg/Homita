@@ -906,7 +906,7 @@ struct InvitationCreateView: View {
     static func inviteMessage(code: String, homeName: String) -> String {
         "Te invito a unirte a mi hogar «\(homeName)» en Homita.\n\n"
             + "1. Abre Homita y entra con tu cuenta (o crea una).\n"
-            + "2. Ve a Perfil › Unirse a un hogar con un código.\n"
+            + "2. Ve a Ajustes › Unirse a un hogar con un código.\n"
             + "3. Pega este código: \(code)\n\n"
             + "El código caduca en 7 días y solo sirve una vez."
     }

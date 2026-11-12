@@ -41,7 +41,7 @@ struct PersonSelector: View {
     var body: some View {
         HomitaPanel("Personas", systemImage: "person.2", count: selected.count) {
             if persons.isEmpty {
-                HomitaFootnote(text: "Aún no tienes personas. Créalas en Perfil › Personas.")
+                HomitaFootnote(text: "Aún no tienes personas. Créalas en Ajustes › Personas.")
             }
             ForEach(persons, id: \.id) { person in
                 HStack(spacing: 12) {

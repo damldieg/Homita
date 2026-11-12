@@ -133,7 +133,7 @@ final class ControlAppAuditTests: XCTestCase {
 
     func test03_Pestanas() {
         ensureLoggedIn()
-        for (index, name) in ["Inicio", "Tareas", "Calendario", "Hogar", "Perfil"].enumerated() {
+        for (index, name) in ["Inicio", "Tareas", "Calendario", "Hogar", "Ajustes"].enumerated() {
             openTab(name)
             shot(String(format: "1%02d-pestana-%@", index, name.lowercased()))
         }
@@ -226,7 +226,7 @@ final class ControlAppAuditTests: XCTestCase {
 
     func test09_PerfilYAjustes() {
         ensureLoggedIn()
-        openTab("Perfil")
+        openTab("Ajustes")
         shot("60-perfil")
         tap("Personas", timeout: 4)
         shot("61-personas")
