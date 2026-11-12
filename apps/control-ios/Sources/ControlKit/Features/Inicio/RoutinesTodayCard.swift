@@ -216,8 +216,6 @@ struct RoutinesTodayCard: View {
     }
 
     private func emptyText(_ text: String) -> some View {
-        Text(text)
-            .font(HomitaFont.inter(15, relativeTo: .body))
-            .foregroundStyle(Palette.inkSoft)
+        HomitaEmptyNote(text: text)
     }
 }

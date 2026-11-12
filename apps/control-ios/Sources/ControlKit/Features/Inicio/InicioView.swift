@@ -253,9 +253,7 @@ public struct InicioView: View {
     }
 
     private func emptyText(_ text: String) -> some View {
-        Text(text)
-            .font(HomitaFont.inter(15, relativeTo: .body))
-            .foregroundStyle(Palette.inkSoft)
+        HomitaEmptyNote(text: text)
     }
 
     /// «HH:mm» de un `date_at` (`Y-m-d H:i:s`); si no se puede leer, el texto original.

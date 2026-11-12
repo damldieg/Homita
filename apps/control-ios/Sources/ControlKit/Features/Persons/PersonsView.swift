@@ -53,10 +53,7 @@ struct PersonsView: View {
             }
             if store.persons.isEmpty && !store.isLoading {
                 HomitaCard {
-                    Text("Sin personas")
-                        .font(HomitaFont.inter(16, relativeTo: .body))
-                        .foregroundStyle(Palette.inkSoft)
-                        .frame(maxWidth: .infinity)
+                    HomitaEmptyNote(text: "Sin personas")
                 }
                 .homitaRow()
             }

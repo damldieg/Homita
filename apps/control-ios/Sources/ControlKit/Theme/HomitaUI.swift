@@ -578,8 +578,9 @@ struct HomitaEmptyState: View {
     let illustration: HomitaIllustrationKind
     let title: String
     let message: String
-    let actionTitle: String
-    let action: () -> Void
+    /// Acción primaria opcional (E0-04): sin ella no se muestra botón.
+    var actionTitle: String?
+    var action: (() -> Void)?
 
     var body: some View {
         HomitaCard {
@@ -593,7 +594,9 @@ struct HomitaEmptyState: View {
                     .font(HomitaFont.inter(15, relativeTo: .body))
                     .foregroundStyle(Palette.inkSoft)
                     .multilineTextAlignment(.center)
-                HomitaButton(title: actionTitle, action: action)
+                if let actionTitle, let action {
+                    HomitaButton(title: actionTitle, action: action)
+                }
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
