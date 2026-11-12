@@ -88,7 +88,7 @@ struct RoutineEditorView: View {
                             } label: {
                                 Text(label)
                                     .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .body))
-                                    .foregroundStyle(days.contains(iso) ? Color.white : Palette.ink)
+                                    .foregroundStyle(days.contains(iso) ? Palette.onFill : Palette.ink)
                                     .frame(width: 38, height: 38)
                                     .background(days.contains(iso) ? Palette.accent : Palette.background, in: Circle())
                             }

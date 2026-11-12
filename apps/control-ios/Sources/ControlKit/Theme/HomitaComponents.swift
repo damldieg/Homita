@@ -61,6 +61,6 @@ struct HomitaPrimaryButton: View {
 }
 
 #if canImport(ComponentsKit)
-/// Color fijo de la paleta Homita como `UniversalColor` de ComponentsKit.
-func uc(_ hex: String) -> UniversalColor { .universal(.hex(hex)) }
+/// Color de la paleta como `UniversalColor` adaptativo (claro/oscuro).
+func uc(_ hex: String) -> UniversalColor { .universal(.color(Palette.adaptive(hex))) }
 #endif

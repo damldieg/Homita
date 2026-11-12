@@ -20,35 +20,38 @@ enum Palette {
     // MARK: Acción y estados
 
     /// Acción principal. El valor en hex se expone para APIs que no aceptan `Color` (ComponentsKit).
-    static let accent = Color.token(light: accentHex, dark: "#E5485F")
-    static let accentPress = Color.token(light: "#952634")
+    static let accent = Color.token(light: accentHex, dark: "#FF6B7A")
+    static let accentPress = Color.token(light: "#952634", dark: "#E5485F")
     static let accentSoft = Color.token(light: "#F4DDE0", dark: "#4A1F27")
-    static let ok = Color.token(light: "#2F5E3B")
+    static let ok = Color.token(light: "#2F5E3B", dark: "#7FD19A")
     static let okSoft = Color.token(light: "#E6F0E0", dark: "#1E3A2A")
-    static let warn = Color.token(light: "#7A5800")
+    static let warn = Color.token(light: "#7A5800", dark: "#F5C842")
     static let warnSoft = Color.token(light: "#FFF4CC", dark: "#43321A")
-    static let err = Color.token(light: "#B3261E")
+    static let err = Color.token(light: "#B3261E", dark: "#FF8A80")
     static let errSoft = Color.token(light: "#F9DEDC", dark: "#4A2220")
-    static let info = Color.token(light: "#3B5BDB")
+    static let info = Color.token(light: "#3B5BDB", dark: "#9DB2FF")
     static let infoSoft = Color.token(light: "#E0E7FB", dark: "#232C52")
+
+    /// Texto e iconos sobre un relleno de color (acción, casilla marcada, día elegido): blanco en claro, tinta en oscuro.
+    static let onFill = Color.token(light: "#FFFFFF", dark: "#1B1713")
 
     // MARK: Estados de rutina («Rutinas de hoy»)
 
     /// En curso.
-    static let now = Color.token(light: "#3F7D4E")
-    static let nowStrong = Color.token(light: "#2F5E3B")
-    static let nowBg = Color.token(light: "#E6F0E0")
-    static let nowTrack = Color.token(light: "#C8DDC0")
+    static let now = Color.token(light: "#3F7D4E", dark: "#7FD19A")
+    static let nowStrong = Color.token(light: "#2F5E3B", dark: "#8FD9A8")
+    static let nowBg = Color.token(light: "#E6F0E0", dark: "#1E3A2A")
+    static let nowTrack = Color.token(light: "#C8DDC0", dark: "#2F5A3D")
     /// Aviso (≤ 60 min).
-    static let soon = Color.token(light: "#D9A400")
-    static let soonStrong = Color.token(light: "#5C4300")
-    static let soonText = Color.token(light: "#7A5800")
-    static let soonBg = Color.token(light: "#FFF4CC")
-    static let soonFill = Color.token(light: "#A66F00")
-    static let soonTrack = Color.token(light: "#F6E3A1")
-    static let soonTile = Color.token(light: "#F5C842")
+    static let soon = Color.token(light: "#D9A400", dark: "#F5C842")
+    static let soonStrong = Color.token(light: "#5C4300", dark: "#F5D26B")
+    static let soonText = Color.token(light: "#7A5800", dark: "#F5C842")
+    static let soonBg = Color.token(light: "#FFF4CC", dark: "#43321A")
+    static let soonFill = Color.token(light: "#A66F00", dark: "#F5C842")
+    static let soonTrack = Color.token(light: "#F6E3A1", dark: "#5C4A22")
+    static let soonTile = Color.token(light: "#F5C842", dark: "#F5C842")
     /// Aún no empieza.
-    static let farBg = Color.token(light: "#F8F3EA")
+    static let farBg = Color.token(light: "#F8F3EA", dark: "#2C251F")
 
     // MARK: Personas (colores de referencia; los reales llegan del servidor)
 
@@ -64,6 +67,27 @@ enum Palette {
     /// Color de completado (casilla de tarea). Token `--now`.
     static let onlineHex = "#3F7D4E"
     /// Color por defecto de calendarios, listas y rutinas sin color del servidor.
+    /// Par oscuro de cada hex de la paleta (WCAG AA). Lo usa `adaptive(_:)` para ComponentsKit.
+    static let darkEquivalents: [String: String] = [
+        accentHex: "#FF6B7A",
+        "#FFFFFF": "#1B1713",
+        inkHex: "#F4ECE0",
+        inkSoftHex: "#BFB3A4",
+        inkMutedHex: "#988C7D",
+        backgroundHex: "#1B1713",
+        surfaceHex: "#241E19",
+        lineHex: "#3A322A",
+        okHex: "#7FD19A",
+        soonHex: "#F5C842",
+        onlineHex: "#7FD19A",
+        "#6923E2": "#A78BFA",
+    ]
+
+    /// Color adaptativo para un hex de la paleta: la variante oscura si existe, si no el mismo.
+    static func adaptive(_ light: String) -> Color {
+        Color.token(light: light, dark: darkEquivalents[light])
+    }
+
     static let fallbackItem = "#6923E2"
     /// Muestras fijas del selector de color (P-06): acento, personas, estados y azul de calendario.
     static let swatches = ["#B5313F", "#6D28D9", "#0E9F6E", "#F59E0B", "#E11D48", "#0284C7", "#3B5BDB", "#2F5E3B"]

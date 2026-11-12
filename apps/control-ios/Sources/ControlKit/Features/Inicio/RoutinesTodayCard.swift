@@ -316,7 +316,7 @@ struct RoutinesTodayCard: View {
         HStack(spacing: Spacing.s3) {
             Image(systemName: "checkmark")
                 .font(.system(size: 13, weight: .heavy))
-                .foregroundStyle(.white)
+                .foregroundStyle(Palette.onFill)
                 .frame(width: 26, height: 26)
                 .background(Palette.ok, in: Circle())
             VStack(alignment: .leading, spacing: 2) {

@@ -340,7 +340,7 @@ struct HomitaFloatingAddButton: View {
         Button(action: action) {
             Label(title, systemImage: "plus")
                 .font(HomitaFont.inter(17, weight: .semibold, relativeTo: .body))
-                .foregroundStyle(.white)
+                .foregroundStyle(Palette.onFill)
                 .padding(.horizontal, 22)
                 .padding(.vertical, 12)
                 .background(Palette.accent, in: Capsule())
