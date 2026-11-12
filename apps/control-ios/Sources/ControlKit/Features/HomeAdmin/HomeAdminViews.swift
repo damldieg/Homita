@@ -19,7 +19,7 @@ struct HomeAdminView: View {
                 NavigationLink {
                     HomeSettingsView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Configuración", systemImage: "gearshape", tint: Palette.inkSoftHex)
+                    HomitaLinkRow(title: "Configuración", subtitle: "Nombre y zona horaria", systemImage: "gearshape", tint: Palette.inkSoftHex)
                 }
                 .buttonStyle(.plain)
             }
@@ -27,7 +27,7 @@ struct HomeAdminView: View {
                 NavigationLink {
                     HomeAdministratorsView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Administradores", systemImage: "person.badge.key", tint: Palette.accentHex)
+                    HomitaLinkRow(title: "Administradores", subtitle: "Quién gestiona el hogar", systemImage: "person.badge.key", tint: Palette.accentHex)
                 }
                 .buttonStyle(.plain)
             }
@@ -35,7 +35,7 @@ struct HomeAdminView: View {
                 NavigationLink {
                     HomeMembersView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Miembros", systemImage: "person.2", tint: Palette.onlineHex)
+                    HomitaLinkRow(title: "Miembros", subtitle: "Personas, tipos y estado", systemImage: "person.2", tint: Palette.onlineHex)
                 }
                 .buttonStyle(.plain)
             }
@@ -43,7 +43,7 @@ struct HomeAdminView: View {
                 NavigationLink {
                     HomeInvitationsView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Invitaciones", systemImage: "envelope.badge", tint: Palette.soonHex)
+                    HomitaLinkRow(title: "Invitaciones", subtitle: "Códigos para unirse al hogar", systemImage: "envelope.badge", tint: Palette.soonHex)
                 }
                 .buttonStyle(.plain)
             }
@@ -51,7 +51,7 @@ struct HomeAdminView: View {
                 NavigationLink {
                     MemberPermissionsView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Accesos", systemImage: "lock.shield", tint: Palette.accentHex)
+                    HomitaLinkRow(title: "Accesos", subtitle: "Qué puede hacer cada persona", systemImage: "lock.shield", tint: Palette.accentHex)
                 }
                 .buttonStyle(.plain)
             }
@@ -59,7 +59,7 @@ struct HomeAdminView: View {
                 NavigationLink {
                     HomeAuditView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Auditoría", systemImage: "list.bullet.clipboard", tint: Palette.inkSoftHex)
+                    HomitaLinkRow(title: "Auditoría", subtitle: "Cambios recientes del hogar", systemImage: "list.bullet.clipboard", tint: Palette.inkSoftHex)
                 }
                 .buttonStyle(.plain)
             }
@@ -518,17 +518,16 @@ struct HomeAuditView: View {
                     ForEach(store.items, id: \.id) { item in
                         HomitaCard {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(item.action)
+                                // E4-10: frase en español; el código técnico queda debajo.
+                                Text(AuditPhrase.sentence(action: item.action, actor: item.actorName, payload: item.payload.values))
                                     .font(HomitaFont.inter(16, weight: .semibold, relativeTo: .body))
                                     .foregroundStyle(Palette.ink)
                                 Text("\(item.actorName ?? "Sistema") · \(item.createdAt)")
                                     .font(HomitaFont.inter(13, relativeTo: .footnote))
                                     .foregroundStyle(Palette.inkSoft)
-                                ForEach(item.payload.lines, id: \.self) { line in
-                                    Text(line)
-                                        .font(HomitaFont.inter(12, relativeTo: .caption))
-                                        .foregroundStyle(Palette.inkMuted)
-                                }
+                                Text(item.action)
+                                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(Palette.inkMuted)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
