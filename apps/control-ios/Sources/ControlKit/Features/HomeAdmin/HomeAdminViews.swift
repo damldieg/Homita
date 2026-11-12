@@ -103,7 +103,7 @@ struct HomeSettingsView: View {
         HomitaForm {
             switch store.state {
             case .idle, .loading:
-                HomeLoadingView()
+                HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
             case .failed(let message):
                 HomeErrorView(message: message) { Task { await store.load() } }
             case .loaded:
@@ -223,7 +223,7 @@ struct HomeAdministratorsView: View {
         HomitaForm {
             switch store.state {
             case .idle, .loading:
-                HomeLoadingView()
+                HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
             case .failed(let message):
                 HomeErrorView(message: message) { Task { await store.load() } }
             case .loaded:
@@ -350,7 +350,7 @@ struct MemberPermissionsView: View {
         HomitaForm {
             switch store.state {
             case .idle, .loading:
-                HomeLoadingView()
+                HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
             case .failed(let message):
                 HomeErrorView(message: message) { Task { await store.load() } }
             case .loaded:
@@ -511,7 +511,7 @@ struct HomeAuditView: View {
             } else {
                 switch store.state {
                 case .idle, .loading:
-                    HomeLoadingView()
+                    HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
                 case .failed(let message):
                     HomeErrorView(message: message) { Task { await store.load() } }
                 case .loaded:
@@ -575,7 +575,7 @@ struct HomeMembersView: View {
         HomitaForm {
             switch store.state {
             case .idle, .loading:
-                HomeLoadingView()
+                HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
             case .failed(let message):
                 HomeErrorView(message: message) { Task { await store.load() } }
             case .loaded:
@@ -767,7 +767,7 @@ struct HomeInvitationsView: View {
         HomitaForm {
             switch store.state {
             case .idle, .loading:
-                HomeLoadingView()
+                HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
             case .failed(let message):
                 HomeErrorView(message: message) { Task { await store.load() } }
             case .loaded:
