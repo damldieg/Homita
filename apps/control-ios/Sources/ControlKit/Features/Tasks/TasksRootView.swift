@@ -172,6 +172,7 @@ struct TasksView: View {
         .safeAreaInset(edge: .bottom) {
             if hasTasks {
                 HomitaFloatingAddButton(title: "Nueva tarea") { showCreateTask = true }
+                    .accessibilityIdentifier("tareas.alta")
             }
         }
         .toolbar {

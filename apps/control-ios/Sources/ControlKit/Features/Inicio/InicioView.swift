@@ -40,10 +40,10 @@ public struct InicioView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     greeting
-                    eventsCard
-                    tasksCard
-                    routinesCard
-                    quickActions
+                    eventsCard.accessibilityIdentifier("inicio.tarjeta.eventos")
+                    tasksCard.accessibilityIdentifier("inicio.tarjeta.tareas")
+                    routinesCard.accessibilityIdentifier("inicio.tarjeta.rutinas")
+                    quickActions.accessibilityIdentifier("inicio.accesos")
                 }
                 .padding(20)
             }

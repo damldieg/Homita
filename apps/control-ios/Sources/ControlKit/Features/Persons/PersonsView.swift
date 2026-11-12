@@ -36,6 +36,8 @@ struct PersonsView: View {
                                         .foregroundStyle(Palette.ink)
                                 }
                                 .buttonStyle(.borderless)
+                                .accessibilityLabel("Editar \(person.name)")
+                                .accessibilityIdentifier("personas.editar.\(person.id)")
                             }
                             if PersonActions.available(editable: person.isEditable).contains(.delete) {
                                 Button(role: .destructive) {
@@ -46,6 +48,8 @@ struct PersonsView: View {
                                         .foregroundStyle(Palette.accent)
                                 }
                                 .buttonStyle(.borderless)
+                                .accessibilityLabel("Eliminar \(person.name)")
+                                .accessibilityIdentifier("personas.eliminar.\(person.id)")
                             }
                         }
                     }
@@ -72,6 +76,7 @@ struct PersonsView: View {
                     Image(systemName: "plus")
                         .foregroundStyle(Palette.ink)
                         .accessibilityLabel("Nueva persona")
+                        .accessibilityIdentifier("personas.alta")
                 }
             }
         }
