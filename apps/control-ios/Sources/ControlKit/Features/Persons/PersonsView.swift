@@ -10,53 +10,78 @@ struct PersonsView: View {
     @State private var pendingPersonDelete: PersonEntry?
     @State private var showPersonDelete = false
 
+    /// Fila de la lista (AJ-03): punto de color, nombre, badge si es compartida y lápiz/papelera solo en las propias.
+    private func personRow(_ person: PersonEntry) -> some View {
+        let actions = PersonActions.available(editable: person.isEditable)
+        return HStack(spacing: 12) {
+            Circle()
+                .fill(Color(hex: person.color))
+                .frame(width: 14, height: 14)
+            Text(person.name)
+                .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+            if !person.isEditable {
+                HomitaBadge(title: "Compartida (solo lectura)", tintHex: Palette.inkSoftHex)
+            }
+            Spacer(minLength: 8)
+            if actions.contains(.edit) {
+                Button {
+                    personToEdit = person
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Palette.inkSoft)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Editar \(person.name)")
+                .accessibilityIdentifier("personas.editar.\(person.id)")
+            }
+            if actions.contains(.delete) {
+                Button {
+                    pendingPersonDelete = person
+                    showPersonDelete = true
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Palette.err)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Eliminar \(person.name)")
+                .accessibilityIdentifier("personas.eliminar.\(person.id)")
+            }
+        }
+    }
+
     var body: some View {
         List {
-            Section {
-                ForEach(store.persons, id: \.id) { person in
-                    HomitaCard {
-                        HStack(spacing: 12) {
-                            Circle()
-                                .fill(Color(hex: person.color))
-                                .frame(width: 14, height: 14)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(person.name)
-                                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
-                                    .foregroundStyle(Palette.ink)
-                                if !person.isEditable {
-                                    HomitaBadge(title: "Compartida (solo lectura)", tintHex: Palette.inkSoftHex)
-                                }
-                            }
-                            Spacer()
-                            if PersonActions.available(editable: person.isEditable).contains(.edit) {
-                                Button {
-                                    personToEdit = person
-                                } label: {
-                                    Image(systemName: "pencil")
-                                        .foregroundStyle(Palette.ink)
-                                }
-                                .buttonStyle(.borderless)
-                                .accessibilityLabel("Editar \(person.name)")
-                                .accessibilityIdentifier("personas.editar.\(person.id)")
-                            }
-                            if PersonActions.available(editable: person.isEditable).contains(.delete) {
-                                Button(role: .destructive) {
-                                    pendingPersonDelete = person
-                                    showPersonDelete = true
-                                } label: {
-                                    Image(systemName: "trash")
-                                        .foregroundStyle(Palette.accent)
-                                }
-                                .buttonStyle(.borderless)
-                                .accessibilityLabel("Eliminar \(person.name)")
-                                .accessibilityIdentifier("personas.eliminar.\(person.id)")
-                            }
-                        }
+            // AJ-03 estado 3: esqueleto mientras carga (sin texto de «Cargando»).
+            if store.isLoading && store.persons.isEmpty {
+                HomitaSkeletonRows(count: 3, height: 52, label: "Cargando personas").homitaRow()
+            }
+            if !store.persons.isEmpty {
+                Section {
+                    ForEach(store.persons, id: \.id) { person in
+                        personRow(person)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.visible, edges: .bottom)
+                            .listRowSeparatorTint(Palette.line)
+                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                     }
-                    .homitaRow()
+                } header: {
+                    HomitaSectionHeader(title: "Personas", count: store.persons.count, systemImage: "person.2")
                 }
-            } header: {
-                HomitaSectionHeader(title: "Personas", count: store.persons.count, systemImage: "person.2")
+                if store.persons.contains(where: { !$0.isEditable }) {
+                    Text("Las personas compartidas vienen de otro hogar. Su nombre y color se cambian desde ese hogar.")
+                        .font(HomitaFont.inter(13, relativeTo: .footnote))
+                        .foregroundStyle(Palette.inkSoft)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
             }
             if store.persons.isEmpty && !store.isLoading {
                 HomitaCard {

@@ -3,22 +3,19 @@ import SwiftUI
 import ComponentsKit
 #endif
 
-/// Carga del hogar activo.
+/// Carga del hogar activo: solo esqueleto con la forma de una pantalla (sin spinner ni texto).
 struct HomeLoadingView: View {
     var body: some View {
-        HomitaCard {
-            HStack(spacing: 12) {
-                #if canImport(ComponentsKit)
-                SULoading(model: LoadingVM { $0.color = ComponentColor(main: uc(Palette.accentHex), contrast: uc(Palette.whiteHex)) })
-                #else
-                ProgressView()
-                #endif
-                Text("Cargando hogar…")
-                    .font(HomitaFont.inter(16, relativeTo: .body))
-                    .foregroundStyle(Palette.inkSoft)
-            }
-            .frame(maxWidth: .infinity)
+        VStack(alignment: .leading, spacing: Spacing.s5) {
+            HomitaSkeletonBlock(height: 40)
+                .frame(maxWidth: 220)
+            HomitaSkeletonBlock(height: 18)
+                .frame(maxWidth: 140)
+            HomitaSkeletonRows(count: 3, height: 64, label: "Cargando hogar")
         }
+        .padding(Spacing.s5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.background.ignoresSafeArea())
     }
 }
 
