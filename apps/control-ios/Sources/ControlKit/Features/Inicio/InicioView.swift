@@ -156,7 +156,8 @@ public struct InicioView: View {
                         .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
                         .foregroundStyle(Palette.inkSoft)
                 }
-                ForEach(page.tasks) { task in
+                // E1-03: máximo 5 pendientes por página; el resto se ve en «Ver más».
+                ForEach(page.tasks.prefix(5)) { task in
                     HStack(spacing: 12) {
                         HomitaCheckbox(isOn: task.isCompleted, tintHex: Palette.onlineHex) {
                             Task { await store.toggleComplete(task) }
