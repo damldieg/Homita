@@ -259,6 +259,12 @@ struct TasksView: View {
         .homitaConfirm(DeleteConfirmation.message(names: completedNames, consequence: "Se eliminarán las tareas completadas de esta lista."), isPresented: $showCompletedDelete, confirmTitle: "Eliminar") {
             if let id = completedListId { Task { await store.deleteCompleted(listId: id) } }
         }
+        .overlay {
+            // Bloquea la interacción mientras se borran las completadas.
+            if store.isDeletingCompleted {
+                HomitaLoadingOverlay(message: "Eliminando completadas…")
+            }
+        }
     }
 }
 

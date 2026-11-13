@@ -40,6 +40,8 @@ public final class TasksStore: WriteFailureReporting {
     /// Personas invitables a una tarea (selector del editor, 0025).
     public private(set) var persons: [PersonEntry] = []
     public private(set) var isLoading = false
+    /// Borrado masivo de completadas en curso: bloquea la lista hasta que termina.
+    public private(set) var isDeletingCompleted = false
     /// Primera carga de listas y de tareas completada (loader hasta entonces).
     public private(set) var hasLoadedLists = false
     public private(set) var hasLoadedTasks = false
@@ -142,11 +144,34 @@ public final class TasksStore: WriteFailureReporting {
         if !ok { await loadTasks() }
     }
 
-    /// Borra todas las tareas completadas de una lista (botón de la lista, con confirmación).
+    /// Borra todas las tareas completadas de una lista en paralelo, espera a todas y recarga una vez.
+    /// Solo desaparecen las que el servidor confirma; las que fallen siguen en la lista y se avisa.
     public func deleteCompleted(listId: Int) async {
         let completed = tasks.filter { $0.task_list_id == listId && $0.isCompleted }
-        for task in completed {
-            await deleteTask(task)
+        guard !completed.isEmpty, !isDeletingCompleted else { return }
+        isDeletingCompleted = true
+        defer { isDeletingCompleted = false }
+
+        let repo = tasksRepo
+        var failed = 0
+        await withTaskGroup(of: Bool.self) { group in
+            for task in completed {
+                group.addTask {
+                    do {
+                        _ = try await repo.delete(id: task.id)
+                        return true
+                    } catch {
+                        return false
+                    }
+                }
+            }
+            for await ok in group where !ok {
+                failed += 1
+            }
+        }
+        await loadTasks()
+        if failed > 0 {
+            rejectWrite("No se pudieron eliminar \(failed) de \(completed.count) tareas completadas")
         }
     }
 
