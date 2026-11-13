@@ -193,7 +193,9 @@ struct TasksView: View {
                 .homitaRow()
             }
         }
+        #if os(iOS)
         .listStyle(.insetGrouped)
+        #endif
         .homitaList()
         .onChange(of: expandRequest, initial: true) { applyExpandRequest() }
         .onChange(of: store.hasLoadedTasks) { applyExpandRequest() }
