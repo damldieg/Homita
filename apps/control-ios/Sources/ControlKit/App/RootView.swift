@@ -6,6 +6,8 @@ import SwiftUI
 public struct RootView: View {
     @State private var session: SessionStore
     @State private var services: AppServices
+    /// Animación de marca activa (arranque en frío, login o reapertura con sesión); nil = ninguna.
+    @State private var intro: HomitaIntro.Style?
     @AppStorage(AppearancePreference.storageKey) private var appearance = AppearancePreference.system.rawValue
 
     public init() {
@@ -24,6 +26,7 @@ public struct RootView: View {
         }
         #endif
         _session = State(initialValue: session)
+        _intro = State(initialValue: session.session == nil ? .first : .returning)
         _services = State(initialValue: AppServices(config: config, session: session, tokenStore: tokenStore))
     }
 
@@ -37,20 +40,31 @@ public struct RootView: View {
     }
 
     public var body: some View {
-        Group {
-            if session.session == nil {
-                WelcomeView(services: services)
-            } else if isResolvingHome {
-                // Carga inicial: solo esqueleto a pantalla completa, sin pestañas ni barra inferior.
-                HomeLoadingView()
-            } else {
-                MainTabView(services: services)
+        ZStack {
+            Group {
+                if session.session == nil {
+                    WelcomeView(services: services)
+                } else if isResolvingHome {
+                    // Carga inicial: solo esqueleto a pantalla completa, sin pestañas ni barra inferior.
+                    HomeLoadingView()
+                } else {
+                    MainTabView(services: services)
+                }
+            }
+            .task(id: session.session?.id) {
+                await services.homeContext.load(using: services.homes)
+            }
+            if let style = intro {
+                HomitaIntro(style: style) { intro = nil }
+                    .transition(.identity)
+                    .zIndex(1)
             }
         }
-        .task(id: session.session?.id) {
-            await services.homeContext.load(using: services.homes)
-        }
         .environment(session)
+        // Sin sesión → con sesión = login recién hecho (no se dispara en el arranque ni al refrescar el token).
+        .onChange(of: session.session?.id) { old, new in
+            if old == nil, new != nil { intro = .login }
+        }
         .preferredColorScheme((AppearancePreference(rawValue: appearance) ?? .system).colorScheme)
     }
 }

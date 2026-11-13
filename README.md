@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/homita-logo.svg" width="360" alt="Homita" />
+</p>
+
 # Homita 🖼️
 
 Un marco de fotos digital de unos 80 € convertido en la pantalla de la familia: hora, tiempo, eventos, rutinas y tareas de un vistazo, colgado en la pared, sin la app del fabricante y sin suscripciones.
