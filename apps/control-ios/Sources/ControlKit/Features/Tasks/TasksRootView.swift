@@ -163,7 +163,7 @@ struct TasksView: View {
                             } onEdit: {
                                 taskToEdit = task
                             }
-                            .homitaRow()
+                            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                             .listRowBackground(GroupRowBackground(first: false, last: index == group.tasks.count - 1))
                             .listRowSeparator(index == group.tasks.count - 1 ? .hidden : .visible, edges: .bottom)
                             .listRowSeparatorTint(Palette.line)

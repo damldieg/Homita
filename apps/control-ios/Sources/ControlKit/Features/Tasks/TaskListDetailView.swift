@@ -65,7 +65,7 @@ struct TaskListDetailView: View {
                         } onEdit: {
                             taskToEdit = task
                         }
-                        .homitaRow()
+                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                         .listRowBackground(GroupRowBackground(first: index == 0, last: index == pending.count - 1))
                         .listRowSeparator(index == pending.count - 1 ? .hidden : .visible, edges: .bottom)
                         .listRowSeparatorTint(Palette.line)
@@ -92,7 +92,7 @@ struct TaskListDetailView: View {
                         } onEdit: {
                             taskToEdit = task
                         }
-                        .homitaRow()
+                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                         .listRowBackground(GroupRowBackground(first: index == 0, last: index == completed.count - 1))
                         .listRowSeparator(index == completed.count - 1 ? .hidden : .visible, edges: .bottom)
                         .listRowSeparatorTint(Palette.line)
