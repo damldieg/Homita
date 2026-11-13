@@ -35,6 +35,10 @@ public struct TasksRootView: View {
                 await store.loadTasks()
                 await store.loadPersons()
             }
+            .onChange(of: segment) { _, newValue in
+                // Al volver a Tareas desde Listas, recargar: las tareas pueden haber quedado filtradas o desactualizadas.
+                if newValue == 0 { Task { await store.loadTasks() } }
+            }
             .onChange(of: listRequest, initial: true) { _, id in
                 // Muestra todas las listas (sin filtro); TasksView pliega las demás.
                 guard id != nil else { return }
