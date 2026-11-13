@@ -17,10 +17,12 @@ public struct RootView: View {
         let session = SessionStore(store: tokenStore)
         session.restore()
         ConnectivityMonitor.shared.start()
-        // Solo para la suite de UI: arranca siempre sin sesión guardada (el Keychain del simulador persiste entre corridas).
+        #if DEBUG
+        // Solo para la suite de UI (build Debug): arranca sin sesión guardada; el Keychain del simulador persiste entre corridas.
         if ProcessInfo.processInfo.arguments.contains("-uiTestingResetSession") {
             session.signOut()
         }
+        #endif
         _session = State(initialValue: session)
         _services = State(initialValue: AppServices(config: config, session: session, tokenStore: tokenStore))
     }
