@@ -198,7 +198,8 @@ final class ControlAppAuditTests: XCTestCase {
         ensureLoggedIn()
         openTab("Inicio")
         shot("10-inicio")
-        if tap("+ Evento", timeout: 3, required: false) {
+        // «+» de la cabecera abre un menú Tarea / Evento.
+        if tap("Crear", timeout: 3, required: false), tap("Evento", timeout: 3, required: false) {
             shot("11-inicio-form-evento")
             cancelSheet()
         }

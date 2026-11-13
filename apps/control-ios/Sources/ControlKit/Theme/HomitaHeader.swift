@@ -38,6 +38,20 @@ extension HomitaHeader where Actions == EmptyView {
     }
 }
 
+/// Aspecto del botón circular de la cabecera: 44 pt con icono. Lo comparten el botón y el menú.
+struct HomitaHeaderIcon: View {
+    let systemImage: String
+
+    var body: some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(Palette.ink)
+            .frame(width: 44, height: 44)
+            .background(Palette.surface, in: Circle())
+            .overlay(Circle().stroke(Palette.line, lineWidth: 1))
+    }
+}
+
 /// Botón circular de la cabecera: 44 pt, icono y etiqueta de accesibilidad.
 struct HomitaHeaderButton: View {
     let systemImage: String
@@ -46,12 +60,7 @@ struct HomitaHeaderButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Palette.ink)
-                .frame(width: 44, height: 44)
-                .background(Palette.surface, in: Circle())
-                .overlay(Circle().stroke(Palette.line, lineWidth: 1))
+            HomitaHeaderIcon(systemImage: systemImage)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

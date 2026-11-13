@@ -23,6 +23,11 @@ public struct InicioView: View {
     @State private var showEventEditor = false
     /// Lista mostrada en la tarjeta de tareas (`nil` = la primera).
     @State private var taskPageId: Int?
+    /// Sentido del último cambio de lista (decide desde qué lado entra la nueva).
+    @State private var taskSwipeForward = true
+    /// Eventos ya pasados de hoy desplegados.
+    @State private var showPastEvents = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(services: AppServices, onOpen: @escaping (InicioDestination) -> Void = { _ in }) {
         self.services = services
@@ -41,10 +46,9 @@ public struct InicioView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     greeting
+                    routinesCard.accessibilityIdentifier("inicio.tarjeta.rutinas")
                     eventsCard.accessibilityIdentifier("inicio.tarjeta.eventos")
                     tasksCard.accessibilityIdentifier("inicio.tarjeta.tareas")
-                    routinesCard.accessibilityIdentifier("inicio.tarjeta.rutinas")
-                    quickActions.accessibilityIdentifier("inicio.accesos")
                 }
                 .padding(20)
             }
@@ -106,6 +110,14 @@ public struct InicioView: View {
 
     private var greeting: some View {
         HomitaHeader(title: greetingText, subtitle: dateText) {
+            Menu {
+                Button { Task { await openTaskEditor() } } label: { Label("Tarea", systemImage: "checklist") }
+                Button { Task { await openEventEditor() } } label: { Label("Evento", systemImage: "calendar") }
+            } label: {
+                HomitaHeaderIcon(systemImage: "plus")
+            }
+            .accessibilityLabel("Crear")
+            .accessibilityIdentifier("inicio.accesos")
             HomitaHeaderButton(systemImage: "house", label: "Ir a Hogar") { onOpen(.home) }
         }
     }
@@ -125,37 +137,68 @@ public struct InicioView: View {
     // MARK: - Secciones
 
     private var eventsCard: some View {
-        sectionCard(title: "Hoy · Eventos", systemImage: "calendar", count: store.todayEvents.count, destination: .events,
+        let split = store.eventSplit
+        return sectionCard(title: "Hoy · Eventos", systemImage: "calendar", count: store.todayEvents.count, destination: .events,
                     state: store.eventsState, retry: { await store.loadEvents() }) {
             if store.todayEvents.isEmpty {
                 emptyText(HomitaEmptyNoteText.todayEvents)
+            } else if split.upcoming.isEmpty {
+                emptyText("No quedan más eventos hoy")
             }
-            ForEach(Array(store.todayEvents.enumerated()), id: \.element.id) { index, event in
+            ForEach(Array(split.upcoming.enumerated()), id: \.element.id) { index, event in
                 if index > 0 { Divider().overlay(Palette.line) }
-                HStack(spacing: 12) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color(hex: event.calendar_color ?? Palette.fallbackItem))
-                        .frame(width: 4, height: 36)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(event.title)
-                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
-                            .foregroundStyle(Palette.ink)
-                        EventCountdownLabel(dateAt: event.date_at)
-                        AssignedPersonsLine(persons: event.persons)
-                        if let name = event.calendar_name {
-                            Text(name)
-                                .font(HomitaFont.inter(13, relativeTo: .footnote))
-                                .foregroundStyle(Palette.inkSoft)
-                        }
+                eventRow(event)
+            }
+            if !split.past.isEmpty {
+                Button {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { showPastEvents.toggle() }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(split.past.count == 1 ? "1 ya pasó" : "\(split.past.count) ya pasaron")
+                        Image(systemName: showPastEvents ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                        Spacer()
                     }
-                    Spacer()
-                    Text(Self.time(of: event.date_at))
-                        .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
-                        .foregroundStyle(Palette.inkSoft)
+                    .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
+                    .foregroundStyle(Palette.inkSoft)
+                    .frame(minHeight: 32)
+                    .contentShape(Rectangle())
                 }
-                .accessibilityElement(children: .combine)
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("inicio.eventos.pasados")
+                if showPastEvents {
+                    ForEach(Array(split.past.enumerated()), id: \.element.id) { index, event in
+                        if index > 0 { Divider().overlay(Palette.line) }
+                        eventRow(event).opacity(0.6)
+                    }
+                }
             }
         }
+    }
+
+    private func eventRow(_ event: EventEntry) -> some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color(hex: event.calendar_color ?? Palette.fallbackItem))
+                .frame(width: 4, height: 36)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(event.title)
+                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
+                    .foregroundStyle(Palette.ink)
+                EventCountdownLabel(dateAt: event.date_at)
+                AssignedPersonsLine(persons: event.persons)
+                if let name = event.calendar_name {
+                    Text(name)
+                        .font(HomitaFont.inter(13, relativeTo: .footnote))
+                        .foregroundStyle(Palette.inkSoft)
+                }
+            }
+            Spacer()
+            Text(Self.time(of: event.date_at))
+                .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
+                .foregroundStyle(Palette.inkSoft)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private var tasksCard: some View {
@@ -169,13 +212,13 @@ public struct InicioView: View {
                     countText: page == nil ? nil : "\(doneCount)/\(listTasks.count)", destination: .tasks,
                     state: store.tasksState, retry: { await store.loadTasks() }) {
             if let page {
-                // Puntos para cambiar de lista: entre el título y el contenido, sin animación.
+                // Puntos: indican la lista actual y siguen siendo tocables. Para VoiceOver son un
+                // único control ajustable (deslizar arriba/abajo cambia de lista).
                 if pages.count > 1 {
                     HStack(spacing: 8) {
                         ForEach(pages) { item in
                             Button {
-                                var t = Transaction(); t.disablesAnimations = true
-                                withTransaction(t) { taskPageId = item.id }
+                                selectTaskPage(item.id, in: pages)
                             } label: {
                                 Circle()
                                     .fill(item.id == page.id ? Palette.ink : Palette.inkMuted.opacity(0.4))
@@ -184,63 +227,98 @@ public struct InicioView: View {
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel("Lista \(item.name)")
                         }
                     }
                     .frame(maxWidth: .infinity)
-                }
-                HStack(spacing: 8) {
-                    Circle().fill(Color(hex: page.colorHex)).frame(width: 10, height: 10)
-                    Text(page.name)
-                        .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
-                        .foregroundStyle(Palette.inkSoft)
-                }
-                // E1-03: máximo 5 pendientes por página; el resto se ve en «Ver más».
-                ForEach(Array(page.tasks.prefix(5).enumerated()), id: \.element.id) { index, task in
-                    if index > 0 { Divider().overlay(Palette.line) }
-                    HStack(spacing: 12) {
-                        HomitaCheckbox(isOn: task.isCompleted, tintHex: Palette.onlineHex) {
-                            Task { await store.toggleComplete(task) }
-                        }
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(task.title)
-                                .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
-                                .foregroundStyle(Palette.ink)
-                            AssignedPersonsLine(persons: task.persons)
-                        }
-                        Spacer()
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Lista \(page.name)")
+                    .accessibilityValue("\((pages.firstIndex { $0.id == page.id } ?? 0) + 1) de \(pages.count)")
+                    .accessibilityAdjustableAction { direction in
+                        if let target = InicioTaskPaging.neighbor(
+                            of: page.id, in: pages.map(\.id), forward: direction == .increment
+                        ) { selectTaskPage(target, in: pages) }
                     }
                 }
-                HStack {
-                    Spacer()
-                    Button("Ver más") { onOpen(.taskList(page.id)) }
-                        .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
-                        .foregroundStyle(Palette.accent)
+                ZStack {
+                    taskPageContent(page)
+                        .id(page.id)
+                        .transition(taskPageTransition)
                 }
+                .clipped()
             } else {
                 emptyText(HomitaEmptyNoteText.pendingTasks)
             }
         }
     }
 
-    private var routinesCard: some View {
-        RoutinesTodayCard(store: store, dateText: dateText) { onOpen(.routines) }
-    }
-
-    private var quickActions: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("ACCESOS RÁPIDOS")
-                .font(HomitaFont.inter(13, weight: .semibold, relativeTo: .footnote))
-                .foregroundStyle(Palette.inkSoft)
-            HStack(spacing: 12) {
-                HomitaButton(title: "+ Tarea", kind: .accentOutline) {
-                    Task { await openTaskEditor() }
-                }
-                HomitaButton(title: "+ Evento") {
-                    Task { await openEventEditor() }
+    /// Cabecera y filas (máx. `InicioStore.cardTaskLimit`) de una lista; el swipe horizontal
+    /// cambia de lista sin competir con el scroll vertical de la home.
+    private func taskPageContent(_ page: InicioStore.TaskPage) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Circle().fill(Color(hex: page.colorHex)).frame(width: 10, height: 10)
+                Text(page.name)
+                    .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
+                    .foregroundStyle(Palette.inkSoft)
+            }
+            ForEach(Array(page.tasks.enumerated()), id: \.element.id) { index, task in
+                if index > 0 { Divider().overlay(Palette.line) }
+                HStack(spacing: 12) {
+                    HomitaCheckbox(isOn: task.isCompleted, tintHex: Palette.onlineHex) {
+                        Task { await store.toggleComplete(task) }
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(task.title)
+                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
+                            .foregroundStyle(Palette.ink)
+                        AssignedPersonsLine(persons: task.persons)
+                    }
+                    Spacer()
                 }
             }
+            HStack {
+                Spacer()
+                Button("Ver más") { onOpen(.taskList(page.id)) }
+                    .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
+                    .foregroundStyle(Palette.accent)
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 20).onEnded { value in
+                let pages = store.pendingTaskPages
+                guard InicioTaskPaging.isHorizontalSwipe(
+                    width: value.translation.width, height: value.translation.height
+                ), let current = (pages.first { $0.id == taskPageId } ?? pages.first)?.id,
+                   // Arrastrar hacia la izquierda avanza a la lista siguiente.
+                   let target = InicioTaskPaging.neighbor(
+                    of: current, in: pages.map(\.id), forward: value.translation.width < 0
+                   ) else { return }
+                selectTaskPage(target, in: pages)
+            }
+        )
+    }
+
+    private var taskPageTransition: AnyTransition {
+        reduceMotion ? .identity : .asymmetric(
+            insertion: .move(edge: taskSwipeForward ? .trailing : .leading).combined(with: .opacity),
+            removal: .move(edge: taskSwipeForward ? .leading : .trailing).combined(with: .opacity)
+        )
+    }
+
+    /// Cambia de lista con un deslizamiento corto (sin animación si hay «Reducir movimiento»).
+    private func selectTaskPage(_ id: Int, in pages: [InicioStore.TaskPage]) {
+        let ids = pages.map(\.id)
+        let current = pages.first { $0.id == taskPageId }?.id ?? ids.first
+        guard let current, current != id,
+              let from = ids.firstIndex(of: current), let to = ids.firstIndex(of: id) else { return }
+        taskSwipeForward = to > from
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { taskPageId = id }
+    }
+
+    private var routinesCard: some View {
+        RoutinesTodayCard(store: store, dateText: dateText) { onOpen(.routines) }
     }
 
     // MARK: - Piezas
