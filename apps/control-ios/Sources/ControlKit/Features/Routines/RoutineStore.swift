@@ -59,9 +59,12 @@ public final class RoutineStore: WriteFailureReporting {
         return sorted.filter(\.hasFixedTime) + sorted.filter { !$0.hasFixedTime }
     }
 
-    /// Secciones por fecha de la próxima ocurrencia (Hoy, Mañana, Próxima semana); omite las vacías.
-    /// Dentro de cada grupo, las de hora fija primero y las sin hora fija al final.
-    /// Sin próxima ocurrencia o posterior a mañana → "Próxima semana".
+    /// Secciones Hoy, Mañana y Próxima semana; omite las vacías.
+    /// - **Hoy:** todas las rutinas que tocan hoy (CAL-02), hayan empezado, caducado o falten por
+    ///   empezar, estén activas o pausadas. Antes solo entraban las que tenían una sesión futura.
+    ///   Con hora fija primero, sin hora después y las caducadas al final.
+    /// - **Mañana:** por fecha de la próxima sesión (o, sin sesiones generadas, por su regla).
+    /// - **Próxima semana:** el resto, salvo lo que ya sale en Hoy.
     public var routineSections: [(group: RoutineDayGroup, routines: [RoutineEntry])] {
         let clock = clock()
         let today = String(PHPDateTime.format(clock.now, timeZone: clock.timeZone).prefix(10))
@@ -71,31 +74,76 @@ public final class RoutineStore: WriteFailureReporting {
         let tomorrowDate = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: clock.now)) ?? clock.now
         let tomorrow = String(PHPDateTime.format(tomorrowDate, timeZone: clock.timeZone).prefix(10))
         func group(of routine: RoutineEntry) -> RoutineDayGroup {
-            guard let day = nextSession(for: routine)?.date_at.prefix(10) else { return .nextWeek }
-            if day == today { return .today }
-            if day == tomorrow { return .tomorrow }
+            if let day = nextSession(for: routine)?.date_at.prefix(10) {
+                if day == today { return .today }
+                if day == tomorrow { return .tomorrow }
+                return .nextWeek
+            }
+            // Sin sesiones generadas todavía: la regla decide si toca mañana.
+            if routine.isActive, let rule = routine.rule(timeZone: clock.timeZone),
+               rule.occurs(on: tomorrowDate, timeZone: clock.timeZone) {
+                return .tomorrow
+            }
             return .nextWeek
         }
         let ordered = routinesByNextOccurrence
+        let todays = ordered.filter { occursToday($0) }
+        let todayIds = Set(todays.map(\.id))
         return RoutineDayGroup.allCases.compactMap { target in
-            var items = ordered.filter { group(of: $0) == target }
-            // Hoy también las que ya pasaron o caducaron hoy (se muestran deshabilitadas, al final).
-            if target == .today {
-                items += ordered.filter { group(of: $0) != .today && hasExpiredToday($0) }
+            let items: [RoutineEntry]
+            switch target {
+            case .today:
+                items = sortedForToday(todays)
+            case .tomorrow:
+                items = ordered.filter { group(of: $0) == .tomorrow }
+            case .nextWeek:
+                items = ordered.filter { group(of: $0) == .nextWeek && !todayIds.contains($0.id) }
             }
             return items.isEmpty ? nil : (group: target, routines: items)
         }
+    }
+
+    /// Hoy: vivas (por empezar o en curso) con hora fija primero y por hora; las caducadas al final.
+    private func sortedForToday(_ routines: [RoutineEntry]) -> [RoutineEntry] {
+        func before(_ lhs: RoutineEntry, _ rhs: RoutineEntry) -> Bool {
+            if lhs.hasFixedTime != rhs.hasFixedTime { return lhs.hasFixedTime }
+            if lhs.time != rhs.time { return lhs.time < rhs.time }
+            return lhs.id < rhs.id
+        }
+        let live = routines.filter { status(for: $0, in: .today) != .expired }.sorted(by: before)
+        let past = routines.filter { status(for: $0, in: .today) == .expired }.sorted(by: before)
+        return live + past
+    }
+
+    /// ¿Toca la rutina hoy? Si hay sesión de hoy, sí; si no, lo dice su regla (aunque esté pausada:
+    /// «todas las rutinas del día»).
+    func occursToday(_ routine: RoutineEntry) -> Bool {
+        let clock = clock()
+        let today = String(PHPDateTime.format(clock.now, timeZone: clock.timeZone).prefix(10))
+        if sessions.contains(where: { $0.routine_id == routine.id && $0.date_at.hasPrefix(today) }) { return true }
+        guard let rule = routine.rule(timeZone: clock.timeZone) else { return false }
+        return rule.occurs(on: clock.now, timeZone: clock.timeZone)
+    }
+
+    /// Inicios de hoy de una rutina: sus sesiones de hoy o, si el servidor aún no las generó y la
+    /// rutina está activa y tiene hora fija, el inicio que marca su regla.
+    private func startsToday(of routine: RoutineEntry) -> [Date] {
+        let clock = clock()
+        let today = String(PHPDateTime.format(clock.now, timeZone: clock.timeZone).prefix(10))
+        let fromSessions = sessions
+            .filter { $0.routine_id == routine.id && $0.date_at.hasPrefix(today) }
+            .compactMap { PHPDateTime.parse($0.date_at, timeZone: clock.timeZone) }
+        if !fromSessions.isEmpty { return fromSessions }
+        guard routine.isActive, routine.hasFixedTime, occursToday(routine),
+              let start = RoutineStatus.startToday(time: routine.time, now: clock.now, timeZone: clock.timeZone) else { return [] }
+        return [start]
     }
 
     /// ¿La última ocurrencia de hoy que ya empezó está caducada (pasó su hora + ventana)?
     private func hasExpiredToday(_ routine: RoutineEntry) -> Bool {
         let clock = clock()
         guard routine.hasFixedTime else { return false }
-        let today = String(PHPDateTime.format(clock.now, timeZone: clock.timeZone).prefix(10))
-        let starts = sessions
-            .filter { $0.routine_id == routine.id && $0.date_at.hasPrefix(today) }
-            .compactMap { PHPDateTime.parse($0.date_at, timeZone: clock.timeZone) }
-        let started = RoutineStatus.relevantStart(among: starts, now: clock.now)
+        let started = RoutineStatus.relevantStart(among: startsToday(of: routine), now: clock.now)
         return RoutineStatus.evaluate(start: started, now: clock.now) == .expired
     }
 
@@ -112,11 +160,7 @@ public final class RoutineStore: WriteFailureReporting {
     public func status(for routine: RoutineEntry) -> RoutineStatus {
         let clock = clock()
         guard routine.hasFixedTime else { return .normal }
-        let today = String(PHPDateTime.format(clock.now, timeZone: clock.timeZone).prefix(10))
-        let starts = sessions
-            .filter { $0.routine_id == routine.id && $0.date_at.hasPrefix(today) }
-            .compactMap { PHPDateTime.parse($0.date_at, timeZone: clock.timeZone) }
-        let started = RoutineStatus.relevantStart(among: starts, now: clock.now)
+        let started = RoutineStatus.relevantStart(among: startsToday(of: routine), now: clock.now)
         let next = nextSession(for: routine).flatMap { PHPDateTime.parse($0.date_at, timeZone: clock.timeZone) }
         return RoutineStatus.evaluateShown(started: started, next: next, now: clock.now)
     }
