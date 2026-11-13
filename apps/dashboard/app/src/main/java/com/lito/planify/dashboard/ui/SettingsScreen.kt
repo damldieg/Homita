@@ -284,7 +284,7 @@ private fun WifiCard() {
         rssi >= -60 -> "Excelente" to Palette.Online
         rssi >= -67 -> "Buena" to Palette.Online
         rssi >= -75 -> "Regular" to Palette.Warm
-        else -> "Débil" to Palette.Accent
+        else -> "Débil" to Palette.Danger
     }
     Column(
         verticalArrangement = Arrangement.spacedBy(14.dp),

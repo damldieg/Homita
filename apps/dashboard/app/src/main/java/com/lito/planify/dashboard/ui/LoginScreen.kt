@@ -87,7 +87,7 @@ fun LoginScreen(state: UiState, onLogin: (String, String) -> Unit, onWifi: () ->
             Field(password, { password = it }, "Contraseña", Modifier.fillMaxWidth(), password = true) {
                 if (canSubmit) onLogin(email, password)
             }
-            state.loginError?.let { Text(it, style = Type.Body.copy(color = Palette.Accent)) }
+            state.loginError?.let { Text(it, style = Type.Body.copy(color = Palette.Danger)) }
             PillButton(if (state.loggingIn) "Entrando…" else "Entrar", Modifier.fillMaxWidth(), primary = true, enabled = canSubmit) {
                 onLogin(email, password)
             }

@@ -16,13 +16,17 @@ object Palette {
     val Card = Color(0xFFFFFDF9)
     val CardBorder = Color(0xFFEFE2D0)
     val Line = Color(0xFFEADBC6)
-    val Ink = Color(0xFF221D18)
+    val Ink = Color(0xFF2F4A3A)
     val InkSoft = Color(0xFF6E6358)
     val InkMuted = Color(0xFFA6998A)
     /** Títulos de sección (SectionLabel). */
-    val Accent = Color(0xFFC8243B)
+    val Accent = Color(0xFFB04A27)
+    /** Salvia de marca: acento secundario. */
+    val Sage = Color(0xFF4F7A63)
+    /** Rojo solo para errores y avisos (el acento de marca ya no es rojo). */
+    val Danger = Color(0xFFC8243B)
     val Rain = Color(0xFF2F80ED)
-    val Warm = Color(0xFFF5A623)
+    val Warm = Color(0xFFE9B44C)
     val Night = Color(0xFF5B6B9A)
     val Highlight = Color(0xFFF6ECDD)
     val Offline = Color(0xFFB5A99A)

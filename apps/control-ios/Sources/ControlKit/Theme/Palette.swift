@@ -13,16 +13,18 @@ enum Palette {
     static let surface = Color.token(light: "#FDFBF7", dark: "#241E19")
     static let surface2 = Color.token(light: "#F8F3EA", dark: "#2C251F")
     static let line = Color.token(light: "#EDE5D6", dark: "#3A322A")
-    static let ink = Color.token(light: "#1D1612", dark: "#F4ECE0")
+    static let ink = Color.token(light: "#2F4A3A", dark: "#F4ECE0")
     static let inkSoft = Color.token(light: "#6F655A", dark: "#BFB3A4")
     static let inkMuted = Color.token(light: "#8F8579", dark: "#988C7D")
 
     // MARK: Acción y estados
 
     /// Acción principal. El valor en hex se expone para APIs que no aceptan `Color` (ComponentsKit).
-    static let accent = Color.token(light: accentHex, dark: "#FF6B7A")
-    static let accentPress = Color.token(light: "#952634", dark: "#E5485F")
-    static let accentSoft = Color.token(light: "#F4DDE0", dark: "#4A1F27")
+    static let accent = Color.token(light: accentHex, dark: "#F09A74")
+    static let accentPress = Color.token(light: "#8F3B1D", dark: "#E8845A")
+    static let accentSoft = Color.token(light: "#F6E0D4", dark: "#4A2A1E")
+    /// Salvia de marca: acento secundario (chips, estados positivos suaves). Tinta bosque `ink`, terracota profunda `accent`.
+    static let sage = Color.token(light: sageHex, dark: "#8CC3A5")
     static let ok = Color.token(light: "#2F5E3B", dark: "#7FD19A")
     static let okSoft = Color.token(light: "#E6F0E0", dark: "#1E3A2A")
     static let warn = Color.token(light: "#7A5800", dark: "#F5C842")
@@ -63,13 +65,15 @@ enum Palette {
 
     // MARK: Hex para APIs que no aceptan `Color`
 
-    static let accentHex = "#B5313F"
+    static let accentHex = "#B04A27"   // terracota profunda: 5,4:1 sobre blanco (la D9663B de marca queda para ilustración)
+    static let sageHex = "#4F7A63"
     /// Color de completado (casilla de tarea). Token `--now`.
     static let onlineHex = "#3F7D4E"
     /// Color por defecto de calendarios, listas y rutinas sin color del servidor.
     /// Par oscuro de cada hex de la paleta (WCAG AA). Lo usa `adaptive(_:)` para ComponentsKit.
     static let darkEquivalents: [String: String] = [
-        accentHex: "#FF6B7A",
+        accentHex: "#F09A74",
+        sageHex: "#8CC3A5",
         "#FFFFFF": "#1B1713",
         inkHex: "#F4ECE0",
         inkSoftHex: "#BFB3A4",
@@ -90,8 +94,8 @@ enum Palette {
 
     static let fallbackItem = "#6923E2"
     /// Muestras fijas del selector de color (P-06): acento, personas, estados y azul de calendario.
-    static let swatches = ["#B5313F", "#6D28D9", "#0E9F6E", "#F59E0B", "#E11D48", "#0284C7", "#3B5BDB", "#2F5E3B"]
-    static let inkHex = "#1D1612"
+    static let swatches = ["#B04A27", "#6D28D9", "#0E9F6E", "#F59E0B", "#E11D48", "#0284C7", "#3B5BDB", "#2F5E3B"]
+    static let inkHex = "#2F4A3A"
     static let inkSoftHex = "#6F655A"
     static let inkMutedHex = "#8F8579"
     static let backgroundHex = "#F4EEE3"
