@@ -17,15 +17,12 @@ public struct WelcomeView: View {
                 Palette.background.ignoresSafeArea()
                 VStack(spacing: 16) {
                     Spacer()
-                    // Mismo glifo que el icono de la app: «H» sobre amarillo cálido.
-                    RoundedRectangle(cornerRadius: 22)
-                        .fill(Palette.warm)
-                        .frame(width: 96, height: 96)
-                        .overlay {
-                            Text("H")
-                                .font(HomitaFont.geist(56, weight: .bold, relativeTo: .largeTitle))
-                                .foregroundStyle(Palette.ink)
-                        }
+                    // Mismo icono que la app y que el final de la animación de arranque.
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 96 * 27 / 120, style: .continuous).fill(Brand.sage)
+                        HomitaMark().frame(width: 96, height: 96)
+                    }
+                    .frame(width: 96, height: 96)
                     Text("Homita")
                         .font(HomitaFont.geist(40, weight: .bold, relativeTo: .largeTitle))
                         .foregroundStyle(Palette.ink)
