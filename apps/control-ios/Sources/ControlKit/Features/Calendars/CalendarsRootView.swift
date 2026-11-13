@@ -41,10 +41,12 @@ public struct CalendarsRootView: View {
             .background(Palette.background.ignoresSafeArea())
             .navigationTitle(["Eventos", "Rutinas", "Calendarios"][segment])
             .task {
-                await calendarStore.load()
-                await personStore.load()
-                await eventStore.load()
-                await routineStore.load()
+                // En paralelo: antes iban una tras otra y retrasaban el primer pintado. La agenda de
+                // Eventos carga su propia semana; `eventStore` solo se usa para guardar y borrar.
+                async let calendars: Void = calendarStore.load()
+                async let persons: Void = personStore.load()
+                async let routines: Void = routineStore.load()
+                _ = await (calendars, persons, routines)
             }
         }
     }
