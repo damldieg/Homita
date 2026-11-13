@@ -128,7 +128,7 @@ public struct ProfileView: View {
                 PersonsView(store: personStore)
             } label: {
                 linkRow(title: "Personas", systemImage: "person.2.fill", tint: Palette.accentHex,
-                        detail: personStore.items.isEmpty ? nil : "\(personStore.items.count)")
+                        detail: personStore.persons.isEmpty ? nil : "\(personStore.persons.count)")
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("ajustes.personas")
