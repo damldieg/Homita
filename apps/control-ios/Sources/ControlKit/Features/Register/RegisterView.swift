@@ -11,6 +11,8 @@ public struct RegisterView: View {
     @State private var invitationCode = ""
     @State private var errorMessage: String?
     @State private var isWorking = false
+    /// Cuenta creada sin sesión: lleva al login con los datos cargados.
+    @State private var showLogin = false
 
     public init(services: AppServices) {
         self.services = services
@@ -46,6 +48,10 @@ public struct RegisterView: View {
         .navigationTitle("Registrarse")
         .homitaNavigationBar()
         .errorAlert($errorMessage)
+        .navigationDestination(isPresented: $showLogin) {
+            LoginView(services: services, email: email.trimmingCharacters(in: .whitespaces),
+                      password: password, notice: RegistrationOutcome.needsLoginNotice)
+        }
         .overlay {
             if isWorking {
                 HomitaLoadingOverlay(message: "Creando cuenta…")
@@ -68,14 +74,16 @@ public struct RegisterView: View {
             ? nil
             : InvitationCode.normalize(invitationCode)
         do {
-            try await services.auth.register(
+            let outcome = try await services.auth.register(
                 name: name.trimmingCharacters(in: .whitespaces),
                 email: email.trimmingCharacters(in: .whitespaces),
                 password: password,
                 invitationCode: code
             )
-            // La cuenta ya existe y tiene sesión: la invitación queda pendiente hasta aceptarla en la app.
+            // La cuenta ya existe: la invitación queda pendiente en memoria hasta aceptarla tras el
+            // login (con sesión, NoHomeView la acepta sola).
             services.homeContext.pendingInvitationCode = code
+            if outcome == .needsLogin { showLogin = true }
         } catch {
             errorMessage = Self.registerMessage(for: error)
         }

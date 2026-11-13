@@ -62,15 +62,32 @@ public final class AuthService: TokenRefreshing {
         try store(user: user)
     }
 
-    /// `POST user/create` → 201 `{id,name,email,token,…}` (sin `refresh_token`).
-    /// `POST user/create`. Con `invitationCode` (0023) la Edge valida código y email antes de crear
-    /// la cuenta; no crea hogar. La aceptación se hace después, en la app.
-    public func register(name: String, email: String, password: String, invitationCode: String? = nil) async throws {
+    /// `POST user/create` → 201 `{id,name,email,token,refresh_token,…}`. Con `invitationCode` (0023)
+    /// la Edge valida código y email antes de crear la cuenta; no crea hogar. La aceptación se hace
+    /// después, en la app.
+    ///
+    /// Si Supabase Auth exige confirmar el email, la cuenta se crea pero el servidor responde 400
+    /// «Email confirmation is pending» (sin sesión). Entonces se intenta entrar con el mismo email y
+    /// contraseña; si tampoco se puede, devuelve `.needsLogin` para llevar al login con los datos
+    /// cargados en vez de dejar el error como pantalla final. Cualquier otro error se propaga.
+    @discardableResult
+    public func register(name: String, email: String, password: String,
+                         invitationCode: String? = nil) async throws -> RegistrationOutcome {
         let body = try client.encode(RegisterRequest(name: name, email: email, password: password,
                                                      invitationCode: invitationCode))
         let request = APIRequest(method: .post, path: "user/create", body: body, isPublic: true)
-        let user = try await client.send(request, as: UserResponse.self)
-        try store(user: user)
+        do {
+            let user = try await client.send(request, as: UserResponse.self)
+            try store(user: user)
+            return .signedIn
+        } catch let error as APIError where RegistrationOutcome.isConfirmationPending(error) {
+            do {
+                try await login(email: email, password: password)
+                return .signedIn
+            } catch {
+                return .needsLogin
+            }
+        }
     }
 
     /// `PATCH user/update` → `{id,name,email,created_at,updated_at}` sin token (se conserva el actual).
@@ -133,5 +150,24 @@ public final class AuthService: TokenRefreshing {
             throw APIError.decoding("respuesta de refresco inválida")
         }
         session.updateTokens(access: tokens.access_token, refresh: tokens.refresh_token ?? refresh)
+    }
+}
+
+/// Resultado de crear la cuenta: la app entra sola o hay que iniciar sesión a mano (confirmación de
+/// email activa en Supabase Auth).
+public enum RegistrationOutcome: Equatable, Sendable {
+    /// Cuenta creada y sesión iniciada.
+    case signedIn
+    /// Cuenta creada pero sin sesión: llevar al login con email y contraseña cargados.
+    case needsLogin
+
+    /// Aviso del login precargado cuando `needsLogin`.
+    public static let needsLoginNotice =
+        "Tu cuenta está creada. Confirma tu email si te lo pedimos y después inicia sesión: la invitación se acepta al entrar."
+
+    /// 400 «Email confirmation is pending» de `POST user/create` (usecases/auth.ts).
+    static func isConfirmationPending(_ error: APIError) -> Bool {
+        if case .http(status: 400, message: "Email confirmation is pending") = error { return true }
+        return false
     }
 }

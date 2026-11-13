@@ -75,40 +75,48 @@ struct EmailTextField: View {
     }
 }
 
-/// Miembros compartidos: invitación por email y retirada. Las acciones son owner-only (rol del
-/// propio usuario en el payload de miembros, `role`); la fila propia nunca muestra acciones. El
-/// servidor sigue aplicando 403/400 como última barrera.
+/// Miembros compartidos: permiso de cada persona con cuenta, invitación por email y retirada.
+/// El owner ve un selector Lectura/Edición por persona (también para las cuentas del hogar que aún
+/// no tienen acceso); el resto ve solo su permiso. Todo es owner-only también en el servidor
+/// (403 `Not Allowed` → toast), la app solo oculta lo que no puede usar.
 struct MembersSection: View {
-    let members: [MemberEntry]
-    let currentUserId: Int?
+    let rows: [AccessRow]
+    let isOwner: Bool
+    let onSetAccess: (Int, AccessLevel) -> Void
+    var showsInvites = true
     let onInvite: (String) -> Void
     let onRemove: (Int) -> Void
 
     @State private var inviteEmail = ""
 
-    /// Dueño según el payload de miembros: la fila del usuario actual (`role == "owner"`).
-    private var isOwner: Bool {
-        members.first { $0.user_id == currentUserId }?.isOwner ?? false
-    }
-
     var body: some View {
-        HomitaPanel("Personas con acceso", systemImage: "person.badge.key", count: members.count) {
-            ForEach(members, id: \.id) { member in
+        HomitaPanel("Personas con acceso", systemImage: "person.badge.key", count: rows.filter(\.hasAccess).count) {
+            ForEach(rows) { row in
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(member.name)
+                        Text(row.name)
                             .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
-                        Text(member.email)
-                            .font(HomitaFont.inter(13, relativeTo: .footnote))
-                            .foregroundStyle(Palette.inkSoft)
+                        if let email = row.email {
+                            Text(email)
+                                .font(HomitaFont.inter(13, relativeTo: .footnote))
+                                .foregroundStyle(Palette.inkSoft)
+                        } else {
+                            Text("Sin acceso")
+                                .font(HomitaFont.inter(13, relativeTo: .footnote))
+                                .foregroundStyle(Palette.inkSoft)
+                        }
                     }
                     Spacer()
-                    HomitaBadge(title: member.isOwner ? "Propietario" : "Solo lectura",
-                                tintHex: member.isOwner ? Palette.accentHex : Palette.inkSoftHex)
-                    if isOwner && member.user_id != currentUserId {
+                    if row.isEditable {
+                        accessMenu(for: row)
+                    } else if let level = row.level {
+                        HomitaBadge(title: level.title,
+                                    tintHex: level == .owner ? Palette.accentHex : Palette.inkSoftHex)
+                    }
+                    if showsInvites && isOwner && row.hasAccess && row.isEditable {
                         Button {
-                            onRemove(member.user_id)
+                            onRemove(row.userId)
                         } label: {
                             Image(systemName: "person.badge.minus")
                                 .foregroundStyle(Palette.accent)
@@ -117,7 +125,7 @@ struct MembersSection: View {
                     }
                 }
             }
-            if isOwner {
+            if showsInvites && isOwner {
                 HomitaField(placeholder: "Email a invitar", text: $inviteEmail, isEmail: true)
                 HomitaButton(
                     title: "Invitar",
@@ -131,6 +139,31 @@ struct MembersSection: View {
                 }
             }
         }
+    }
+
+    /// Selector de permiso de una fila (Lectura/Edición). Sin acceso muestra «Dar acceso».
+    private func accessMenu(for row: AccessRow) -> some View {
+        Menu {
+            ForEach(AccessLevel.choices, id: \.self) { level in
+                Button {
+                    if row.level != level { onSetAccess(row.userId, level) }
+                } label: {
+                    if row.level == level {
+                        Label(level.title, systemImage: "checkmark")
+                    } else {
+                        Text(level.title)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(row.level?.title ?? "Dar acceso")
+                Image(systemName: "chevron.up.chevron.down").font(.caption2)
+            }
+            .font(HomitaFont.inter(15, weight: .medium, relativeTo: .subheadline))
+            .foregroundStyle(row.hasAccess ? Palette.ink : Palette.accent)
+        }
+        .accessibilityIdentifier("acceso.permiso.\(row.userId)")
     }
 }
 

@@ -3,14 +3,20 @@ import SwiftUI
 /// Login (`POST user/auth`). Si el refresco falla y la sesión caduca, el motivo se muestra aquí.
 public struct LoginView: View {
     let services: AppServices
+    /// Aviso encima del formulario (p. ej. tras registrarse sin sesión automática).
+    let notice: String?
 
-    @State private var email = ""
-    @State private var password = ""
+    @State private var email: String
+    @State private var password: String
     @State private var errorMessage: String?
     @State private var isWorking = false
 
-    public init(services: AppServices) {
+    /// `email`/`password` precargan el formulario (registro sin sesión automática).
+    public init(services: AppServices, email: String = "", password: String = "", notice: String? = nil) {
         self.services = services
+        self.notice = notice
+        _email = State(initialValue: email)
+        _password = State(initialValue: password)
     }
 
     private var canSubmit: Bool {
@@ -20,6 +26,12 @@ public struct LoginView: View {
     public var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                if let notice {
+                    HomitaCard {
+                        HomitaFootnote(text: notice)
+                    }
+                    .accessibilityIdentifier("login.aviso")
+                }
                 HomitaCard {
                     VStack(alignment: .leading, spacing: 14) {
                         HomitaSectionHeader(title: "Cuenta", systemImage: "person.crop.circle")

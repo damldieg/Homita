@@ -54,6 +54,7 @@ public struct TasksRootView: View {
 /// `sort=custom` en la lista activa) y alta rápida.
 struct TasksView: View {
     @Bindable var store: TasksStore
+    @Environment(SessionStore.self) private var session
     @Binding var expandRequest: Int?
     @State private var newTaskTitle = ""
     @State private var showCreateTask = false
@@ -255,11 +256,21 @@ struct TasksView: View {
         .sheet(item: $taskToEdit) { task in
             NavigationStack {
                 TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: task,
-                               writeFailure: $store.writeFailure) { title, _, personIds in
+                               writeFailure: $store.writeFailure,
+                               access: TaskListAccess(
+                                   rows: store.accessRows,
+                                   isOwner: AccessRoster.callerIsOwner(session.session?.id, in: store.members),
+                                   onSetAccess: { userId, level in
+                                       Task { await store.setAccess(listId: task.task_list_id, userId: userId, level: level) }
+                                   })) { title, _, personIds in
                     await store.updateTask(task, title: title, personIds: personIds)
                 } onDelete: {
                     Task { await store.deleteTask(task) }
                 }
+            }
+            .task {
+                store.currentUserId = session.session?.id
+                await store.loadAccess(forTask: task)
             }
         }
         .refreshable {

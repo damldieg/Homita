@@ -108,6 +108,19 @@ public struct DeleteCalendarUserRequest: Encodable, Equatable {
     }
 }
 
+/// `PATCH calendar/user` body `{calendar_id,user_id,can_edit}` (0029): permiso de un miembro.
+public struct UpdateCalendarUserAccessRequest: Encodable, Equatable {
+    public let calendar_id: Int
+    public let user_id: Int
+    public let can_edit: Bool
+
+    public init(calendar_id: Int, user_id: Int, can_edit: Bool) {
+        self.calendar_id = calendar_id
+        self.user_id = user_id
+        self.can_edit = can_edit
+    }
+}
+
 // MARK: - Eventos
 
 /// v1 sin "modo IA": `POST event/create` exige `title` + `date_at` (la Edge devuelve 400 si solo
@@ -305,6 +318,19 @@ public struct DeleteTaskListUserRequest: Encodable, Equatable {
     public init(task_list_id: Int, user_id: Int) {
         self.task_list_id = task_list_id
         self.user_id = user_id
+    }
+}
+
+/// `PATCH task-list/user` body `{task_list_id,user_id,can_edit}` (0029): permiso de un miembro.
+public struct UpdateTaskListUserAccessRequest: Encodable, Equatable {
+    public let task_list_id: Int
+    public let user_id: Int
+    public let can_edit: Bool
+
+    public init(task_list_id: Int, user_id: Int, can_edit: Bool) {
+        self.task_list_id = task_list_id
+        self.user_id = user_id
+        self.can_edit = can_edit
     }
 }
 

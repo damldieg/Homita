@@ -2,7 +2,7 @@
 import { fmt, inputBool, inputEmail, inputInt, inputString, json, contractEmpty, contractInput } from "../_shared/contract.ts";
 import {
     errCalendarIdRequired, errCalendarUpdateRequired, errCalendarUserCreateRequired,
-    errCalendarUserIdRequired, errCalendarUserDeleteRequired, errNameRequired, errNotFound500,
+    errCalendarUserIdRequired, errCalendarUserDeleteRequired, errCalendarUserAccessRequired, errNameRequired, errNotFound500,
     error, rpcPass,
 } from "../_shared/errors.ts";
 import { rpc, selectRows } from "../_shared/supabase.ts";
@@ -107,4 +107,18 @@ export const handleCalendarUserDelete = async (req: Request, token: string): Pro
     const userId = inputInt(input, "user_id");
     if (calendarId === 0 || userId === 0) return errCalendarUserDeleteRequired();
     return rpcPass(await rpc("remove_calendar_user", { p_calendar_id: calendarId, p_user_id: userId }, token));
+};
+
+// PATCH /calendar/user (0029, ruta nueva): el owner cambia el permiso de un miembro entre lectura
+// y edición. Si la cuenta es del hogar y no estaba en el ACL, la agrega (compartir sin email).
+// Errores de la RPC: no owner / propia fila / otro owner / cuenta fuera del hogar → 403
+// 'Not Allowed'; calendario ajeno o inexistente → 500 'Not Found' (como el resto de calendar/user).
+export const handleCalendarUserAccess = async (req: Request, token: string): Promise<Response> => {
+    const input = await contractInput(req);
+    const calendarId = inputInt(input, "calendar_id");
+    const userId = inputInt(input, "user_id");
+    const canEdit = inputBool(input, "can_edit");
+    if (contractEmpty(calendarId) || contractEmpty(userId) || canEdit === null) return errCalendarUserAccessRequired();
+    return rpcPass(await rpc("set_calendar_user_access",
+        { p_calendar_id: calendarId, p_user_id: userId, p_can_edit: canEdit }, token));
 };

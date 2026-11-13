@@ -68,4 +68,14 @@ public struct TaskListRepository {
             as: OkResponse.self
         )
     }
+
+    /// `PATCH task-list/user` body `{task_list_id,user_id,can_edit}` (0029) → fila del miembro con
+    /// `can_edit`. Solo owner (403); agrega a la cuenta del hogar si no tenía acceso.
+    @discardableResult
+    public func setAccess(taskListId: Int, userId: Int, canEdit: Bool) async throws -> MemberEntry {
+        try await client.send(
+            APIRequest(method: .patch, path: "task-list/user", body: try client.encode(UpdateTaskListUserAccessRequest(task_list_id: taskListId, user_id: userId, can_edit: canEdit))),
+            as: MemberEntry.self
+        )
+    }
 }

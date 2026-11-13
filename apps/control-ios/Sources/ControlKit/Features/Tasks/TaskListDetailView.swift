@@ -129,8 +129,11 @@ struct TaskListDetailView: View {
             }
 
             MembersSection(
-                members: store.members,
-                currentUserId: session.session?.id,
+                rows: store.accessRows,
+                isOwner: AccessRoster.callerIsOwner(session.session?.id, in: store.members),
+                onSetAccess: { userId, level in
+                    Task { await store.setAccess(listId: current.id, userId: userId, level: level) }
+                },
                 onInvite: { email in
                     Task { await store.invite(listId: current.id, email: email) }
                 },
@@ -167,8 +170,10 @@ struct TaskListDetailView: View {
         #endif
         .task {
             store.listFilterId = current.id
+            store.currentUserId = session.session?.id
             await store.loadTasks()
             await store.loadMembers(listId: current.id)
+            if store.persons.isEmpty { await store.loadPersons() }
         }
         // U5: el filtro de lista es de esta pantalla; al salir, el segmento Tareas vuelve a «Todas».
         .onDisappear { store.listFilterId = nil }
@@ -180,11 +185,21 @@ struct TaskListDetailView: View {
         .sheet(item: $taskToEdit) { task in
             NavigationStack {
                 TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: task,
-                               writeFailure: $store.writeFailure) { title, _, personIds in
+                               writeFailure: $store.writeFailure,
+                               access: TaskListAccess(
+                                   rows: store.accessRows,
+                                   isOwner: AccessRoster.callerIsOwner(session.session?.id, in: store.members),
+                                   onSetAccess: { userId, level in
+                                       Task { await store.setAccess(listId: task.task_list_id, userId: userId, level: level) }
+                                   })) { title, _, personIds in
                     await store.updateTask(task, title: title, personIds: personIds)
                 } onDelete: {
                     Task { await store.deleteTask(task) }
                 }
+            }
+            .task {
+                store.currentUserId = session.session?.id
+                await store.loadAccess(forTask: task)
             }
         }
         .refreshable {

@@ -79,8 +79,11 @@ struct CalendarDetailView: View {
             }
             if calendar != nil {
                 MembersSection(
-                    members: store.members,
-                    currentUserId: session.session?.id,
+                    rows: store.accessRows,
+                    isOwner: AccessRoster.callerIsOwner(session.session?.id, in: store.members),
+                    onSetAccess: { userId, level in
+                        Task { await store.setAccess(calendarId: calendar?.id ?? 0, userId: userId, level: level) }
+                    },
                     onInvite: { email in
                         Task { await store.invite(calendarId: calendar?.id ?? 0, email: email) }
                     },
@@ -102,6 +105,7 @@ struct CalendarDetailView: View {
         }
         .task {
             if let calendar {
+                store.currentUserId = session.session?.id
                 await store.loadMembers(calendarId: calendar.id)
                 await store.loadLinked(calendarId: calendar.id)
             }
