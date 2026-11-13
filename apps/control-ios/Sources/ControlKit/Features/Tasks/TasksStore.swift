@@ -234,6 +234,28 @@ public final class TasksStore: WriteFailureReporting {
         }
     }
 
+    /// Usuario de la sesión (lo fija la vista antes de cargar miembros).
+    public var currentUserId: Int?
+
+    /// Filas del panel de acceso de la lista (miembros + cuentas del hogar sin acceso, solo owner).
+    public var accessRows: [AccessRow] {
+        AccessRoster.rows(members: members, persons: persons, currentUserId: currentUserId)
+    }
+
+    /// Miembros cargados de la lista de la tarea abierta: `members` siempre es de una sola lista.
+    public func loadAccess(forTask task: TaskEntry) async {
+        await loadMembers(listId: task.task_list_id)
+        if persons.isEmpty { await loadPersons() }
+    }
+
+    /// Cambia el permiso de un miembro en la lista (o comparte con una cuenta del hogar).
+    public func setAccess(listId: Int, userId: Int, level: AccessLevel) async {
+        await performWrite { store in
+            try await store.taskListsRepo.setAccess(taskListId: listId, userId: userId, canEdit: level.canEdit)
+            await store.loadMembers(listId: listId)
+        }
+    }
+
     private func report(_ error: Error) {
         errorMessage = (error as? APIError)?.userMessage ?? error.localizedDescription
     }

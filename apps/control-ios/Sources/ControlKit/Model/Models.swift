@@ -16,7 +16,7 @@ public struct ConfigResponse: Codable, Equatable {
 }
 
 /// `POST user/auth` y `POST user/create` → `{id,name,email,token,…}`; la Edge añade
-/// `refresh_token` en `user/auth` (desviación 5; `user/create` no lo trae).
+/// `refresh_token` (desviación 5; en `user/create` desde el change permisos-edicion-registro-sesion).
 public struct UserResponse: Codable, Equatable {
     public let id: Int
     public let name: String
@@ -41,10 +41,14 @@ public struct CalendarEntry: Codable, Equatable {
     public let widget: FlexBool?
     public let dashboard: FlexBool?
     public let upcoming_event_count: FlexInt?
+    /// Permiso de edición del usuario actual (owner o `can_edit`, 0029). `nil` si el servidor aún
+    /// no envía la clave: se asume edición para no ocultar acciones (el servidor decide igual).
+    public let can_edit: FlexBool?
 
     public var showsInWidget: Bool { widget?.value ?? true }
     public var showsInDashboard: Bool { dashboard?.value ?? true }
     public var upcomingEventCount: Int { upcoming_event_count?.value ?? 0 }
+    public var canEdit: Bool { can_edit?.value ?? true }
 }
 
 /// `GET calendar/user` → `[{cu_id,user_id,name,email,role}]`; `GET task-list/user` usa
@@ -57,12 +61,21 @@ public struct MemberEntry: Codable, Equatable {
     public let name: String
     public let email: String
     public let role: String
+    /// Permiso de edición efectivo (owner o `can_edit`, 0029). `nil` en servidores sin 0029.
+    public let can_edit: FlexBool?
 
     /// Id estable de la fila de membresía para `ForEach` (una sola keypath).
     public var id: Int { cu_id ?? tlu_id ?? user_id }
 
     /// `role == "owner"` en el payload de miembros (matriz owner/viewer del contrato).
     public var isOwner: Bool { role == "owner" }
+
+    /// Lectura o edición. Sin la clave (servidor previo a 0029) el viewer cuenta como lectura,
+    /// como mostraba la app hasta ahora.
+    public var accessLevel: AccessLevel {
+        if isOwner { return .owner }
+        return (can_edit?.value ?? false) ? .edit : .read
+    }
 }
 
 // MARK: - Personas
@@ -149,10 +162,13 @@ public struct TaskListEntry: Codable, Equatable {
     public let widget: FlexBool?
     public let dashboard: FlexBool?
     public let pending_task_count: FlexInt?
+    /// Permiso de edición del usuario actual (owner o `can_edit`, 0029); `nil` → se asume edición.
+    public let can_edit: FlexBool?
 
     public var showsInWidget: Bool { widget?.value ?? true }
     public var showsInDashboard: Bool { dashboard?.value ?? true }
     public var pendingTaskCount: Int { pending_task_count?.value ?? 0 }
+    public var canEdit: Bool { can_edit?.value ?? true }
 }
 
 /// `GET task` → `{id,task_list_id,title,completed_at,created_at,updated_at,order,

@@ -70,4 +70,15 @@ public struct CalendarRepository {
             as: OkResponse.self
         )
     }
+
+    /// `PATCH calendar/user` body `{calendar_id,user_id,can_edit}` (0029) → fila del miembro con
+    /// `can_edit`. Solo owner (403 `Not Allowed` si no); si la cuenta del hogar no tenía acceso,
+    /// la agrega con ese permiso.
+    @discardableResult
+    public func setAccess(calendarId: Int, userId: Int, canEdit: Bool) async throws -> MemberEntry {
+        try await client.send(
+            APIRequest(method: .patch, path: "calendar/user", body: try client.encode(UpdateCalendarUserAccessRequest(calendar_id: calendarId, user_id: userId, can_edit: canEdit))),
+            as: MemberEntry.self
+        )
+    }
 }

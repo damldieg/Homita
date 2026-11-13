@@ -71,6 +71,16 @@ public enum APIError: Error, Equatable {
         return userMessage
     }
 
+    /// Mensaje del toast de una escritura (crear, editar, borrar, compartir): un 403 `Not Allowed`
+    /// es falta de permiso de edición (0029) o acción solo del propietario; el servidor no lo
+    /// distingue, así que el texto cubre ambos. El resto delega en `userMessage`.
+    public var writeMessage: String {
+        if isOwnerOnly {
+            return "No tienes permiso para hacer este cambio. Pide al propietario que te dé permiso de edición."
+        }
+        return userMessage
+    }
+
     /// Mensaje en español para la UI.
     public var userMessage: String {
         switch self {

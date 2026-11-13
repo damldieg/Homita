@@ -13,6 +13,8 @@ struct TaskEditorView: View {
     /// Guarda (título recortado, lista, personas) y devuelve si fue bien.
     let onSave: (String, Int, [Int]) async -> Bool
     let onDelete: (() -> Void)?
+    /// Permisos de la lista de la tarea (la tarea hereda el ACL de su lista). Solo en edición.
+    let access: TaskListAccess?
 
     @Environment(\.dismiss) private var dismiss
     @State private var title: String
@@ -28,9 +30,11 @@ struct TaskEditorView: View {
         persons: [PersonEntry] = [],
         task: TaskEntry?,
         writeFailure: Binding<WriteFailure?>,
+        access: TaskListAccess? = nil,
         onSave: @escaping (String, Int, [Int]) async -> Bool,
         onDelete: (() -> Void)? = nil
     ) {
+        self.access = access
         self.taskLists = taskLists
         self.persons = persons
         self.task = task
@@ -75,6 +79,10 @@ struct TaskEditorView: View {
                 }
             }
             PersonSelector(persons: persons, selected: $personIds)
+            if task != nil, let access {
+                MembersSection(rows: access.rows, isOwner: access.isOwner, onSetAccess: access.onSetAccess,
+                               showsInvites: false, onInvite: { _ in }, onRemove: { _ in })
+            }
             HomitaButton(title: task == nil ? "Crear tarea" : "Guardar", isEnabled: canSave, isLoading: isSaving) {
                 Task { await save() }
             }
@@ -106,4 +114,12 @@ struct TaskEditorView: View {
         let ok = await onSave(title.trimmingCharacters(in: .whitespacesAndNewlines), listId, personIds)
         if ok { dismiss() }
     }
+}
+
+/// Permisos de la lista a la que pertenece la tarea, para el editor de tarea (0029): el permiso se
+/// cambia en la lista; aquí se ve y, si el usuario es owner de la lista, se cambia desde la tarea.
+struct TaskListAccess {
+    let rows: [AccessRow]
+    let isOwner: Bool
+    let onSetAccess: (Int, AccessLevel) -> Void
 }

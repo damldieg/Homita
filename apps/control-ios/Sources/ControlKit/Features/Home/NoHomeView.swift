@@ -6,6 +6,8 @@ struct NoHomeView: View {
     @State private var name = ""
     @State private var isWorking = false
     @State private var errorMessage: String?
+    /// La aceptación automática se intenta una vez por pantalla; si falla queda el botón.
+    @State private var triedAutoAccept = false
 
     private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -30,6 +32,12 @@ struct NoHomeView: View {
             .accessibilityIdentifier("sin-hogar.crear-hogar")
         }
         .errorAlert($errorMessage)
+        .task {
+            // Registro con invitación: tras entrar, la persona termina en el hogar invitado sin más pasos.
+            guard !triedAutoAccept, let code = services.homeContext.pendingInvitationCode else { return }
+            triedAutoAccept = true
+            await acceptPending(code)
+        }
     }
 
     /// Invitación con la que se acaba de registrar (0023): en espera hasta que la acepta aquí.

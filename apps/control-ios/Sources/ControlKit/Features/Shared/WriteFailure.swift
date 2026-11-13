@@ -17,7 +17,7 @@ public struct WriteFailure: Identifiable {
     /// si la causa lo admite (`APIError.isRetryable`: sin conexión o 5xx).
     public init(error: Error, retry: @escaping () async -> Bool) {
         let apiError = error as? APIError
-        self.message = apiError?.userMessage ?? error.localizedDescription
+        self.message = apiError?.writeMessage ?? error.localizedDescription
         self.retry = (apiError?.isRetryable ?? false) ? retry : nil
     }
 }
