@@ -191,3 +191,14 @@ Cada épica en rama propia, con `swift test` de ControlKit y `xcodebuild test` e
 - **Formato del código de invitación** lo genera el servidor; el ejemplo es ilustrativo.
 - **Orden de «Hoy» en Rutinas** (con hora, sin hora, caducadas al final) es una lectura de la regla de `RoutineStore`; confirmar con una prueba.
 - No se tocó código Swift ni backend.
+
+### Formularios contra el wireframe (2026-11-13)
+
+- Accesos: cada permiso es una fila (descripción + código a la izquierda, interruptor a la derecha) con aro ámbar si difiere del original; «Guardar» pasa al pie del editor (solo con cambios) y se explica offline.
+- Administradores: chips en orden Quitar admin, Quitar, Hacer admin, Transferir; avatar con inicial; la confirmación de «Quitar admin» usa ese texto.
+- Cada pantalla de Administración tiene su propio título de error; «Sin hogar» lleva cabecera «Hogar».
+- Ajustes: «Personas» muestra su contador y la versión incluye el build. Zona horaria con buscador «Buscar zona horaria».
+- Persona: «Crear persona» no se apaga; con nombre vacío marca el error en el campo. Los campos se bloquean mientras guarda.
+- «+» de Miembros e Invitaciones se desactiva sin conexión.
+- Fechas: se mantiene `DateDisplay.dateTime` (p. ej. «mié 19 nov, 10:00»); el wireframe se corrige.
+

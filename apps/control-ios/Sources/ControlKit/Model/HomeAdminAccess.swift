@@ -91,6 +91,8 @@ public struct PermissionDraft: Equatable, Sendable {
     }
 
     public var isDirty: Bool { current != original }
+    /// ¿Este permiso difiere del que tenía el miembro al abrir el editor? (aro ámbar en el interruptor)
+    public func isChanged(_ code: String) -> Bool { original.contains(code) != current.contains(code) }
     public var finalPermissions: [String] { current.sorted() }
 }
 

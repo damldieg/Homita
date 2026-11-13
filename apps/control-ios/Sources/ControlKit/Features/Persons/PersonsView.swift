@@ -166,12 +166,18 @@ struct PersonEditorView: View {
                             .font(HomitaFont.inter(17, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
                     }
+                    .disabled(isWorking)
                 }
                 HomitaPrimaryButton(
                     title: editing == nil ? "Crear persona" : "Guardar",
-                    isEnabled: !name.trimmingCharacters(in: .whitespaces).isEmpty && !isWorking,
+                    isEnabled: !isWorking,
                     isLoading: isWorking
                 ) {
+                    // Wireframe: el botón no se apaga; con el nombre vacío muestra el error en el campo.
+                    if MemberValidation.nameMessage(name) != nil {
+                        nameTouched = true
+                        return
+                    }
                     Task { await save() }
                 }
                 .homitaRequiresNetwork()

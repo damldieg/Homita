@@ -11,6 +11,7 @@ struct NoHomeView: View {
 
     var body: some View {
         HomitaForm {
+            HomitaHeader(title: "Hogar")
             if let code = services.homeContext.pendingInvitationCode {
                 pendingInvitationPanel(code)
             }

@@ -131,7 +131,7 @@ struct HomeSettingsView: View {
             case .idle, .loading:
                 HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
             case .failed(let message):
-                HomeErrorView(message: message) { Task { await store.load() } }
+                HomeErrorView(message: message, title: "No se pudo cargar la configuración") { Task { await store.load() } }
             case .loaded:
                 if let detail = store.detail {
                     HomitaPanel("Hogar", systemImage: "house") {
@@ -214,7 +214,7 @@ struct TimeZonePickerView: View {
             .homitaRow()
         }
         .homitaList()
-        .searchable(text: $query)
+        .searchable(text: $query, prompt: "Buscar zona horaria")
         .navigationTitle("Zona horaria")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -253,7 +253,7 @@ struct HomeAdministratorsView: View {
             case .idle, .loading:
                 HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
             case .failed(let message):
-                HomeErrorView(message: message) { Task { await store.load() } }
+                HomeErrorView(message: message, title: "No se pudieron cargar los administradores") { Task { await store.load() } }
             case .loaded:
                 HomitaPanel("Personas del hogar", systemImage: "person.badge.key", count: store.items.count) {
                     ForEach(store.items, id: \.membershipId) { item in
@@ -281,7 +281,13 @@ struct HomeAdministratorsView: View {
             adminCount: store.items.filter { $0.role == "admin" }.count
         )
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
+            HStack(spacing: 10) {
+                Text(String(item.name.prefix(1)).uppercased())
+                    .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
+                    .foregroundStyle(Palette.accent)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Palette.accent.opacity(0.14)))
+                    .accessibilityHidden(true)
                 Text(item.name)
                     .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
@@ -297,17 +303,17 @@ struct HomeAdministratorsView: View {
                 .foregroundStyle(Palette.inkSoft)
             if !actions.isEmpty {
                 HStack(spacing: 8) {
-                    if actions.contains(.promote) {
-                        HomitaChipButton(title: "Hacer admin") { request(.promote, item) }
-                    }
                     if actions.contains(.demote) {
                         HomitaChipButton(title: "Quitar admin") { request(.demote, item) }
                     }
-                    if actions.contains(.transfer) {
-                        HomitaChipButton(title: "Transferir") { request(.transfer, item) }
-                    }
                     if actions.contains(.remove) {
                         HomitaChipButton(title: "Quitar", kind: .destructive) { request(.remove, item) }
+                    }
+                    if actions.contains(.promote) {
+                        HomitaChipButton(title: "Hacer admin") { request(.promote, item) }
+                    }
+                    if actions.contains(.transfer) {
+                        HomitaChipButton(title: "Transferir") { request(.transfer, item) }
                     }
                     if actions.contains(.leave) {
                         HomitaChipButton(title: "Salir", kind: .destructive) { request(.leave, item) }
@@ -353,6 +359,7 @@ struct HomeAdministratorsView: View {
         case .remove: return "Quitar"
         case .leave: return "Salir"
         case .transfer: return "Transferir"
+        case .demote: return "Quitar admin"
         default: return "Confirmar"
         }
     }
@@ -381,7 +388,7 @@ struct MemberPermissionsView: View {
             case .idle, .loading:
                 HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
             case .failed(let message):
-                HomeErrorView(message: message) { Task { await store.load() } }
+                HomeErrorView(message: message, title: "No se pudieron cargar los accesos") { Task { await store.load() } }
             case .loaded:
                 HomitaPanel("Accesos por persona", systemImage: "lock.shield", count: store.response?.memberships.count ?? 0) {
                     ForEach(store.response?.memberships ?? [], id: \.membershipId) { item in
@@ -446,6 +453,39 @@ struct MemberPermissionsView: View {
     }
 }
 
+/// Fila de permiso del editor de accesos (wireframe HOGAR-08): descripción y código en monoespaciado
+/// a la izquierda, interruptor a la derecha. Si el valor difiere del original lleva un aro ámbar.
+struct PermissionToggleRow: View {
+    let title: String
+    let code: String
+    @Binding var isOn: Bool
+    var isChanged = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
+                    .foregroundStyle(Palette.ink)
+                Text(code)
+                    .font(HomitaFont.mono(11, relativeTo: .caption2))
+                    .foregroundStyle(Palette.inkMuted)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+                .tint(Palette.online)
+                .padding(2)
+                .overlay(Capsule().stroke(Palette.warn, lineWidth: isChanged ? 2 : 0))
+        }
+        .frame(minHeight: 44)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(title)
+        .accessibilityValue(isChanged ? (isOn ? "activado, cambiado" : "desactivado, cambiado") : (isOn ? "activado" : "desactivado"))
+        .accessibilityIdentifier("accesos-editor.permiso.\(code)")
+    }
+}
+
 struct IdentifiedPermission: Identifiable {
     let item: PermissionItem
     var id: Int { item.membershipId }
@@ -479,22 +519,25 @@ struct PermissionEditorView: View {
             ForEach(groupedCatalog(catalog), id: \.domain) { group in
                 HomitaPanel(group.domain, systemImage: "square.grid.2x2") {
                     ForEach(group.entries, id: \.code) { entry in
-                        VStack(alignment: .leading, spacing: 4) {
-                            HomitaToggle(title: entry.description, isOn: Binding(
-                                get: { draft.isOn(entry.code) },
-                                set: { _ in draft.toggle(entry.code) }
-                            ))
-                            Text(entry.code)
-                                .font(HomitaFont.mono(11, relativeTo: .caption2))
-                                .foregroundStyle(Palette.inkMuted)
-                        }
+                        PermissionToggleRow(
+                            title: entry.description, code: entry.code,
+                            isOn: Binding(get: { draft.isOn(entry.code) }, set: { _ in draft.toggle(entry.code) }),
+                            isChanged: draft.isChanged(entry.code)
+                        )
                     }
                 }
             }
             if canReset {
                 HomitaButton(title: "Restablecer a tipo", kind: .secondary) { confirmingReset = true }
                     .homitaRequiresNetwork()
+                    .accessibilityIdentifier("accesos-editor.restablecer")
             }
+            // «Guardar» al pie (wireframe HOGAR-08, regla 8 de code-facts): solo con cambios.
+            HomitaButton(title: "Guardar", isEnabled: draft.isDirty) {
+                Task { if await store.save(item: item, draft: draft, callerRole: callerRole) { dismiss() } }
+            }
+            .homitaRequiresNetwork(reason: "Sin conexión: no se pueden guardar los accesos ahora.")
+            .accessibilityIdentifier("accesos-editor.guardar")
         }
         .navigationTitle(item.name)
         .errorAlert(Binding(get: { store.errorMessage }, set: { store.errorMessage = $0 }))
@@ -506,14 +549,6 @@ struct PermissionEditorView: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancelar") { dismiss() }
                     .foregroundStyle(Palette.ink)
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Guardar") {
-                    Task { if await store.save(item: item, draft: draft, callerRole: callerRole) { dismiss() } }
-                }
-                .disabled(!draft.isDirty || DataFreshness.shared.isOffline)
-                .foregroundStyle(Palette.ink)
-                .accessibilityIdentifier("accesos-editor.guardar")
             }
         }
     }
@@ -545,7 +580,7 @@ struct HomeAuditView: View {
                 case .idle, .loading:
                     HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
                 case .failed(let message):
-                    HomeErrorView(message: message) { Task { await store.load() } }
+                    HomeErrorView(message: message, title: "No se pudo cargar la auditoría") { Task { await store.load() } }
                 case .loaded:
                     filterBar
                     if filter.isActive && filter.apply(to: store.items).isEmpty {
@@ -667,7 +702,7 @@ struct HomeMembersView: View {
             case .idle, .loading:
                 HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
             case .failed(let message):
-                HomeErrorView(message: message) { Task { await store.load() } }
+                HomeErrorView(message: message, title: "No se pudieron cargar los miembros") { Task { await store.load() } }
             case .loaded:
                 HomitaPanel("Miembros", systemImage: "person.2", count: store.items.count) {
                     ForEach(store.items) { member in
@@ -693,6 +728,7 @@ struct HomeMembersView: View {
                             .foregroundStyle(Palette.ink)
                             .accessibilityLabel("Agregar")
                     }
+                    .disabled(DataFreshness.shared.isOffline)
                 }
             }
         }
@@ -721,6 +757,13 @@ struct HomeMembersView: View {
                     .foregroundStyle(Palette.inkSoft)
             }
             Spacer()
+            // Solo el admin edita: el chevron avisa de que la fila abre el editor.
+            if model.canEditMembers {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Palette.inkMuted)
+                    .accessibilityHidden(true)
+            }
         }
         .opacity(member.status == MemberStatus.inactive.rawValue ? 0.6 : 1)
         .padding(.vertical, 4)
@@ -795,8 +838,11 @@ struct MemberEditorView: View {
             ) {
                 saveTapped()
             }
-            .homitaRequiresNetwork()
+            .homitaRequiresNetwork(reason: "Sin conexión. No se puede guardar ahora.")
             .accessibilityIdentifier("miembro-editor.guardar")
+            if !MemberRules.availableKinds(linked: linked).contains(.pet) {
+                HomitaFootnote(text: "Mascota no se ofrece a personas con cuenta vinculada.")
+            }
         }
         .navigationTitle(editing == nil ? "Nuevo miembro" : "Editar miembro")
         .toolbar {
@@ -861,7 +907,7 @@ struct HomeInvitationsView: View {
             case .idle, .loading:
                 HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
             case .failed(let message):
-                HomeErrorView(message: message) { Task { await store.load() } }
+                HomeErrorView(message: message, title: "No se pudieron cargar las invitaciones") { Task { await store.load() } }
             case .loaded:
                 HomitaPanel("Pendientes", systemImage: "envelope.badge", count: store.items.count) {
                     ForEach(store.items) { item in
@@ -881,6 +927,7 @@ struct HomeInvitationsView: View {
                         .foregroundStyle(Palette.ink)
                         .accessibilityLabel("Crear invitación")
                 }
+                .disabled(DataFreshness.shared.isOffline)
             }
         }
         .refreshable { await store.load() }
@@ -1071,7 +1118,7 @@ struct InvitationCreateView: View {
             HomitaButton(title: "Crear", isEnabled: !isWorking && InvitationRules.normalizedEmail(email) != nil, isLoading: isWorking) {
                 Task { await create() }
             }
-            .homitaRequiresNetwork()
+            .homitaRequiresNetwork(reason: "Sin conexión. Conéctate para crear la invitación.")
             .accessibilityIdentifier("invitacion-nueva.crear")
         }
         .toolbar {
