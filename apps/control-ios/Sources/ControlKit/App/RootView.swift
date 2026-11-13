@@ -1,4 +1,5 @@
 import SwiftUI
+import HomitaShared
 
 /// Raíz de la app: sin sesión → Welcome → Login/Register; con sesión → 5 pestañas
 /// (Inicio, Tareas, Calendario, Hogar, Perfil). Es el único punto público del módulo: el proyecto Xcode del
