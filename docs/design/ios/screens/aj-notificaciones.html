@@ -70,12 +70,12 @@
           <div class="card">
             <div class="card-h"><div class="ico">🔒</div><h3>Pantalla de bloqueo</h3></div>
             <div class="tog first"><div class="grow">Rutinas en tiempo real</div><span class="sw on"></span></div>
-            <p class="foot">Muestra la rutina en curso o la próxima (a menos de una hora) con cuenta atrás, como un viaje en curso. Se inicia al abrir Homita; también puedes quitarla desde Ajustes de iOS › Homita › Actividades en directo.</p>
+            <p class="foot">Muestra la rutina en curso o la próxima (a menos de una hora) con cuenta atrás, como un viaje en curso. Solo sale para las rutinas a las que está asignada tu persona, con tu cuenta iniciada. Se inicia al abrir Homita; también puedes quitarla desde Ajustes de iOS › Homita › Actividades en directo.</p>
           </div>
           <div class="card">
             <div class="card-h"><div class="ico">▦</div><h3>Widgets</h3></div>
             <div class="tog first"><div class="grow">Datos en widgets</div><span class="sw on"></span></div>
-            <p class="foot">Añade los widgets «Rutinas de hoy» y «Accesos rápidos» desde la pantalla de inicio o de bloqueo. Con el toggle apagado muestran un aviso y Homita no les deja datos.</p>
+            <p class="foot">Añade «Rutinas de hoy», «Accesos rápidos» o los widgets «Nueva tarea», «Nuevo evento» y «Nueva rutina» desde la pantalla de inicio o de bloqueo. Con el toggle apagado muestran un aviso y Homita no les deja datos.</p>
           </div>
         </div>
       </div>
@@ -156,7 +156,7 @@
   </section>
 
   <section class="state">
-    <div class="label">5 · Widgets<small>«Rutinas de hoy» (pequeño, mediano, grande y de pantalla de bloqueo) y «Accesos rápidos» (mediano y círculo de bloqueo)</small></div>
+    <div class="label">5 · Widgets<small>«Rutinas de hoy» (pequeño, mediano, grande y de bloqueo), «Accesos rápidos» (mediano) y un widget por acción: «Nueva tarea», «Nuevo evento», «Nueva rutina» (pequeño y de bloqueo)</small></div>
     <div class="phone">
       <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
       <div class="scroll">
@@ -170,7 +170,12 @@
         <div class="quick">
           <div style="background:var(--accent-soft);color:var(--accent)">+ Tarea<small>3 pendientes</small></div>
           <div style="background:var(--ok-soft);color:var(--ok)">+ Evento<small>2 hoy</small></div>
-          <div style="background:var(--warn-soft);color:var(--warn)">Rutinas<small>Ver hoy</small></div>
+          <div style="background:var(--warn-soft);color:var(--warn)">+ Rutina<small>Nueva</small></div>
+        </div>
+        <div class="quick">
+          <div style="background:var(--accent-soft);color:var(--accent)">Nueva tarea<small>Toca para crear</small></div>
+          <div style="background:var(--ok-soft);color:var(--ok)">Nuevo evento<small>Toca para crear</small></div>
+          <div style="background:var(--warn-soft);color:var(--warn)">Nueva rutina<small>Toca para crear</small></div>
         </div>
         <div class="widget"><p class="foot" style="text-align:center;margin:0">Widget desactivado. Actívalo en Ajustes › Notificaciones.</p></div>
       </div>
@@ -183,15 +188,15 @@
   <h2>Reglas de negocio</h2>
   <ul>
     <li>Avisos locales (sin servidor de push): se reprograman al abrir la app, al volver a primer plano, al cambiar un toggle y en segundo plano. iOS admite 64 pendientes: se programan los más próximos (rutinas 7 días).</li>
-    <li>Evento o rutina con alarma = minutos antes (0 = a la hora); sin alarma, no avisa.</li>
+    <li>Evento o rutina con alarma = minutos antes (0 = a la hora); sin alarma, no avisa. Como en Calendario: suena, sale como banner y <b>queda en el panel de notificaciones</b> (sincronizar no borra las ya entregadas).</li>
     <li>Resumen de tareas: aviso diario a la hora elegida si hay pendientes (solo el primero lleva el recuento).</li>
-    <li>Live Activity: se inicia con la app abierta; después la cuenta atrás va sola. Sin push, con la app cerrada no cambia de rutina sola.</li>
-    <li>Widgets: «+ Tarea» y «+ Evento» abren la app y su formulario; «Rutinas» abre la pestaña Rutinas.</li>
+    <li>Live Activity: solo para la persona <b>asignada a la rutina</b> y con su cuenta iniciada (persona vinculada al miembro); una rutina sin asignar no la activa. Se inicia con la app abierta; después la cuenta atrás va sola. Sin push, con la app cerrada no cambia de rutina sola.</li>
+    <li>Widgets de alta: «+ Tarea», «+ Evento» y «+ Rutina» abren la app directamente en su formulario (un widget no admite escribir texto). «Rutinas de hoy» abre la pestaña Rutinas.</li>
   </ul>
   <h2 style="margin-top:12px">Conexiones</h2>
   <ul>
     <li>Llega desde: AJ-01 Ajustes (fila «Avisos, widgets y pantalla de bloqueo») y desde los widgets desactivados (<code>homita://ajustes-notificaciones</code>).</li>
-    <li>Enlaces profundos: <code>nueva-tarea</code>, <code>nuevo-evento</code> (Inicio), <code>rutinas</code>, <code>tareas</code>, <code>calendario</code>.</li>
+    <li>Enlaces profundos: <code>nueva-tarea</code>, <code>nuevo-evento</code> (Inicio), <code>nueva-rutina</code> (Calendario › Rutinas), <code>rutinas</code>, <code>tareas</code>, <code>calendario</code>.</li>
   </ul>
 </aside>
 </body>

@@ -5,6 +5,7 @@ import Foundation
 public enum HomitaDeepLink: String, CaseIterable, Equatable, Sendable {
     case nuevaTarea = "nueva-tarea"
     case nuevoEvento = "nuevo-evento"
+    case nuevaRutina = "nueva-rutina"
     case rutinas = "rutinas"
     case tareas = "tareas"
     case calendario = "calendario"

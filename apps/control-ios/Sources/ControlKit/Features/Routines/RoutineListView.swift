@@ -1,4 +1,5 @@
 import SwiftUI
+import HomitaShared
 
 /// Lista de rutinas agrupadas por día (Hoy, Mañana, Próxima semana) con su próxima sesión;
 /// las de hoy ya caducadas se muestran deshabilitadas (las sesiones individuales no se editan en v1).
@@ -11,6 +12,12 @@ struct RoutineListView: View {
     @State private var routineToEdit: RoutineEntry?
     @State private var pendingRoutineDelete: [RoutineEntry] = []
     @State private var showRoutineDelete = false
+
+    private func openCreateIfRequested(_ link: HomitaDeepLink?) {
+        guard link == .nuevaRutina else { return }
+        DeepLinkCenter.shared.consume(.nuevaRutina)
+        showCreate = true
+    }
 
     var body: some View {
         List {
@@ -52,6 +59,9 @@ struct RoutineListView: View {
                 }
             }
         }
+        // `homita://nueva-rutina` (widget «Nueva rutina»): abre el formulario de alta.
+        .task { openCreateIfRequested(DeepLinkCenter.shared.pending) }
+        .onChange(of: DeepLinkCenter.shared.pending) { _, link in openCreateIfRequested(link) }
         .sheet(isPresented: $showCreate) {
             NavigationStack {
                 RoutineEditorView(store: store, calendars: calendars, persons: persons, routine: nil)

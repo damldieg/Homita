@@ -22,6 +22,8 @@ public final class HomitaSync {
     private var events: [EventEntry] = []
     private var routines: [RoutineEntry] = []
     private var tasks: [TaskEntry] = []
+    private var people: [PersonEntry] = []
+    private var userId: Int?
     private var homeName: String?
     private var hasData = false
     private var isRunning = false
@@ -52,6 +54,7 @@ public final class HomitaSync {
         guard let services, services.session.session != nil,
               case .ready(let home) = services.homeContext.state else { return }
         homeName = home.name
+        userId = services.session.session?.id
         guard !isRunning else { return }
         isRunning = true
         defer { isRunning = false }
@@ -76,6 +79,8 @@ public final class HomitaSync {
         events = []
         routines = []
         tasks = []
+        people = []
+        userId = nil
         homeName = nil
         hasData = false
         lastFetch = nil
@@ -101,6 +106,8 @@ public final class HomitaSync {
         let newEvents = try? await services.events.index(filters)
         let newRoutines = try? await services.routines.index(timezone: timezone)
         let newTasks = try? await services.tasks.index(taskListId: nil)
+        let newPeople = try? await services.persons.index()
+        if let newPeople { people = newPeople }
         if let newEvents { events = newEvents }
         if let newRoutines { routines = newRoutines }
         if let newTasks { tasks = newTasks }
@@ -133,12 +140,13 @@ public final class HomitaSync {
                 await scheduler.replaceAll(with: planned, timeZone: timeZone)
             }
         } else {
-            await scheduler.removeAll()
+            await scheduler.removePending()
         }
 
         // 2. Widgets: el snapshot solo se escribe con el toggle activo.
         let snapshot = SnapshotBuilder.build(
-            events: events, routines: routines, tasks: tasks, homeName: homeName, now: now, timeZone: timeZone
+            events: events, routines: routines, tasks: tasks, homeName: homeName, now: now, timeZone: timeZone,
+            myPersonIds: myPersonIds
         )
         if prefs.widgets {
             snapshotStore.save(snapshot)
@@ -162,6 +170,13 @@ public final class HomitaSync {
             guard !Task.isCancelled else { return }
             await self?.apply(allowPrompt: false)
         }
+    }
+
+    /// Personas del hogar vinculadas a la cuenta de este iPhone (normalmente una). La Live Activity
+    /// solo sale para las rutinas a las que está asignada alguna de ellas.
+    private var myPersonIds: Set<Int> {
+        guard let userId else { return [] }
+        return Set(people.filter { $0.app_user_id == userId }.map(\.id))
     }
 
     private func reloadWidgets() {

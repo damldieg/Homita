@@ -13,6 +13,9 @@ public enum HomitaShared {
     /// Identificadores de los widgets (`kind`), para recargar solo los nuestros.
     public static let routinesWidgetKind = "com.lito.planify.control.ios.widget.routines"
     public static let quickActionsWidgetKind = "com.lito.planify.control.ios.widget.quick"
+    public static let newTaskWidgetKind = "com.lito.planify.control.ios.widget.new-task"
+    public static let newEventWidgetKind = "com.lito.planify.control.ios.widget.new-event"
+    public static let newRoutineWidgetKind = "com.lito.planify.control.ios.widget.new-routine"
 
     /// Ventana «en curso» de una rutina y antelación del aviso (misma regla que `RoutineStatus`).
     public static let routineWindow: TimeInterval = 3600
