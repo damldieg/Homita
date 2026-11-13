@@ -80,6 +80,20 @@ public final class InicioStore: WriteFailureReporting {
         return RoutineStatus.evaluate(start: start, now: current.now)
     }
 
+    /// Fase de una rutina de hoy en Inicio: finalizada, en curso, aviso (≤ 60 min) o más tarde.
+    public enum RoutinePhase: Equatable, Sendable {
+        case done, now, soon, later
+    }
+
+    /// Fase según el horario (D-1): caducada = finalizada; en curso; en aviso; resto = más tarde.
+    public func phase(of routine: RoutineEntry) -> RoutinePhase {
+        switch status(for: routine) {
+        case .expired: return .done
+        case .inProgress: return .now
+        case .normal: return isSoon(routine) ? .soon : .later
+        }
+    }
+
     /// Aviso (≤ 60 min antes del inicio). El estado se calcula solo por horario (D-1): sin marca manual.
     public func isSoon(_ routine: RoutineEntry) -> Bool {
         let current = clock()

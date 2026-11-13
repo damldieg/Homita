@@ -10,15 +10,9 @@ struct RoutinesTodayCard: View {
 
     @State private var showDone = true
 
-    /// Fase de una rutina de hoy según su horario.
-    private enum Phase { case later, soon, now, done }
-
-    private func phase(_ routine: RoutineEntry) -> Phase {
-        switch store.status(for: routine) {
-        case .expired: return .done
-        case .inProgress: return .now
-        case .normal: return store.isSoon(routine) ? .soon : .later
-        }
+    /// Fase de cada rutina según el store (D-1: solo horario).
+    private func phase(_ routine: RoutineEntry) -> InicioStore.RoutinePhase {
+        store.phase(of: routine)
     }
 
     private var routines: [RoutineEntry] { store.todayRoutinesByTime }
