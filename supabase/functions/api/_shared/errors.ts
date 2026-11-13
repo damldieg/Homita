@@ -115,6 +115,8 @@ export const errCalendarUpdateRequired = (): Response => error("Calendar ID, nam
 export const errCalendarUserIdRequired = (): Response => error("calendar_id is required", 400);
 export const errCalendarUserCreateRequired = (): Response => error("Calendar ID and email are required", 400);
 export const errCalendarUserDeleteRequired = (): Response => error("calendar_id and user_id are required", 400);
+// 0029: PATCH /calendar/user (permiso de edición). Ruta nueva sin equivalente PHP.
+export const errCalendarUserAccessRequired = (): Response => error("calendar_id, user_id and can_edit are required", 400);
 
 // person (Person.php / PersonControllerAbstract.php)
 export const errPersonIdRequired = (): Response => error("Person ID is required", 400);
@@ -152,6 +154,8 @@ export const errTaskListUpdateRequired = (): Response => error("Task list ID, na
 export const errTaskListUserIdRequired = (): Response => error("task_list_id is required", 400);
 export const errTaskListUserCreateRequired = (): Response => error("Task list ID and email are required", 400);
 export const errTaskListUserDeleteRequired = (): Response => error("task_list_id and user_id are required", 400);
+// 0029: PATCH /task-list/user (permiso de edición). Ruta nueva sin equivalente PHP.
+export const errTaskListUserAccessRequired = (): Response => error("task_list_id, user_id and can_edit are required", 400);
 
 // task (Task*.php)
 export const errTaskIdRequired = (): Response => error("Task ID is required", 400);
