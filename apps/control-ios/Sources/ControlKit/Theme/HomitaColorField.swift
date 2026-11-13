@@ -15,7 +15,8 @@ struct HomitaColorField: View {
             Text(title)
                 .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
                 .foregroundStyle(Palette.inkSoft)
-            HStack(spacing: Spacing.s3) {
+            // Cuadrícula adaptativa: las muestras se acomodan al ancho de la pantalla (no se salen).
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: Spacing.s2)], alignment: .leading, spacing: Spacing.s2) {
                 ForEach(Palette.swatches, id: \.self) { hex in
                     Button {
                         color = Color(hex: hex)
@@ -32,16 +33,16 @@ struct HomitaColorField: View {
                     .accessibilityLabel("Color \(hex)")
                     .accessibilityAddTraits(currentHex == hex ? .isSelected : [])
                 }
-                Button {
-                    showCustom.toggle()
-                } label: {
-                    Text("Personalizado")
-                        .font(HomitaFont.inter(13, weight: .semibold, relativeTo: .footnote))
-                        .foregroundStyle(Palette.accent)
-                        .frame(minHeight: 44)
-                }
-                .buttonStyle(.plain)
             }
+            Button {
+                showCustom.toggle()
+            } label: {
+                Text("Personalizado")
+                    .font(HomitaFont.inter(13, weight: .semibold, relativeTo: .footnote))
+                    .foregroundStyle(Palette.accent)
+                    .frame(minHeight: 44)
+            }
+            .buttonStyle(.plain)
             if showCustom || !isFixed {
                 ColorPicker("Color personalizado", selection: $color, supportsOpacity: false)
                     .font(HomitaFont.inter(17, relativeTo: .body))
