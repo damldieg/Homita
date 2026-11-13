@@ -146,13 +146,14 @@ struct TasksView: View {
                                 .foregroundStyle(Palette.inkSoft)
                             HomitaSectionHeader(
                                 title: group.name,
-                                count: group.count,
+                                count: nil,
+                                countText: "\(group.tasks.filter(\.isCompleted).count)/\(group.count)",
                                 tint: Color(hex: group.colorHex ?? Palette.accentHex)
                             )
                         }
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("\(group.name), \(group.count) tareas")
+                    .accessibilityLabel("\(group.name), \(group.tasks.filter(\.isCompleted).count) de \(group.count) completadas")
                     .accessibilityValue(collapsedListIds.contains(group.listId) ? "plegada" : "desplegada")
                     Spacer(minLength: 0)
                     // Borra solo las completadas de esta lista, con confirmación.

@@ -57,6 +57,8 @@ struct HomitaCard<Content: View>: View {
 struct HomitaSectionHeader: View {
     let title: String
     var count: Int?
+    /// Texto del contador en lugar del número (p. ej. «3/9» en una lista con completadas).
+    var countText: String?
     var systemImage: String?
     var tint: Color = Palette.accent
 
@@ -73,8 +75,8 @@ struct HomitaSectionHeader: View {
                 .font(HomitaFont.inter(19, weight: .bold, relativeTo: .headline))
                 .foregroundStyle(Palette.ink)
             Spacer()
-            if let count {
-                Text("\(count)")
+            if let label = countText ?? count.map({ "\($0)" }) {
+                Text(label)
                     .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .subheadline))
                     .foregroundStyle(tint)
                     .padding(.horizontal, 10)
