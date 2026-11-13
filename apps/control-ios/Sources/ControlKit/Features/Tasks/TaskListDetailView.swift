@@ -60,7 +60,7 @@ struct TaskListDetailView: View {
             if !pending.isEmpty {
                 Section {
                     ForEach(pending, id: \.id) { task in
-                        TaskRow(task: task, showListName: false) {
+                        TaskRow(task: task, showListName: false, plain: true) {
                             Task { await store.toggleComplete(task) }
                         } onEdit: {
                             taskToEdit = task
@@ -86,7 +86,7 @@ struct TaskListDetailView: View {
             if !completed.isEmpty {
                 Section {
                     ForEach(completed, id: \.id) { task in
-                        TaskRow(task: task, showListName: false) {
+                        TaskRow(task: task, showListName: false, plain: true) {
                             Task { await store.toggleComplete(task) }
                         } onEdit: {
                             taskToEdit = task

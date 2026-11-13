@@ -158,7 +158,7 @@ struct TasksView: View {
                         .listRowSeparator(.hidden)
                     if !collapsedListIds.contains(group.listId) {
                         ForEach(group.tasks, id: \.id) { task in
-                            TaskRow(task: task, showListName: false) {
+                            TaskRow(task: task, showListName: false, plain: true) {
                                 Task { await store.toggleComplete(task) }
                             } onEdit: {
                                 taskToEdit = task
@@ -343,6 +343,8 @@ struct TaskListsView: View {
 struct TaskRow: View {
     let task: TaskEntry
     let showListName: Bool
+    /// Fila plana dentro de la tarjeta de su lista (wireframe): sin tarjeta propia.
+    var plain: Bool = false
     let onToggle: () -> Void
     let onEdit: () -> Void
 
@@ -355,21 +357,26 @@ struct TaskRow: View {
     }
 
     private var rowContent: some View {
-        HomitaCard {
-            HStack(spacing: 12) {
-                HomitaCheckbox(isOn: task.isCompleted, tintHex: Palette.onlineHex, onChange: onToggle)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(task.title)
-                        .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
-                        .foregroundStyle(task.isCompleted ? Palette.inkMuted : Palette.ink)
-                        .strikethrough(task.isCompleted)
-                    AssignedPersonTags(persons: task.persons)
-                    if showListName, let name = task.task_list_name {
-                        HomitaBadge(title: name, tintHex: task.task_list_color ?? Palette.accentHex)
-                            .padding(.top, 2)
-                    }
+        let row = HStack(spacing: 12) {
+            HomitaCheckbox(isOn: task.isCompleted, tintHex: Palette.onlineHex, onChange: onToggle)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(task.title)
+                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
+                    .foregroundStyle(task.isCompleted ? Palette.inkMuted : Palette.ink)
+                    .strikethrough(task.isCompleted)
+                AssignedPersonTags(persons: task.persons)
+                if showListName, let name = task.task_list_name {
+                    HomitaBadge(title: name, tintHex: task.task_list_color ?? Palette.accentHex)
+                        .padding(.top, 2)
                 }
-                Spacer()
+            }
+            Spacer()
+        }
+        return Group {
+            if plain {
+                row.padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                HomitaCard { row }
             }
         }
     }
