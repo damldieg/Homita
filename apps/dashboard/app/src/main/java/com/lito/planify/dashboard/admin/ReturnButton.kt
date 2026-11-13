@@ -46,7 +46,7 @@ object ReturnButton {
             setPadding(30, 30, 30, 30)
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(0xFF221D18.toInt())
+                setColor(0xFF2F4A3A.toInt())
             }
             elevation = 12f
             setOnClickListener { backToDashboard(app) }

@@ -240,7 +240,7 @@ private fun RailClock(state: UiState) {
             RollingText(minute, style.copy(color = Palette.InkSoft))
         }
         if (!state.online || !state.connected) {
-            Text("Sin conexión", style = Type.Tiny.copy(color = Palette.Accent), textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
+            Text("Sin conexión", style = Type.Tiny.copy(color = Palette.Danger), textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }

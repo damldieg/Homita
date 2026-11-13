@@ -8,12 +8,13 @@
   --surface: #FDFBF7;       /* tarjetas y filas */
   --surface-2: #F8F3EA;     /* tarjeta secundaria / skeleton base */
   --line: #EDE5D6;          /* bordes finos */
-  --text: #1D1612;
+  --text: #2F4A3A;        /* bosque de marca, 8,4:1 sobre --bg */
   --text-2: #6F655A;        /* secundario, contraste 5.1:1 sobre --bg */
   --text-3: #8F8579;        /* terciario: solo texto grande o decorativo */
-  --accent: #B5313F;        /* acción principal */
-  --accent-press: #952634;
-  --accent-soft: #F4DDE0;   /* fondos de icono, badges */
+  --accent: #B04A27;        /* acción principal: terracota profunda (5,4:1 sobre blanco) */
+  --accent-press: #8F3B1D;
+  --accent-soft: #F6E0D4;   /* fondos de icono, badges */
+  --sage: #4F7A63;          /* acento secundario de marca */
   --ok: #2F5E3B;      --ok-soft: #E6F0E0;
   --warn: #7A5800;    --warn-soft: #FFF4CC;
   --err: #B3261E;     --err-soft: #F9DEDC;
@@ -53,7 +54,7 @@
 @media (prefers-color-scheme: dark) {
   :root[data-wf-theme="auto"] {
     --bg: #1B1713; --bg-sunken: #26201A; --surface: #241E19; --surface-2: #2C251F; --line: #3A322A;
-    --text: #F4ECE0; --text-2: #BFB3A4; --text-3: #988C7D; --accent: #E5485F; --accent-soft: #4A1F27;
+    --text: #F4ECE0; --text-2: #BFB3A4; --text-3: #988C7D; --accent: #F09A74; --accent-soft: #4A2A1E; --sage: #8CC3A5;
     --ok-soft: #1E3A2A; --warn-soft: #43321A; --err-soft: #4A2220; --info-soft: #232C52;
   }
 }

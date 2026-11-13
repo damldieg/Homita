@@ -55,8 +55,8 @@ fun FlipClock(text: String, modifier: Modifier = Modifier, tile: Dp = 110.dp, he
     }
 }
 
-private val TileTop = Color(0xFF2E2823)
-private val TileBottom = Color(0xFF221D18)
+private val TileTop = Color(0xFF3A5A48)
+private val TileBottom = Color(0xFF2F4A3A)
 private val Digit = Color.White
 private const val FLIP_MS = 520
 
