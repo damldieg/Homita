@@ -5,6 +5,8 @@ import SwiftUI
 /// hay endpoint de revocación). «Mis hogares» y la administración del hogar viven en la pestaña Hogar.
 public struct ProfileView: View {
     let services: AppServices
+    /// Lleva a la pestaña Hogar («Ver el hogar» tras unirse con un código).
+    var onOpenHome: () -> Void = {}
 
     @State private var personStore: PersonStore
     @State private var didLoadPersons = false
@@ -17,8 +19,9 @@ public struct ProfileView: View {
     @AppStorage(AppearancePreference.storageKey) private var appearance = AppearancePreference.system.rawValue
     @Environment(\.colorScheme) private var colorScheme
 
-    public init(services: AppServices) {
+    public init(services: AppServices, onOpenHome: @escaping () -> Void = {}) {
         self.services = services
+        self.onOpenHome = onOpenHome
         _personStore = State(initialValue: PersonStore(repo: services.persons))
     }
 
@@ -50,10 +53,12 @@ public struct ProfileView: View {
                     invitationsCard
                     HomitaCard {
                         HomitaToggle(title: "Modo oscuro", isOn: darkModeBinding)
+                            .accessibilityIdentifier("ajustes.modo-oscuro")
                     }
                     HomitaButton(title: "Cerrar sesión", kind: .secondary) {
                         showSignOutConfirm = true
                     }
+                    .accessibilityIdentifier("ajustes.cerrar-sesion")
                     Text("Con firma gratuita la app caduca a los 7 días; reinstálala y vuelve a iniciar sesión.")
                         .font(HomitaFont.inter(13, relativeTo: .footnote))
                         .foregroundStyle(Palette.inkSoft)
@@ -95,11 +100,16 @@ public struct ProfileView: View {
         VStack(alignment: .leading, spacing: 14) {
             HomitaSectionHeader(title: "Cuenta", systemImage: "person.crop.circle")
             HomitaField(placeholder: "Nombre", text: $name)
+            .accessibilityIdentifier("ajustes.nombre")
             HomitaField(placeholder: "Email", text: $email, isEmail: true)
+            .accessibilityIdentifier("ajustes.email")
             HomitaField(placeholder: "Nueva contraseña (opcional, mínimo 8)", text: $password, isSecure: true)
-            HomitaPrimaryButton(title: "Guardar cambios", isEnabled: isValid && !isWorking, isLoading: isWorking) {
+            .accessibilityIdentifier("ajustes.contrasena")
+            HomitaPrimaryButton(title: "Guardar cambios", isEnabled: isValid && hasChanges && !isWorking, isLoading: isWorking) {
                 Task { await save() }
             }
+            .homitaRequiresNetwork()
+            .accessibilityIdentifier("ajustes.guardar-cuenta")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
@@ -116,6 +126,7 @@ public struct ProfileView: View {
                 linkRow(title: "Personas", systemImage: "person.2.fill", tint: Palette.accentHex)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("ajustes.personas")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
@@ -128,11 +139,12 @@ public struct ProfileView: View {
         VStack(alignment: .leading, spacing: 10) {
             HomitaSectionHeader(title: "Invitaciones", systemImage: "envelope.badge")
             NavigationLink {
-                AcceptInvitationView(services: services)
+                AcceptInvitationView(services: services, onOpenHome: onOpenHome)
             } label: {
                 linkRow(title: "Unirse a un hogar con un código", systemImage: "person.badge.plus", tint: Palette.onlineHex)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("ajustes.unirse")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
@@ -161,6 +173,21 @@ public struct ProfileView: View {
     }
 
     // MARK: - Lógica
+
+    /// «Guardar cambios» solo se activa si algo cambió respecto a la sesión (o hay contraseña nueva).
+    private var hasChanges: Bool {
+        Self.hasAccountChanges(
+            name: name, email: email, password: password,
+            sessionName: services.session.session?.name ?? "", sessionEmail: services.session.session?.email ?? ""
+        )
+    }
+
+    static func hasAccountChanges(name: String, email: String, password: String,
+                                  sessionName: String, sessionEmail: String) -> Bool {
+        !password.isEmpty
+            || name.trimmingCharacters(in: .whitespaces) != sessionName
+            || email.trimmingCharacters(in: .whitespaces) != sessionEmail
+    }
 
     private var isValid: Bool {
         name.codepointCount >= 3 && name.codepointCount <= 50

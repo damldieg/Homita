@@ -486,3 +486,39 @@ public final class InvitationStore {
         (error as? APIError)?.invitationAdminMessage ?? error.localizedDescription
     }
 }
+
+/// Resúmenes del menú Administración (E4-04, Nuevo): conteos de administradores, miembros e
+/// invitaciones pendientes. Cada uno falla por separado: `nil` = no se pudo cargar.
+@Observable
+public final class AdminSummaryStore {
+    public private(set) var administrators: Int?
+    public private(set) var members: Int?
+    public private(set) var invitations: Int?
+    /// `true` hasta la primera carga: la vista muestra el subtítulo fijo mientras tanto.
+    public private(set) var isLoading = true
+
+    private let repo: HomeRepository
+    public let homeId: Int
+    private let activeHomeId: () -> String?
+
+    public init(repo: HomeRepository, homeId: Int, activeHomeId: @escaping () -> String?) {
+        self.repo = repo
+        self.homeId = homeId
+        self.activeHomeId = activeHomeId
+    }
+
+    /// `includeInvitations` = quien mira puede ver Invitaciones (admin o `home.invite`).
+    public func load(includeInvitations: Bool) async {
+        let memberships = try? await repo.memberships(homeId: homeId)
+        let people = try? await repo.members(homeId: homeId)
+        var pending: [InvitationItem]?
+        if includeInvitations {
+            pending = try? await repo.invitations(homeId: homeId)
+        }
+        guard activeHomeId() == String(homeId) else { return }
+        administrators = memberships.map { rows in rows.filter { $0.role == "admin" }.count }
+        members = people?.count
+        invitations = pending?.count
+        isLoading = false
+    }
+}

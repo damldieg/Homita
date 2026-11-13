@@ -6,6 +6,8 @@ import SwiftUI
 /// caduca a los 7 días. Tras unirse, el hogar pasa a ser el activo (`HomeContextStore`).
 struct AcceptInvitationView: View {
     let services: AppServices
+    /// «Ver el hogar»: cambia a la pestaña Hogar tras unirse.
+    var onOpenHome: () -> Void = {}
 
     @State private var code = ""
     @State private var isWorking = false
@@ -21,11 +23,15 @@ struct AcceptInvitationView: View {
             HomitaPrimaryButton(title: "Unirse", isEnabled: InvitationCode.isValid(code) && !isWorking, isLoading: isWorking) {
                 Task { await accept() }
             }
+            .homitaRequiresNetwork()
+            .accessibilityIdentifier("unirse.unirse")
             if let joinedHomeName {
                 HomitaPanel("Listo", systemImage: "checkmark.circle", tint: Palette.online) {
                     Text("Te has unido a \(joinedHomeName)")
                         .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                         .foregroundStyle(Palette.ink)
+                    HomitaButton(title: "Ver el hogar", kind: .secondary, action: onOpenHome)
+                        .accessibilityIdentifier("unirse.ver-hogar")
                 }
             }
         }

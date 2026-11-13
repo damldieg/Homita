@@ -111,10 +111,11 @@ struct HomeLoadingView: View {
 /// Fallo al resolver el hogar, con reintento.
 struct HomeErrorView: View {
     let message: String
+    var title = "No se pudo cargar tu hogar"
     let retry: () -> Void
 
     var body: some View {
-        HomitaPanel("No se pudo cargar tu hogar", systemImage: "exclamationmark.triangle", tint: Palette.accent) {
+        HomitaPanel(title, systemImage: "exclamationmark.triangle", tint: Palette.accent) {
             Text(message)
                 .font(HomitaFont.inter(15, relativeTo: .body))
                 .foregroundStyle(Palette.inkSoft)
