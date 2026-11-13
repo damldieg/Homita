@@ -163,7 +163,7 @@ Persistencia local: el token de sesión y el hogar activo van en Keychain (`acti
 - **Hogar personal.** Se puede renombrar. Transferir, quitar y salir no se ofrecen.
 - **Cierre de sesión.** Pasa por `AppServices.signOut()`, que limpia el hogar activo.
 - **Notificaciones.** No hay avisos en v1: las alarmas se guardan en el servidor pero el iPhone no avisa.
-- **Sin vista mensual ni semanal** del calendario en v1; solo listas.
+- **Eventos del calendario por día:** cabecera con flechas y selector de fecha, tira de la semana y lista del día; solo eventos (las sesiones de rutina se ven en el segmento Rutinas). Sin vista de mes.
 - **Sin widgets, push ni iPad.** Distribución por side-load (firma gratuita, caduca a los 7 días).
 
 ## 8. Límites de esta captura

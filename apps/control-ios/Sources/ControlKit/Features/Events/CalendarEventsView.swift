@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Pestaña Eventos (B3): conmutador Mes / Semana / Día. Tocar un evento abre su detalle en push.
+/// Pestaña Eventos: un día cada vez. Cabecera con flechas y selector de fecha, tira de la semana y lista del día.
+/// Solo eventos (las rutinas tienen su segmento). Tocar un evento abre su detalle en push.
 struct CalendarEventsView: View {
     @Bindable var eventStore: EventStore
     @Bindable var calendarStore: CalendarAgendaStore
@@ -9,19 +10,15 @@ struct CalendarEventsView: View {
 
     @State private var selectedEvent: EventEntry?
     @State private var showCreate = false
+    @State private var showPicker = false
 
     private var grid: CalendarGrid { calendarStore.grid }
 
     var body: some View {
         VStack(spacing: 0) {
-            HomitaSegmented(
-                selection: Binding(get: { calendarStore.mode }, set: changeMode),
-                items: CalendarMode.allCases.map { (id: $0, title: $0.title) }
-            )
-            .padding([.horizontal, .top])
-
             calendarContent
         }
+        .sheet(isPresented: $showPicker) { datePickerSheet }
         .navigationDestination(isPresented: detailPresented) {
             if let event = selectedEvent {
                 EventDetailView(store: eventStore, calendars: calendars, persons: persons, event: event)
@@ -66,10 +63,6 @@ struct CalendarEventsView: View {
         return calendar.date(bySettingHour: hour, minute: 0, second: 0, of: calendarStore.anchor) ?? calendarStore.anchor
     }
 
-    private func changeMode(_ mode: CalendarMode) {
-        Task { await calendarStore.setMode(mode) }
-    }
-
     private var detailPresented: Binding<Bool> {
         Binding(get: { selectedEvent != nil }, set: { if !$0 { selectedEvent = nil } })
     }
@@ -81,13 +74,21 @@ struct CalendarEventsView: View {
                 if !calendarStore.hasLoaded {
                     HomitaSkeletonRows(count: 3, height: 64, label: "Cargando calendario")
                 } else {
-                    dayGrid
+                    weekStrip
                     dayList
                 }
             }
             .padding(20)
         }
         .scrollContentBackground(.hidden)
+        // Deslizar a los lados cambia de día (solo gestos claramente horizontales).
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 30).onEnded { value in
+                let dx = value.translation.width, dy = value.translation.height
+                guard abs(dx) > 60, abs(dx) > abs(dy) * 1.5 else { return }
+                Task { await calendarStore.move(dx < 0 ? 1 : -1) }
+            }
+        )
     }
 
     // MARK: - Cabecera y navegación
@@ -97,37 +98,72 @@ struct CalendarEventsView: View {
             Button { Task { await calendarStore.move(-1) } } label: {
                 Image(systemName: "chevron.left").foregroundStyle(Palette.ink)
             }
-            .accessibilityLabel(calendarStore.mode == .month ? "Mes anterior" : "Anterior")
-            Text(rangeTitle)
-                .font(HomitaFont.inter(18, weight: .semibold, relativeTo: .headline))
-                .foregroundStyle(Palette.ink)
+            .accessibilityLabel("Día anterior")
+            Button { showPicker = true } label: {
+                HStack(spacing: 6) {
+                    Text(dayTitle)
+                        .font(HomitaFont.inter(18, weight: .semibold, relativeTo: .headline))
+                        .foregroundStyle(Palette.ink)
+                    Image(systemName: "chevron.down")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Palette.inkSoft)
+                }
                 .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(dayTitle). Elegir fecha")
+            if !calendarStore.isToday {
+                Button("Hoy") { Task { await calendarStore.goToToday() } }
+                    .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
+                    .foregroundStyle(Palette.accent)
+            }
             Button { Task { await calendarStore.move(1) } } label: {
                 Image(systemName: "chevron.right").foregroundStyle(Palette.ink)
             }
-            .accessibilityLabel(calendarStore.mode == .month ? "Mes siguiente" : "Siguiente")
+            .accessibilityLabel("Día siguiente")
         }
     }
 
-    private var rangeTitle: String {
-        let anchor = calendarStore.anchor
-        switch calendarStore.mode {
-        case .month:
-            return Self.format("LLLLy", anchor, grid).capitalized
-        case .week:
-            let days = calendarStore.visibleDays
-            guard let first = days.first, let last = days.last else { return "" }
-            return "\(Self.format("dMMM", first, grid)) – \(Self.format("dMMM", last, grid))"
-        case .day:
-            return Self.format("EEEEdMMMM", anchor, grid).capitalized
-        }
+    private var dayTitle: String {
+        Self.format("EEEEdMMMM", calendarStore.anchor, grid).capitalized
     }
 
-    // MARK: - Cuadrícula
+    /// Hoja con el selector gráfico: permite saltar a cualquier día sin pasar por los intermedios.
+    private var datePickerSheet: some View {
+        NavigationStack {
+            DatePicker(
+                "Fecha",
+                selection: Binding(
+                    get: { calendarStore.anchor },
+                    set: { date in Task { await calendarStore.select(date) } }
+                ),
+                displayedComponents: .date
+            )
+            .datePickerStyle(.graphical)
+            .environment(\.calendar, grid.calendar)
+            .tint(Palette.accent)
+            .padding(.horizontal)
+            .navigationTitle("Elegir fecha")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Hoy") {
+                        Task { await calendarStore.goToToday() }
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Listo") { showPicker = false }
+                }
+            }
+            .background(Palette.background.ignoresSafeArea())
+        }
+        .presentationDetents([.medium])
+    }
 
-    private var dayGrid: some View {
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
-        return VStack(spacing: 8) {
+    // MARK: - Tira de la semana
+
+    private var weekStrip: some View {
+        VStack(spacing: 8) {
             HStack(spacing: 4) {
                 ForEach(Array(Self.weekdayLetters(grid).enumerated()), id: \.offset) { _, letter in
                     Text(letter)
@@ -136,7 +172,7 @@ struct CalendarEventsView: View {
                         .frame(maxWidth: .infinity)
                 }
             }
-            LazyVGrid(columns: columns, spacing: 6) {
+            HStack(spacing: 4) {
                 ForEach(calendarStore.visibleDays, id: \.self) { day in
                     dayCell(day)
                 }
@@ -147,7 +183,6 @@ struct CalendarEventsView: View {
     private func dayCell(_ day: Date) -> some View {
         let calendar = grid.calendar
         let isSelected = calendar.isDate(day, inSameDayAs: calendarStore.anchor)
-        let inMonth = calendarStore.mode != .month || calendar.isDate(day, equalTo: calendarStore.anchor, toGranularity: .month)
         let dayEvents = calendarStore.events(on: day)
         let colors = Self.uniqueColors(dayEvents)
         let number = calendar.component(.day, from: day)
@@ -158,7 +193,7 @@ struct CalendarEventsView: View {
             VStack(spacing: 4) {
                 Text("\(number)")
                     .font(HomitaFont.inter(15, weight: isSelected ? .bold : .medium, relativeTo: .body))
-                    .foregroundStyle(isSelected ? Palette.card : (inMonth ? Palette.ink : Palette.inkMuted))
+                    .foregroundStyle(isSelected ? Palette.onFill : Palette.ink)
                     .frame(width: 34, height: 34)
                     .background(Circle().fill(isSelected ? Palette.accent : Color.clear))
                 HStack(spacing: 2) {
@@ -168,7 +203,7 @@ struct CalendarEventsView: View {
                 }
                 .frame(height: 5)
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -181,7 +216,7 @@ struct CalendarEventsView: View {
         let items = calendarStore.events(on: calendarStore.anchor)
         return VStack(alignment: .leading, spacing: 10) {
             HomitaSectionHeader(
-                title: Self.format("EEEEdMMMM", calendarStore.anchor, grid).capitalized,
+                title: dayTitle,
                 count: items.count,
                 systemImage: "calendar"
             )
@@ -231,7 +266,7 @@ struct CalendarEventsView: View {
     }
 }
 
-/// Fila de evento en el calendario: barra de color, hora, título y marca de sesión de rutina.
+/// Fila de evento en el calendario: barra de color, hora y título.
 struct CalendarEventRow: View {
     let event: EventEntry
     let onOpen: () -> Void
@@ -252,11 +287,6 @@ struct CalendarEventRow: View {
                             .foregroundStyle(Palette.ink)
                         EventCountdownLabel(dateAt: event.date_at)
                         AssignedPersonsLine(persons: event.persons)
-                        if event.routine_id != nil {
-                            Text("Sesión de rutina")
-                                .font(HomitaFont.inter(12, relativeTo: .caption))
-                                .foregroundStyle(Palette.inkSoft)
-                        }
                     }
                     Spacer(minLength: 0)
                 }

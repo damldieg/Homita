@@ -1,10 +1,11 @@
 import Foundation
 
-/// Estado de las vistas de calendario mes/semana/día (B3). Lee `GET event` del rango visible
-/// SIN filtrar `routine`, así las sesiones de rutina aparecen junto a los eventos.
+/// Estado de la agenda de eventos por día: un día elegido (`anchor`) y la semana que lo contiene para la tira.
+/// Lee `GET event` de la semana visible con `routine=false`: las sesiones de rutina no se mezclan con los
+/// eventos, tienen su propio segmento (Rutinas). Una sola petición por semana alimenta tira y lista.
 @Observable
 public final class CalendarAgendaStore {
-    public var mode: CalendarMode = .month
+    /// Día elegido; cambia con la tira, las flechas, el gesto de deslizar o el selector de fecha.
     public var anchor: Date
     public private(set) var events: [EventEntry] = []
     public private(set) var isLoading = false
@@ -28,9 +29,13 @@ public final class CalendarAgendaStore {
 
     private var timezone: String { grid.timeZone.identifier }
 
-    /// Días del modo actual (cuadrícula, semana o día).
+    /// Los 7 días (lunes a domingo) de la semana del día elegido: tira y rango de la consulta.
     public var visibleDays: [Date] {
-        grid.visibleDays(mode: mode, anchor: anchor)
+        grid.visibleDays(mode: .week, anchor: anchor)
+    }
+
+    public var isToday: Bool {
+        grid.day(of: anchor) == grid.day(of: now())
     }
 
     /// Eventos de un día, ordenados por hora.
@@ -54,8 +59,8 @@ public final class CalendarAgendaStore {
             return
         }
         do {
-            // routine: nil → el servidor devuelve eventos y sesiones de rutina.
-            let filters = EventFilters(startDate: range.start, endDate: range.end, timezone: timezone)
+            // routine: false → solo eventos; las sesiones de rutina se ven en el segmento Rutinas.
+            let filters = EventFilters(startDate: range.start, endDate: range.end, routine: false, timezone: timezone)
             let result = try await repo.index(filters)
             guard token == generation else { return }
             events = result
@@ -73,23 +78,21 @@ public final class CalendarAgendaStore {
         }
     }
 
-    /// Cambia el modo y recarga el rango correspondiente.
-    public func setMode(_ newMode: CalendarMode) async {
-        mode = newMode
-        await load()
-    }
-
-    /// Mueve la fecha ancla un paso (mes, semana o día según el modo) y recarga.
+    /// Mueve el día elegido (±1 día) y recarga solo si cambia de semana.
     public func move(_ steps: Int) async {
-        anchor = grid.shift(anchor, mode: mode, by: steps)
-        await load()
+        await select(grid.shift(anchor, mode: .day, by: steps))
     }
 
-    /// Selecciona un día (toque en la cuadrícula). Recarga solo si cambia el rango visible (R1-07).
+    /// Elige un día (tira, flechas, deslizar o selector). Recarga solo si cambia la semana visible (R1-07).
     public func select(_ day: Date) async {
         let before = visibleDays
         anchor = grid.day(of: day)
         guard visibleDays != before else { return }
         await load()
+    }
+
+    /// Vuelve a hoy.
+    public func goToToday() async {
+        await select(now())
     }
 }
