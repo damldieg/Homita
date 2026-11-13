@@ -14,22 +14,27 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .library(name: "ControlKit", targets: ["ControlKit"])
+        .library(name: "ControlKit", targets: ["ControlKit"]),
+        // Tipos compartidos con la extensión de widgets (snapshot, preferencias, deep links, Live Activity).
+        .library(name: "HomitaShared", targets: ["HomitaShared"])
     ],
     dependencies: [
         // ComponentsKit (MIT, solo iOS; UIKit + envoltorios SwiftUI). Tema Homita en Theme/HomitaComponents.swift.
         .package(url: "https://github.com/componentskit/ComponentsKit", from: "1.0.0"),
     ],
     targets: [
+        // Sin dependencias: lo enlazan la app y la extensión HomitaWidgets (límite de memoria estricto).
+        .target(name: "HomitaShared"),
         .target(
             name: "ControlKit",
             dependencies: [
+                "HomitaShared",
                 // Solo iOS: en el host macOS (swift test) la dependencia no se enlaza.
                 .product(name: "ComponentsKit", package: "ComponentsKit", condition: .when(platforms: [.iOS])),
             ],
             // Geist/GeistMono del dashboard (OFL, ver Resources/Fonts/OFL.txt).
             resources: [.process("Resources/Fonts")]
         ),
-        .testTarget(name: "ControlTests", dependencies: ["ControlKit"])
+        .testTarget(name: "ControlTests", dependencies: ["ControlKit", "HomitaShared"])
     ]
 )

@@ -9,6 +9,7 @@ public struct RootView: View {
     /// Animación de marca activa (arranque en frío, login o reapertura con sesión); nil = ninguna.
     @State private var intro: HomitaIntro.Style?
     @AppStorage(AppearancePreference.storageKey) private var appearance = AppearancePreference.system.rawValue
+    @Environment(\.scenePhase) private var scenePhase
 
     public init() {
         _ = HomitaFont.registered
@@ -39,6 +40,11 @@ public struct RootView: View {
         }
     }
 
+    /// Cambia al iniciar/cerrar sesión o al cambiar de hogar: reprograma avisos, widgets y Live Activity.
+    private var syncKey: String {
+        "\(session.session?.id ?? 0)|\(services.homeContext.activeHomeId ?? "")"
+    }
+
     public var body: some View {
         ZStack {
             Group {
@@ -54,6 +60,13 @@ public struct RootView: View {
             .task(id: session.session?.id) {
                 await services.homeContext.load(using: services.homes)
             }
+            Color.clear
+                .frame(width: 0, height: 0)
+                .task(id: syncKey) {
+                    guard session.session != nil, services.homeContext.activeHomeId != nil else { return }
+                    HomitaSync.shared.attach(services)
+                    await HomitaSync.shared.refresh(force: true)
+                }
             if let style = intro {
                 HomitaIntro(style: style) { intro = nil }
                     .transition(.identity)
@@ -61,6 +74,20 @@ public struct RootView: View {
             }
         }
         .environment(session)
+        // Widgets, Live Activity y notificaciones abren la app con `homita://…`.
+        .onOpenURL { DeepLinkCenter.shared.open(url: $0) }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .active:
+                Task { await HomitaSync.shared.refresh() }
+            case .background:
+                #if os(iOS)
+                BackgroundRefresh.schedule()
+                #endif
+            default:
+                break
+            }
+        }
         // Sin sesión → con sesión = login recién hecho (no se dispara en el arranque ni al refrescar el token).
         .onChange(of: session.session?.id) { old, new in
             if old == nil, new != nil { intro = .login }
@@ -74,6 +101,7 @@ struct MainTabView: View {
     @State private var selectedTab = 0 // 0 Inicio, 1 Tareas, 2 Calendario, 3 Hogar, 4 Perfil
     @State private var taskListRequest: Int? // lista pedida desde Inicio
     @State private var calendarSegment = 0 // 0 Eventos, 1 Rutinas, 2 Calendarios
+    private let deepLinks = DeepLinkCenter.shared
 
     var body: some View {
         let state = services.homeContext.state
@@ -122,6 +150,26 @@ struct MainTabView: View {
         .tint(Palette.accent)
         .safeAreaInset(edge: .top) {
             HomitaOfflineBanner(freshness: DataFreshness.shared)
+        }
+        .onChange(of: deepLinks.pending) { _, link in handle(link) }
+        .task { handle(deepLinks.pending) }
+    }
+
+    /// Lleva a la pestaña del enlace. «Nueva tarea/evento» y «Ajustes › Notificaciones» los termina
+    /// de atender la pantalla de destino (Inicio, Ajustes), que consume el enlace.
+    private func handle(_ link: HomitaDeepLink?) {
+        guard let link else { return }
+        switch link {
+        case .nuevaTarea, .nuevoEvento:
+            selectedTab = 0
+        case .rutinas:
+            calendarSegment = 1; selectedTab = 2; deepLinks.consume(link)
+        case .calendario:
+            calendarSegment = 0; selectedTab = 2; deepLinks.consume(link)
+        case .tareas:
+            taskListRequest = nil; selectedTab = 1; deepLinks.consume(link)
+        case .ajustesNotificaciones:
+            selectedTab = 4
         }
     }
 }

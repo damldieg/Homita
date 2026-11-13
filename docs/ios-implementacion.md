@@ -202,3 +202,15 @@ Cada épica en rama propia, con `swift test` de ControlKit y `xcodebuild test` e
 - «+» de Miembros e Invitaciones se desactiva sin conexión.
 - Fechas: se mantiene `DateDisplay.dateTime` (p. ej. «mié 19 nov, 10:00»); el wireframe se corrige.
 
+
+
+## Notificaciones, widgets y Live Activity (2026-11-13)
+
+Nuevo módulo `HomitaShared` (snapshot, preferencias, enlaces profundos, atributos de la Live Activity), `ControlKit/Notifications` (`NotificationPlanner`, `NotificationScheduler`, `HomitaSync`, `LiveActivityController`, `BackgroundRefresh`, `DeepLinkCenter`) y la extensión `HomitaWidgets` (Rutinas de hoy, Accesos rápidos, Live Activity). Pantalla Ajustes › Notificaciones (AJ-06 del wireframe) con toggles por función. Detalle y límites en `apps/control-ios/README.md`.
+
+Decisiones:
+- Avisos **locales**, no push: no hay cuenta de pago ni APNs; los datos salen de `event`, `routine` y `task` (mismos repositorios).
+- Rutinas sin `alarm` no avisan (se respeta «Sin aviso»); el resumen de tareas es opt-in (apagado por defecto).
+- El permiso de iOS se pide en la primera sincronización con la app abierta y avisos activos, no en el arranque.
+- La Live Activity se inicia con la app abierta y reutiliza la regla de «Rutinas de hoy» (en curso, o aviso ≤ 60 min).
+- Cambios de proyecto: target `HomitaWidgets` (`com.lito.planify.control.ios.widgets`), App Group en `Entitlements/`, esquema `homita://`, `NSSupportsLiveActivities`, `UIBackgroundModes: fetch` y `BGTaskSchedulerPermittedIdentifiers` en `ControlApp/Info.plist`.

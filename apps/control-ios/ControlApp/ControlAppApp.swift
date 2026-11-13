@@ -5,6 +5,11 @@ import ControlKit
 /// `WindowGroup { RootView() }` — toda la UI y la lógica viven en ControlKit.
 @main
 struct ControlApp: App {
+    init() {
+        // Delegado de notificaciones y tarea de refresco: deben registrarse durante el arranque.
+        HomitaPlatform.didLaunch()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AJ-06 Notificaciones</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  .sw { width: 51px; height: 31px; border-radius: 16px; background: var(--line); position: relative; flex: none; }
+  .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .sw.on { background: var(--now); } .sw.on::after { left: 22px; }
+  .tog { display: flex; align-items: center; gap: var(--s3); min-height: 44px; border-top: 1px solid var(--line); }
+  .tog .grow { flex: 1; font: 500 17px/22px var(--font); }
+  .tog.first { border-top: 0; margin-top: 8px; }
+  .val { font: 600 15px/1 var(--font); color: var(--accent); background: var(--accent-soft); padding: 7px 12px; border-radius: var(--r-pill); }
+  .foot { font: var(--t-cap); color: var(--text-2); margin-top: var(--s2); }
+  .warnbox { background: var(--err-soft); color: var(--err); border-radius: var(--r-md); padding: var(--s3) var(--s4); font: 500 14px/19px var(--font); margin-top: 8px; }
+  .nav .grow { flex: 1; }
+  .lockscreen { background: #2b2420; color: #fff; border-radius: 22px; padding: 14px; display: flex; gap: 12px; margin: 12px; }
+  .lockscreen .tile { width: 40px; height: 40px; border-radius: 12px; background: rgba(15,159,110,.25); display: grid; place-items: center; color: #5fd39f; font-size: 18px; flex: none; }
+  .lockscreen .h { font: 700 10px/12px var(--font); color: #5fd39f; }
+  .lockscreen .t { font: 700 17px/22px var(--font); }
+  .lockscreen .row { display: flex; justify-content: space-between; align-items: baseline; }
+  .lockscreen .cd { font: 700 24px/28px ui-monospace, monospace; }
+  .lockscreen .bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.18); margin: 6px 0 4px; overflow: hidden; }
+  .lockscreen .bar i { display: block; height: 100%; width: 42%; background: #5fd39f; }
+  .lockscreen .c { font: 500 12px/16px var(--font); color: rgba(255,255,255,.7); }
+  .widget { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 14px; margin: 12px; }
+  .widget h5 { font: 700 13px/16px var(--font); color: var(--text); }
+  .widget .r { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .widget .r b { width: 4px; height: 28px; border-radius: 2px; flex: none; }
+  .widget .r .n { flex: 1; font: 600 14px/17px var(--font); } .widget .r small { display: block; font: 500 11px/13px var(--font); color: var(--text-2); }
+  .widget .r .h { font: 600 13px/1 var(--font); color: var(--text-2); }
+  .quick { display: flex; gap: 10px; margin: 12px; }
+  .quick div { flex: 1; text-align: center; border-radius: 16px; padding: 16px 4px; font: 700 14px/18px var(--font); }
+  .quick small { display: block; font: 500 11px/14px var(--font); color: var(--text-2); }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">AJ-06 · Ajustes › Notificaciones · epic E5 <span class="tagnew">Nuevo</span></div>
+  <h1>Notificaciones</h1>
+  <p>Pantalla empujada desde Ajustes. Reúne todo lo que Homita hace fuera de la app, y <b>todo se apaga con un interruptor</b>: <b>Avisos</b> (eventos, rutinas y un resumen diario de tareas con hora), <b>Pantalla de bloqueo</b> (Live Activity de rutinas) y <b>Widgets</b> (Rutinas de hoy y Accesos rápidos). Si iOS tiene bloqueadas las notificaciones, arriba aparece una tarjeta con «Abrir Ajustes de iOS».</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="aj-perfil.html">← Ajustes</a>
+    <a href="home-inicio.html">Inicio (destino de +Tarea / +Evento) →</a>
+    <a href="cal-rutinas.html">Rutinas (destino del widget) →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <section class="state">
+    <div class="label">1 · Con datos<small>Por defecto: avisos de eventos y rutinas, Live Activity y widgets activos; resumen de tareas apagado</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="nav"><a class="back" href="aj-perfil.html"><span class="chev l"></span>Ajustes</a><div class="grow"></div></div>
+      <div class="scroll">
+        <div class="large-title">Notificaciones</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">🔔</div><h3>Avisos</h3></div>
+            <div class="tog first"><div class="grow">Eventos</div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow">Rutinas</div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow">Resumen de tareas pendientes</div><span class="sw"></span></div>
+            <p class="foot">Los avisos de eventos y rutinas usan la alarma de cada uno («Sin aviso» no notifica).</p>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">🔒</div><h3>Pantalla de bloqueo</h3></div>
+            <div class="tog first"><div class="grow">Rutinas en tiempo real</div><span class="sw on"></span></div>
+            <p class="foot">Muestra la rutina en curso o la próxima (a menos de una hora) con cuenta atrás, como un viaje en curso. Se inicia al abrir Homita; también puedes quitarla desde Ajustes de iOS › Homita › Actividades en directo.</p>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Widgets</h3></div>
+            <div class="tog first"><div class="grow">Datos en widgets</div><span class="sw on"></span></div>
+            <p class="foot">Añade los widgets «Rutinas de hoy» y «Accesos rápidos» desde la pantalla de inicio o de bloqueo. Con el toggle apagado muestran un aviso y Homita no les deja datos.</p>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <section class="state">
+    <div class="label">2 · Resumen de tareas activo<small>Aparece el selector de hora (por defecto 09:00)</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="nav"><a class="back" href="aj-perfil.html"><span class="chev l"></span>Ajustes</a><div class="grow"></div></div>
+      <div class="scroll">
+        <div class="large-title">Notificaciones</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">🔔</div><h3>Avisos</h3></div>
+            <div class="tog first"><div class="grow">Eventos</div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow">Rutinas</div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow">Resumen de tareas pendientes</div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow">Hora del resumen</div><span class="val">09:00</span></div>
+            <p class="foot">Los avisos de eventos y rutinas usan la alarma de cada uno («Sin aviso» no notifica).</p>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <section class="state">
+    <div class="label">3 · Permiso denegado en iOS<small>Tarjeta de aviso arriba; los toggles siguen funcionando pero no llegan avisos hasta permitirlo</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="nav"><a class="back" href="aj-perfil.html"><span class="chev l"></span>Ajustes</a><div class="grow"></div></div>
+      <div class="scroll">
+        <div class="large-title">Notificaciones</div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">🔕</div><h3>Permiso desactivado</h3></div>
+            <p class="foot">iOS tiene bloqueadas las notificaciones de Homita. Actívalas en los Ajustes del iPhone para recibir avisos.</p>
+            <div class="btn secondary" style="margin-top:12px">Abrir Ajustes de iOS</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">🔔</div><h3>Avisos</h3></div>
+            <div class="tog first"><div class="grow">Eventos</div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow">Rutinas</div><span class="sw on"></span></div>
+            <div class="tog"><div class="grow">Resumen de tareas pendientes</div><span class="sw"></span></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <section class="state">
+    <div class="label">4 · Live Activity en pantalla de bloqueo<small>Cuenta atrás y barra del sistema; toca para abrir Rutinas. Misma regla que «Rutinas de hoy»: en curso o aviso (≤ 60 min)</small></div>
+    <div class="phone">
+      <div class="status"><span>17:42</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll" style="background:#171210;padding-top:60px">
+        <div class="lockscreen">
+          <div class="tile">↻</div>
+          <div style="flex:1;min-width:0">
+            <div class="row"><div><div class="h">EN CURSO</div><div class="t">Deberes</div></div><div class="cd">47:20</div></div>
+            <div class="bar"><i></i></div>
+            <div class="c">Termina a las 18:30 · 1 de 4 hechas · Después: Baño 20:00</div>
+          </div>
+        </div>
+        <div class="lockscreen">
+          <div class="tile" style="background:rgba(245,200,66,.2);color:#f5c842">↻</div>
+          <div style="flex:1;min-width:0">
+            <div class="row"><div><div class="h" style="color:#f5c842">PRÓXIMA RUTINA</div><div class="t">Baño</div></div><div class="cd">12:05</div></div>
+            <div class="bar"><i style="background:#f5c842;width:80%"></i></div>
+            <div class="c">Empieza a las 20:00 · 3 de 4 hechas</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="state">
+    <div class="label">5 · Widgets<small>«Rutinas de hoy» (pequeño, mediano, grande y de pantalla de bloqueo) y «Accesos rápidos» (mediano y círculo de bloqueo)</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="widget">
+          <h5>↻ Rutinas de hoy</h5>
+          <div class="r"><b style="background:#6d28d9"></b><div class="n">Deberes<small>En curso</small></div><span class="h">17:30</span></div>
+          <div class="r"><b style="background:#0284c7"></b><div class="n">Baño<small>Pronto</small></div><span class="h">20:00</span></div>
+          <div class="r"><b style="background:#0e9f6e"></b><div class="n" style="color:var(--text-2);text-decoration:line-through">Desayuno<small>Hecha</small></div><span class="h">08:00</span></div>
+          <p class="foot">1 de 3 hechas</p>
+        </div>
+        <div class="quick">
+          <div style="background:var(--accent-soft);color:var(--accent)">+ Tarea<small>3 pendientes</small></div>
+          <div style="background:var(--ok-soft);color:var(--ok)">+ Evento<small>2 hoy</small></div>
+          <div style="background:var(--warn-soft);color:var(--warn)">Rutinas<small>Ver hoy</small></div>
+        </div>
+        <div class="widget"><p class="foot" style="text-align:center;margin:0">Widget desactivado. Actívalo en Ajustes › Notificaciones.</p></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Reglas de negocio</h2>
+  <ul>
+    <li>Avisos locales (sin servidor de push): se reprograman al abrir la app, al volver a primer plano, al cambiar un toggle y en segundo plano. iOS admite 64 pendientes: se programan los más próximos (rutinas 7 días).</li>
+    <li>Evento o rutina con alarma = minutos antes (0 = a la hora); sin alarma, no avisa.</li>
+    <li>Resumen de tareas: aviso diario a la hora elegida si hay pendientes (solo el primero lleva el recuento).</li>
+    <li>Live Activity: se inicia con la app abierta; después la cuenta atrás va sola. Sin push, con la app cerrada no cambia de rutina sola.</li>
+    <li>Widgets: «+ Tarea» y «+ Evento» abren la app y su formulario; «Rutinas» abre la pestaña Rutinas.</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Llega desde: AJ-01 Ajustes (fila «Avisos, widgets y pantalla de bloqueo») y desde los widgets desactivados (<code>homita://ajustes-notificaciones</code>).</li>
+    <li>Enlaces profundos: <code>nueva-tarea</code>, <code>nuevo-evento</code> (Inicio), <code>rutinas</code>, <code>tareas</code>, <code>calendario</code>.</li>
+  </ul>
+</aside>
+</body>
+</html>

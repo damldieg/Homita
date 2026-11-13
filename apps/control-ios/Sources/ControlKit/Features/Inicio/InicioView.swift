@@ -1,4 +1,5 @@
 import SwiftUI
+import HomitaShared
 
 /// Destino de las flechas de las tarjetas de Inicio.
 public enum InicioDestination: Sendable {
@@ -51,6 +52,10 @@ public struct InicioView: View {
             .homitaHiddenNavigationBar()
             .refreshable { await store.load() }
             .task { await store.load() }
+            .task { await handleDeepLink(DeepLinkCenter.shared.pending) }
+            .onChange(of: DeepLinkCenter.shared.pending) { _, link in
+                Task { await handleDeepLink(link) }
+            }
             .errorAlert($store.errorMessage)
             .writeFailureToast($store.writeFailure)
             .sheet(isPresented: $showTaskEditor) {
@@ -67,6 +72,34 @@ public struct InicioView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Alta rápida (botones y enlaces de widgets)
+
+    private func openTaskEditor() async {
+        await store.loadTaskLists()
+        if store.taskLists.isEmpty {
+            if store.errorMessage == nil { store.errorMessage = "Crea una lista de tareas primero" }
+        } else {
+            showTaskEditor = true
+        }
+    }
+
+    private func openEventEditor() async {
+        await calendarStore.load()
+        await personStore.load()
+        if calendarStore.calendars.isEmpty {
+            store.errorMessage = calendarStore.errorMessage ?? "Crea un calendario primero"
+        } else {
+            showEventEditor = true
+        }
+    }
+
+    /// Atiende «+ Tarea» y «+ Evento» de los widgets (`homita://nueva-tarea`, `homita://nuevo-evento`).
+    private func handleDeepLink(_ link: HomitaDeepLink?) async {
+        guard let link, link == .nuevaTarea || link == .nuevoEvento else { return }
+        DeepLinkCenter.shared.consume(link)
+        if link == .nuevaTarea { await openTaskEditor() } else { await openEventEditor() }
     }
 
     // MARK: - Saludo
@@ -201,25 +234,10 @@ public struct InicioView: View {
                 .foregroundStyle(Palette.inkSoft)
             HStack(spacing: 12) {
                 HomitaButton(title: "+ Tarea", kind: .accentOutline) {
-                    Task {
-                        await store.loadTaskLists()
-                        if store.taskLists.isEmpty {
-                            if store.errorMessage == nil { store.errorMessage = "Crea una lista de tareas primero" }
-                        } else {
-                            showTaskEditor = true
-                        }
-                    }
+                    Task { await openTaskEditor() }
                 }
                 HomitaButton(title: "+ Evento") {
-                    Task {
-                        await calendarStore.load()
-                        await personStore.load()
-                        if calendarStore.calendars.isEmpty {
-                            store.errorMessage = calendarStore.errorMessage ?? "Crea un calendario primero"
-                        } else {
-                            showEventEditor = true
-                        }
-                    }
+                    Task { await openEventEditor() }
                 }
             }
         }

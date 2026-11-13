@@ -44,6 +44,23 @@ Firma gratuita con tu Apple ID (equipo «Personal Team») vía **AltStore** o **
 5. Bundle Identifier: `com.lito.planify.control.ios`; Deployment Target: **iOS 17.0**.
 6. Activar el **Modo Desarrollador** en el iPhone (Ajustes › Privacidad y seguridad) e instalar el build con AltStore o Sideloadly.
 
+## Notificaciones, widgets y pantalla de bloqueo
+
+Todo se enciende o apaga en **Ajustes › Notificaciones** (`NotificationSettingsView`); las preferencias viven en el App Group para que los widgets las lean.
+
+- **Avisos locales** (`UNUserNotificationCenter`, sin servidor): evento o rutina con alarma → aviso «minutos antes» (0 = a la hora; sin alarma no avisa). Opcional: resumen diario de tareas pendientes a la hora elegida. `NotificationPlanner` (puro, con tests) decide qué programar: eventos de los próximos 7 días y rutinas por su regla; iOS admite 64 pendientes, se programan 60. Tocar un aviso abre su pestaña.
+- **Widgets** (extensión `HomitaWidgets`): *Rutinas de hoy* (pequeño, mediano, grande, rectangular e inline de pantalla de bloqueo; cambia de fase sola en cada hora de inicio/fin) y *Accesos rápidos* (mediano y círculo de bloqueo: **+ Tarea**, **+ Evento**, **Rutinas**). Los botones abren la app con enlaces `homita://nueva-tarea`, `nuevo-evento`, `rutinas`; Inicio abre el formulario directamente.
+- **Live Activity de rutinas** (pantalla de bloqueo y Dynamic Island): la rutina en curso o la próxima (≤ 60 min) con cuenta atrás y barra de tiempo del sistema.
+- **Datos compartidos:** la app escribe un `HomitaSnapshot` JSON (solo títulos, horas y colores, sin secretos) en el App Group `group.com.lito.planify.control.ios` (`Entitlements/*.entitlements`); la extensión solo enlaza `HomitaShared` (módulo sin dependencias del paquete).
+- **Cuándo se actualiza** (`HomitaSync`): al abrir la app, al volver a primer plano, al cambiar de hogar o de toggle y en segundo plano (`BGAppRefreshTask`, lo decide iOS). Cerrar sesión borra avisos, snapshot y Live Activity.
+
+Límites (sin cuenta de pago ni servidor de push):
+
+- La Live Activity **solo puede iniciarse con la app abierta** (sin APNs); una vez en marcha, la cuenta atrás y la barra siguen solas, pero con la app cerrada no pasa sola a la rutina siguiente hasta que se abra la app o iOS dé tiempo de refresco. Para tiempo real puro hace falta APNs (cuenta de pago + envío desde la Edge Function).
+- Los widgets muestran lo último que dejó la app; si no se abre en todo el día, «Abre Homita para actualizar».
+- Firma gratuita: la extensión es un segundo App ID (AltStore/Sideloadly limitan IDs y apps activas) y el App Group lo registra la herramienta de firma; si no hay grupo, los widgets muestran «Abre Homita para cargar tus rutinas». Si cambias de equipo de firma, ajusta `appGroupId` en `HomitaShared/SharedConfig.swift` y en los dos `.entitlements`.
+- UI, widgets y Live Activity sin verificar en simulador ni en dispositivo.
+
 ## Alcance v1
 
 - Auth: login, registro (solo si `GET /config` → `allow_registration`), perfil (nombre, email, contraseña) y logout.
@@ -55,9 +72,9 @@ Firma gratuita con tu Apple ID (equipo «Personal Team») vía **AltStore** o **
 
 ## Límites de v1 (lo que NO hace)
 
-- **Sin notificaciones ni avisos:** las alarmas de eventos y rutinas se guardan en el servidor, pero el iPhone **no avisa** en v1.
+- **Avisos solo locales:** el iPhone avisa con notificaciones locales (ver «Notificaciones, widgets y pantalla de bloqueo»); no hay push remoto (APNs).
 - Sin vista de calendario mensual/semanal (queda para un pulido posterior): v1 solo lista las próximas sesiones de rutina.
-- Sin widgets, sin push, sin pantalla de alarma, sin actualización en segundo plano.
+- Sin push remoto ni pantalla de alarma a pantalla completa.
 - Sin «modo IA» (texto → evento): crear evento exige `title` + `date_at`.
 - Sin iPad, Mac Catalyst ni TestFlight: la distribución es solo side-load.
 
