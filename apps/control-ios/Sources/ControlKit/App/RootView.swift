@@ -100,7 +100,7 @@ struct MainTabView: View {
             .tabItem { Label("Hogar", systemImage: "person.2") }
             .tag(3)
             ProfileView(services: services)
-                .tabItem { Label("Ajustes", systemImage: "person.crop.circle") }
+                .tabItem { Label("Ajustes", systemImage: "gearshape") }
                 .tag(4)
         }
         .tint(Palette.accent)
