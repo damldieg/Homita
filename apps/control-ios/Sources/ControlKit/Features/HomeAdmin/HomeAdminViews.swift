@@ -437,15 +437,32 @@ struct MemberPermissionsView: View {
                                                   catalog: store.response?.catalog ?? [])
         if !summary.isEmpty {
             HomitaPanel("Qué cubre cada tipo", systemImage: "questionmark.circle", tint: Palette.inkSoft) {
-                ForEach(summary, id: \.kind) { entry in
-                    VStack(alignment: .leading, spacing: 2) {
+                ForEach(Array(summary.enumerated()), id: \.element.kind) { index, entry in
+                    if index > 0 { Divider().overlay(Palette.line) }
+                    VStack(alignment: .leading, spacing: Spacing.s3) {
                         Text(MemberRules.kindLabel(entry.kind))
-                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
+                            .font(HomitaFont.inter(17, weight: .semibold, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
-                        Text(entry.domains.map { "\($0.domain): \($0.codes.joined(separator: ", "))" }
-                            .joined(separator: " · "))
-                            .font(HomitaFont.inter(13, relativeTo: .footnote))
-                            .foregroundStyle(Palette.inkSoft)
+                        ForEach(entry.domains, id: \.domain) { domain in
+                            VStack(alignment: .leading, spacing: Spacing.s1) {
+                                Text(PermissionRules.domainLabel(domain.domain).uppercased())
+                                    .font(HomitaFont.inter(11, weight: .bold, relativeTo: .caption2))
+                                    .tracking(0.6)
+                                    .foregroundStyle(Palette.inkSoft)
+                                ForEach(domain.actions, id: \.self) { action in
+                                    HStack(alignment: .firstTextBaseline, spacing: Spacing.s2) {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundStyle(Palette.ok)
+                                            .accessibilityHidden(true)
+                                        Text(action)
+                                            .font(HomitaFont.inter(15, relativeTo: .body))
+                                            .foregroundStyle(Palette.ink)
+                                    }
+                                    .accessibilityElement(children: .combine)
+                                }
+                            }
+                        }
                     }
                 }
             }
