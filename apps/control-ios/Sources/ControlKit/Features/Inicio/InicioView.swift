@@ -128,8 +128,12 @@ public struct InicioView: View {
     private var tasksCard: some View {
         let pages = store.pendingTaskPages
         let page = pages.first { $0.id == taskPageId } ?? pages.first
+        // Contador x/9: completadas / total de la lista que se muestra (incluye las ya hechas).
+        let listTasks = page.map { current in store.tasks.filter { $0.task_list_id == current.id } } ?? []
+        let doneCount = listTasks.filter(\.isCompleted).count
         return sectionCard(title: "Tareas pendientes", systemImage: "checklist",
-                    count: store.tasks.filter { !$0.isCompleted }.count, destination: .tasks,
+                    count: store.tasks.filter { !$0.isCompleted }.count,
+                    countText: page == nil ? nil : "\(doneCount)/\(listTasks.count)", destination: .tasks,
                     state: store.tasksState, retry: { await store.loadTasks() }) {
             if let page {
                 // Puntos para cambiar de lista: entre el título y el contenido, sin animación.
@@ -224,12 +228,13 @@ public struct InicioView: View {
     // MARK: - Piezas
 
     private func sectionCard<Content: View>(
-        title: String, systemImage: String, count: Int, destination: InicioDestination, state: InicioSectionState,
+        title: String, systemImage: String, count: Int, countText: String? = nil, destination: InicioDestination, state: InicioSectionState,
         retry: @escaping () async -> Void, @ViewBuilder content: @escaping () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                HomitaSectionHeader(title: title, count: state == .loaded ? count : nil, systemImage: systemImage)
+                HomitaSectionHeader(title: title, count: state == .loaded ? count : nil,
+                                    countText: state == .loaded ? countText : nil, systemImage: systemImage)
                 Button { onOpen(destination) } label: {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .semibold))
