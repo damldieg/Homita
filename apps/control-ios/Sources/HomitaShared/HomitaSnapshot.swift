@@ -24,13 +24,29 @@ public struct HomitaSnapshot: Codable, Equatable, Sendable {
         /// Inicio de hoy; `nil` = sin hora fija.
         public let start: Date?
         public let persons: [String]
+        /// La persona vinculada a la cuenta de este iPhone está asignada a la rutina.
+        public let assignedToMe: Bool
 
-        public init(id: Int, title: String, colorHex: String, start: Date?, persons: [String] = []) {
+        public init(
+            id: Int, title: String, colorHex: String, start: Date?, persons: [String] = [], assignedToMe: Bool = false
+        ) {
             self.id = id
             self.title = title
             self.colorHex = colorHex
             self.start = start
             self.persons = persons
+            self.assignedToMe = assignedToMe
+        }
+
+        // `assignedToMe` es posterior a la primera versión del fichero: un snapshot viejo se sigue leyendo.
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(Int.self, forKey: .id)
+            title = try container.decode(String.self, forKey: .title)
+            colorHex = try container.decode(String.self, forKey: .colorHex)
+            start = try container.decodeIfPresent(Date.self, forKey: .start)
+            persons = try container.decodeIfPresent([String].self, forKey: .persons) ?? []
+            assignedToMe = try container.decodeIfPresent(Bool.self, forKey: .assignedToMe) ?? false
         }
 
         /// Fin de la ventana «en curso».
@@ -107,6 +123,14 @@ public struct HomitaSnapshot: Codable, Equatable, Sendable {
     /// ¿Pertenece a otro día que `now`? Entonces las rutinas ya no valen.
     public func isStale(at now: Date, calendar: Calendar = .current) -> Bool {
         !calendar.isDate(dayStart, inSameDayAs: now)
+    }
+
+    /// Solo las rutinas asignadas a la persona de esta cuenta. La Live Activity se calcula sobre
+    /// esta vista: sin asignación (o sin persona vinculada) no hay nada que mostrar.
+    public var assignedToMeOnly: HomitaSnapshot {
+        var scoped = self
+        scoped.routines = routines.filter(\.assignedToMe)
+        return scoped
     }
 
     // MARK: - Lógica de «ahora / siguiente» (la usan widgets y Live Activity)

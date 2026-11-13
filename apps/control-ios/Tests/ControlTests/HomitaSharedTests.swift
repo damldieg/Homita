@@ -45,6 +45,11 @@ final class HomitaSharedTests: XCTestCase {
         XCTAssertFalse(center.open(url: URL(string: "https://example.com")!))
     }
 
+    func testNewRoutineDeepLink() {
+        XCTAssertEqual(HomitaDeepLink(string: "homita://nueva-rutina"), .nuevaRutina)
+        XCTAssertEqual(HomitaDeepLink.nuevaRutina.url.absoluteString, "homita://nueva-rutina")
+    }
+
     // MARK: Preferencias
 
     func testPreferencesDefaultsAndRoundTrip() throws {
@@ -124,6 +129,36 @@ final class HomitaSharedTests: XCTestCase {
         XCTAssertTrue(boundaries.allSatisfy { $0 > date("2026-11-09 17:00:00") })
     }
 
+    func testAssignedToMeOnlyKeepsMyRoutinesAndDrivesFocus() {
+        var snap = snapshot()
+        snap.routines = [
+            .init(id: 1, title: "Desayuno", colorHex: "#0E9F6E", start: date("2026-11-09 08:00:00"), assignedToMe: false),
+            .init(id: 2, title: "Deberes", colorHex: "#6D28D9", start: date("2026-11-09 08:30:00"), assignedToMe: true),
+        ]
+        let mine = snap.assignedToMeOnly
+        XCTAssertEqual(mine.routines.map(\.id), [2])
+        // A las 08:15 la de Desayuno está en curso, pero no es mía: el foco es la mía (en aviso).
+        XCTAssertEqual(snap.focusRoutine(at: date("2026-11-09 08:15:00"))?.id, 1)
+        XCTAssertEqual(mine.focusRoutine(at: date("2026-11-09 08:15:00"))?.id, 2)
+        XCTAssertEqual(mine.routines.count, 1)
+    }
+
+    func testNobodyAssignedMeansNothingForLiveActivity() {
+        XCTAssertTrue(snapshot().assignedToMeOnly.routines.isEmpty)
+        XCTAssertNil(snapshot().assignedToMeOnly.focusRoutine(at: date("2026-11-09 08:30:00")))
+    }
+
+    func testOldSnapshotWithoutAssignedFlagStillDecodes() throws {
+        let json = """
+        {"id":1,"title":"Desayuno","colorHex":"#0E9F6E","start":"2026-11-09T08:00:00Z","persons":["Ana"]}
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let routine = try decoder.decode(HomitaSnapshot.Routine.self, from: Data(json.utf8))
+        XCTAssertFalse(routine.assignedToMe)
+        XCTAssertEqual(routine.persons, ["Ana"])
+    }
+
     func testStaleWhenDayChanges() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = utc
@@ -133,6 +168,19 @@ final class HomitaSharedTests: XCTestCase {
 
     func testSignedOutSnapshot() {
         XCTAssertFalse(HomitaSnapshot.signedOut().signedIn)
+    }
+
+    // MARK: Persona vinculada a la cuenta
+
+    func testPersonDecodesLinkedAccountWhenServerSendsIt() throws {
+        let linked = try JSONDecoder().decode(PersonEntry.self, from: Data("""
+        {"id":7,"user_id":2,"name":"Ana","color":"#0E9F6E","home_member_id":11,"kind":"adult","app_user_id":5}
+        """.utf8))
+        XCTAssertEqual(linked.app_user_id, 5)
+        let legacy = try JSONDecoder().decode(PersonEntry.self, from: Data("""
+        {"id":8,"user_id":2,"name":"Rex","color":"#0E9F6E"}
+        """.utf8))
+        XCTAssertNil(legacy.app_user_id)
     }
 
     // MARK: Constructor del snapshot
@@ -155,6 +203,7 @@ final class HomitaSharedTests: XCTestCase {
          {"id":2,"task_list_id":1,"title":"Hecha","completed_at":"2026-11-09 08:00:00","order":2}]
         """.utf8))
         let snap = SnapshotBuilder.build(events: events, routines: routines, tasks: tasks, homeName: "Casa", now: now, timeZone: utc)
+        XCTAssertEqual(snap.routines.map(\.assignedToMe), [false])
         XCTAssertEqual(snap.events.map(\.title), ["Dentista"])
         XCTAssertEqual(snap.routines.map(\.title), ["Desayuno"])
         XCTAssertEqual(snap.routines.first?.start, date("2026-11-09 08:00:00"))
@@ -163,5 +212,25 @@ final class HomitaSharedTests: XCTestCase {
         XCTAssertEqual(snap.homeName, "Casa")
         XCTAssertTrue(snap.signedIn)
         XCTAssertEqual(snap.dayStart, date("2026-11-09 00:00:00"))
+    }
+
+    func testBuilderMarksRoutinesAssignedToMyPerson() throws {
+        let now = date("2026-11-09 10:00:00")
+        let routines = try JSONDecoder().decode([RoutineEntry].self, from: Data("""
+        [{"id":4,"calendar_id":1,"title":"Deberes","days":null,"time":"17:30:00","start_date":"2026-11-01",
+          "end_date":null,"active":1,"frequency":"daily","interval":1,
+          "persons":[{"id":7,"user_id":2,"name":"Ana","color":"#0E9F6E"}]},
+         {"id":5,"calendar_id":1,"title":"Baño","days":null,"time":"20:00:00","start_date":"2026-11-01",
+          "end_date":null,"active":1,"frequency":"daily","interval":1,
+          "persons":[{"id":8,"user_id":2,"name":"Leo","color":"#0E9F6E"}]},
+         {"id":6,"calendar_id":1,"title":"Sin nadie","days":null,"time":"21:00:00","start_date":"2026-11-01",
+          "end_date":null,"active":1,"frequency":"daily","interval":1}]
+        """.utf8))
+        let snap = SnapshotBuilder.build(
+            events: [], routines: routines, tasks: [], homeName: "Casa", now: now, timeZone: utc, myPersonIds: [7]
+        )
+        let mine = Dictionary(uniqueKeysWithValues: snap.routines.map { ($0.title, $0.assignedToMe) })
+        XCTAssertEqual(mine, ["Deberes": true, "Baño": false, "Sin nadie": false])
+        XCTAssertEqual(snap.assignedToMeOnly.routines.map(\.title), ["Deberes"])
     }
 }

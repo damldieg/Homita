@@ -69,7 +69,7 @@ struct NotificationSettingsView: View {
             HomitaSectionHeader(title: "Pantalla de bloqueo", systemImage: "lock.iphone")
             HomitaToggle(title: "Rutinas en tiempo real", isOn: binding(\.routineLiveActivity))
                 .accessibilityIdentifier("notificaciones.live-activity")
-            HomitaFootnote(text: "Muestra la rutina en curso o la próxima (a menos de una hora) con cuenta atrás, como un viaje en curso. Se inicia al abrir Homita; también puedes quitarla desde Ajustes de iOS › Homita › Actividades en directo.")
+            HomitaFootnote(text: "Muestra la rutina en curso o la próxima (a menos de una hora) con cuenta atrás, como un viaje en curso. Solo sale para las rutinas a las que está asignada tu persona, con tu cuenta iniciada. Se inicia al abrir Homita; también puedes quitarla desde Ajustes de iOS › Homita › Actividades en directo.")
         }
         .modifier(CardStyle())
     }
@@ -79,7 +79,7 @@ struct NotificationSettingsView: View {
             HomitaSectionHeader(title: "Widgets", systemImage: "square.grid.2x2")
             HomitaToggle(title: "Datos en widgets", isOn: binding(\.widgets))
                 .accessibilityIdentifier("notificaciones.widgets")
-            HomitaFootnote(text: "Añade los widgets «Rutinas de hoy» y «Accesos rápidos» desde la pantalla de inicio o de bloqueo. Con el toggle apagado muestran un aviso y Homita no les deja datos.")
+            HomitaFootnote(text: "Añade «Rutinas de hoy», «Accesos rápidos» o los widgets «Nueva tarea», «Nuevo evento» y «Nueva rutina» desde la pantalla de inicio o de bloqueo. Con el toggle apagado muestran un aviso y Homita no les deja datos.")
         }
         .modifier(CardStyle())
     }

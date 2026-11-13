@@ -77,6 +77,12 @@ public struct PersonEntry: Codable, Equatable, Identifiable {
     public let created_at: String?
     public let updated_at: String?
     public let editable: FlexBool?
+    /// Miembro del hogar al que pertenece la persona.
+    public let home_member_id: Int?
+    public let kind: String?
+    /// Cuenta vinculada al miembro (`home_member.app_user_id`); `nil` si no tiene cuenta (mascotas,
+    /// niños sin cuenta…) o si el servidor aún no envía el campo (migración 0028).
+    public let app_user_id: Int?
 
     public var isEditable: Bool { editable?.value ?? false }
 }
