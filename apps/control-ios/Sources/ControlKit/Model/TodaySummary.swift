@@ -59,6 +59,26 @@ public enum TodaySummary {
             .map(\.0)
     }
 
+    /// Margen tras el inicio de un evento antes de darlo por pasado en Inicio (el contrato no trae fin).
+    public static let eventPastGrace: TimeInterval = 3600
+
+    /// Separa los eventos de hoy en «ya pasaron» (empezaron hace más de `eventPastGrace`) y
+    /// «próximos o en curso», conservando el orden recibido.
+    public static func splitEvents(_ events: [EventEntry], now: Date, timeZone: TimeZone = .current)
+        -> (past: [EventEntry], upcoming: [EventEntry]) {
+        var past: [EventEntry] = []
+        var upcoming: [EventEntry] = []
+        for event in events {
+            if let date = PHPDateTime.parse(event.date_at, timeZone: timeZone),
+               date.addingTimeInterval(eventPastGrace) <= now {
+                past.append(event)
+            } else {
+                upcoming.append(event)
+            }
+        }
+        return (past, upcoming)
+    }
+
     /// Pendientes (no completadas) por `order` y luego `id`, las primeras `limit`.
     public static func pendingTasks(_ tasks: [TaskEntry], limit: Int = taskLimit) -> [TaskEntry] {
         Array(
