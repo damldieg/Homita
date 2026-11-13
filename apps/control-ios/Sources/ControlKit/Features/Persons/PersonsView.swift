@@ -7,56 +7,85 @@ struct PersonsView: View {
 
     @State private var showCreate = false
     @State private var personToEdit: PersonEntry?
+    @State private var pendingPersonDelete: PersonEntry?
+    @State private var showPersonDelete = false
+
+    /// Fila de la lista (AJ-03): punto de color, nombre, badge si es compartida y lápiz/papelera solo en las propias.
+    private func personRow(_ person: PersonEntry) -> some View {
+        let actions = PersonActions.available(editable: person.isEditable)
+        return HStack(spacing: 12) {
+            Circle()
+                .fill(Color(hex: person.color))
+                .frame(width: 14, height: 14)
+            Text(person.name)
+                .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+            if !person.isEditable {
+                HomitaBadge(title: "Compartida (solo lectura)", tintHex: Palette.inkSoftHex)
+            }
+            Spacer(minLength: 8)
+            if actions.contains(.edit) {
+                Button {
+                    personToEdit = person
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Palette.inkSoft)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Editar \(person.name)")
+                .accessibilityIdentifier("personas.editar.\(person.id)")
+            }
+            if actions.contains(.delete) {
+                Button {
+                    pendingPersonDelete = person
+                    showPersonDelete = true
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Palette.err)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Eliminar \(person.name)")
+                .accessibilityIdentifier("personas.eliminar.\(person.id)")
+            }
+        }
+    }
 
     var body: some View {
         List {
-            Section {
-                ForEach(store.persons, id: \.id) { person in
-                    HomitaCard {
-                        HStack(spacing: 12) {
-                            Circle()
-                                .fill(Color(hex: person.color))
-                                .frame(width: 14, height: 14)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(person.name)
-                                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
-                                    .foregroundStyle(Palette.ink)
-                                if !person.isEditable {
-                                    HomitaBadge(title: "Compartida (solo lectura)", tintHex: "#6E6358")
-                                }
-                            }
-                            Spacer()
-                            if PersonActions.available(editable: person.isEditable).contains(.edit) {
-                                Button {
-                                    personToEdit = person
-                                } label: {
-                                    Image(systemName: "pencil")
-                                        .foregroundStyle(Palette.ink)
-                                }
-                                .buttonStyle(.borderless)
-                            }
-                            if PersonActions.available(editable: person.isEditable).contains(.delete) {
-                                Button(role: .destructive) {
-                                    Task { await store.delete(person) }
-                                } label: {
-                                    Image(systemName: "trash")
-                                        .foregroundStyle(Palette.accent)
-                                }
-                                .buttonStyle(.borderless)
-                            }
-                        }
+            // AJ-03 estado 3: esqueleto mientras carga (sin texto de «Cargando»).
+            if store.isLoading && store.persons.isEmpty {
+                HomitaSkeletonRows(count: 3, height: 52, label: "Cargando personas").homitaRow()
+            }
+            if !store.persons.isEmpty {
+                Section {
+                    ForEach(store.persons, id: \.id) { person in
+                        personRow(person)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.visible, edges: .bottom)
+                            .listRowSeparatorTint(Palette.line)
+                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                     }
-                    .homitaRow()
+                } header: {
+                    HomitaSectionHeader(title: "Personas", count: store.persons.count, systemImage: "person.2")
                 }
-            } header: {
-                HomitaSectionHeader(title: "Personas", count: store.persons.count, systemImage: "person.2")
+                if store.persons.contains(where: { !$0.isEditable }) {
+                    Text("Las personas compartidas vienen de otro hogar. Su nombre y color se cambian desde ese hogar.")
+                        .font(HomitaFont.inter(13, relativeTo: .footnote))
+                        .foregroundStyle(Palette.inkSoft)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
             }
             if store.persons.isEmpty && !store.isLoading {
                 HomitaCard {
-                    Text("Sin personas")
-                        .font(HomitaFont.geist(16, relativeTo: .body))
-                        .foregroundStyle(Palette.inkSoft)
-                        .frame(maxWidth: .infinity)
+                    HomitaEmptyNote(text: HomitaEmptyNoteText.persons)
                 }
                 .homitaRow()
             }
@@ -72,6 +101,7 @@ struct PersonsView: View {
                     Image(systemName: "plus")
                         .foregroundStyle(Palette.ink)
                         .accessibilityLabel("Nueva persona")
+                        .accessibilityIdentifier("personas.alta")
                 }
             }
         }
@@ -89,6 +119,10 @@ struct PersonsView: View {
             await store.load()
         }
         .errorAlert($store.errorMessage)
+        .writeFailureToast($store.writeFailure)
+        .homitaConfirm(DeleteConfirmation.message(names: pendingPersonDelete.map { [$0.name] } ?? [], consequence: "Se eliminará la persona."), isPresented: $showPersonDelete, confirmTitle: "Eliminar") {
+            if let person = pendingPersonDelete { Task { await store.delete(person) } }
+        }
     }
 }
 
@@ -101,6 +135,8 @@ struct PersonEditorView: View {
     @State private var name: String
     @State private var color: Color
     @State private var isWorking = false
+    /// El error del nombre aparece solo después de que el usuario toque el campo.
+    @State private var nameTouched = false
 
     init(store: PersonStore, editing: PersonEntry?) {
         self.store = store
@@ -115,9 +151,14 @@ struct PersonEditorView: View {
                 HomitaCard {
                     VStack(alignment: .leading, spacing: 14) {
                         HomitaSectionHeader(title: "Persona", systemImage: "person.crop.circle")
-                        HomitaField(placeholder: "Nombre (1-50)", text: $name)
-                        ColorPicker("Color", selection: $color, supportsOpacity: false)
-                            .font(HomitaFont.geist(17, relativeTo: .body))
+                        HomitaFormField(
+                            placeholder: "Nombre (1-50)",
+                            text: $name,
+                            error: nameTouched ? MemberValidation.nameMessage(name) : nil
+                        )
+                        .onChange(of: name) { _, _ in nameTouched = true }
+                        HomitaColorField(title: "Color", color: $color)
+                            .font(HomitaFont.inter(17, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
                     }
                 }
@@ -141,6 +182,8 @@ struct PersonEditorView: View {
             }
         }
         .errorAlert($store.errorMessage)
+        // «Reintentar» que va bien cierra el editor, igual que un guardado correcto.
+        .writeFailureToast($store.writeFailure) { dismiss() }
     }
 
     private func save() async {

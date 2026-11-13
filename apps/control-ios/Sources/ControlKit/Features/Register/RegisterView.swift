@@ -88,7 +88,7 @@ public struct RegisterView: View {
             case .http(status: 403, message: "The invitation was sent to another email address"):
                 return "La invitación se envió a otro email. Usa el email de la invitación"
             case .http(status: 400, message: "Email already exists"):
-                return "Ya tienes cuenta: inicia sesión y acepta la invitación desde Perfil"
+                return "Ya tienes cuenta: inicia sesión y acepta la invitación desde Ajustes"
             default:
                 return api.userMessage
             }

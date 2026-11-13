@@ -9,6 +9,8 @@ struct RoutineListView: View {
 
     @State private var showCreate = false
     @State private var routineToEdit: RoutineEntry?
+    @State private var pendingRoutineDelete: [RoutineEntry] = []
+    @State private var showRoutineDelete = false
 
     var body: some View {
         List {
@@ -21,23 +23,18 @@ struct RoutineListView: View {
                         .homitaRow()
                     }
                     .onDelete { indexSet in
-                        let removed = indexSet.map { section.routines[$0] }
-                        Task { for routine in removed { await store.delete(routine) } }
+                        pendingRoutineDelete = indexSet.map { section.routines[$0] }
+                        showRoutineDelete = true
                     }
                 } header: {
                     HomitaSectionHeader(title: section.group.title, count: section.routines.count, systemImage: "repeat")
                 }
             }
             if !store.hasLoaded || (store.isLoading && store.routines.isEmpty) {
-                HomitaLoadingCard(message: "Cargando rutinas…").homitaRow()
+                HomitaSkeletonRows(count: 3, height: 64, label: "Cargando rutinas").homitaRow()
             }
             if store.hasLoaded && store.routines.isEmpty && !store.isLoading {
-                HomitaEmptyState(
-                    illustration: .routines,
-                    title: "Sin rutinas",
-                    message: "Las rutinas repiten eventos cada día, semana o mes sin que las vuelvas a escribir.",
-                    actionTitle: "Nueva rutina"
-                ) {
+                HomitaEmptyState(.routines) {
                     showCreate = true
                 }
                 .homitaRow()
@@ -69,6 +66,11 @@ struct RoutineListView: View {
             await store.load()
         }
         .errorAlert($store.errorMessage)
+        .writeFailureToast($store.writeFailure)
+        .homitaConfirm(DeleteConfirmation.message(names: pendingRoutineDelete.map(\.title), consequence: "Se eliminará la rutina y sus sesiones futuras."), isPresented: $showRoutineDelete, confirmTitle: "Eliminar") {
+            let routines = pendingRoutineDelete
+            Task { for routine in routines { await store.delete(routine) } }
+        }
     }
 }
 
@@ -122,26 +124,26 @@ struct RoutineRow: View {
                                 .accessibilityLabel("Hecha")
                         }
                         Text(routine.title)
-                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(status == .expired ? Palette.inkMuted : Palette.ink)
                             .strikethrough(status == .expired)
                     }
                     if embedded {
                         Text(timeText)
-                            .font(HomitaFont.geist(13, weight: .semibold, relativeTo: .footnote))
+                            .font(HomitaFont.inter(13, weight: .semibold, relativeTo: .footnote))
                             .foregroundStyle(Palette.inkSoft)
                     }
                     AssignedPersonTags(persons: routine.persons)
                     if let next {
                         Text("PRÓXIMA · \(DateDisplay.dateTime(next.date_at).uppercased())")
-                            .font(HomitaFont.geist(12, weight: .semibold, relativeTo: .caption))
+                            .font(HomitaFont.inter(12, weight: .semibold, relativeTo: .caption))
                             .foregroundStyle(Palette.inkSoft)
                     }
                 }
                 Spacer()
                 HomitaBadge(
                     title: routine.isActive ? "Activa" : "Pausada",
-                    tintHex: routine.isActive ? Palette.onlineHex : "#A6998A"
+                    tintHex: routine.isActive ? Palette.onlineHex : Palette.inkMutedHex
                 )
             }
     }

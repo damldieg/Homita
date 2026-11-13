@@ -19,7 +19,7 @@ struct HomeAdminView: View {
                 NavigationLink {
                     HomeSettingsView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Configuración", systemImage: "gearshape", tint: "#6E6358")
+                    HomitaLinkRow(title: "Configuración", subtitle: "Nombre y zona horaria", systemImage: "gearshape", tint: Palette.inkSoftHex)
                 }
                 .buttonStyle(.plain)
             }
@@ -27,7 +27,7 @@ struct HomeAdminView: View {
                 NavigationLink {
                     HomeAdministratorsView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Administradores", systemImage: "person.badge.key", tint: Palette.accentHex)
+                    HomitaLinkRow(title: "Administradores", subtitle: "Quién gestiona el hogar", systemImage: "person.badge.key", tint: Palette.accentHex)
                 }
                 .buttonStyle(.plain)
             }
@@ -35,7 +35,7 @@ struct HomeAdminView: View {
                 NavigationLink {
                     HomeMembersView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Miembros", systemImage: "person.2", tint: Palette.onlineHex)
+                    HomitaLinkRow(title: "Miembros", subtitle: "Personas, tipos y estado", systemImage: "person.2", tint: Palette.onlineHex)
                 }
                 .buttonStyle(.plain)
             }
@@ -43,7 +43,7 @@ struct HomeAdminView: View {
                 NavigationLink {
                     HomeInvitationsView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Invitaciones", systemImage: "envelope.badge", tint: "#F5A623")
+                    HomitaLinkRow(title: "Invitaciones", subtitle: "Códigos para unirse al hogar", systemImage: "envelope.badge", tint: Palette.soonHex)
                 }
                 .buttonStyle(.plain)
             }
@@ -51,7 +51,7 @@ struct HomeAdminView: View {
                 NavigationLink {
                     MemberPermissionsView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Accesos", systemImage: "lock.shield", tint: Palette.accentHex)
+                    HomitaLinkRow(title: "Accesos", subtitle: "Qué puede hacer cada persona", systemImage: "lock.shield", tint: Palette.accentHex)
                 }
                 .buttonStyle(.plain)
             }
@@ -59,7 +59,7 @@ struct HomeAdminView: View {
                 NavigationLink {
                     HomeAuditView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Auditoría", systemImage: "list.bullet.clipboard", tint: "#6E6358")
+                    HomitaLinkRow(title: "Auditoría", subtitle: "Cambios recientes del hogar", systemImage: "list.bullet.clipboard", tint: Palette.inkSoftHex)
                 }
                 .buttonStyle(.plain)
             }
@@ -103,7 +103,7 @@ struct HomeSettingsView: View {
         HomitaForm {
             switch store.state {
             case .idle, .loading:
-                HomeLoadingView()
+                HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
             case .failed(let message):
                 HomeErrorView(message: message) { Task { await store.load() } }
             case .loaded:
@@ -115,7 +115,7 @@ struct HomeSettingsView: View {
                                 showZones = true
                             } label: {
                                 HomitaLabeledRow("Zona horaria") {
-                                    Text(timezone).font(HomitaFont.geist(15, relativeTo: .body)).foregroundStyle(Palette.inkSoft)
+                                    Text(timezone).font(HomitaFont.inter(15, relativeTo: .body)).foregroundStyle(Palette.inkSoft)
                                     Image(systemName: "chevron.right").foregroundStyle(Palette.inkMuted)
                                 }
                             }
@@ -223,7 +223,7 @@ struct HomeAdministratorsView: View {
         HomitaForm {
             switch store.state {
             case .idle, .loading:
-                HomeLoadingView()
+                HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
             case .failed(let message):
                 HomeErrorView(message: message) { Task { await store.load() } }
             case .loaded:
@@ -255,17 +255,17 @@ struct HomeAdministratorsView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(item.name)
-                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
                 if item.appUserId == callerId {
-                    Text("(tú)").font(HomitaFont.geist(14, relativeTo: .footnote)).foregroundStyle(Palette.inkSoft)
+                    Text("(tú)").font(HomitaFont.inter(14, relativeTo: .footnote)).foregroundStyle(Palette.inkSoft)
                 }
                 Spacer()
                 HomitaBadge(title: item.role == "admin" ? "Administrador" : "Miembro",
-                            tintHex: item.role == "admin" ? Palette.accentHex : "#6E6358")
+                            tintHex: item.role == "admin" ? Palette.accentHex : Palette.inkSoftHex)
             }
             Text(item.email)
-                .font(HomitaFont.geist(13, relativeTo: .footnote))
+                .font(HomitaFont.inter(13, relativeTo: .footnote))
                 .foregroundStyle(Palette.inkSoft)
             if !actions.isEmpty {
                 HStack(spacing: 8) {
@@ -350,7 +350,7 @@ struct MemberPermissionsView: View {
         HomitaForm {
             switch store.state {
             case .idle, .loading:
-                HomeLoadingView()
+                HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
             case .failed(let message):
                 HomeErrorView(message: message) { Task { await store.load() } }
             case .loaded:
@@ -359,15 +359,15 @@ struct MemberPermissionsView: View {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.name)
-                                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                                     .foregroundStyle(Palette.ink)
                                 Text(item.role == "admin" ? "Administrador: todos los accesos" : "\(item.permissions.count) accesos")
-                                    .font(HomitaFont.geist(13, relativeTo: .footnote))
+                                    .font(HomitaFont.inter(13, relativeTo: .footnote))
                                     .foregroundStyle(Palette.inkSoft)
                                 if let reason = PermissionRules.lockReason(callerRole: home.role, item: item),
                                    item.role != "admin" {
                                     Text(reason)
-                                        .font(HomitaFont.geist(12, relativeTo: .caption))
+                                        .font(HomitaFont.inter(12, relativeTo: .caption))
                                         .foregroundStyle(Palette.inkMuted)
                                 }
                             }
@@ -404,11 +404,11 @@ struct MemberPermissionsView: View {
                 ForEach(summary, id: \.kind) { entry in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(MemberRules.kindLabel(entry.kind))
-                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
                         Text(entry.domains.map { "\($0.domain): \($0.codes.joined(separator: ", "))" }
                             .joined(separator: " · "))
-                            .font(HomitaFont.geist(13, relativeTo: .footnote))
+                            .font(HomitaFont.inter(13, relativeTo: .footnote))
                             .foregroundStyle(Palette.inkSoft)
                     }
                 }
@@ -511,24 +511,23 @@ struct HomeAuditView: View {
             } else {
                 switch store.state {
                 case .idle, .loading:
-                    HomeLoadingView()
+                    HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
                 case .failed(let message):
                     HomeErrorView(message: message) { Task { await store.load() } }
                 case .loaded:
                     ForEach(store.items, id: \.id) { item in
                         HomitaCard {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(item.action)
-                                    .font(HomitaFont.geist(16, weight: .semibold, relativeTo: .body))
+                                // E4-10: frase en español; el código técnico queda debajo.
+                                Text(AuditPhrase.sentence(action: item.action, actor: item.actorName, payload: item.payload.values))
+                                    .font(HomitaFont.inter(16, weight: .semibold, relativeTo: .body))
                                     .foregroundStyle(Palette.ink)
                                 Text("\(item.actorName ?? "Sistema") · \(item.createdAt)")
-                                    .font(HomitaFont.geist(13, relativeTo: .footnote))
+                                    .font(HomitaFont.inter(13, relativeTo: .footnote))
                                     .foregroundStyle(Palette.inkSoft)
-                                ForEach(item.payload.lines, id: \.self) { line in
-                                    Text(line)
-                                        .font(HomitaFont.geist(12, relativeTo: .caption))
-                                        .foregroundStyle(Palette.inkMuted)
-                                }
+                                Text(item.action)
+                                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(Palette.inkMuted)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -576,7 +575,7 @@ struct HomeMembersView: View {
         HomitaForm {
             switch store.state {
             case .idle, .loading:
-                HomeLoadingView()
+                HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
             case .failed(let message):
                 HomeErrorView(message: message) { Task { await store.load() } }
             case .loaded:
@@ -625,10 +624,10 @@ struct HomeMembersView: View {
                 .frame(width: 14, height: 14)
             VStack(alignment: .leading, spacing: 2) {
                 Text(member.name)
-                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
                 Text("\(MemberRules.kindLabel(member.kind)) · \(MemberRules.statusLabel(member.status)) · \(MemberRules.linkStatusLabel(linked: member.linked))")
-                    .font(HomitaFont.geist(13, relativeTo: .footnote))
+                    .font(HomitaFont.inter(13, relativeTo: .footnote))
                     .foregroundStyle(Palette.inkSoft)
             }
             Spacer()
@@ -669,12 +668,12 @@ struct MemberEditorView: View {
         HomitaForm {
             HomitaPanel("Miembro", systemImage: "person.crop.circle") {
                 HomitaField(placeholder: "Nombre (1-50)", text: $name)
-                ColorPicker("Color", selection: $color, supportsOpacity: false)
-                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                HomitaColorField(title: "Color", color: $color)
+                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
                     .onChange(of: color) { colorTouched = true }
                 Text("Tipo")
-                    .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .footnote))
+                    .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
                     .foregroundStyle(Palette.inkSoft)
                 HomitaRadioGroup(
                     selection: $kind,
@@ -685,7 +684,7 @@ struct MemberEditorView: View {
                 }
                 if let editing {
                     Text("Estado")
-                        .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .footnote))
+                        .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
                         .foregroundStyle(Palette.inkSoft)
                     HomitaRadioGroup(
                         selection: $status,
@@ -768,7 +767,7 @@ struct HomeInvitationsView: View {
         HomitaForm {
             switch store.state {
             case .idle, .loading:
-                HomeLoadingView()
+                HomitaSkeletonRows(count: 3, height: 56, label: "Cargando")
             case .failed(let message):
                 HomeErrorView(message: message) { Task { await store.load() } }
             case .loaded:
@@ -819,10 +818,10 @@ struct HomeInvitationsView: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.memberName ?? MemberRules.kindLabel(item.kind))
-                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
                 Text(Self.rowDetail(item))
-                    .font(HomitaFont.geist(13, relativeTo: .footnote))
+                    .font(HomitaFont.inter(13, relativeTo: .footnote))
                     .foregroundStyle(Palette.inkSoft)
             }
             Spacer()
@@ -886,7 +885,7 @@ struct InvitationCreateView: View {
             HomitaButton(title: "Enviar por WhatsApp", kind: .secondary) { openWhatsApp(code) }
             ShareLink(item: Self.inviteMessage(code: code, homeName: homeName)) {
                 Label("Compartir invitación", systemImage: "square.and.arrow.up")
-                    .font(HomitaFont.geist(17, weight: .semibold, relativeTo: .body))
+                    .font(HomitaFont.inter(17, weight: .semibold, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .background(Palette.card, in: RoundedRectangle(cornerRadius: 18))
@@ -906,7 +905,7 @@ struct InvitationCreateView: View {
     static func inviteMessage(code: String, homeName: String) -> String {
         "Te invito a unirte a mi hogar «\(homeName)» en Homita.\n\n"
             + "1. Abre Homita y entra con tu cuenta (o crea una).\n"
-            + "2. Ve a Perfil › Unirse a un hogar con un código.\n"
+            + "2. Ve a Ajustes › Unirse a un hogar con un código.\n"
             + "3. Pega este código: \(code)\n\n"
             + "El código caduca en 7 días y solo sirve una vez."
     }

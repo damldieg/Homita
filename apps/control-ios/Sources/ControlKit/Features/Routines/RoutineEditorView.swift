@@ -57,7 +57,7 @@ struct RoutineEditorView: View {
                 HomitaField(placeholder: "Título", text: $title)
                 if routine == nil {
                     Text("Calendario")
-                        .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .footnote))
+                        .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
                         .foregroundStyle(Palette.inkSoft)
                     HomitaRadioGroup(
                         selection: Binding(get: { calendarId }, set: { calendarId = $0 ?? calendarId }),
@@ -72,8 +72,13 @@ struct RoutineEditorView: View {
                 )
                 // El Stepper no tiene equivalente en ComponentsKit: se mantiene nativo.
                 Stepper("Cada \(interval) \(unitLabel)", value: $interval, in: 1...99)
-                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
+                // E3-06 [Nuevo]: resumen en lenguaje natural de la regla.
+                Text(RoutineSummary.text(frequency: frequency, interval: interval, days: Array(days), hour: hourText))
+                    .font(HomitaFont.inter(14, relativeTo: .footnote))
+                    .foregroundStyle(Palette.inkSoft)
+                    .accessibilityLabel("Resumen: " + RoutineSummary.text(frequency: frequency, interval: interval, days: Array(days), hour: hourText))
                 if frequency == "weekly" {
                     // Selección múltiple de días: ComponentsKit solo ofrece selección única.
                     HStack(spacing: 6) {
@@ -82,8 +87,8 @@ struct RoutineEditorView: View {
                                 if days.contains(iso) { days.remove(iso) } else { days.insert(iso) }
                             } label: {
                                 Text(label)
-                                    .font(HomitaFont.geist(15, weight: .semibold, relativeTo: .body))
-                                    .foregroundStyle(days.contains(iso) ? Color.white : Palette.ink)
+                                    .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .body))
+                                    .foregroundStyle(days.contains(iso) ? Palette.onFill : Palette.ink)
                                     .frame(width: 38, height: 38)
                                     .background(days.contains(iso) ? Palette.accent : Palette.background, in: Circle())
                             }
@@ -130,6 +135,14 @@ struct RoutineEditorView: View {
             Task { await delete() }
         }
         .errorAlert($store.errorMessage)
+        // «Reintentar» que va bien cierra el editor, igual que un guardado correcto.
+        .writeFailureToast($store.writeFailure) { dismiss() }
+    }
+
+    /// Hora del editor como «HH:mm».
+    private var hourText: String {
+        let parts = Calendar.current.dateComponents([.hour, .minute], from: time)
+        return String(format: "%02d:%02d", parts.hour ?? 0, parts.minute ?? 0)
     }
 
     private var unitLabel: String {

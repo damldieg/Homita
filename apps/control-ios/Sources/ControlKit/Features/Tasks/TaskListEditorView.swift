@@ -35,8 +35,8 @@ struct TaskListEditorView: View {
         HomitaForm {
             HomitaPanel("Lista", systemImage: "list.bullet") {
                 HomitaField(placeholder: "Nombre", text: $name)
-                ColorPicker("Color", selection: $color, supportsOpacity: false)
-                    .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                HomitaColorField(title: "Color", color: $color)
+                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                     .foregroundStyle(Palette.ink)
             }
             HomitaPanel("Orden de las tareas", systemImage: "arrow.up.arrow.down") {
@@ -73,6 +73,8 @@ struct TaskListEditorView: View {
             Task { await delete() }
         }
         .errorAlert($store.errorMessage)
+        // «Reintentar» que va bien cierra el editor, igual que un guardado correcto.
+        .writeFailureToast($store.writeFailure) { dismiss() }
     }
 
     private func save() async {

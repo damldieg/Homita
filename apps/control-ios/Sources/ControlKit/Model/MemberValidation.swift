@@ -20,10 +20,16 @@ public enum MemberValidation {
         color.range(of: "^#[0-9A-Fa-f]{6}$", options: .regularExpression) != nil
     }
 
-    /// Mensaje en español o `nil` si es válido.
-    public static func validate(name: String, color: String) -> String? {
+    /// Mensaje del nombre (en español) o `nil` si es válido. Para el error en línea del campo.
+    public static func nameMessage(_ name: String) -> String? {
         if trimmedName(name).isEmpty { return "El nombre es obligatorio" }
         if !isValidName(name) { return "El nombre admite como máximo 50 caracteres" }
+        return nil
+    }
+
+    /// Mensaje en español o `nil` si es válido.
+    public static func validate(name: String, color: String) -> String? {
+        if let message = nameMessage(name) { return message }
         if !isValidColor(color) { return "El color debe ser #RRGGBB" }
         return nil
     }

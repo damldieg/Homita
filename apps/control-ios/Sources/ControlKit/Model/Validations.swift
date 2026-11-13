@@ -14,6 +14,13 @@ public enum EventValidation {
     }
 }
 
+/// Validación en línea del título de una tarea (E0-10). Vacío = error; el resto lo decide el servidor.
+public enum TaskTitleValidation {
+    public static func message(for title: String) -> String? {
+        title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "El título es obligatorio" : nil
+    }
+}
+
 /// Acciones disponibles sobre una persona. Las compartidas (`editable=false`) son solo lectura.
 public enum PersonAction: Equatable, Sendable {
     case edit

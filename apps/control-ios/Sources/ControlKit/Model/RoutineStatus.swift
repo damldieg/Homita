@@ -13,6 +13,15 @@ public enum RoutineStatus: Equatable, Sendable {
     /// Duración de la ventana "en curso".
     public static let window: TimeInterval = 3600
 
+    /// Antelación del aviso «Empieza en N min» (E1-04): 60 min antes del inicio.
+    public static let soonWindow: TimeInterval = 3600
+
+    /// ¿Aún no empieza pero entra en la ventana de aviso? Solo para Inicio; la pestaña Rutinas no lo usa.
+    public static func isSoon(start: Date?, now: Date) -> Bool {
+        guard let start else { return false }
+        return now < start && start.timeIntervalSince(now) <= soonWindow
+    }
+
     /// Estado dado el inicio de la ocurrencia (`nil` = sin hora fija → normal) y "ahora".
     public static func evaluate(start: Date?, now: Date) -> RoutineStatus {
         guard let start else { return .normal }

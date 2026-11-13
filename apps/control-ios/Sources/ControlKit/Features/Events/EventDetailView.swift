@@ -37,7 +37,7 @@ struct EventDetailView: View {
                 HomitaDatePicker(title: "Fecha y hora", selection: $date, components: [.date, .hourAndMinute])
                 Group {
                     Text("Calendario")
-                        .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .footnote))
+                        .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
                         .foregroundStyle(Palette.inkSoft)
                     if event == nil {
                         HomitaRadioGroup(
@@ -47,7 +47,7 @@ struct EventDetailView: View {
                     } else {
                         // Editar: el calendario del evento se muestra, no se cambia (R1-05 / CA-4).
                         Text(event?.calendar_name ?? "Calendario")
-                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
                     }
                 }
@@ -78,6 +78,8 @@ struct EventDetailView: View {
             Task { await delete() }
         }
         .errorAlert($store.errorMessage)
+        // «Reintentar» que va bien cierra el editor, igual que un guardado correcto.
+        .writeFailureToast($store.writeFailure) { dismiss() }
     }
 
     private func save() async {

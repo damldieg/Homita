@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Destino de las flechas de las tarjetas de Inicio.
 public enum InicioDestination: Sendable {
-    case tasks, routines, events
+    case tasks, routines, events, home
     /// Pestaña Tareas filtrada por esta lista.
     case taskList(Int)
 }
@@ -40,22 +40,24 @@ public struct InicioView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     greeting
-                    eventsCard
-                    tasksCard
-                    routinesCard
-                    quickActions
+                    eventsCard.accessibilityIdentifier("inicio.tarjeta.eventos")
+                    tasksCard.accessibilityIdentifier("inicio.tarjeta.tareas")
+                    routinesCard.accessibilityIdentifier("inicio.tarjeta.rutinas")
+                    quickActions.accessibilityIdentifier("inicio.accesos")
                 }
                 .padding(20)
             }
             .background(Palette.background.ignoresSafeArea())
-            .homitaNavigationBar()
+            .homitaHiddenNavigationBar()
             .refreshable { await store.load() }
             .task { await store.load() }
             .errorAlert($store.errorMessage)
+            .writeFailureToast($store.writeFailure)
             .sheet(isPresented: $showTaskEditor) {
                 NavigationStack {
-                    TaskEditorView(taskLists: store.taskLists, task: nil) { title, listId, _ in
-                        Task { await store.createTask(title: title, listId: listId) }
+                    TaskEditorView(taskLists: store.taskLists, task: nil,
+                                   writeFailure: $store.writeFailure) { title, listId, _ in
+                        await store.createTask(title: title, listId: listId)
                     }
                 }
             }
@@ -70,17 +72,9 @@ public struct InicioView: View {
     // MARK: - Saludo
 
     private var greeting: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(greetingText)
-                .font(HomitaFont.geist(34, weight: .bold, relativeTo: .largeTitle))
-                .foregroundStyle(Palette.ink)
-            Text(dateText)
-                .font(HomitaFont.geist(15, relativeTo: .subheadline))
-                .foregroundStyle(Palette.inkSoft)
+        HomitaHeader(title: greetingText, subtitle: dateText) {
+            HomitaHeaderButton(systemImage: "house", label: "Ir a Hogar") { onOpen(.home) }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 8)
-        .accessibilityElement(children: .combine)
     }
 
     private var greetingText: String {
@@ -101,27 +95,29 @@ public struct InicioView: View {
         sectionCard(title: "Hoy · Eventos", systemImage: "calendar", count: store.todayEvents.count, destination: .events,
                     state: store.eventsState, retry: { await store.loadEvents() }) {
             if store.todayEvents.isEmpty {
-                emptyText("Sin eventos hoy")
+                emptyText(HomitaEmptyNoteText.todayEvents)
             }
-            ForEach(store.todayEvents) { event in
+            ForEach(Array(store.todayEvents.enumerated()), id: \.element.id) { index, event in
+                if index > 0 { Divider().overlay(Palette.line) }
                 HStack(spacing: 12) {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(Color(hex: event.calendar_color ?? Palette.fallbackItem))
                         .frame(width: 4, height: 36)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(event.title)
-                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
                         EventCountdownLabel(dateAt: event.date_at)
+                        AssignedPersonsLine(persons: event.persons)
                         if let name = event.calendar_name {
                             Text(name)
-                                .font(HomitaFont.geist(13, relativeTo: .footnote))
+                                .font(HomitaFont.inter(13, relativeTo: .footnote))
                                 .foregroundStyle(Palette.inkSoft)
                         }
                     }
                     Spacer()
                     Text(Self.time(of: event.date_at))
-                        .font(HomitaFont.geist(15, weight: .semibold, relativeTo: .subheadline))
+                        .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
                         .foregroundStyle(Palette.inkSoft)
                 }
                 .accessibilityElement(children: .combine)
@@ -132,8 +128,12 @@ public struct InicioView: View {
     private var tasksCard: some View {
         let pages = store.pendingTaskPages
         let page = pages.first { $0.id == taskPageId } ?? pages.first
+        // Contador x/9: completadas / total de la lista que se muestra (incluye las ya hechas).
+        let listTasks = page.map { current in store.tasks.filter { $0.task_list_id == current.id } } ?? []
+        let doneCount = listTasks.filter(\.isCompleted).count
         return sectionCard(title: "Tareas pendientes", systemImage: "checklist",
-                    count: store.tasks.filter { !$0.isCompleted }.count, destination: .tasks,
+                    count: store.tasks.filter { !$0.isCompleted }.count,
+                    countText: page == nil ? nil : "\(doneCount)/\(listTasks.count)", destination: .tasks,
                     state: store.tasksState, retry: { await store.loadTasks() }) {
             if let page {
                 // Puntos para cambiar de lista: entre el título y el contenido, sin animación.
@@ -159,28 +159,33 @@ public struct InicioView: View {
                 HStack(spacing: 8) {
                     Circle().fill(Color(hex: page.colorHex)).frame(width: 10, height: 10)
                     Text(page.name)
-                        .font(HomitaFont.geist(15, weight: .semibold, relativeTo: .subheadline))
+                        .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
                         .foregroundStyle(Palette.inkSoft)
                 }
-                ForEach(page.tasks) { task in
+                // E1-03: máximo 5 pendientes por página; el resto se ve en «Ver más».
+                ForEach(Array(page.tasks.prefix(5).enumerated()), id: \.element.id) { index, task in
+                    if index > 0 { Divider().overlay(Palette.line) }
                     HStack(spacing: 12) {
                         HomitaCheckbox(isOn: task.isCompleted, tintHex: Palette.onlineHex) {
                             Task { await store.toggleComplete(task) }
                         }
-                        Text(task.title)
-                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
-                            .foregroundStyle(Palette.ink)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(task.title)
+                                .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
+                                .foregroundStyle(Palette.ink)
+                            AssignedPersonsLine(persons: task.persons)
+                        }
                         Spacer()
                     }
                 }
                 HStack {
                     Spacer()
                     Button("Ver más") { onOpen(.taskList(page.id)) }
-                        .font(HomitaFont.geist(15, weight: .semibold, relativeTo: .subheadline))
+                        .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
                         .foregroundStyle(Palette.accent)
                 }
             } else {
-                emptyText("Sin tareas pendientes")
+                emptyText(HomitaEmptyNoteText.pendingTasks)
             }
         }
     }
@@ -192,10 +197,10 @@ public struct InicioView: View {
     private var quickActions: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("ACCESOS RÁPIDOS")
-                .font(HomitaFont.geist(13, weight: .semibold, relativeTo: .footnote))
+                .font(HomitaFont.inter(13, weight: .semibold, relativeTo: .footnote))
                 .foregroundStyle(Palette.inkSoft)
             HStack(spacing: 12) {
-                HomitaButton(title: "+ Tarea") {
+                HomitaButton(title: "+ Tarea", kind: .accentOutline) {
                     Task {
                         await store.loadTaskLists()
                         if store.taskLists.isEmpty {
@@ -205,7 +210,7 @@ public struct InicioView: View {
                         }
                     }
                 }
-                HomitaButton(title: "+ Evento", kind: .secondary) {
+                HomitaButton(title: "+ Evento") {
                     Task {
                         await calendarStore.load()
                         await personStore.load()
@@ -223,12 +228,13 @@ public struct InicioView: View {
     // MARK: - Piezas
 
     private func sectionCard<Content: View>(
-        title: String, systemImage: String, count: Int, destination: InicioDestination, state: InicioSectionState,
+        title: String, systemImage: String, count: Int, countText: String? = nil, destination: InicioDestination, state: InicioSectionState,
         retry: @escaping () async -> Void, @ViewBuilder content: @escaping () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                HomitaSectionHeader(title: title, count: state == .loaded ? count : nil, systemImage: systemImage)
+                HomitaSectionHeader(title: title, count: state == .loaded ? count : nil,
+                                    countText: state == .loaded ? countText : nil, systemImage: systemImage)
                 Button { onOpen(destination) } label: {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .semibold))
@@ -239,18 +245,17 @@ public struct InicioView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Ir a \(title)")
             }
+            Divider().overlay(Palette.line)
             switch state {
             case .idle, .loading:
                 if count == 0 {
-                    Text("Cargando…")
-                        .font(HomitaFont.geist(15, relativeTo: .body))
-                        .foregroundStyle(Palette.inkSoft)
+                    HomitaSkeletonRows(count: 2, height: 56, label: "Cargando")
                 } else {
                     content()
                 }
             case .failed(let message):
                 Text(message)
-                    .font(HomitaFont.geist(15, relativeTo: .body))
+                    .font(HomitaFont.inter(15, relativeTo: .body))
                     .foregroundStyle(Palette.accent)
                 HomitaButton(title: "Reintentar", kind: .secondary) { Task { await retry() } }
             case .loaded:
@@ -264,9 +269,7 @@ public struct InicioView: View {
     }
 
     private func emptyText(_ text: String) -> some View {
-        Text(text)
-            .font(HomitaFont.geist(15, relativeTo: .body))
-            .foregroundStyle(Palette.inkSoft)
+        HomitaEmptyNote(text: text)
     }
 
     /// «HH:mm» de un `date_at` (`Y-m-d H:i:s`); si no se puede leer, el texto original.

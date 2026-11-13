@@ -2,10 +2,13 @@ import Foundation
 
 /// Estado de Personas: CRUD; las compartidas (`editable=false`) son solo lectura.
 @Observable
-public final class PersonStore {
+public final class PersonStore: WriteFailureReporting {
     public private(set) var persons: [PersonEntry] = []
     public private(set) var isLoading = false
+    /// Errores de lectura (alerta de la pantalla).
     public var errorMessage: String?
+    /// Última escritura fallida (toast con «Reintentar»).
+    public var writeFailure: WriteFailure?
 
     private let repo: PersonRepository
 
@@ -25,26 +28,20 @@ public final class PersonStore {
 
     @discardableResult
     public func save(name: String, color: String, editing: PersonEntry?) async -> Bool {
-        do {
+        await performWrite { store in
             if let editing {
-                _ = try await repo.update(UpdatePersonRequest(id: editing.id, name: name, color: color))
+                _ = try await store.repo.update(UpdatePersonRequest(id: editing.id, name: name, color: color))
             } else {
-                _ = try await repo.create(CreatePersonRequest(name: name, color: color))
+                _ = try await store.repo.create(CreatePersonRequest(name: name, color: color))
             }
-            await load()
-            return true
-        } catch {
-            report(error)
-            return false
+            await store.load()
         }
     }
 
     public func delete(_ person: PersonEntry) async {
-        do {
-            _ = try await repo.delete(id: person.id)
-            await load()
-        } catch {
-            report(error)
+        await performWrite { store in
+            _ = try await store.repo.delete(id: person.id)
+            await store.load()
         }
     }
 

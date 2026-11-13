@@ -2,28 +2,39 @@ import SwiftUI
 
 /// Editor de tarea (alta/edición). En alta elige lista; en edición solo cambia el título
 /// (mover de lista no existe en el contrato v1). El guard de título duplicado lo hace el store.
+/// Se cierra solo si `onSave` devuelve que la escritura fue bien; si falla conserva lo escrito y
+/// muestra el toast del store (`writeFailure`) con «Reintentar», como el editor de persona.
 struct TaskEditorView: View {
     let taskLists: [TaskListEntry]
     let persons: [PersonEntry]
     let task: TaskEntry?
-    let onSave: (String, Int, [Int]) -> Void
+    /// Último fallo de escritura del store, para el toast dentro de la hoja.
+    @Binding var writeFailure: WriteFailure?
+    /// Guarda (título recortado, lista, personas) y devuelve si fue bien.
+    let onSave: (String, Int, [Int]) async -> Bool
     let onDelete: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @State private var title: String
+    /// El error de título aparece solo después de que el usuario toque el campo.
+    @State private var titleTouched = false
+    @State private var showDeleteConfirm = false
     @State private var listId: Int
     @State private var personIds: [Int]
+    @State private var isSaving = false
 
     init(
         taskLists: [TaskListEntry],
         persons: [PersonEntry] = [],
         task: TaskEntry?,
-        onSave: @escaping (String, Int, [Int]) -> Void,
+        writeFailure: Binding<WriteFailure?>,
+        onSave: @escaping (String, Int, [Int]) async -> Bool,
         onDelete: (() -> Void)? = nil
     ) {
         self.taskLists = taskLists
         self.persons = persons
         self.task = task
+        _writeFailure = writeFailure
         self.onSave = onSave
         self.onDelete = onDelete
         _title = State(initialValue: task?.title ?? "")
@@ -37,19 +48,24 @@ struct TaskEditorView: View {
     }
 
     private var canSave: Bool {
-        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && hasTarget
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && hasTarget && !isSaving
     }
 
     var body: some View {
         HomitaForm {
             HomitaPanel("Tarea", systemImage: "checklist") {
-                HomitaField(placeholder: "Título", text: $title)
+                HomitaFormField(
+                    placeholder: "Título",
+                    text: $title,
+                    error: titleTouched ? TaskTitleValidation.message(for: title) : nil
+                )
+                .onChange(of: title) { _, _ in titleTouched = true }
                 if task == nil {
                     if taskLists.isEmpty {
                         HomitaFootnote(text: "Todavía no tienes listas. Crea una en la pestaña Listas para añadir tareas.")
                     } else {
                         Text("Lista")
-                            .font(HomitaFont.geist(14, weight: .semibold, relativeTo: .footnote))
+                            .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
                             .foregroundStyle(Palette.inkSoft)
                         HomitaRadioGroup(
                             selection: Binding(get: { listId }, set: { listId = $0 ?? listId }),
@@ -59,17 +75,21 @@ struct TaskEditorView: View {
                 }
             }
             PersonSelector(persons: persons, selected: $personIds)
-            HomitaButton(title: task == nil ? "Crear tarea" : "Guardar", isEnabled: canSave) {
-                onSave(title.trimmingCharacters(in: .whitespacesAndNewlines), listId, personIds)
-                dismiss()
+            HomitaButton(title: task == nil ? "Crear tarea" : "Guardar", isEnabled: canSave, isLoading: isSaving) {
+                Task { await save() }
             }
             if let onDelete {
                 HomitaButton(title: "Eliminar tarea", kind: .secondary) {
-                    onDelete()
-                    dismiss()
+                    showDeleteConfirm = true
                 }
             }
         }
+        .homitaConfirm(DeleteConfirmation.message(names: [task?.title ?? title], consequence: "Se eliminará la tarea."), isPresented: $showDeleteConfirm, confirmTitle: "Eliminar") {
+            onDelete?()
+            dismiss()
+        }
+        // «Reintentar» que va bien cierra el editor, igual que un guardado correcto.
+        .writeFailureToast($writeFailure) { dismiss() }
         .navigationTitle(task == nil ? "Nueva tarea" : "Editar tarea")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -77,5 +97,13 @@ struct TaskEditorView: View {
                     .foregroundStyle(Palette.ink)
             }
         }
+    }
+
+    /// Cierra solo si la escritura fue bien; si falla, el formulario conserva lo escrito.
+    private func save() async {
+        isSaving = true
+        defer { isSaving = false }
+        let ok = await onSave(title.trimmingCharacters(in: .whitespacesAndNewlines), listId, personIds)
+        if ok { dismiss() }
     }
 }

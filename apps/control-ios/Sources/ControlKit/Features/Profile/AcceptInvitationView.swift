@@ -24,7 +24,7 @@ struct AcceptInvitationView: View {
             if let joinedHomeName {
                 HomitaPanel("Listo", systemImage: "checkmark.circle", tint: Palette.online) {
                     Text("Te has unido a \(joinedHomeName)")
-                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                        .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                         .foregroundStyle(Palette.ink)
                 }
             }

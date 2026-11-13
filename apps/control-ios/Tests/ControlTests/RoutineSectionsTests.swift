@@ -91,37 +91,24 @@ final class RoutineSectionsTests: XCTestCase {
         XCTAssertEqual(store.status(for: byId[4]!, in: .today), .normal)
     }
 
-    func testInicioDoneMarksResetOnNewDay() async throws {
+    /// D-1: sin marca manual. «Hecha» es solo el horario (caducada); una rutina en aviso o en curso no cuenta.
+    func testInicioDoneIsOnlyTheClock() async throws {
         StubURLProtocol.reset { _ in .init(json: "[]") }
         let client = makeTestClient()
-        let box = ClockBox(now: PHPDateTime.parse("2026-11-09 10:00:00", timeZone: utc)!, timeZone: utc)
+        let box = ClockBox(now: PHPDateTime.parse("2026-11-09 19:30:00", timeZone: utc)!, timeZone: utc)
         let store = InicioStore(
             events: EventRepository(client: client), tasks: TaskRepository(client: client),
             routines: RoutineRepository(client: client), taskLists: TaskListRepository(client: client),
             clock: { LocalClock(now: box.now, timeZone: box.timeZone) }
         )
         let decoder = JSONDecoder()
-        let late = try decoder.decode(RoutineEntry.self, from: Data(routineJSON(1, time: "23:00").utf8))
-        let early = try decoder.decode(RoutineEntry.self, from: Data(routineJSON(2, time: "08:00").utf8))
+        let early = try decoder.decode(RoutineEntry.self, from: Data(routineJSON(1, time: "08:00").utf8))
+        let soon = try decoder.decode(RoutineEntry.self, from: Data(routineJSON(2, time: "20:00").utf8))
 
-        XCTAssertFalse(store.isRoutineDone(late))
-        XCTAssertTrue(store.isRoutineDone(early), "caducada sin marca cuenta como hecha")
-
-        store.setRoutineDone(late, done: true)
-        store.setRoutineDone(early, done: false)
-        XCTAssertTrue(store.isRoutineDone(late))
-        XCTAssertFalse(store.isRoutineDone(early))
-
-        // Mismo día más tarde: las marcas siguen.
-        box.now = PHPDateTime.parse("2026-11-09 22:00:00", timeZone: utc)!
-        XCTAssertTrue(store.isRoutineDone(late))
-
-        // Día siguiente: las marcas se ignoran sin que la lectura mute nada, y se descartan al escribir.
-        box.now = PHPDateTime.parse("2026-11-10 10:00:00", timeZone: utc)!
-        XCTAssertFalse(store.isRoutineDone(late))
-        XCTAssertTrue(store.isRoutineDone(early))
-        XCTAssertFalse(store.routineDoneOverrides.isEmpty, "leer no muta")
-        store.setRoutineDone(late, done: true)
-        XCTAssertEqual(store.routineDoneOverrides, [1: true])
+        XCTAssertEqual(store.status(for: early), .expired)
+        XCTAssertEqual(store.status(for: soon), .normal)
+        XCTAssertTrue(store.isSoon(soon), "a 30 min del inicio está en aviso")
+        XCTAssertFalse(store.isSoon(early))
+        XCTAssertEqual(store.minutesUntilStart(of: soon), 30)
     }
 }

@@ -41,7 +41,7 @@ struct PersonSelector: View {
     var body: some View {
         HomitaPanel("Personas", systemImage: "person.2", count: selected.count) {
             if persons.isEmpty {
-                HomitaFootnote(text: "Aún no tienes personas. Créalas en Perfil › Personas.")
+                HomitaFootnote(text: "Aún no tienes personas. Créalas en Ajustes › Personas.")
             }
             ForEach(persons, id: \.id) { person in
                 HStack(spacing: 12) {
@@ -49,7 +49,7 @@ struct PersonSelector: View {
                         .fill(Color(hex: person.color))
                         .frame(width: 14, height: 14)
                     Text(person.name)
-                        .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                        .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                         .foregroundStyle(Palette.ink)
                     Spacer()
                     HomitaCheckbox(isOn: selected.contains(person.id), tintHex: person.color) {
@@ -97,15 +97,15 @@ struct MembersSection: View {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(member.name)
-                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
                         Text(member.email)
-                            .font(HomitaFont.geist(13, relativeTo: .footnote))
+                            .font(HomitaFont.inter(13, relativeTo: .footnote))
                             .foregroundStyle(Palette.inkSoft)
                     }
                     Spacer()
                     HomitaBadge(title: member.isOwner ? "Propietario" : "Solo lectura",
-                                tintHex: member.isOwner ? Palette.accentHex : "#6E6358")
+                                tintHex: member.isOwner ? Palette.accentHex : Palette.inkSoftHex)
                     if isOwner && member.user_id != currentUserId {
                         Button {
                             onRemove(member.user_id)

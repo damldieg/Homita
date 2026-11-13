@@ -23,14 +23,14 @@ public struct WelcomeView: View {
                         .frame(width: 96, height: 96)
                         .overlay {
                             Text("H")
-                                .font(HomitaFont.geist(56, weight: .bold, relativeTo: .largeTitle))
+                                .font(HomitaFont.inter(56, weight: .bold, relativeTo: .largeTitle))
                                 .foregroundStyle(Palette.ink)
                         }
                     Text("Homita")
-                        .font(HomitaFont.geist(40, weight: .bold, relativeTo: .largeTitle))
+                        .font(HomitaFont.inter(40, weight: .bold, relativeTo: .largeTitle))
                         .foregroundStyle(Palette.ink)
                     Text("Tu panel de control familiar")
-                        .font(HomitaFont.geist(17, relativeTo: .body))
+                        .font(HomitaFont.inter(17, relativeTo: .body))
                         .foregroundStyle(Palette.inkSoft)
                     Spacer()
                     HomitaPrimaryButton(title: "Iniciar sesión") { showLogin = true }
