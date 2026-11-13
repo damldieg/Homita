@@ -81,6 +81,51 @@ struct TasksView: View {
         expandRequest = nil
     }
 
+    /// Encabezado de un grupo (AJ/Tareas): plegar, nombre, x/9 y papelera de completadas.
+    private func groupHeader(_ group: TaskGroup) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                if collapsedListIds.contains(group.listId) {
+                    collapsedListIds.remove(group.listId)
+                } else {
+                    collapsedListIds.insert(group.listId)
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: collapsedListIds.contains(group.listId) ? "chevron.right" : "chevron.down")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Palette.inkSoft)
+                    HomitaSectionHeader(
+                        title: group.name,
+                        count: nil,
+                        countText: "\(group.tasks.filter(\.isCompleted).count)/\(group.count)",
+                        tint: Color(hex: group.colorHex ?? Palette.accentHex)
+                    )
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(group.name), \(group.tasks.filter(\.isCompleted).count) de \(group.count) completadas")
+            .accessibilityValue(collapsedListIds.contains(group.listId) ? "plegada" : "desplegada")
+            Spacer(minLength: 0)
+            // Borra solo las completadas de esta lista, con confirmación.
+            if group.tasks.contains(where: \.isCompleted) {
+                Button {
+                    completedListId = group.listId
+                    completedNames = group.tasks.filter(\.isCompleted).map(\.title)
+                    showCompletedDelete = true
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Palette.accent)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Eliminar tareas completadas de \(group.name)")
+            }
+        }
+    }
+
     var body: some View {
         List {
             if store.listFilterId != nil {
@@ -108,6 +153,9 @@ struct TasksView: View {
 
             ForEach(store.taskGroups) { group in
                 Section {
+                    groupHeader(group)
+                        .listRowBackground(Palette.surface)
+                        .listRowSeparator(.hidden)
                     if !collapsedListIds.contains(group.listId) {
                         ForEach(group.tasks, id: \.id) { task in
                             TaskRow(task: task, showListName: false) {
@@ -116,6 +164,7 @@ struct TasksView: View {
                                 taskToEdit = task
                             }
                             .homitaRow()
+                            .listRowBackground(Palette.surface)
                             .listRowSeparator(.visible, edges: .bottom)
                             .listRowSeparatorTint(Palette.line)
                         }
@@ -131,48 +180,6 @@ struct TasksView: View {
                             Task { await store.movePendingTask(id: task.id, to: destination) }
                         }
                     }
-                } header: {
-                    HStack(spacing: 8) {
-                    Button {
-                        if collapsedListIds.contains(group.listId) {
-                            collapsedListIds.remove(group.listId)
-                        } else {
-                            collapsedListIds.insert(group.listId)
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: collapsedListIds.contains(group.listId) ? "chevron.right" : "chevron.down")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Palette.inkSoft)
-                            HomitaSectionHeader(
-                                title: group.name,
-                                count: nil,
-                                countText: "\(group.tasks.filter(\.isCompleted).count)/\(group.count)",
-                                tint: Color(hex: group.colorHex ?? Palette.accentHex)
-                            )
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(group.name), \(group.tasks.filter(\.isCompleted).count) de \(group.count) completadas")
-                    .accessibilityValue(collapsedListIds.contains(group.listId) ? "plegada" : "desplegada")
-                    Spacer(minLength: 0)
-                    // Borra solo las completadas de esta lista, con confirmación.
-                    if group.tasks.contains(where: \.isCompleted) {
-                        Button {
-                            completedListId = group.listId
-                            completedNames = group.tasks.filter(\.isCompleted).map(\.title)
-                            showCompletedDelete = true
-                        } label: {
-                            Image(systemName: "trash")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(Palette.accent)
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Eliminar tareas completadas de \(group.name)")
-                    }
-                    }
                 }
             }
 
@@ -186,6 +193,7 @@ struct TasksView: View {
                 .homitaRow()
             }
         }
+        .listStyle(.insetGrouped)
         .homitaList()
         .onChange(of: expandRequest, initial: true) { applyExpandRequest() }
         .onChange(of: store.hasLoadedTasks) { applyExpandRequest() }
