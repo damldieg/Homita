@@ -35,7 +35,11 @@ public struct ProfileView: View {
 
     /// Versión corta del bundle (`CFBundleShortVersionString`); «—» si no se puede leer.
     static var appVersion: String {
-        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "—"
+        let short = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "—"
+        guard let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String, !build.isEmpty else {
+            return short
+        }
+        return "\(short) (\(build))"
     }
 
     public var body: some View {
@@ -123,7 +127,8 @@ public struct ProfileView: View {
             NavigationLink {
                 PersonsView(store: personStore)
             } label: {
-                linkRow(title: "Personas", systemImage: "person.2.fill", tint: Palette.accentHex)
+                linkRow(title: "Personas", systemImage: "person.2.fill", tint: Palette.accentHex,
+                        detail: personStore.items.isEmpty ? nil : "\(personStore.items.count)")
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("ajustes.personas")
@@ -153,7 +158,7 @@ public struct ProfileView: View {
     }
 
     /// Fila de navegación dentro de una tarjeta: baldosa de color, título y chevron.
-    private func linkRow(title: String, systemImage: String, tint: String) -> some View {
+    private func linkRow(title: String, systemImage: String, tint: String, detail: String? = nil) -> some View {
         HStack(spacing: 12) {
             Image(systemName: systemImage)
                 .font(.system(size: 16, weight: .semibold))
@@ -164,6 +169,11 @@ public struct ProfileView: View {
                 .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                 .foregroundStyle(Palette.ink)
             Spacer()
+            if let detail {
+                Text(detail)
+                    .font(HomitaFont.inter(15, relativeTo: .subheadline))
+                    .foregroundStyle(Palette.inkSoft)
+            }
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Palette.inkMuted)
