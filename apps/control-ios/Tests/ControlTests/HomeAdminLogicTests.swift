@@ -340,12 +340,34 @@ final class PermissionRulesTests: XCTestCase {
     func testKindSummaryGroupsByKindAndDomain() {
         let summary = PermissionRules.kindSummary(defaults: defaults, catalog: catalog)
         XCTAssertEqual(summary.map(\.kind), ["adult", "child", "guest"])
+        // Sin descripción en el catálogo, cada acción cae a su código.
         XCTAssertEqual(summary[0].domains, [
-            KindSummary.Domain(domain: "calendar", codes: ["calendar.read", "calendar.write"]),
-            KindSummary.Domain(domain: "task", codes: ["task.read"])
+            KindSummary.Domain(domain: "calendar", actions: ["calendar.read", "calendar.write"]),
+            KindSummary.Domain(domain: "task", actions: ["task.read"])
         ])
         // guest: "bogus.code" fuera del catálogo se omite.
-        XCTAssertEqual(summary[2].domains, [KindSummary.Domain(domain: "calendar", codes: ["calendar.read"])])
+        XCTAssertEqual(summary[2].domains, [KindSummary.Domain(domain: "calendar", actions: ["calendar.read"])])
         XCTAssertEqual(PermissionRules.kindSummary(defaults: [], catalog: catalog), [])
+    }
+
+    func testKindSummaryUsesCatalogDescriptions() {
+        let described = [
+            PermissionCatalogEntry(code: "calendar.read", domain: "calendar", description: "Ver calendarios"),
+            PermissionCatalogEntry(code: "calendar.write", domain: "calendar", description: "  Editar eventos  "),
+            PermissionCatalogEntry(code: "task.read", domain: "task", description: "")
+        ]
+        let summary = PermissionRules.kindSummary(defaults: defaults, catalog: described)
+        XCTAssertEqual(summary[0].domains, [
+            KindSummary.Domain(domain: "calendar", actions: ["Ver calendarios", "Editar eventos"]),
+            KindSummary.Domain(domain: "task", actions: ["task.read"])
+        ])
+    }
+
+    func testDomainLabelsAreReadable() {
+        XCTAssertEqual(PermissionRules.domainLabel("home"), "Hogar")
+        XCTAssertEqual(PermissionRules.domainLabel("task"), "Tareas")
+        XCTAssertEqual(PermissionRules.domainLabel("calendar"), "Calendarios y eventos")
+        XCTAssertEqual(PermissionRules.domainLabel("routine"), "Rutinas")
+        XCTAssertEqual(PermissionRules.domainLabel("zeta"), "Zeta")
     }
 }

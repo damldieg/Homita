@@ -100,7 +100,8 @@ public struct PermissionDraft: Equatable, Sendable {
 public struct KindSummary: Equatable, Sendable {
     public struct Domain: Equatable, Sendable {
         public let domain: String
-        public let codes: [String]
+        /// Acciones en lenguaje natural (descripción del catálogo; el código si no hay descripción).
+        public let actions: [String]
     }
 
     public let kind: String
@@ -145,15 +146,33 @@ public enum PermissionRules {
         return Set(item.permissions).filter { !known.contains($0) }.sorted()
     }
 
-    /// Resumen solo lectura por tipo: dominios y códigos ordenados; omite códigos fuera del catálogo.
+    /// Nombre legible de un dominio del catálogo (Hogar, Tareas…); desconocido → el propio código.
+    public static func domainLabel(_ domain: String) -> String {
+        switch domain {
+        case "home": return "Hogar"
+        case "task": return "Tareas"
+        case "tasklist": return "Listas"
+        case "calendar": return "Calendarios y eventos"
+        case "routine": return "Rutinas"
+        case "person": return "Personas"
+        default: return domain.prefix(1).uppercased() + domain.dropFirst()
+        }
+    }
+
+    /// Resumen solo lectura por tipo: acciones en lenguaje natural agrupadas por dominio; omite códigos fuera del catálogo.
     public static func kindSummary(defaults: [PermissionDefaults],
                                    catalog: [PermissionCatalogEntry]) -> [KindSummary] {
-        let domainByCode = Dictionary(catalog.map { ($0.code, $0.domain) }, uniquingKeysWith: { first, _ in first })
+        let byCode = Dictionary(catalog.map { ($0.code, $0) }, uniquingKeysWith: { first, _ in first })
         return defaults.sorted { $0.kind < $1.kind }.map { entry in
-            let known = Set(entry.permissions).filter { domainByCode[$0] != nil }
-            let grouped = Dictionary(grouping: known) { domainByCode[$0] ?? "" }
-            let domains = grouped.map { KindSummary.Domain(domain: $0.key, codes: $0.value.sorted()) }
-                .sorted { $0.domain < $1.domain }
+            let known = Set(entry.permissions).filter { byCode[$0] != nil }
+            let grouped = Dictionary(grouping: known) { byCode[$0]?.domain ?? "" }
+            let domains = grouped.map { domain, codes in
+                KindSummary.Domain(domain: domain, actions: codes.sorted().map { code in
+                    let text = byCode[code]?.description.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    return text.isEmpty ? code : text
+                })
+            }
+            .sorted { $0.domain < $1.domain }
             return KindSummary(kind: entry.kind, domains: domains)
         }
     }
