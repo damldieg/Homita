@@ -757,6 +757,13 @@ struct HomeMembersView: View {
                     .foregroundStyle(Palette.inkSoft)
             }
             Spacer()
+            // Solo el admin edita: el chevron avisa de que la fila abre el editor.
+            if model.canEditMembers {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Palette.inkMuted)
+                    .accessibilityHidden(true)
+            }
         }
         .opacity(member.status == MemberStatus.inactive.rawValue ? 0.6 : 1)
         .padding(.vertical, 4)
@@ -831,8 +838,11 @@ struct MemberEditorView: View {
             ) {
                 saveTapped()
             }
-            .homitaRequiresNetwork()
+            .homitaRequiresNetwork(reason: "Sin conexión. No se puede guardar ahora.")
             .accessibilityIdentifier("miembro-editor.guardar")
+            if !MemberRules.availableKinds(linked: linked).contains(.pet) {
+                HomitaFootnote(text: "Mascota no se ofrece a personas con cuenta vinculada.")
+            }
         }
         .navigationTitle(editing == nil ? "Nuevo miembro" : "Editar miembro")
         .toolbar {
@@ -1108,7 +1118,7 @@ struct InvitationCreateView: View {
             HomitaButton(title: "Crear", isEnabled: !isWorking && InvitationRules.normalizedEmail(email) != nil, isLoading: isWorking) {
                 Task { await create() }
             }
-            .homitaRequiresNetwork()
+            .homitaRequiresNetwork(reason: "Sin conexión. Conéctate para crear la invitación.")
             .accessibilityIdentifier("invitacion-nueva.crear")
         }
         .toolbar {
