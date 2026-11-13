@@ -135,7 +135,7 @@ public final class HomitaSync {
             if permission == .allowed {
                 let planned = NotificationPlanner.plan(
                     events: events, routines: routines, pendingTasks: tasks,
-                    preferences: prefs, now: now, timeZone: timeZone
+                    preferences: prefs, now: now, timeZone: timeZone, myPersonIds: myPersonIds
                 )
                 await scheduler.replaceAll(with: planned, timeZone: timeZone)
             }
@@ -172,8 +172,8 @@ public final class HomitaSync {
         }
     }
 
-    /// Personas del hogar vinculadas a la cuenta de este iPhone (normalmente una). La Live Activity
-    /// solo sale para las rutinas a las que está asignada alguna de ellas.
+    /// Personas del hogar vinculadas a la cuenta de este iPhone (normalmente una). Los avisos de rutina
+    /// y la Live Activity solo salen para las rutinas a las que está asignada alguna de ellas.
     private var myPersonIds: Set<Int> {
         guard let userId else { return [] }
         return Set(people.filter { $0.app_user_id == userId }.map(\.id))
