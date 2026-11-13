@@ -19,6 +19,8 @@ public struct TasksRootView: View {
             VStack(spacing: 0) {
                 HomitaSegmented(selection: $segment, items: [(id: 0, title: "Tareas"), (id: 1, title: "Listas")])
                     .padding([.horizontal, .top])
+                    // Aire entre el selector y la primera lista (wireframe).
+                    .padding(.bottom, Spacing.s4)
 
                 if segment == 0 {
                     TasksView(store: store, expandRequest: $listRequest)
