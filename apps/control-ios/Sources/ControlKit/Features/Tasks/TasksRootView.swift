@@ -154,18 +154,18 @@ struct TasksView: View {
             ForEach(store.taskGroups) { group in
                 Section {
                     groupHeader(group)
-                        .listRowBackground(Palette.surface)
+                        .listRowBackground(GroupRowBackground(first: true, last: collapsedListIds.contains(group.listId)))
                         .listRowSeparator(.hidden)
                     if !collapsedListIds.contains(group.listId) {
-                        ForEach(group.tasks, id: \.id) { task in
+                        ForEach(Array(group.tasks.enumerated()), id: \.element.id) { index, task in
                             TaskRow(task: task, showListName: false, plain: true) {
                                 Task { await store.toggleComplete(task) }
                             } onEdit: {
                                 taskToEdit = task
                             }
                             .homitaRow()
-                            .listRowBackground(Palette.surface)
-                            .listRowSeparator(.visible, edges: .bottom)
+                            .listRowBackground(GroupRowBackground(first: false, last: index == group.tasks.count - 1))
+                            .listRowSeparator(index == group.tasks.count - 1 ? .hidden : .visible, edges: .bottom)
                             .listRowSeparatorTint(Palette.line)
                         }
                         .onDelete { indexSet in
@@ -195,6 +195,7 @@ struct TasksView: View {
         }
         #if os(iOS)
         .listStyle(.insetGrouped)
+        .listSectionSpacing(Spacing.s3)
         #endif
         .homitaList()
         .onChange(of: expandRequest, initial: true) { applyExpandRequest() }
@@ -340,6 +341,24 @@ struct TaskListsView: View {
 }
 
 /// Fila de tarea como tarjeta: casilla para completar y toque para editar.
+/// Fondo blanco de una fila dentro de una tarjeta de grupo: redondea solo la primera y la última
+/// fila, así el grupo se ve como una tarjeta continua (el contenedor del sistema no pinta el color).
+struct GroupRowBackground: View {
+    var first: Bool
+    var last: Bool
+
+    var body: some View {
+        UnevenRoundedRectangle(
+            topLeadingRadius: first ? Radius.lg : 0,
+            bottomLeadingRadius: last ? Radius.lg : 0,
+            bottomTrailingRadius: last ? Radius.lg : 0,
+            topTrailingRadius: first ? Radius.lg : 0,
+            style: .continuous
+        )
+        .fill(Palette.surface)
+    }
+}
+
 struct TaskRow: View {
     let task: TaskEntry
     let showListName: Bool

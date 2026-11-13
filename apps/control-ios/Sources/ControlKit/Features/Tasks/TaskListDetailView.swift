@@ -59,14 +59,15 @@ struct TaskListDetailView: View {
 
             if !pending.isEmpty {
                 Section {
-                    ForEach(pending, id: \.id) { task in
+                    ForEach(Array(pending.enumerated()), id: \.element.id) { index, task in
                         TaskRow(task: task, showListName: false, plain: true) {
                             Task { await store.toggleComplete(task) }
                         } onEdit: {
                             taskToEdit = task
                         }
                         .homitaRow()
-                        .listRowSeparator(.visible, edges: .bottom)
+                        .listRowBackground(GroupRowBackground(first: index == 0, last: index == pending.count - 1))
+                        .listRowSeparator(index == pending.count - 1 ? .hidden : .visible, edges: .bottom)
                         .listRowSeparatorTint(Palette.line)
                     }
                     .onDelete { indexSet in
@@ -85,14 +86,15 @@ struct TaskListDetailView: View {
 
             if !completed.isEmpty {
                 Section {
-                    ForEach(completed, id: \.id) { task in
+                    ForEach(Array(completed.enumerated()), id: \.element.id) { index, task in
                         TaskRow(task: task, showListName: false, plain: true) {
                             Task { await store.toggleComplete(task) }
                         } onEdit: {
                             taskToEdit = task
                         }
                         .homitaRow()
-                        .listRowSeparator(.visible, edges: .bottom)
+                        .listRowBackground(GroupRowBackground(first: index == 0, last: index == completed.count - 1))
+                        .listRowSeparator(index == completed.count - 1 ? .hidden : .visible, edges: .bottom)
                         .listRowSeparatorTint(Palette.line)
                     }
                     .onDelete { indexSet in
