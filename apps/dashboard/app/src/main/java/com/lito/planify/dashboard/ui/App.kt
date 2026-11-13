@@ -76,8 +76,36 @@ private const val IDLE_MILLIS = 120_000L
 /** Solape entre las líneas del reloj lateral: deja la distancia entre las cifras en el interlineado (52). */
 private val RAIL_CLOCK_OVERLAP = (-30).dp
 
+/**
+ * Panel con la animación de marca encima: arranque sin sesión (First), login recién hecho (Login) o arranque
+ * con sesión (Returning). Se retira sola al terminar.
+ */
 @Composable
 fun DashboardApp(
+    state: UiState,
+    actions: DashboardActions,
+    onLogin: (String, String) -> Unit,
+    onLoadWeek: (LocalDate) -> Unit,
+    onSync: () -> Unit,
+    settings: SettingsCallbacks,
+    onPeek: () -> Unit
+) {
+    var intro by remember { mutableStateOf<IntroStyle?>(if (state.token == null) IntroStyle.First else IntroStyle.Returning) }
+    var hadToken by remember { mutableStateOf(state.token != null) }
+    // Sin token → con token = login recién hecho (no se dispara en el arranque ni al renovar datos).
+    LaunchedEffect(state.token != null) {
+        val has = state.token != null
+        if (!hadToken && has) intro = IntroStyle.Login
+        hadToken = has
+    }
+    Box(Modifier.fillMaxSize()) {
+        DashboardContent(state, actions, onLogin, onLoadWeek, onSync, settings, onPeek)
+        intro?.let { BrandIntro(it) { intro = null } }
+    }
+}
+
+@Composable
+private fun DashboardContent(
     state: UiState,
     actions: DashboardActions,
     onLogin: (String, String) -> Unit,
