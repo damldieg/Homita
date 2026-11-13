@@ -1,8 +1,8 @@
 import Foundation
 
-/// Modos de la vista de calendario (B3). `agenda` es la lista de Próximos/Pasados ya existente.
+/// Modos de la vista de calendario (B3).
 public enum CalendarMode: Int, CaseIterable, Identifiable, Sendable {
-    case month, week, day, agenda
+    case month, week, day
 
     public var id: Int { rawValue }
 
@@ -11,7 +11,6 @@ public enum CalendarMode: Int, CaseIterable, Identifiable, Sendable {
         case .month: "Mes"
         case .week: "Semana"
         case .day: "Día"
-        case .agenda: "Agenda"
         }
     }
 }
@@ -46,7 +45,7 @@ public struct CalendarGrid: Sendable {
         case .week:
             guard let start = calendar.dateInterval(of: .weekOfYear, for: anchor)?.start else { return [anchor] }
             return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
-        case .day, .agenda:
+        case .day:
             return [calendar.startOfDay(for: anchor)]
         }
     }
@@ -56,7 +55,7 @@ public struct CalendarGrid: Sendable {
         switch mode {
         case .month: return calendar.date(byAdding: .month, value: steps, to: anchor) ?? anchor
         case .week: return calendar.date(byAdding: .day, value: 7 * steps, to: anchor) ?? anchor
-        case .day, .agenda: return calendar.date(byAdding: .day, value: steps, to: anchor) ?? anchor
+        case .day: return calendar.date(byAdding: .day, value: steps, to: anchor) ?? anchor
         }
     }
 

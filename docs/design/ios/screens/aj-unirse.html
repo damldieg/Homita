@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AJ-05 Unirse a un hogar</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  .nav .grow { flex: 1; }
+  .off { opacity: .4; }
+  .dim { opacity: .6; }
+  .field .row.code { min-height: 52px; }
+  .field .row .val.l { text-align: left; font-family: ui-monospace, monospace; font-size: 13px; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+  .field .row .val.muted { color: var(--text-3); font-family: var(--font); font-size: 16px; letter-spacing: 0; }
+  .card .hint { padding-left: 0; padding-right: 0; }
+  .ok-line { display: flex; gap: 12px; align-items: flex-start; background: var(--ok-soft); color: var(--ok); border-radius: var(--r-md); padding: var(--s3) var(--s4); font: 600 15px/20px var(--font); margin-top: 12px; }
+  .ok-line .tick { width: 28px; height: 28px; border-radius: 50%; background: var(--ok); color: #fff; display: grid; place-items: center; font: 700 14px/1 var(--font); flex: none; }
+  .alert { position: absolute; left: 44px; right: 44px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+  .alert h4 { font: 600 17px/22px var(--font); } .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+  .alert .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">AJ-05 · unirse a un hogar con código · epic E5</div>
+  <h1>Unirse a un hogar</h1>
+  <p>Pantalla empujada desde Ajustes (fila «Unirse a un hogar con un código», tarjeta Invitaciones). Panel «Código de invitación» con marcador «32 caracteres», nota «Pídeselo a un administrador del hogar. Solo sirve una vez y caduca a los 7 días.» y botón «Unirse» (activo con 32 caracteres). Éxito <b>inline</b>: «Listo — Te has unido a …» y el hogar pasa a activo.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="aj-perfil.html">← Ajustes</a>
+    <a href="hogar-hogar.html">Hogar →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. CON DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos (código de 32 caracteres)<small>«Unirse» activo al completar 32 caracteres</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="aj-perfil.html">‹ Atrás</a><span class="center">Unirse a un hogar</span><span style="width:60px"></span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">✉</div><h3>Código de invitación</h3></div>
+            <div class="field" style="margin-top:12px"><div class="row code"><span class="val l">K7Q2M9XR4LBN8SWCZ7PT3VHYDQ6GJ5KA</span></div></div>
+            <div class="hint">Pídeselo a un administrador del hogar. Solo sirve una vez y caduca a los 7 días.</div>
+          </div>
+          <span class="btn primary">Unirse</span>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío<small>Campo con marcador «32 caracteres» (texto real); «Unirse» desactivado</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="aj-perfil.html">‹ Atrás</a><span class="center">Unirse a un hogar</span><span style="width:60px"></span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">✉</div><h3>Código de invitación</h3></div>
+            <div class="field" style="margin-top:12px"><div class="row code"><span class="val l muted">32 caracteres</span></div></div>
+            <div class="hint">Pídeselo a un administrador del hogar. Solo sirve una vez y caduca a los 7 días.</div>
+          </div>
+          <span class="btn primary disabled">Unirse</span>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON (NO APLICA) -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton) <small>No aplica: formulario sin carga inicial. La espera real es «Uniéndote…» (frame 6)</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="aj-perfil.html">‹ Atrás</a><span class="center">Unirse a un hogar</span><span style="width:60px"></span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">✉</div><h3>Código de invitación</h3></div>
+            <div class="field" style="margin-top:12px"><div class="row code"><span class="val l muted">32 caracteres</span></div></div>
+          </div>
+        </div>
+        <div class="empty" style="padding-top:var(--s6)">
+          <p>Pantalla de formulario: no hay skeleton.</p>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR (ALERTA REAL) -->
+  <section class="state">
+    <div class="label">4 · Error de acción (alerta) <small>Real: alerta «Aviso / OK» con el mensaje del servidor. Texto de ejemplo, no fijo en el código</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="aj-perfil.html">‹ Atrás</a><span class="center">Unirse a un hogar</span><span style="width:60px"></span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">✉</div><h3>Código de invitación</h3></div>
+            <div class="field" style="margin-top:12px"><div class="row code"><span class="val l">K7Q2M9XR4LBN8SWCZ7PT3VHYDQ6GJ5KA</span></div></div>
+            <div class="hint">Pídeselo a un administrador del hogar. Solo sirve una vez y caduca a los 7 días.</div>
+          </div>
+          <span class="btn primary">Unirse</span>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert"><h4>Aviso</h4><p>El código no es válido o ya caducó. Pide uno nuevo a un administrador.</p><div class="ok">OK</div></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Banner; «Unirse» desactivado (no se puede validar sin red). Hoy el fallo sale como alerta</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="aj-perfil.html">‹ Atrás</a><span class="center">Unirse a un hogar</span><span style="width:60px"></span></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Conéctate para unirte al hogar.</span></div>
+        <div class="stack">
+          <div class="card dim">
+            <div class="card-h"><div class="ico">✉</div><h3>Código de invitación</h3></div>
+            <div class="field" style="margin-top:12px"><div class="row code"><span class="val l">K7Q2M9XR4LBN8SWCZ7PT3VHYDQ6GJ5KA</span></div></div>
+          </div>
+          <span class="btn primary disabled">Unirse</span>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 6. CARGANDO (UNIRSE EN CURSO, REAL) -->
+  <section class="state">
+    <div class="label">6 · Cargando «Uniéndote…» <small>Real: texto «Uniéndote…». Campo en solo lectura mientras se envía</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="aj-perfil.html">‹ Atrás</a><span class="center">Unirse a un hogar</span><span style="width:60px"></span></div>
+        <div class="stack">
+          <div class="card dim">
+            <div class="card-h"><div class="ico">✉</div><h3>Código de invitación</h3></div>
+            <div class="field" style="margin-top:12px"><div class="row code"><span class="val l">K7Q2M9XR4LBN8SWCZ7PT3VHYDQ6GJ5KA</span></div></div>
+          </div>
+          <span class="btn primary" style="display:flex;gap:8px;align-items:center;justify-content:center"><span class="spin"></span>Uniéndote…</span>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 7. ÉXITO INLINE (REAL) -->
+  <section class="state">
+    <div class="label">7 · Éxito (inline) <small>Real: «Listo — Te has unido a …» en la misma pantalla. El hogar pasa a activo</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="aj-perfil.html">‹ Atrás</a><span class="center">Unirse a un hogar</span><span style="width:60px"></span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">✉</div><h3>Código de invitación</h3></div>
+            <div class="field" style="margin-top:12px"><div class="row code"><span class="val l muted">32 caracteres</span></div></div>
+            <div class="hint">Pídeselo a un administrador del hogar. Solo sirve una vez y caduca a los 7 días.</div>
+          </div>
+          <span class="btn primary disabled">Unirse</span>
+          <div class="ok-line"><span class="tick">✓</span><span>Listo — Te has unido a Hogar de Familia Demo</span></div>
+          <a class="link go" href="hogar-hogar.html" style="text-align:center;margin-top:4px">Ver el hogar <span class="tagnew">Nuevo</span></a>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li>Pantalla propia desde Ajustes (fila de la tarjeta Invitaciones), tal como está en el código.</li>
+    <li>Éxito <b>inline</b> como en el código («Listo — Te has unido a …»). La pantalla de éxito separada de la primera pasada queda <b>quitada</b>.</li>
+    <li>Los tres errores diferenciados (código inválido, vencido, ya eres miembro) y sus textos de la primera pasada quedan <b>quitados</b>: no están en el código. El error real es la alerta «Aviso / OK» con el texto del servidor (frame 4).</li>
+    <li>Skeleton: no aplica (frame 3). Sin conexión (5) y el enlace «Ver el hogar» (7) son <span class="tagnew">Nuevo</span>.</li>
+    <li>Marcador del campo: «32 caracteres», como en la captura 62 y en el código (la primera pasada decía «Código de 32 caracteres»).</li>
+  </ul>
+  <h2 style="margin-top:12px">Reglas de negocio</h2>
+  <ul>
+    <li>El código de invitación tiene 32 caracteres. «Unirse» solo se activa con 32.</li>
+    <li>Pídeselo a un administrador del hogar. Uso único; caduca a los 7 días.</li>
+    <li>Al unirse con éxito, el hogar pasa a activo.</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Va a: AJ-01 Ajustes (‹ Atrás); hogar-hogar tras unirse (enlace Nuevo).</li>
+    <li>Llega desde: AJ-01, tarjeta Invitaciones, fila «Unirse a un hogar con un código».</li>
+  </ul>
+</aside>
+</body>
+</html>

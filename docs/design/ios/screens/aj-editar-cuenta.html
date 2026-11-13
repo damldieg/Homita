@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AJ-02 Editar cuenta (propuesta)</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  .nav .grow { flex: 1; }
+  .field .row .val.l { text-align: left; }
+  .field .row .val.muted { color: var(--text-3); }
+  .off { opacity: .4; }
+  .dim { opacity: .6; }
+  .alert { position: absolute; left: 44px; right: 44px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+  .alert h4 { font: 600 17px/22px var(--font); } .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+  .alert .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .busy { position: absolute; left: 70px; right: 70px; top: 330px; background: var(--surface); border-radius: 18px; padding: 24px 16px; z-index: 9; box-shadow: var(--shadow-float); display: flex; flex-direction: column; align-items: center; gap: 12px; font: 600 16px/20px var(--font); }
+  .busy .spin { color: var(--accent); width: 22px; height: 22px; }
+  .fab-bottom { position: absolute; left: var(--gutter); right: var(--gutter); bottom: calc(var(--tabbar-h) + 12px); }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">AJ-02 · editar cuenta (pantalla propia) · epic E5 · <span class="tagnew">Propuesta Nuevo</span></div>
+  <h1>Editar cuenta</h1>
+  <p>Propuesta: sacar la edición de la pestaña Ajustes a una pantalla empujada. <b>Hoy la edición es inline en Ajustes</b> (AJ-01 la muestra tal cual). Campos reales: «Nombre» (3-50), «Email» y «Nueva contraseña (opcional, mínimo 8)», con «Guardar cambios». Todo lo de esta pantalla es Nuevo salvo los textos y reglas, que vienen del código.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="aj-perfil.html">← Ajustes →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. CON DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos <span class="tagnew">Nuevo</span><small>Datos de la cuenta cargados; «Guardar cambios» activo tras editar</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="aj-perfil.html">‹ Atrás</a><span class="center">Editar cuenta</span><span></span></div>
+        <div class="stack">
+          <div class="sect">Cuenta</div>
+          <div class="field">
+            <div class="row"><span class="lbl">Nombre</span><span class="val l">Familia Demo</span></div>
+            <div class="row"><span class="lbl">Email</span><span class="val l">demo@homita.example</span></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val l muted">Nueva contraseña (opcional, mínimo 8)</span></div>
+          </div>
+          <div class="hint">Nombre de 3 a 50 caracteres. Deja la contraseña vacía para no cambiarla.</div>
+          <span class="btn primary" style="margin-top:12px">Guardar cambios</span>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 2. SIN CAMBIOS -->
+  <section class="state">
+    <div class="label">2 · Sin cambios (inicial) <span class="tagnew">Nuevo</span><small>«Guardar cambios» desactivado hasta que cambie algo</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="aj-perfil.html">‹ Atrás</a><span class="center">Editar cuenta</span><span></span></div>
+        <div class="stack">
+          <div class="sect">Cuenta</div>
+          <div class="field">
+            <div class="row"><span class="lbl">Nombre</span><span class="val l">Familia Demo</span></div>
+            <div class="row"><span class="lbl">Email</span><span class="val l">demo@homita.example</span></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val l muted">Nueva contraseña (opcional, mínimo 8)</span></div>
+          </div>
+          <span class="btn primary disabled" style="margin-top:12px">Guardar cambios</span>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 3. SKELETON -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton) <span class="tagnew">Nuevo</span><small>No aplica como pantalla propia: los datos ya están en Ajustes y se pasan a esta pantalla. Se deja el marco con los campos en gris por coherencia</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="aj-perfil.html">‹ Atrás</a><span class="center">Editar cuenta</span><span></span></div>
+        <div class="stack">
+          <div class="sect">Cuenta</div>
+          <div class="field">
+            <div class="row"><div class="sk line" style="width:60%"></div></div>
+            <div class="row"><div class="sk line" style="width:70%"></div></div>
+            <div class="row"><div class="sk line" style="width:45%"></div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 4. ERROR (alerta Aviso/OK) -->
+  <section class="state">
+    <div class="label">4 · Error (acción) <span class="tagnew">Nuevo</span><small>Como hoy: alerta «Aviso / OK» con el texto del servidor. Ejemplo de texto, no fijo</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="aj-perfil.html">‹ Atrás</a><span class="center">Editar cuenta</span><span></span></div>
+        <div class="stack">
+          <div class="sect">Cuenta</div>
+          <div class="field">
+            <div class="row"><span class="lbl">Nombre</span><span class="val l">Familia Demo</span></div>
+            <div class="row"><span class="lbl">Email</span><span class="val l">demo@homita.example</span></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val l muted">Nueva contraseña (opcional, mínimo 8)</span></div>
+          </div>
+          <span class="btn primary" style="margin-top:12px">Guardar cambios</span>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert"><h4>Aviso</h4><p>No se pudo guardar la cuenta. Inténtalo de nuevo.</p><div class="ok">OK</div></div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Banner; «Guardar cambios» atenuado. Los datos se ven, no se envían</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="aj-perfil.html">‹ Atrás</a><span class="center">Editar cuenta</span><span></span></div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. No se pueden guardar cambios.</span></div>
+        <div class="stack">
+          <div class="sect">Cuenta</div>
+          <div class="field dim">
+            <div class="row"><span class="lbl">Nombre</span><span class="val l">Familia Demo</span></div>
+            <div class="row"><span class="lbl">Email</span><span class="val l">demo@homita.example</span></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val l muted">Nueva contraseña (opcional, mínimo 8)</span></div>
+          </div>
+          <span class="btn primary disabled" style="margin-top:12px">Guardar cambios</span>
+        </div>
+      </div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+  <!-- 6. GUARDANDO (OVERLAY, REAL EN PERFIL) -->
+  <section class="state">
+    <div class="label">6 · Guardando (overlay) <small>Real hoy en Ajustes: overlay «Guardando…». Aquí se mantiene el mismo overlay</small></div>
+    <div class="phone">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav"><a class="txt go" href="aj-perfil.html">‹ Atrás</a><span class="center">Editar cuenta</span><span></span></div>
+        <div class="stack">
+          <div class="sect">Cuenta</div>
+          <div class="field dim">
+            <div class="row"><span class="lbl">Nombre</span><span class="val l">Familia Demo</span></div>
+            <div class="row"><span class="lbl">Email</span><span class="val l">demo@homita.example</span></div>
+            <div class="row"><span class="lbl">Contraseña</span><span class="val l muted">Nueva contraseña (opcional, mínimo 8)</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="busy"><span class="spin"></span>Guardando…</div>
+      <nav class="tabbar"><a><i>⌂</i>Inicio</a><a><i>☑</i>Tareas</a><a><i>▦</i>Calendario</a><a><i>☺☺</i>Hogar</a><a class="on"><i>●</i>Ajustes</a></nav>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li><b>Pantalla propia de edición</b> <span class="tagnew">Nuevo</span>: hoy la edición vive inline en Ajustes (AJ-01). Esta pantalla es una propuesta; AJ-01 conserva el formulario inline real.</li>
+    <li>«Guardar cambios» desactivado sin cambios y banner de sin conexión <span class="tagnew">Nuevo</span>.</li>
+    <li>Indicador de fuerza de contraseña y error de email ya usado: <b>quitados</b> de esta página. No están en el código y no se dibujan sin decidirlo.</li>
+    <li>Estados 1, 2, 5 y skeleton son Nuevo. El error (4) y el overlay «Guardando…» (6) son comportamiento real.</li>
+  </ul>
+  <h2 style="margin-top:12px">Reglas de negocio</h2>
+  <ul>
+    <li>Nombre: 3 a 50 caracteres.</li>
+    <li>Contraseña nueva: opcional; si se escribe, mínimo 8 caracteres.</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Va a: AJ-01 Ajustes (‹ Atrás).</li>
+    <li>Llega desde: AJ-01, tarjeta Cuenta (propuesta).</li>
+  </ul>
+  <h2 style="margin-top:12px">Duda de diseño</h2>
+  <ul>
+    <li>¿Pedir la contraseña actual para cambiarla? No aparece en el código; no se dibuja.</li>
+  </ul>
+</aside>
+</body>
+</html>

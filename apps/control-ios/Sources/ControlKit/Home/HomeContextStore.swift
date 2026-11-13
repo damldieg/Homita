@@ -165,6 +165,10 @@ public final class HomeContextStore {
     }
 
     private func activate(_ home: HomeItem, explicit: Bool = false) {
+        // E0-06 (6): al cambiar de hogar no queda caché del anterior en disco.
+        if let previous = activeHomeId, previous != String(home.homeId) {
+            ReadCache.shared.clear()
+        }
         if explicit { sessionChoice = home.homeId }
         do {
             try store.set(String(home.homeId), forKey: Self.key)

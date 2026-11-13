@@ -7,7 +7,7 @@ enum Brand {
     static let terra = Color(hex: "#D9663B")
     static let mustard = Color(hex: "#E9B44C")
     static let cream = Color(hex: "#F4EFE6")
-    /// Mismo crema que `Palette.background` y que la pantalla de arranque (LaunchBackground).
+    /// Referencia del crema de arranque (la animación usa `Palette.background`, que también tiene modo oscuro).
     static let launch = Color(hex: "#F7EEE2")
 }
 

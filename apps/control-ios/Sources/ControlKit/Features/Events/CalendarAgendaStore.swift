@@ -76,8 +76,6 @@ public final class CalendarAgendaStore {
     /// Cambia el modo y recarga el rango correspondiente.
     public func setMode(_ newMode: CalendarMode) async {
         mode = newMode
-        // La agenda usa EventStore (lista propia): no hace falta cargar el rango del calendario.
-        guard newMode != .agenda else { return }
         await load()
     }
 

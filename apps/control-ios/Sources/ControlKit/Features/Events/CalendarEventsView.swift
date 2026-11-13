@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// Pestaña Eventos (B3): conmutador Mes / Semana / Día / Agenda. «Agenda» es la lista de
-/// Próximos y Pasados con búsqueda (`EventListView`). Tocar un evento abre su detalle en push.
+/// Pestaña Eventos (B3): conmutador Mes / Semana / Día. Tocar un evento abre su detalle en push.
 struct CalendarEventsView: View {
     @Bindable var eventStore: EventStore
     @Bindable var calendarStore: CalendarAgendaStore
@@ -21,11 +20,7 @@ struct CalendarEventsView: View {
             )
             .padding([.horizontal, .top])
 
-            if calendarStore.mode == .agenda {
-                EventListView(store: eventStore, calendars: calendars, persons: persons)
-            } else {
-                calendarContent
-            }
+            calendarContent
         }
         .navigationDestination(isPresented: detailPresented) {
             if let event = selectedEvent {
@@ -34,7 +29,7 @@ struct CalendarEventsView: View {
         }
         .sheet(isPresented: $showCreate, onDismiss: {
             // El alta no pasa por el detalle push: al cerrar la hoja se recarga el rango (R1-02).
-            if calendarStore.mode != .agenda { Task { await calendarStore.load() } }
+            Task { await calendarStore.load() }
         }) {
             NavigationStack {
                 EventDetailView(store: eventStore, calendars: calendars, persons: persons, event: nil,
@@ -42,24 +37,22 @@ struct CalendarEventsView: View {
             }
         }
         .toolbar {
-            if calendarStore.mode != .agenda {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showCreate = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .foregroundStyle(Palette.ink)
-                            .accessibilityLabel("Nuevo evento")
-                    }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showCreate = true
+                } label: {
+                    Image(systemName: "plus")
+                        .foregroundStyle(Palette.ink)
+                        .accessibilityLabel("Nuevo evento")
                 }
             }
         }
         .errorAlert($calendarStore.errorMessage)
+        // Un borrado que falla en el detalle (ya cerrado) se avisa aquí.
+        .writeFailureToast($eventStore.writeFailure)
         // Al volver del detalle (guardar, eliminar o atrás) se recarga el rango visible.
         .onChange(of: selectedEvent?.id) { _, id in
-            if id == nil, calendarStore.mode != .agenda {
-                Task { await calendarStore.load() }
-            }
+            if id == nil { Task { await calendarStore.load() } }
         }
         .task {
             if !calendarStore.hasLoaded { await calendarStore.load() }
@@ -86,7 +79,7 @@ struct CalendarEventsView: View {
             VStack(alignment: .leading, spacing: 16) {
                 header
                 if !calendarStore.hasLoaded {
-                    HomitaLoadingCard(message: "Cargando calendario…")
+                    HomitaSkeletonRows(count: 3, height: 64, label: "Cargando calendario")
                 } else {
                     dayGrid
                     dayList
@@ -106,7 +99,7 @@ struct CalendarEventsView: View {
             }
             .accessibilityLabel(calendarStore.mode == .month ? "Mes anterior" : "Anterior")
             Text(rangeTitle)
-                .font(HomitaFont.geist(18, weight: .semibold, relativeTo: .headline))
+                .font(HomitaFont.inter(18, weight: .semibold, relativeTo: .headline))
                 .foregroundStyle(Palette.ink)
                 .frame(maxWidth: .infinity)
             Button { Task { await calendarStore.move(1) } } label: {
@@ -125,7 +118,7 @@ struct CalendarEventsView: View {
             let days = calendarStore.visibleDays
             guard let first = days.first, let last = days.last else { return "" }
             return "\(Self.format("dMMM", first, grid)) – \(Self.format("dMMM", last, grid))"
-        case .day, .agenda:
+        case .day:
             return Self.format("EEEEdMMMM", anchor, grid).capitalized
         }
     }
@@ -138,7 +131,7 @@ struct CalendarEventsView: View {
             HStack(spacing: 4) {
                 ForEach(Array(Self.weekdayLetters(grid).enumerated()), id: \.offset) { _, letter in
                     Text(letter)
-                        .font(HomitaFont.geist(12, weight: .semibold, relativeTo: .caption))
+                        .font(HomitaFont.inter(12, weight: .semibold, relativeTo: .caption))
                         .foregroundStyle(Palette.inkSoft)
                         .frame(maxWidth: .infinity)
                 }
@@ -164,7 +157,7 @@ struct CalendarEventsView: View {
         } label: {
             VStack(spacing: 4) {
                 Text("\(number)")
-                    .font(HomitaFont.geist(15, weight: isSelected ? .bold : .medium, relativeTo: .body))
+                    .font(HomitaFont.inter(15, weight: isSelected ? .bold : .medium, relativeTo: .body))
                     .foregroundStyle(isSelected ? Palette.card : (inMonth ? Palette.ink : Palette.inkMuted))
                     .frame(width: 34, height: 34)
                     .background(Circle().fill(isSelected ? Palette.accent : Color.clear))
@@ -252,15 +245,16 @@ struct CalendarEventRow: View {
                         .frame(width: 5)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(DateDisplay.dateTime(event.date_at).uppercased())
-                            .font(HomitaFont.geist(12, weight: .semibold, relativeTo: .caption))
+                            .font(HomitaFont.inter(12, weight: .semibold, relativeTo: .caption))
                             .foregroundStyle(Palette.inkSoft)
                         Text(event.title)
-                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)
+                        EventCountdownLabel(dateAt: event.date_at)
                         AssignedPersonsLine(persons: event.persons)
                         if event.routine_id != nil {
                             Text("Sesión de rutina")
-                                .font(HomitaFont.geist(12, relativeTo: .caption))
+                                .font(HomitaFont.inter(12, relativeTo: .caption))
                                 .foregroundStyle(Palette.inkSoft)
                         }
                     }

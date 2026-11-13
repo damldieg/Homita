@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AJ-04 Persona (alta y edición)</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  .nav .grow { flex: 1; }
+  .off { opacity: .4; }
+  .dim { opacity: .6; }
+  .field .row .val.l { text-align: left; }
+  .field .row .val.muted { color: var(--text-3); }
+  .field .row .lbl { width: 130px; flex: none; }
+  .cp { display: flex; align-items: center; gap: 10px; justify-content: flex-end; font: 500 15px/20px var(--font); font-variant-numeric: tabular-nums; }
+  .cp .sw { width: 28px; height: 28px; border-radius: 50%; flex: none; border: 1px solid var(--line); }
+  .cp .chev-s { color: var(--text-3); font: 400 20px/1 var(--font); }
+  .swrow { display: flex; gap: 12px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+  .sw { width: 32px; height: 32px; border-radius: 50%; flex: none; }
+  .sw.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
+  .sw.dflt { background: #6923E2; }
+  .sw.custom { background: conic-gradient(#e11d48, #f59e0b, #0e9f6e, #0284c7, #6d28d9, #e11d48); }
+  .alert { position: absolute; left: 44px; right: 44px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+  .alert h4 { font: 600 17px/22px var(--font); } .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+  .alert .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+  .sheet h3 { font: var(--t-title); text-align: center; }
+  .sheet p { font: var(--t-sub); color: var(--text-2); text-align: center; margin: 6px 0 16px; }
+  .spin { color: #fff; }
+  .btn.primary .spin { color: #fff; }
+  .sk.circle { border-radius: 50%; }
+  .hint.err { color: var(--err); }
+</style>
+</head>
+<body>
+<header class="wf-head">
+  <div class="id">AJ-04 · persona (alta / edición) · epic E5</div>
+  <h1>Persona</h1>
+  <p>Hoja modal «Nueva persona» / «Editar persona». Panel <b>Persona</b> con «Nombre (1-50)» y «Color» (<b>ColorPicker nativo libre</b>, defecto <code>#6923E2</code>). Botón al pie «Crear persona» / «Guardar». «Cancelar» a la izquierda. Error de validación real: alerta «Aviso / OK». Eliminar dentro del formulario y la paleta de muestras son propuesta (Nuevo).</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="aj-personas.html">← Personas</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. RELLENO (EDITAR) -->
+  <section class="state">
+    <div class="label">1 · Relleno (editar)<small>Ana con su color; ColorPicker nativo con el color actual</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-personas.html">Cancelar</a>
+          <span class="center">Editar persona</span>
+          <span style="width:60px"></span>
+        </div>
+        <div class="sect">Persona</div>
+        <div class="stack">
+          <div class="field">
+            <div class="row"><span class="lbl">Nombre (1-50)</span><span class="val l">Ana</span></div>
+            <div class="row" style="min-height:56px"><span class="lbl">Color</span>
+              <span class="val"><span class="cp"><span class="sw" style="background:var(--person-5)"></span>#0284C7<span class="chev-s">›</span></span></span>
+            </div>
+          </div>
+        </div>
+        <div class="stack" style="margin-top:24px">
+          <span class="btn primary">Guardar</span>
+          <span class="btn danger" style="margin-top:8px">Eliminar persona <span class="tagnew">Nuevo</span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. INICIAL VACÍO (ALTA) -->
+  <section class="state">
+    <div class="label">2 · Inicial (nueva)<small>Sin nombre y color por defecto #6923E2. «Crear persona» sin desactivar: la validación real salta al pulsar</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-personas.html">Cancelar</a>
+          <span class="center">Nueva persona</span>
+          <span style="width:60px"></span>
+        </div>
+        <div class="sect">Persona</div>
+        <div class="field">
+          <div class="row"><span class="lbl">Nombre (1-50)</span><span class="val l muted">Nombre</span></div>
+          <div class="row" style="min-height:56px"><span class="lbl">Color</span>
+            <span class="val"><span class="cp"><span class="sw dflt"></span>#6923E2<span class="chev-s">›</span></span></span>
+          </div>
+        </div>
+        <div class="stack" style="margin-top:24px">
+          <span class="btn primary">Crear persona</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. GUARDANDO -->
+  <section class="state">
+    <div class="label">3 · Guardando <span class="tagnew">Nuevo</span><small>Hoy no hay estado propio mientras se envía. Propuesta: spin en el botón y campos bloqueados</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <span class="txt off">Cancelar</span>
+          <span class="center">Nueva persona</span>
+          <span style="width:60px"></span>
+        </div>
+        <div class="sect">Persona</div>
+        <div class="field dim">
+          <div class="row"><span class="lbl">Nombre (1-50)</span><span class="val l">Lucía</span></div>
+          <div class="row" style="min-height:56px"><span class="lbl">Color</span>
+            <span class="val"><span class="cp"><span class="sw" style="background:var(--person-4)"></span>#E11D48<span class="chev-s">›</span></span></span>
+          </div>
+        </div>
+        <div class="stack" style="margin-top:24px">
+          <span class="btn primary"><span class="spin"></span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. ERROR DE VALIDACIÓN (ALERTA REAL) -->
+  <section class="state">
+    <div class="label">4 · Error de validación (alerta) <small>Real: «Aviso / OK» con el texto del código. Se muestra al pulsar «Crear persona» con nombre vacío o color no válido</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-personas.html">Cancelar</a>
+          <span class="center">Nueva persona</span>
+          <span style="width:60px"></span>
+        </div>
+        <div class="sect">Persona</div>
+        <div class="field">
+          <div class="row"><span class="lbl">Nombre (1-50)</span><span class="val l muted">Nombre</span></div>
+          <div class="row" style="min-height:56px"><span class="lbl">Color</span>
+            <span class="val"><span class="cp"><span class="sw dflt"></span>#6923E2<span class="chev-s">›</span></span></span>
+          </div>
+        </div>
+        <div class="stack" style="margin-top:24px">
+          <span class="btn primary">Crear persona</span>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert"><h4>Aviso</h4><p>El nombre debe tener 1-50 caracteres y el color formato #RRGGBB.</p><div class="ok">OK</div></div>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Hoy el fallo de guardar es alerta «Aviso / OK». Propuesta: banner y «Guardar» atenuado</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-personas.html">Cancelar</a>
+          <span class="center">Editar persona</span>
+          <span style="width:60px"></span>
+        </div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. No se puede guardar ahora.</span></div>
+        <div class="sect">Persona</div>
+        <div class="field dim">
+          <div class="row"><span class="lbl">Nombre (1-50)</span><span class="val l">Ana</span></div>
+          <div class="row" style="min-height:56px"><span class="lbl">Color</span>
+            <span class="val"><span class="cp"><span class="sw" style="background:var(--person-5)"></span>#0284C7<span class="chev-s">›</span></span></span>
+          </div>
+        </div>
+        <div class="stack" style="margin-top:24px">
+          <span class="btn primary disabled">Guardar</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. ELIMINAR (CONFIRMACIÓN, NUEVO) -->
+  <section class="state">
+    <div class="label">6 · Eliminar (confirmación) <span class="tagnew">Nuevo</span><small>Hoy no hay botón de eliminar en el formulario (la papelera está en la lista). Esta es la propuesta con hoja de confirmación</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-personas.html">Cancelar</a>
+          <span class="center">Editar persona</span>
+          <span style="width:60px"></span>
+        </div>
+        <div class="sect">Persona</div>
+        <div class="field">
+          <div class="row"><span class="lbl">Nombre (1-50)</span><span class="val l">Ana</span></div>
+          <div class="row" style="min-height:56px"><span class="lbl">Color</span>
+            <span class="val"><span class="cp"><span class="sw" style="background:var(--person-5)"></span>#0284C7<span class="chev-s">›</span></span></span>
+          </div>
+        </div>
+        <div class="stack" style="margin-top:24px">
+          <span class="btn primary">Guardar</span>
+          <span class="btn danger" style="margin-top:8px">Eliminar persona</span>
+        </div>
+      </div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <h3>¿Eliminar a Ana?</h3>
+        <p>Esta acción no se puede deshacer.</p>
+        <a class="btn danger go" href="aj-personas.html">Eliminar persona</a>
+        <a class="btn secondary" style="margin-top:8px">Cancelar</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. PALETA DE MUESTRAS (PROPUESTA) -->
+  <section class="state">
+    <div class="label">7 · Propuesta: muestras + «Personalizado» <span class="tagnew">Nuevo</span><small>Opcional sobre el ColorPicker libre. Muestras de la paleta del tema y «Personalizado» abre el ColorPicker</small></div>
+    <div class="phone no-tabs">
+      <div class="status"><span>20:11</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="aj-personas.html">Cancelar</a>
+          <span class="center">Nueva persona</span>
+          <span style="width:60px"></span>
+        </div>
+        <div class="sect">Persona</div>
+        <div class="field">
+          <div class="row"><span class="lbl">Nombre (1-50)</span><span class="val l">Lucía</span></div>
+          <div class="row" style="min-height:72px;align-items:flex-start;padding-top:12px"><span class="lbl">Color</span>
+            <span class="val"><span class="swrow">
+              <span class="sw" style="background:var(--person-1)"></span>
+              <span class="sw" style="background:var(--person-2)"></span>
+              <span class="sw on" style="background:var(--person-3)"></span>
+              <span class="sw" style="background:var(--person-4)"></span>
+              <span class="sw" style="background:var(--person-5)"></span>
+              <span class="sw custom" title="Personalizado"></span>
+            </span><span style="display:block;font:var(--t-cap);color:var(--text-2);margin-top:6px;text-align:right">Personalizado: abre el ColorPicker</span></span>
+          </div>
+        </div>
+        <div class="stack" style="margin-top:24px">
+          <span class="btn primary">Crear persona</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li><b>Color</b>: hoy es un <b>ColorPicker nativo libre</b> (defecto <code>#6923E2</code>), así se dibuja en los frames 1, 2 y 4. Las muestras de la paleta del tema son propuesta (frame 7) y deben incluir «Personalizado».</li>
+    <li><b>Eliminar</b> dentro del formulario y su confirmación: <span class="tagnew">Nuevo</span> (frame 6). Hoy el borrado está en la papelera de la lista, sin confirmación.</li>
+    <li>Guardando (3) y sin conexión (5): <span class="tagnew">Nuevo</span>.</li>
+    <li>Quitado de la primera pasada: la paleta fija de cinco colores como si fuera la del código (ahora es propuesta, frame 7), la regla «Crear desactivado sin nombre» (el código valida al pulsar) y el error en línea bajo el nombre y el de servidor arriba del formulario (el código usa alerta «Aviso / OK»).</li>
+  </ul>
+  <h2 style="margin-top:12px">Reglas de negocio</h2>
+  <ul>
+    <li>Nombre: 1 a 50 caracteres.</li>
+    <li>Color: formato #RRGGBB. Defecto #6923E2.</li>
+    <li>Error de validación: alerta «El nombre debe tener 1-50 caracteres y el color formato #RRGGBB».</li>
+  </ul>
+  <h2 style="margin-top:12px">Conexiones</h2>
+  <ul>
+    <li>Va a: AJ-03 Personas (Cancelar, Guardar, Crear, Eliminar).</li>
+    <li>Llega desde: AJ-03 («+» y lápiz de una persona propia).</li>
+  </ul>
+</aside>
+</body>
+</html>

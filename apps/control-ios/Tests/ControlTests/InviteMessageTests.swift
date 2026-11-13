@@ -8,7 +8,7 @@ final class InviteMessageTests: XCTestCase {
 
         XCTAssertTrue(text.contains("«Casa Diego»"))
         XCTAssertTrue(text.contains(code))
-        XCTAssertTrue(text.contains("Perfil › Unirse a un hogar con un código"))
+        XCTAssertTrue(text.contains("Ajustes › Unirse a un hogar con un código"))
         XCTAssertTrue(text.contains("7 días"))
     }
 }

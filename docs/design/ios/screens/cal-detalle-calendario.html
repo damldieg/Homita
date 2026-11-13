@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="es" data-wf-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAL-04 Editor de calendario (modo edición)</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+/* Estilos del editor (no están en components.css) */
+.off { opacity: .4; }
+.card-h + * { margin-top: var(--s3); }
+.field .row .lbl { width: auto; color: var(--text-2); flex: none; }
+.field .row .ph { color: var(--text-3); }
+.sub { font: 600 13px/18px var(--font); color: var(--text-2); padding: var(--s3) var(--s1) 0; }
+.sw { width: 51px; height: 31px; border-radius: 999px; background: var(--text-3); position: relative; flex: none; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow); }
+.sw.on { background: var(--ok); }
+.sw.on::after { left: 22px; }
+.color-well { display: block; width: 30px; height: 30px; border-radius: 50%; position: relative; flex: none; background: conic-gradient(var(--person-2), var(--person-3), var(--person-4), var(--person-5), var(--person-2)); }
+.color-well::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--person-5); border: 2px solid var(--surface); }
+.erow { display: flex; align-items: center; gap: var(--s3); min-height: 52px; padding: var(--s2) 0; border-top: 1px solid var(--line); }
+.erow:first-of-type { border-top: 0; }
+.erow .bar { width: 4px; align-self: stretch; border-radius: 2px; background: var(--c); flex: none; }
+.erow .grow { flex: 1; min-width: 0; }
+.erow .t { font: var(--t-body); }
+.erow .s { font: var(--t-sub); color: var(--text-2); }
+.erow .chev::after { content: "›"; color: var(--text-3); font: 400 22px/1 var(--font); }
+.badge.neutral { background: var(--bg-sunken); color: var(--text-2); }
+.perm { display: flex; align-items: center; gap: var(--s3); min-height: 56px; padding: var(--s2) 0; border-top: 1px solid var(--line); }
+.perm:first-of-type { border-top: 0; }
+.perm .grow { flex: 1; min-width: 0; }
+.perm .t { font: var(--t-body); }
+.perm .s { font: var(--t-sub); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.perm .quit { font: 600 14px/1 var(--font); color: var(--err); padding: 8px 10px; border-radius: 8px; background: var(--err-soft); flex: none; }
+.invite { display: flex; gap: var(--s2); align-items: center; padding-top: var(--s3); }
+.invite .field { flex: 1; min-width: 0; }
+.invite .field .row { min-height: 44px; }
+.foot { margin-top: var(--s2); display: flex; flex-direction: column; gap: var(--s3); }
+.empty-s { padding: var(--s3) 0 var(--s1); font: var(--t-sub); color: var(--text-2); }
+.sheet h3 { font: var(--t-title); margin-bottom: var(--s2); }
+.sheet p { font: var(--t-sub); color: var(--text-2); margin-bottom: var(--s4); }
+.sheet .btn { margin-top: var(--s2); }
+.alert { position: absolute; left: 50px; right: 50px; top: 300px; background: var(--surface); border-radius: 18px; padding: 18px 16px 0; z-index: 9; text-align: center; box-shadow: var(--shadow-float); overflow: hidden; }
+.alert h4 { font: 600 17px/22px var(--font); } .alert p { font: 400 13px/18px var(--font); color: var(--text-2); margin: 4px 0 14px; }
+.alert .ok { border-top: 1px solid var(--line); min-height: 44px; display: grid; place-items: center; color: var(--accent); font: 600 17px/1 var(--font); }
+.sk-line { display: inline-block; height: 14px; border-radius: 8px; }
+.phone.tall { height: 1560px; }
+.phone.tall .scroll { padding-bottom: 24px; }
+.nav .txt.off { color: var(--accent); }
+</style>
+</head>
+<body>
+<!-- CAL-04: editor de calendario en modo edición (antes «detalle»). Hoja modal: Cancelar a la izquierda; la acción va al pie. -->
+<header class="wf-head">
+  <div class="id">CAL-04 · pestaña Calendario · editor de calendario (modo edición) · epic E3</div>
+  <h1>Calendario (modo edición)</h1>
+  <p>Tocar un calendario abre este editor, no una ficha de lectura. Mismo formulario que el alta (CAL-07), más: «Visible en» (Widget y Dashboard), «Eventos y rutinas» con su contador, «Personas con acceso» (igual que en las listas de tareas) y el borrado. «Guardar» va al pie; «Eliminar calendario» pide confirmación y solo lo ve el propietario.</p>
+  <nav class="wf-nav">
+    <a href="../index.html">← Índice</a>
+    <a href="cal-calendarios.html">← Calendarios</a>
+    <a href="cal-form-calendario.html">Alta de calendario (CAL-07) →</a>
+    <a href="cal-form-evento.html">Editar evento (CAL-05) →</a>
+    <a href="cal-detalle-rutina.html">Editar rutina (CAL-08) →</a>
+  </nav>
+</header>
+
+<div class="states">
+
+  <!-- 1. CON DATOS -->
+  <section class="state">
+    <div class="label">1 · Con datos<small>Propietario: ve «Eliminar calendario» y el botón quitar en las personas ajenas</small></div>
+    <div class="phone tall">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Editar calendario</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="lbl">Nombre</span><span class="grow t">Colegio</span></div></div>
+            <div class="field"><div class="row"><span class="lbl" style="color:var(--text)">Color</span><span class="val"><span class="color-well"></span></span></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Visible en</h3></div>
+            <div class="row" style="border-top:0"><div class="grow t">Widget</div><span class="sw on"></span></div>
+            <div class="row"><div class="grow t">Dashboard</div><span class="sw on"></span></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">▤</div><h3>Eventos y rutinas</h3><span class="badge">3</span></div>
+            <div class="erow"><span class="bar" style="--c:var(--person-5)"></span><div class="grow"><div class="t">Recoger a los niños</div><div class="s">13 Nov 2026 · 16:00</div></div><span class="chev go"></span></div>
+            <div class="erow"><span class="bar" style="--c:var(--person-5)"></span><div class="grow"><div class="t">Paseo en bici</div><div class="s">14 Nov 2026 · 11:00</div></div><span class="chev go"></span></div>
+            <div class="erow"><span class="bar" style="--c:var(--person-5)"></span><div class="grow"><div class="t">Sacar la basura</div><div class="s">Rutina · 19:00</div></div><span class="chev go"></span></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas con acceso</h3><span class="badge">2</span></div>
+            <div class="perm"><div class="grow"><div class="t">Ana (tú)</div><div class="s">ana@ejemplo.com</div></div><span class="badge">Propietario</span></div>
+            <div class="perm"><div class="grow"><div class="t">Marcos</div><div class="s">marcos@ejemplo.com</div></div><span class="badge neutral">Solo lectura</span><span class="quit">Quitar</span></div>
+            <div class="invite">
+              <div class="field"><div class="row"><span class="grow ph">Email a invitar</span></div></div>
+              <span class="btn sm secondary">Invitar</span>
+            </div>
+          </div>
+          <div class="foot">
+            <a class="btn primary go" href="cal-calendarios.html">Guardar</a>
+            <a class="btn danger" href="#eliminar">Eliminar calendario</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. VACÍO -->
+  <section class="state">
+    <div class="label">2 · Vacío («Eventos y rutinas» sin nada)<small>Texto real del código. El resto del editor sigue igual</small></div>
+    <div class="phone tall" style="height:1400px">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Editar calendario</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="lbl">Nombre</span><span class="grow t">Colegio</span></div></div>
+            <div class="field"><div class="row"><span class="lbl" style="color:var(--text)">Color</span><span class="val"><span class="color-well"></span></span></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Visible en</h3></div>
+            <div class="row" style="border-top:0"><div class="grow t">Widget</div><span class="sw on"></span></div>
+            <div class="row"><div class="grow t">Dashboard</div><span class="sw on"></span></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">▤</div><h3>Eventos y rutinas</h3><span class="badge">0</span></div>
+            <div class="empty-s">No hay eventos ni rutinas vinculados a este calendario.</div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas con acceso</h3><span class="badge">1</span></div>
+            <div class="perm"><div class="grow"><div class="t">Ana (tú)</div><div class="s">ana@ejemplo.com</div></div><span class="badge">Propietario</span></div>
+          </div>
+          <div class="foot">
+            <a class="btn primary go" href="cal-calendarios.html">Guardar</a>
+            <a class="btn danger" href="#eliminar">Eliminar calendario</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. CARGANDO -->
+  <section class="state">
+    <div class="label">3 · Cargando (skeleton) <span class="tagnew">Nuevo</span><small>Hoy el editor no tiene estado de carga documentado (sí «Cargando…» en las listas). Propuesta: misma geometría que con datos</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Editar calendario</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="row" style="border-top:0"><div class="sk-line sk" style="width:40%"></div><div class="sk-line sk" style="width:35%;margin-left:auto"></div></div>
+            <div class="row"><div class="sk-line sk" style="width:30%"></div><div class="sk-line sk" style="width:20%;margin-left:auto"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">◉</div><h3>Visible en</h3></div>
+            <div class="row" style="border-top:0"><div class="sk-line sk" style="width:50%"></div></div>
+            <div class="row"><div class="sk-line sk" style="width:45%"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">▤</div><h3>Eventos y rutinas</h3></div>
+            <div class="erow" style="border-top:0"><span class="bar sk"></span><div class="grow"><div class="sk-line sk" style="width:65%"></div><div class="sk-line sk" style="width:40%;margin-top:6px"></div></div></div>
+            <div class="erow"><span class="bar sk"></span><div class="grow"><div class="sk-line sk" style="width:50%"></div><div class="sk-line sk" style="width:35%;margin-top:6px"></div></div></div>
+          </div>
+          <div class="foot"><span class="btn primary off">Guardar</span><span class="btn danger off">Eliminar calendario</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. ERROR PARCIAL -->
+  <section class="state">
+    <div class="label">4 · Error de la sección «Eventos y rutinas»<small>Hoy cada sección falla sola: mensaje del servidor + «Reintentar». El texto del mensaje es un marcador</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Editar calendario</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="lbl">Nombre</span><span class="grow t">Colegio</span></div></div>
+            <div class="field"><div class="row"><span class="lbl" style="color:var(--text)">Color</span><span class="val"><span class="color-well"></span></span></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">▤</div><h3>Eventos y rutinas</h3></div>
+            <div class="inline-err"><span>⚠</span><span class="grow">[mensaje del servidor]</span><a class="btn sm secondary" style="min-height:32px">Reintentar</a></div>
+          </div>
+          <div class="foot">
+            <a class="btn primary go" href="cal-calendarios.html">Guardar</a>
+            <a class="btn danger" href="#eliminar">Eliminar calendario</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4b. ERROR DE GUARDADO (ALERTA) -->
+  <section class="state">
+    <div class="label">4b · Error al guardar: alerta «Aviso / OK»<small>Error de acción = alerta modal. El mensaje es del servidor (marcador)</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Editar calendario</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="lbl">Nombre</span><span class="grow t">Colegio</span></div></div>
+          </div>
+          <div class="foot"><span class="btn primary">Guardar</span></div>
+        </div>
+      </div>
+      <div class="scrim" style="z-index:8"></div>
+      <div class="alert"><h4>Aviso</h4><p>[mensaje del servidor]</p><div class="ok">OK</div></div>
+    </div>
+  </section>
+
+  <!-- 5. SIN CONEXIÓN -->
+  <section class="state">
+    <div class="label">5 · Sin conexión <span class="tagnew">Nuevo</span><small>Propuesta: banner con la hora de los datos y escrituras desactivadas. Hoy el fallo es la alerta del estado 4b</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Editar calendario</span>
+          <span></span>
+        </div>
+        <div class="offline"><span>⚠</span><span class="grow">Sin conexión. Mostrando datos de las 19:42.</span></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="lbl">Nombre</span><span class="grow t">Colegio</span></div></div>
+            <div class="field"><div class="row"><span class="lbl" style="color:var(--text)">Color</span><span class="val"><span class="color-well"></span></span></div></div>
+          </div>
+          <div class="foot"><span class="btn primary off">Guardar</span><span class="btn danger off">Eliminar calendario</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. CONFIRMAR ELIMINACIÓN -->
+  <section class="state" id="eliminar">
+    <div class="label">6 · Confirmar eliminación<small>Textos reales: «Se eliminará el calendario con sus eventos.». Solo propietario. El título de la hoja repite el botón: el código no tiene título propio</small></div>
+    <div class="phone">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Editar calendario</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="lbl">Nombre</span><span class="grow t">Colegio</span></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">▤</div><h3>Eventos y rutinas</h3><span class="badge">3</span></div>
+            <div class="erow"><span class="bar" style="--c:var(--person-5)"></span><div class="grow"><div class="t">Recoger a los niños</div><div class="s">13 Nov 2026 · 16:00</div></div></div>
+          </div>
+          <div class="foot"><span class="btn primary">Guardar</span><span class="btn danger">Eliminar calendario</span></div>
+        </div>
+      </div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <h3>Eliminar calendario</h3>
+        <p>Se eliminará el calendario con sus eventos.</p>
+        <a class="btn danger go" href="cal-calendarios.html">Eliminar calendario</a>
+        <a class="btn secondary" href="#eliminar">Cancelar</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. NO PROPIETARIO -->
+  <section class="state">
+    <div class="label">7 · Miembro sin ser propietario<small>«Eliminar calendario» oculto (solo propietario). Personas: sin botón quitar. «Invitar» y «Guardar» para no propietario: no definidos en el código (se muestran aquí sin cambios)</small></div>
+    <div class="phone tall" style="height:1000px">
+      <div class="status"><span>20:07</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="scroll">
+        <div class="nav">
+          <a class="txt go" href="cal-calendarios.html">Cancelar</a>
+          <span class="center">Editar calendario</span>
+          <span></span>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-h"><div class="ico">▦</div><h3>Calendario</h3></div>
+            <div class="field"><div class="row"><span class="lbl">Nombre</span><span class="grow t">Colegio</span></div></div>
+            <div class="field"><div class="row"><span class="lbl" style="color:var(--text)">Color</span><span class="val"><span class="color-well"></span></span></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ico">☺</div><h3>Personas con acceso</h3><span class="badge">2</span></div>
+            <div class="perm"><div class="grow"><div class="t">Ana</div><div class="s">ana@ejemplo.com</div></div><span class="badge">Propietario</span></div>
+            <div class="perm"><div class="grow"><div class="t">Marcos (tú)</div><div class="s">marcos@ejemplo.com</div></div><span class="badge neutral">Solo lectura</span></div>
+          </div>
+          <div class="foot"><a class="btn primary go" href="cal-calendarios.html">Guardar</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<aside class="notes">
+  <h2>Cambios respecto a la app actual</h2>
+  <ul>
+    <li><b>Detalle → editor</b>: tocar un calendario abre el formulario en modo edición. Se quita la ficha de solo lectura y su «Editar» de la primera pasada.</li>
+    <li><b>Visible en</b>: Widget y Dashboard como interruptores (código). Al crear, ambos encendidos por defecto.</li>
+    <li><b>Eventos y rutinas</b>: lista con contador que mezcla eventos (título + fecha y hora) y rutinas («Rutina · HH:mm»). Sustituye «Próximos eventos» de la primera pasada. Vacío con el texto real. Tocar un evento abre CAL-05; una rutina, CAL-08.</li>
+    <li><b>Personas con acceso</b> (código de listas de tareas): propietario y solo lectura, botón quitar por fila (no la propia), «Email a invitar» e «Invitar».</li>
+    <li><b>Acción al pie</b>: «Guardar»; «Cancelar» a la izquierda. Se quita «Añadir un evento» del vacío (no existe en el código).</li>
+    <li><b>Eliminar</b> con su confirmación real. La primera pasada dejaba la pregunta «¿qué pasa con sus eventos?»: el código lo responde (se eliminan con el calendario).</li>
+    <li>Estados 3 (skeleton), 5 (sin conexión) y el banner son <span class="tagnew">Nuevo</span>. El estado 4 es el real: error por sección o alerta de guardado.</li>
+  </ul>
+  <h2>Reglas de negocio</h2>
+  <ul>
+    <li>«Eliminar calendario» solo para el propietario: «Se eliminará el calendario con sus eventos.» (borrado en cascada).</li>
+    <li>Personas con acceso: solo el propietario ve «Quitar» en las demás personas; no puede quitarse a sí mismo.</li>
+    <li>Eventos y rutinas: eventos futuros y rutinas vinculadas; vacío «No hay eventos ni rutinas vinculados a este calendario.».</li>
+  </ul>
+  <h2>Conexiones</h2>
+  <ul>
+    <li>Entra desde: Calendarios (tocar una tarjeta).</li>
+    <li>Sale a: Calendarios (Cancelar, Guardar y, tras eliminar, la lista); CAL-05 (tocar un evento); CAL-08 (tocar una rutina).</li>
+    <li>El alta de calendario es CAL-07 (cal-form-calendario.html): el mismo formulario sin los paneles de edición.</li>
+  </ul>
+</aside>
+</body>
+</html>

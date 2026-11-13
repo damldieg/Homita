@@ -9,15 +9,10 @@ struct CalendarListView: View {
     var body: some View {
         List {
             if !store.hasLoaded || (store.isLoading && store.calendars.isEmpty) {
-                HomitaLoadingCard(message: "Cargando calendarios…").homitaRow()
+                HomitaSkeletonRows(count: 3, height: 64, label: "Cargando calendarios").homitaRow()
             }
             if store.hasLoaded && store.calendars.isEmpty && !store.isLoading {
-                HomitaEmptyState(
-                    illustration: .calendars,
-                    title: "Sin calendarios",
-                    message: "Los calendarios agrupan eventos y rutinas por color, como Trabajo o Familia.",
-                    actionTitle: "Nuevo calendario"
-                ) {
+                HomitaEmptyState(.calendars) {
                     showCreate = true
                 }
                 .homitaRow()
@@ -34,7 +29,7 @@ struct CalendarListView: View {
                                     .fill(Color(hex: calendar.color))
                                     .frame(width: 14, height: 14)
                                 Text(calendar.name)
-                                    .font(HomitaFont.geist(17, weight: .semibold, relativeTo: .body))
+                                    .font(HomitaFont.inter(17, weight: .semibold, relativeTo: .body))
                                     .foregroundStyle(Palette.ink)
                                 Spacer()
                                 HomitaBadge(title: "\(calendar.upcomingEventCount)", tintHex: calendar.color)
@@ -54,7 +49,7 @@ struct CalendarListView: View {
                 } label: {
                     HomitaCard {
                         Label("Nuevo calendario", systemImage: "plus")
-                            .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.accent)
                     }
                 }
@@ -64,6 +59,15 @@ struct CalendarListView: View {
             }
         }
         .homitaList()
+        // E3-04 [Nuevo]: alta también desde la cabecera; la tarjeta «Nuevo calendario» se mantiene al pie.
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showCreate = true } label: {
+                    Image(systemName: "plus").foregroundStyle(Palette.ink)
+                }
+                .accessibilityLabel("Nuevo calendario")
+            }
+        }
         .sheet(isPresented: $showCreate) {
             NavigationStack {
                 CalendarDetailView(store: store, calendar: nil)
@@ -73,5 +77,6 @@ struct CalendarListView: View {
             await store.load()
         }
         .errorAlert($store.errorMessage)
+        .writeFailureToast($store.writeFailure)
     }
 }

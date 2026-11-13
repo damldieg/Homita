@@ -2,13 +2,16 @@ import Foundation
 
 /// Estado de Calendarios: CRUD, flags `widget`/`dashboard` propios e invitaciones por email.
 @Observable
-public final class CalendarStore {
+public final class CalendarStore: WriteFailureReporting {
     public private(set) var calendars: [CalendarEntry] = []
     public private(set) var members: [MemberEntry] = []
     public private(set) var isLoading = false
     /// Primera carga completada (loader hasta entonces).
     public private(set) var hasLoaded = false
+    /// Errores de lectura (alerta de la pantalla).
     public var errorMessage: String?
+    /// Última escritura fallida (toast con «Reintentar»).
+    public var writeFailure: WriteFailure?
 
     /// Eventos y rutinas vinculados al calendario abierto (A4).
     public private(set) var linkedEvents: [EventEntry] = []
@@ -60,30 +63,24 @@ public final class CalendarStore {
 
     @discardableResult
     public func save(name: String, color: String, widget: Bool, dashboard: Bool, editing: CalendarEntry?) async -> Bool {
-        do {
+        await performWrite { store in
             if let editing {
-                _ = try await repo.update(UpdateCalendarRequest(
+                _ = try await store.repo.update(UpdateCalendarRequest(
                     id: editing.id, name: name, color: color, widget: widget, dashboard: dashboard
                 ))
             } else {
-                _ = try await repo.create(CreateCalendarRequest(
+                _ = try await store.repo.create(CreateCalendarRequest(
                     name: name, color: color, widget: widget, dashboard: dashboard
                 ))
             }
-            await load()
-            return true
-        } catch {
-            report(error)
-            return false
+            await store.load()
         }
     }
 
     public func delete(_ calendar: CalendarEntry) async {
-        do {
-            _ = try await repo.delete(id: calendar.id)
-            await load()
-        } catch {
-            report(error)
+        await performWrite { store in
+            _ = try await store.repo.delete(id: calendar.id)
+            await store.load()
         }
     }
 
@@ -98,20 +95,16 @@ public final class CalendarStore {
     }
 
     public func invite(calendarId: Int, email: String) async {
-        do {
-            _ = try await repo.invite(calendarId: calendarId, email: email)
-            await loadMembers(calendarId: calendarId)
-        } catch {
-            report(error)
+        await performWrite { store in
+            _ = try await store.repo.invite(calendarId: calendarId, email: email)
+            await store.loadMembers(calendarId: calendarId)
         }
     }
 
     public func removeMember(calendarId: Int, userId: Int) async {
-        do {
-            _ = try await repo.removeUser(calendarId: calendarId, userId: userId)
-            await loadMembers(calendarId: calendarId)
-        } catch {
-            report(error)
+        await performWrite { store in
+            _ = try await store.repo.removeUser(calendarId: calendarId, userId: userId)
+            await store.loadMembers(calendarId: calendarId)
         }
     }
 

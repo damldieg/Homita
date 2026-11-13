@@ -14,10 +14,25 @@ public struct ProfileView: View {
     @State private var errorMessage: String?
     @State private var isWorking = false
     @State private var showSignOutConfirm = false
+    @AppStorage(AppearancePreference.storageKey) private var appearance = AppearancePreference.system.rawValue
+    @Environment(\.colorScheme) private var colorScheme
 
     public init(services: AppServices) {
         self.services = services
         _personStore = State(initialValue: PersonStore(repo: services.persons))
+    }
+
+    /// Interruptor de modo oscuro: refleja la preferencia (o el sistema si no hay preferencia) y la guarda.
+    private var darkModeBinding: Binding<Bool> {
+        Binding(
+            get: { (AppearancePreference(rawValue: appearance) ?? .system).resolvedIsDark(systemDark: colorScheme == .dark) },
+            set: { appearance = ($0 ? AppearancePreference.dark : AppearancePreference.light).rawValue }
+        )
+    }
+
+    /// Versión corta del bundle (`CFBundleShortVersionString`); «—» si no se puede leer.
+    static var appVersion: String {
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "—"
     }
 
     public var body: some View {
@@ -25,21 +40,28 @@ public struct ProfileView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     // Título propio: el título grande de la barra no se ve con el scroll de tarjetas.
-                    Text("Perfil")
-                        .font(HomitaFont.geist(34, weight: .bold, relativeTo: .largeTitle))
+                    Text("Ajustes")
+                        .font(HomitaFont.inter(34, weight: .bold, relativeTo: .largeTitle))
                         .foregroundStyle(Palette.ink)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 8)
                     accountCard
                     familyCard
                     invitationsCard
+                    HomitaCard {
+                        HomitaToggle(title: "Modo oscuro", isOn: darkModeBinding)
+                    }
                     HomitaButton(title: "Cerrar sesión", kind: .secondary) {
                         showSignOutConfirm = true
                     }
                     Text("Con firma gratuita la app caduca a los 7 días; reinstálala y vuelve a iniciar sesión.")
-                        .font(HomitaFont.geist(13, relativeTo: .footnote))
+                        .font(HomitaFont.inter(13, relativeTo: .footnote))
                         .foregroundStyle(Palette.inkSoft)
                         .multilineTextAlignment(.center)
+                    // E5-01 [Nuevo]: versión de la app al pie de Ajustes.
+                    Text("Versión \(Self.appVersion)")
+                        .font(HomitaFont.inter(12, relativeTo: .caption))
+                        .foregroundStyle(Palette.inkMuted)
                 }
                 .padding(20)
             }
@@ -127,7 +149,7 @@ public struct ProfileView: View {
                 .frame(width: 36, height: 36)
                 .background(Color(hex: tint).opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
             Text(title)
-                .font(HomitaFont.geist(17, weight: .medium, relativeTo: .body))
+                .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                 .foregroundStyle(Palette.ink)
             Spacer()
             Image(systemName: "chevron.right")

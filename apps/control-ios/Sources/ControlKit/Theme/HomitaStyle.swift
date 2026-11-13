@@ -5,7 +5,7 @@ extension View {
     /// de la paleta. Se aplica a cada `List`/`Form` de pantalla principal (B2).
     func homitaList() -> some View {
         self
-            .font(HomitaFont.geist(17, relativeTo: .body))
+            .font(HomitaFont.inter(17, relativeTo: .body))
             .foregroundStyle(Palette.ink)
             .scrollContentBackground(.hidden)
             .background(Palette.background)
@@ -18,6 +18,15 @@ extension View {
         self
             .toolbarBackground(Palette.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+        #else
+        self
+        #endif
+    }
+
+    /// Oculta la barra de navegación: la pestaña pinta su propia cabecera (`HomitaHeader`).
+    func homitaHiddenNavigationBar() -> some View {
+        #if os(iOS)
+        self.toolbar(.hidden, for: .navigationBar)
         #else
         self
         #endif

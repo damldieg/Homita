@@ -4,13 +4,14 @@ App gestora de Planify para iPhone (v1). Swift 5 + SwiftUI, iOS 17+, sin depende
 
 ## Configuración
 
-La URL y la clave anon nunca se commitean: se generan en `Config.xcconfig` (git-ignorado) desde `~/.homita/supabase.env`:
+La URL y la clave anon nunca se commitean: se generan en dos ficheros git-ignorados: `Config.prod.xcconfig` (desde `~/.homita/supabase.env`, para Release) y `Config.local.xcconfig` (desde `supabase status`, para Debug):
 
 ```sh
-apps/control-ios/scripts/gen-config.sh   # escribe Config.xcconfig (permisos 600; no imprime valores)
+apps/control-ios/scripts/gen-config.sh prod    # escribe Config.prod.xcconfig (permisos 600; no imprime valores)
+apps/control-ios/scripts/gen-config.sh local   # escribe Config.local.xcconfig (requiere `supabase start`)
 ```
 
-`scripts/check-config.sh` va como Run Script del target (antes de compilar) y falla el build si falta `Config.xcconfig` o quedan placeholders — equivalente de `checkPlanifyBaseUrl` del dashboard. Si cambias `~/.homita/supabase.env`, vuelve a ejecutar `gen-config.sh`.
+`scripts/check-config.sh` va como Run Script del target (antes de compilar) y elige el xcconfig según `CONFIGURATION` (Debug → `Config.local.xcconfig`, Release → `Config.prod.xcconfig`) y falla el build si falta, tiene placeholders o el host no encaja con la configuración — equivalente de `checkPlanifyBaseUrl` del dashboard. Si cambias `~/.homita/supabase.env`, vuelve a ejecutar `gen-config.sh`.
 
 ## Compilar y testar
 

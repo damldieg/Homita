@@ -1,10 +1,11 @@
-// Config.xcconfig.example — plantilla de la config de la app iOS.
+// Config.xcconfig.example — plantilla del formato de los xcconfig de Control iOS.
 //
-// Uso: ejecuta `scripts/gen-config.sh` (lee ~/.homita/supabase.env y escribe Config.xcconfig
-// con permisos 600) o copia este fichero a `Config.xcconfig` y sustituye los placeholders.
-// `Config.xcconfig` está git-ignorado: la URL y la clave anon nunca se commitean.
+// Hay dos ficheros git-ignorados, uno por entorno; Xcode elige cuál con la configuración del build:
+//   Config.local.xcconfig → Debug (stack local, 127.0.0.1)   · scripts/gen-config.sh local
+//   Config.prod.xcconfig  → Release (producción, https)       · scripts/gen-config.sh prod
+// Para escribirlos a mano, copia este fichero y sustituye los placeholders. Nunca commitear valores reales.
 //
-// Nota xcconfig: `//` inicia comentario, por eso la URL lleva `$()` tras `https:/`:
+// Nota xcconfig: `//` inicia comentario, por eso la URL lleva `$()` tras `https:/` (o `http:/`):
 // la expansión en Info.plist (`$(PLANIFY_BASE_URL)`) produce `https://…`.
 PLANIFY_BASE_URL = https:/$()/<ref>.supabase.co/functions/v1/api
 SUPABASE_URL = https:/$()/<ref>.supabase.co

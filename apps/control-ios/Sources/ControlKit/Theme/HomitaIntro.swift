@@ -32,7 +32,7 @@ struct HomitaIntro: View {
             ZStack {
                 switch style {
                 case .first, .returning:
-                    Brand.launch
+                    Palette.background
                     VStack(spacing: 24) {
                         iconTile(size: style == .first ? 132 : 112)
                         if style == .first {

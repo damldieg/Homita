@@ -9,6 +9,9 @@ struct TaskListDetailView: View {
 
     @Environment(SessionStore.self) private var session
     @State private var newTaskTitle = ""
+    @State private var pendingTaskDelete: [TaskEntry] = []
+    @State private var showTaskDelete = false
+    @State private var showCompletedDelete = false
     @State private var showEditList = false
     @State private var taskToEdit: TaskEntry?
     #if os(iOS)
@@ -37,7 +40,11 @@ struct TaskListDetailView: View {
                         Button {
                             let title = newTaskTitle
                             newTaskTitle = ""
-                            Task { await store.createTask(title: title, listId: current.id) }
+                            Task {
+                                // Si la escritura falla se devuelve lo escrito al campo (si sigue vacío).
+                                let ok = await store.createTask(title: title, listId: current.id)
+                                if !ok, newTaskTitle.isEmpty { newTaskTitle = title }
+                            }
                         } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.title2)
@@ -52,17 +59,20 @@ struct TaskListDetailView: View {
 
             if !pending.isEmpty {
                 Section {
-                    ForEach(pending, id: \.id) { task in
-                        TaskRow(task: task, showListName: false) {
+                    ForEach(Array(pending.enumerated()), id: \.element.id) { index, task in
+                        TaskRow(task: task, showListName: false, plain: true) {
                             Task { await store.toggleComplete(task) }
                         } onEdit: {
                             taskToEdit = task
                         }
-                        .homitaRow()
+                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                        .listRowBackground(GroupRowBackground(first: index == 0, last: index == pending.count - 1))
+                        .listRowSeparator(index == pending.count - 1 ? .hidden : .visible, edges: .bottom)
+                        .listRowSeparatorTint(Palette.line)
                     }
                     .onDelete { indexSet in
-                        let removed = indexSet.map { pending[$0] }
-                        Task { for task in removed { await store.deleteTask(task) } }
+                        pendingTaskDelete = indexSet.map { pending[$0] }
+                        showTaskDelete = true
                     }
                     .onMove { source, destination in
                         guard canReorder, let from = source.first else { return }
@@ -76,29 +86,44 @@ struct TaskListDetailView: View {
 
             if !completed.isEmpty {
                 Section {
-                    ForEach(completed, id: \.id) { task in
-                        TaskRow(task: task, showListName: false) {
+                    ForEach(Array(completed.enumerated()), id: \.element.id) { index, task in
+                        TaskRow(task: task, showListName: false, plain: true) {
                             Task { await store.toggleComplete(task) }
                         } onEdit: {
                             taskToEdit = task
                         }
-                        .homitaRow()
+                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                        .listRowBackground(GroupRowBackground(first: index == 0, last: index == completed.count - 1))
+                        .listRowSeparator(index == completed.count - 1 ? .hidden : .visible, edges: .bottom)
+                        .listRowSeparatorTint(Palette.line)
                     }
                     .onDelete { indexSet in
-                        let removed = indexSet.map { completed[$0] }
-                        Task { for task in removed { await store.deleteTask(task) } }
+                        pendingTaskDelete = indexSet.map { completed[$0] }
+                        showTaskDelete = true
                     }
                 } header: {
-                    HomitaSectionHeader(title: "Completadas", count: completed.count, systemImage: "checkmark.circle", tint: Palette.online)
+                    HStack {
+                        HomitaSectionHeader(title: "Completadas", count: completed.count, systemImage: "checkmark.circle", tint: Palette.online)
+                        Spacer(minLength: 0)
+                        // Borra todas las completadas de la lista, con confirmación.
+                        Button {
+                            showCompletedDelete = true
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Palette.accent)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Eliminar todas las completadas")
+                    }
                 }
             }
 
             if listTasks.isEmpty {
                 HomitaCard {
-                    Text("Sin tareas")
-                        .font(HomitaFont.geist(16, relativeTo: .body))
-                        .foregroundStyle(Palette.inkSoft)
-                        .frame(maxWidth: .infinity)
+                    HomitaEmptyNote(text: HomitaEmptyNoteText.listTasks)
                 }
                 .homitaRow()
             }
@@ -154,8 +179,9 @@ struct TaskListDetailView: View {
         }
         .sheet(item: $taskToEdit) { task in
             NavigationStack {
-                TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: task) { title, _, personIds in
-                    Task { await store.updateTask(task, title: title, personIds: personIds) }
+                TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: task,
+                               writeFailure: $store.writeFailure) { title, _, personIds in
+                    await store.updateTask(task, title: title, personIds: personIds)
                 } onDelete: {
                     Task { await store.deleteTask(task) }
                 }
@@ -167,5 +193,20 @@ struct TaskListDetailView: View {
             await store.loadMembers(listId: current.id)
         }
         .errorAlert($store.errorMessage)
+        .writeFailureToast($store.writeFailure)
+        .overlay {
+            // Bloquea la interacción mientras se borran las completadas.
+            if store.isDeletingCompleted {
+                HomitaLoadingOverlay(message: "Eliminando completadas…")
+            }
+        }
+        .homitaConfirm(DeleteConfirmation.message(names: completed.map(\.title), consequence: "Se eliminarán las tareas completadas de esta lista."), isPresented: $showCompletedDelete, confirmTitle: "Eliminar") {
+            let id = current.id
+            Task { await store.deleteCompleted(listId: id) }
+        }
+        .homitaConfirm(DeleteConfirmation.message(names: pendingTaskDelete.map(\.title), consequence: "Se eliminará la tarea."), isPresented: $showTaskDelete, confirmTitle: "Eliminar") {
+            let tasks = pendingTaskDelete
+            Task { for task in tasks { await store.deleteTask(task) } }
+        }
     }
 }
