@@ -37,6 +37,8 @@ public struct RegisterView: View {
                 HomitaPrimaryButton(title: "Crear cuenta", isEnabled: isValid, isLoading: isWorking) {
                     Task { await register() }
                 }
+                .homitaRequiresNetwork()
+                .accessibilityIdentifier("registro.crear-cuenta")
             }
             .padding(20)
         }

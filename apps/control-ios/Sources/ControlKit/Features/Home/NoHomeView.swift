@@ -25,6 +25,8 @@ struct NoHomeView: View {
                     isWorking = false
                 }
             }
+            .homitaRequiresNetwork()
+            .accessibilityIdentifier("sin-hogar.crear-hogar")
         }
         .errorAlert($errorMessage)
     }
@@ -36,6 +38,8 @@ struct NoHomeView: View {
             HomitaPrimaryButton(title: "Aceptar invitación", isEnabled: !isWorking, isLoading: isWorking) {
                 Task { await acceptPending(code) }
             }
+            .homitaRequiresNetwork()
+            .accessibilityIdentifier("sin-hogar.aceptar-invitacion")
             HomitaButton(title: "Ahora no", kind: .secondary) {
                 services.homeContext.pendingInvitationCode = nil
             }

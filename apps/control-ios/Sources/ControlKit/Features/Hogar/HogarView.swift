@@ -10,6 +10,8 @@ public struct HogarView: View {
     @State private var invitationStore: InvitationStore
     @State private var showInvite = false
     @State private var permissionsRow: HogarMemberRow?
+    /// Aviso «No se pudo guardar el hogar activo» (E4-02, P-10): toast descartable.
+    @State private var activeHomeNotice: String?
 
     public init(services: AppServices, home: HomeItem) {
         self.services = services
@@ -44,6 +46,11 @@ public struct HogarView: View {
             .homitaHiddenNavigationBar()
             .refreshable { await store.load() }
             .task { await store.load() }
+            .homitaToast($activeHomeNotice)
+            .onChange(of: services.homeContext.persistenceError) { _, message in
+                activeHomeNotice = message
+            }
+            .onAppear { activeHomeNotice = services.homeContext.persistenceError }
             .sheet(item: $permissionsRow) { row in
                 permissionsSheet(row)
             }
@@ -82,11 +89,7 @@ public struct HogarView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(row.isActive ? .isSelected : [])
-            }
-            if let error = services.homeContext.persistenceError {
-                Text(error)
-                    .font(HomitaFont.inter(13, relativeTo: .footnote))
-                    .foregroundStyle(Palette.accent)
+                .accessibilityIdentifier("hogar.hogar-activo.\(row.id)")
             }
         }
     }
@@ -191,12 +194,15 @@ public struct HogarView: View {
                 .font(HomitaFont.inter(13, relativeTo: .footnote))
                 .foregroundStyle(Palette.inkSoft)
             HomitaButton(title: "Crear invitación") { showInvite = true }
+                .homitaRequiresNetwork()
+                .accessibilityIdentifier("hogar.crear-invitacion")
             NavigationLink {
                 HomeInvitationsView(services: services, home: home)
             } label: {
                 linkRow(title: "Invitaciones pendientes", systemImage: "tray", tint: Palette.soonHex)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("hogar.invitaciones-pendientes")
         }
     }
 
@@ -208,6 +214,7 @@ public struct HogarView: View {
                 linkRow(title: "Administración", systemImage: "gearshape", tint: Palette.soonHex)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("hogar.administracion")
         }
     }
 

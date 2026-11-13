@@ -11,6 +11,22 @@ struct HomeAdminView: View {
 
     /// `home.invite` de la fila propia de `home/membership`; vacío hasta cargar o si falla (A1).
     @State private var ownPermissions: [String] = []
+    @State private var summaries: AdminSummaryStore
+
+    init(services: AppServices, home: HomeItem) {
+        self.services = services
+        self.home = home
+        let homeContext = services.homeContext
+        _summaries = State(initialValue: AdminSummaryStore(
+            repo: services.homes, homeId: home.homeId, activeHomeId: { homeContext.activeHomeId }
+        ))
+    }
+
+    /// Subtítulo de una fila: el fijo mientras carga; el resumen si llegó; «No se pudo cargar» si no.
+    private func subtitle(_ summary: String?, fallback: String) -> String {
+        if summaries.isLoading { return fallback }
+        return summary ?? HomeAdminSummary.unavailable
+    }
 
     var body: some View {
         let model = HomeAdminScreenModel(role: home.role, permissions: ownPermissions)
@@ -22,30 +38,34 @@ struct HomeAdminView: View {
                     HomitaLinkRow(title: "Configuración", subtitle: "Nombre y zona horaria", systemImage: "gearshape", tint: Palette.inkSoftHex)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("administracion.configuracion")
             }
             if model.showAdministrators {
                 NavigationLink {
                     HomeAdministratorsView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Administradores", subtitle: "Quién gestiona el hogar", systemImage: "person.badge.key", tint: Palette.accentHex)
+                    HomitaLinkRow(title: "Administradores", subtitle: subtitle(HomeAdminSummary.administrators(summaries.administrators), fallback: "Quién gestiona el hogar"), systemImage: "person.badge.key", tint: Palette.accentHex)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("administracion.administradores")
             }
             if model.showMembers {
                 NavigationLink {
                     HomeMembersView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Miembros", subtitle: "Personas, tipos y estado", systemImage: "person.2", tint: Palette.onlineHex)
+                    HomitaLinkRow(title: "Miembros", subtitle: subtitle(HomeAdminSummary.members(summaries.members), fallback: "Personas, tipos y estado"), systemImage: "person.2", tint: Palette.onlineHex)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("administracion.miembros")
             }
             if model.showInvitations {
                 NavigationLink {
                     HomeInvitationsView(services: services, home: home)
                 } label: {
-                    HomitaLinkRow(title: "Invitaciones", subtitle: "Códigos para unirse al hogar", systemImage: "envelope.badge", tint: Palette.soonHex)
+                    HomitaLinkRow(title: "Invitaciones", subtitle: subtitle(HomeAdminSummary.invitations(summaries.invitations), fallback: "Códigos para unirse al hogar"), systemImage: "envelope.badge", tint: Palette.soonHex)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("administracion.invitaciones")
             }
             if model.showPermissions {
                 NavigationLink {
@@ -54,6 +74,7 @@ struct HomeAdminView: View {
                     HomitaLinkRow(title: "Accesos", subtitle: "Qué puede hacer cada persona", systemImage: "lock.shield", tint: Palette.accentHex)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("administracion.accesos")
             }
             if model.showAudit {
                 NavigationLink {
@@ -62,10 +83,15 @@ struct HomeAdminView: View {
                     HomitaLinkRow(title: "Auditoría", subtitle: "Cambios recientes del hogar", systemImage: "list.bullet.clipboard", tint: Palette.inkSoftHex)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("administracion.auditoria")
             }
         }
         .navigationTitle(home.name)
-        .task { await loadOwnPermissions() }
+        .task {
+            await loadOwnPermissions()
+            let showInvitations = HomeAdminScreenModel(role: home.role, permissions: ownPermissions).showInvitations
+            await summaries.load(includeInvitations: showInvitations)
+        }
     }
 
     /// Permisos propios para decidir "Invitaciones". Un admin no lo necesita (tiene todos).
@@ -129,13 +155,15 @@ struct HomeSettingsView: View {
                         }
                     }
                     HomitaPanel("Registro", systemImage: "clock") {
-                        HomitaLabeledRow("Creado") { Text(detail.createdAt).foregroundStyle(Palette.inkSoft) }
-                        HomitaLabeledRow("Actualizado") { Text(detail.updatedAt).foregroundStyle(Palette.inkSoft) }
+                        HomitaLabeledRow("Creado") { Text(DateDisplay.dateTime(detail.createdAt)).foregroundStyle(Palette.inkSoft) }
+                        HomitaLabeledRow("Actualizado") { Text(DateDisplay.dateTime(detail.updatedAt)).foregroundStyle(Palette.inkSoft) }
                     }
                     if canEdit {
                         HomitaButton(title: "Guardar cambios") {
                             Task { await store.save(name: name, timezone: timezone) }
                         }
+                        .homitaRequiresNetwork()
+                        .accessibilityIdentifier("hogar-config.guardar")
                     }
                 }
             }
@@ -285,6 +313,7 @@ struct HomeAdministratorsView: View {
                         HomitaChipButton(title: "Salir", kind: .destructive) { request(.leave, item) }
                     }
                 }
+                .homitaRequiresNetwork()
             }
         }
         .padding(.vertical, 4)
@@ -464,6 +493,7 @@ struct PermissionEditorView: View {
             }
             if canReset {
                 HomitaButton(title: "Restablecer a tipo", kind: .secondary) { confirmingReset = true }
+                    .homitaRequiresNetwork()
             }
         }
         .navigationTitle(item.name)
@@ -481,8 +511,9 @@ struct PermissionEditorView: View {
                 Button("Guardar") {
                     Task { if await store.save(item: item, draft: draft, callerRole: callerRole) { dismiss() } }
                 }
-                .disabled(!draft.isDirty)
+                .disabled(!draft.isDirty || DataFreshness.shared.isOffline)
                 .foregroundStyle(Palette.ink)
+                .accessibilityIdentifier("accesos-editor.guardar")
             }
         }
     }
@@ -494,6 +525,7 @@ struct HomeAuditView: View {
     let home: HomeItem
 
     @State private var store: AuditStore
+    @State private var filter = AuditFilter()
 
     init(services: AppServices, home: HomeItem) {
         self.services = services
@@ -515,14 +547,18 @@ struct HomeAuditView: View {
                 case .failed(let message):
                     HomeErrorView(message: message) { Task { await store.load() } }
                 case .loaded:
-                    ForEach(store.items, id: \.id) { item in
+                    filterBar
+                    if filter.isActive && filter.apply(to: store.items).isEmpty {
+                        HomitaFootnote(text: "Ninguna entrada cargada coincide con el filtro")
+                    }
+                    ForEach(filter.apply(to: store.items), id: \.id) { item in
                         HomitaCard {
                             VStack(alignment: .leading, spacing: 4) {
                                 // E4-10: frase en español; el código técnico queda debajo.
                                 Text(AuditPhrase.sentence(action: item.action, actor: item.actorName, payload: item.payload.values))
                                     .font(HomitaFont.inter(16, weight: .semibold, relativeTo: .body))
                                     .foregroundStyle(Palette.ink)
-                                Text("\(item.actorName ?? "Sistema") · \(item.createdAt)")
+                                Text("\(item.actorName ?? "Sistema") · \(DateDisplay.dateTime(item.createdAt))")
                                     .font(HomitaFont.inter(13, relativeTo: .footnote))
                                     .foregroundStyle(Palette.inkSoft)
                                 Text(item.action)
@@ -542,6 +578,60 @@ struct HomeAuditView: View {
         .refreshable { await store.load() }
         .errorAlert($store.errorMessage)
         .task { if HomeAdminAccess.canViewAudit(role: home.role) { await store.load() } }
+    }
+
+    /// Filtros del frame 8: «Todo», «Acción ▾» y «Persona ▾» sobre las entradas ya cargadas.
+    private var filterBar: some View {
+        HStack(spacing: 8) {
+            Button { filter = AuditFilter() } label: {
+                AuditChipLabel(title: "Todo", isOn: !filter.isActive, showsChevron: false)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("auditoria.filtro-todo")
+            Menu {
+                Button("Cualquier acción") { filter.group = nil }
+                ForEach(AuditFilter.Group.allCases, id: \.self) { group in
+                    Button(group.label) { filter.group = group }
+                }
+            } label: {
+                AuditChipLabel(title: filter.group?.label ?? "Acción", isOn: filter.group != nil, showsChevron: true)
+            }
+            .accessibilityIdentifier("auditoria.filtro-accion")
+            Menu {
+                Button("Cualquier persona") { filter.actor = nil }
+                ForEach(AuditFilter.actors(in: store.items), id: \.self) { name in
+                    Button(name) { filter.actor = name }
+                }
+            } label: {
+                AuditChipLabel(title: filter.actor ?? "Persona", isOn: filter.actor != nil, showsChevron: true)
+            }
+            .accessibilityIdentifier("auditoria.filtro-persona")
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+/// Chip de filtro: píldora de 44 pt de alto, rellena en acento suave cuando está activa.
+private struct AuditChipLabel: View {
+    let title: String
+    let isOn: Bool
+    let showsChevron: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(title)
+                .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
+                .lineLimit(1)
+            if showsChevron {
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
+            }
+        }
+        .foregroundStyle(isOn ? Palette.accent : Palette.inkSoft)
+        .padding(.horizontal, 14)
+        .frame(minHeight: 44)
+        .background(isOn ? Palette.accentSoft : Palette.card, in: Capsule())
+        .overlay(Capsule().stroke(isOn ? Palette.accent : Palette.line, lineWidth: 1))
+        .contentShape(Capsule())
     }
 }
 
@@ -705,6 +795,8 @@ struct MemberEditorView: View {
             ) {
                 saveTapped()
             }
+            .homitaRequiresNetwork()
+            .accessibilityIdentifier("miembro-editor.guardar")
         }
         .navigationTitle(editing == nil ? "Nuevo miembro" : "Editar miembro")
         .toolbar {
@@ -809,7 +901,7 @@ struct HomeInvitationsView: View {
 
     /// Email (0023) + tipo + caducidad. Sin email (invitación anterior) no se muestra.
     static func rowDetail(_ item: InvitationItem) -> String {
-        let base = "\(MemberRules.kindLabel(item.kind)) · caduca \(item.expiresAt)"
+        let base = "\(MemberRules.kindLabel(item.kind)) · caduca \(DateDisplay.dateTime(item.expiresAt))"
         guard let email = item.email else { return base }
         return "\(email) · \(base)"
     }
@@ -826,6 +918,7 @@ struct HomeInvitationsView: View {
             }
             Spacer()
             HomitaChipButton(title: "Revocar", kind: .destructive) { toRevoke = item }
+                .homitaRequiresNetwork()
         }
         .padding(.vertical, 4)
     }
@@ -978,6 +1071,8 @@ struct InvitationCreateView: View {
             HomitaButton(title: "Crear", isEnabled: !isWorking && InvitationRules.normalizedEmail(email) != nil, isLoading: isWorking) {
                 Task { await create() }
             }
+            .homitaRequiresNetwork()
+            .accessibilityIdentifier("invitacion-nueva.crear")
         }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

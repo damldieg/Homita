@@ -51,6 +51,7 @@ struct PersonsView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .homitaRequiresNetwork()
                 .accessibilityLabel("Eliminar \(person.name)")
                 .accessibilityIdentifier("personas.eliminar.\(person.id)")
             }
@@ -83,7 +84,10 @@ struct PersonsView: View {
                         .listRowSeparator(.hidden)
                 }
             }
-            if store.persons.isEmpty && !store.isLoading {
+            if let failure = store.loadFailure, store.persons.isEmpty, !store.isLoading {
+                HomeErrorView(message: failure, title: "No se pudieron cargar las personas") { Task { await store.load() } }
+                    .homitaRow()
+            } else if store.persons.isEmpty && !store.isLoading {
                 HomitaCard {
                     HomitaEmptyNote(text: HomitaEmptyNoteText.persons)
                 }
@@ -137,6 +141,7 @@ struct PersonEditorView: View {
     @State private var isWorking = false
     /// El error del nombre aparece solo después de que el usuario toque el campo.
     @State private var nameTouched = false
+    @State private var showDeleteConfirm = false
 
     init(store: PersonStore, editing: PersonEntry?) {
         self.store = store
@@ -168,6 +173,19 @@ struct PersonEditorView: View {
                     isLoading: isWorking
                 ) {
                     Task { await save() }
+                }
+                .homitaRequiresNetwork()
+                .accessibilityIdentifier("persona-editor.guardar")
+                if let editing {
+                    HomitaButton(title: "Eliminar persona", kind: .secondary) { showDeleteConfirm = true }
+                        .homitaRequiresNetwork()
+                        .accessibilityIdentifier("persona-editor.eliminar")
+                        .homitaConfirm(
+                            DeleteConfirmation.message(names: [editing.name], consequence: "Se eliminará la persona."),
+                            isPresented: $showDeleteConfirm, confirmTitle: "Eliminar"
+                        ) {
+                            Task { if await store.delete(editing) { dismiss() } }
+                        }
                 }
             }
             .padding(20)

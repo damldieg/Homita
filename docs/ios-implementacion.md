@@ -134,6 +134,29 @@ Wireframes `AJ-01` a `AJ-05` y `AUTH-01` a `AUTH-03`.
 | E5-07 | Login | Tarjeta «Cuenta», «Entrando…», error por alerta con el mensaje del servidor |
 | E5-08 | Registro | Tarjeta «Cuenta» (nombre 3-50, email, contraseña ≥ 8) y «Código de invitación» (32 caracteres, opcional); tres mensajes de error de código; tras crear, la invitación queda pendiente y se acepta después |
 
+### Estado de Hogar y Ajustes (2026-11-13)
+
+Auditoría de E4 y E5 contra el código y cierre de lo que faltaba. Hecho:
+
+- **Sin conexión por pantalla (E0-06.5):** `homitaRequiresNetwork()` atenúa y desactiva los botones que escriben (guardar, crear, revocar, restablecer, unirse, iniciar sesión, registrarse, crear hogar). El motivo lo da el banner global.
+- **E4-02:** el aviso de hogar activo no guardado es un toast descartable (P-10).
+- **E4-04:** el menú Administración muestra resúmenes reales («2 administradores», «3 miembros», «1 pendiente»). Si un resumen falla pone «No se pudo cargar» sin tumbar los demás; mientras carga se ve el subtítulo fijo.
+- **E4-05/08/10:** «Creado», «Actualizado», «caduca» y la fecha de auditoría usan `DateDisplay` (antes, texto crudo del servidor).
+- **E4-10:** la auditoría tiene filtros «Todo», «Acción ▾» y «Persona ▾» sobre las entradas ya cargadas (el servidor no filtra).
+- **E5-03/04:** Personas pinta el error de la primera carga con «Reintentar»; el editor de persona tiene «Eliminar persona» con confirmación.
+- **E5-05:** tras unirse con un código aparece «Ver el hogar», que lleva a la pestaña Hogar.
+- **E5-01/02:** «Guardar cambios» de la cuenta se activa solo si hay cambios.
+- **E0-09:** identificadores `<pantalla>.<elemento>` en Bienvenida, Login, Registro, Sin hogar, Hogar, Administración, Auditoría, Ajustes, Unirse y editores. Los tests de UI siguen localizando por texto: migrarlos es trabajo aparte.
+
+Decisiones tomadas para cerrar los puntos abiertos:
+
+- Los errores de escritura de Administración **siguen en alerta «Aviso / OK»** (los wireframes HOGAR-03…09 lo describen así); el toast con «Reintentar» queda para Tareas, Calendario y Personas.
+- La validación de Hogar **sigue en alerta**, no en línea (HOGAR-04 y HOGAR-06 lo piden así). Personas ya valida el nombre en línea.
+- **«Guardar» de Accesos se queda en la barra superior**, como cualquier editor modal de la app, y se desactiva sin cambios.
+- La **edición de cuenta sigue inline** en Ajustes (AJ-01 es el contrato; AJ-02 era propuesta).
+- El **interruptor «Modo oscuro»** de Ajustes se mantiene (no estaba en el wireframe).
+- Ajustes **no necesita skeleton**: la sesión se restaura de forma síncrona y no hay nada que cargar.
+
 ## 9. Decisiones y preguntas abiertas
 
 Cerradas: P-01 (la pestaña pasa a «Ajustes», D-6), P-02 (rutas de escritura existen), P-03 (borrar lista borra sus tareas), P-08 (el contador de próximos de calendarios es un número suelto), P-12 (la auditoría no filtra en servidor: es parámetro `before_id`/`limit` solamente), P-19 (confirmación en todos los borrados, D-7), P-21 (la caché de lectura se implementa, D-8).

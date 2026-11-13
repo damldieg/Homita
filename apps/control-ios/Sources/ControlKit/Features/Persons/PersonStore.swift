@@ -5,8 +5,10 @@ import Foundation
 public final class PersonStore: WriteFailureReporting {
     public private(set) var persons: [PersonEntry] = []
     public private(set) var isLoading = false
-    /// Errores de lectura (alerta de la pantalla).
+    /// Errores de lectura (alerta de la pantalla) cuando ya hay personas que mostrar.
     public var errorMessage: String?
+    /// Fallo de la primera lectura sin nada que mostrar: la pantalla pinta el error con «Reintentar».
+    public private(set) var loadFailure: String?
     /// Última escritura fallida (toast con «Reintentar»).
     public var writeFailure: WriteFailure?
 
@@ -21,6 +23,7 @@ public final class PersonStore: WriteFailureReporting {
         defer { isLoading = false }
         do {
             persons = try await repo.index()
+            loadFailure = nil
         } catch {
             report(error)
         }
@@ -38,7 +41,8 @@ public final class PersonStore: WriteFailureReporting {
         }
     }
 
-    public func delete(_ person: PersonEntry) async {
+    @discardableResult
+    public func delete(_ person: PersonEntry) async -> Bool {
         await performWrite { store in
             _ = try await store.repo.delete(id: person.id)
             await store.load()
@@ -46,6 +50,11 @@ public final class PersonStore: WriteFailureReporting {
     }
 
     private func report(_ error: Error) {
-        errorMessage = (error as? APIError)?.userMessage ?? error.localizedDescription
+        let message = (error as? APIError)?.userMessage ?? error.localizedDescription
+        if persons.isEmpty {
+            loadFailure = message
+        } else {
+            errorMessage = message
+        }
     }
 }

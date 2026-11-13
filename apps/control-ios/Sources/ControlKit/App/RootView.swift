@@ -115,7 +115,7 @@ struct MainTabView: View {
             .id(homeKey)
             .tabItem { Label("Hogar", systemImage: "person.2") }
             .tag(3)
-            ProfileView(services: services)
+            ProfileView(services: services, onOpenHome: { selectedTab = 3 })
                 .tabItem { Label("Ajustes", systemImage: "gearshape") }
                 .tag(4)
         }

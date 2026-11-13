@@ -31,8 +31,12 @@ public struct WelcomeView: View {
                         .foregroundStyle(Palette.inkSoft)
                     Spacer()
                     HomitaPrimaryButton(title: "Iniciar sesión") { showLogin = true }
+                        .homitaRequiresNetwork()
+                        .accessibilityIdentifier("bienvenida.iniciar-sesion")
                     if services.auth.allowRegistration {
                         HomitaButton(title: "Registrarse", kind: .secondary) { showRegister = true }
+                            .homitaRequiresNetwork()
+                            .accessibilityIdentifier("bienvenida.registrarse")
                     }
                 }
                 .padding(24)

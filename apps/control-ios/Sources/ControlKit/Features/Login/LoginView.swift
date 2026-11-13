@@ -24,12 +24,16 @@ public struct LoginView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         HomitaSectionHeader(title: "Cuenta", systemImage: "person.crop.circle")
                         HomitaField(placeholder: "Email", text: $email, isEmail: true)
+                            .accessibilityIdentifier("login.email")
                         HomitaField(placeholder: "Contraseña", text: $password, isSecure: true)
+                            .accessibilityIdentifier("login.contrasena")
                     }
                 }
                 HomitaPrimaryButton(title: "Iniciar sesión", isEnabled: canSubmit, isLoading: isWorking) {
                     Task { await login() }
                 }
+                .homitaRequiresNetwork()
+                .accessibilityIdentifier("login.iniciar-sesion")
             }
             .padding(20)
         }
