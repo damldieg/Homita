@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		B10000000000000000000001 /* ControlKit in Frameworks */ = {isa = PBXBuildFile; productRef = C10000000000000000000001 /* ControlKit */; };
+		E10000000000000000000002 /* HomitaWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = E10000000000000000000001 /* HomitaWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		E10000000000000000000003 /* HomitaShared in Frameworks */ = {isa = PBXBuildFile; productRef = E10000000000000000000004 /* HomitaShared */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -18,13 +20,37 @@
 			remoteGlobalIDString = B10000000000000000000008;
 			remoteInfo = ControlApp;
 		};
+		E1000000000000000000000E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B1000000000000000000000D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E10000000000000000000007;
+			remoteInfo = HomitaWidgets;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E10000000000000000000010 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				E10000000000000000000002 /* HomitaWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		B10000000000000000000002 /* ControlApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ControlApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B10000000000000000000003 /* Config.local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.local.xcconfig; sourceTree = "<group>"; };
 		D20000000000000000000001 /* Config.prod.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.prod.xcconfig; sourceTree = "<group>"; };
 		D1000000000000000000002 /* ControlAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ControlAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E10000000000000000000001 /* HomitaWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HomitaWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		E10000000000000000000011 /* ControlApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ControlApp.entitlements; sourceTree = "<group>"; };
+		E10000000000000000000012 /* HomitaWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HomitaWidgets.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -35,6 +61,13 @@
 			);
 			target = B10000000000000000000008 /* ControlApp */;
 		};
+		E10000000000000000000006 /* Exceptions for "HomitaWidgets" folder in "HomitaWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = E10000000000000000000007 /* HomitaWidgets */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -44,6 +77,14 @@
 				B10000000000000000000013 /* Exceptions for "ControlApp" folder in "ControlApp" target */,
 			);
 			path = ControlApp;
+			sourceTree = "<group>";
+		};
+		E10000000000000000000005 /* HomitaWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				E10000000000000000000006 /* Exceptions for "HomitaWidgets" folder in "HomitaWidgets" target */,
+			);
+			path = HomitaWidgets;
 			sourceTree = "<group>";
 		};
 		D1000000000000000000001 /* ControlAppUITests */ = {
@@ -62,6 +103,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E10000000000000000000009 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E10000000000000000000003 /* HomitaShared in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D1000000000000000000005 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -76,17 +125,29 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000004 /* ControlApp */,
+				E10000000000000000000005 /* HomitaWidgets */,
 				D1000000000000000000001 /* ControlAppUITests */,
+				E10000000000000000000013 /* Entitlements */,
 				B10000000000000000000003 /* Config.local.xcconfig */,
 				D20000000000000000000001 /* Config.prod.xcconfig */,
 				B10000000000000000000007 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
+		E10000000000000000000013 /* Entitlements */ = {
+			isa = PBXGroup;
+			children = (
+				E10000000000000000000011 /* ControlApp.entitlements */,
+				E10000000000000000000012 /* HomitaWidgets.entitlements */,
+			);
+			path = Entitlements;
+			sourceTree = "<group>";
+		};
 		B10000000000000000000007 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000002 /* ControlApp.app */,
+				E10000000000000000000001 /* HomitaWidgets.appex */,
 				D1000000000000000000002 /* ControlAppUITests.xctest */,
 			);
 			name = Products;
@@ -103,10 +164,12 @@
 				B1000000000000000000000B /* Sources */,
 				B10000000000000000000005 /* Frameworks */,
 				B1000000000000000000000C /* Resources */,
+				E10000000000000000000010 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				E1000000000000000000000F /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				B10000000000000000000004 /* ControlApp */,
@@ -140,6 +203,29 @@
 			productReference = D1000000000000000000002 /* ControlAppUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		E10000000000000000000007 /* HomitaWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E1000000000000000000000B /* Build configuration list for PBXNativeTarget "HomitaWidgets" */;
+			buildPhases = (
+				E10000000000000000000008 /* Sources */,
+				E10000000000000000000009 /* Frameworks */,
+				E1000000000000000000000A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				E10000000000000000000005 /* HomitaWidgets */,
+			);
+			name = HomitaWidgets;
+			packageProductDependencies = (
+				E10000000000000000000004 /* HomitaShared */,
+			);
+			productName = HomitaWidgets;
+			productReference = E10000000000000000000001 /* HomitaWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -168,6 +254,7 @@
 			projectRoot = "";
 			targets = (
 				B10000000000000000000008 /* ControlApp */,
+				E10000000000000000000007 /* HomitaWidgets */,
 				D1000000000000000000003 /* ControlAppUITests */,
 			);
 		};
@@ -182,6 +269,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		D1000000000000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E1000000000000000000000A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -227,6 +321,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E10000000000000000000008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -234,6 +335,11 @@
 			isa = PBXTargetDependency;
 			target = B10000000000000000000008 /* ControlApp */;
 			targetProxy = D1000000000000000000008 /* PBXContainerItemProxy */;
+		};
+		E1000000000000000000000F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E10000000000000000000007 /* HomitaWidgets */;
+			targetProxy = E1000000000000000000000E /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -353,6 +459,7 @@
 		B10000000000000000000011 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Entitlements/ControlApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = V2LULDCBSP;
@@ -383,6 +490,7 @@
 		B10000000000000000000012 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Entitlements/ControlApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = V2LULDCBSP;
@@ -444,6 +552,56 @@
 			};
 			name = Release;
 		};
+		E1000000000000000000000C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Entitlements/HomitaWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = V2LULDCBSP;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HomitaWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lito.planify.control.ios.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E1000000000000000000000D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Entitlements/HomitaWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = V2LULDCBSP;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HomitaWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lito.planify.control.ios.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -474,6 +632,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		E1000000000000000000000B /* Build configuration list for PBXNativeTarget "HomitaWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E1000000000000000000000C /* Debug */,
+				E1000000000000000000000D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -487,6 +654,10 @@
 		C10000000000000000000001 /* ControlKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ControlKit;
+		};
+		E10000000000000000000004 /* HomitaShared */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = HomitaShared;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

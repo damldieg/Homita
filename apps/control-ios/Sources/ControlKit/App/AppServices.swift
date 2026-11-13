@@ -32,6 +32,7 @@ public struct AppServices {
                 ReadCache.shared.clear()
                 DataFreshness.shared.markFresh()
                 session?.signOut()
+                await HomitaSync.shared.reset()
             }
         }
         let auth = AuthService(client: client, session: session, config: config, http: http)
@@ -50,7 +51,20 @@ public struct AppServices {
     public func signOut() {
         homeContext.clear()
         ReadCache.shared.clear()
-        Task { @MainActor in DataFreshness.shared.markFresh() }
+        Task { @MainActor in
+            DataFreshness.shared.markFresh()
+            // Avisos, datos de widgets y Live Activity del usuario anterior fuera.
+            await HomitaSync.shared.reset()
+        }
         session.signOut()
+    }
+
+    /// Servicios propios para el refresco en segundo plano, cuando el sistema lanza la app sin
+    /// interfaz: misma config y misma sesión del Keychain que la app.
+    public static func makeBackground() -> AppServices {
+        let tokenStore = KeychainTokenStore()
+        let session = SessionStore(store: tokenStore)
+        session.restore()
+        return AppServices(config: AppConfig.load(), session: session, tokenStore: tokenStore)
     }
 }

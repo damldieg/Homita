@@ -1,4 +1,5 @@
 import SwiftUI
+import HomitaShared
 
 /// Perfil: datos de cuenta (`PATCH user/update`: nombre, email y contraseña opcional), acceso a
 /// Personas, unirse a un hogar con un código de invitación (1.15) y cierre de sesión (local: no
@@ -16,6 +17,7 @@ public struct ProfileView: View {
     @State private var errorMessage: String?
     @State private var isWorking = false
     @State private var showSignOutConfirm = false
+    @State private var showNotifications = false
     @AppStorage(AppearancePreference.storageKey) private var appearance = AppearancePreference.system.rawValue
     @Environment(\.colorScheme) private var colorScheme
 
@@ -55,6 +57,7 @@ public struct ProfileView: View {
                     accountCard
                     familyCard
                     invitationsCard
+                    notificationsCard
                     HomitaCard {
                         HomitaToggle(title: "Modo oscuro", isOn: darkModeBinding)
                             .accessibilityIdentifier("ajustes.modo-oscuro")
@@ -77,6 +80,10 @@ public struct ProfileView: View {
             .background(Palette.background.ignoresSafeArea())
             .homitaNavigationBar()
             .errorAlert($errorMessage)
+            .navigationDestination(isPresented: $showNotifications) { NotificationSettingsView() }
+            // `homita://ajustes-notificaciones` (widgets desactivados, permiso denegado…).
+            .task { openNotificationsIfRequested(DeepLinkCenter.shared.pending) }
+            .onChange(of: DeepLinkCenter.shared.pending) { _, link in openNotificationsIfRequested(link) }
             .homitaConfirm("¿Cerrar sesión en este iPhone?", isPresented: $showSignOutConfirm, confirmTitle: "Cerrar sesión") {
                 services.signOut()
             }
@@ -137,6 +144,26 @@ public struct ProfileView: View {
         .padding(16)
         .background(Palette.card, in: RoundedRectangle(cornerRadius: 24))
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(Palette.cardBorder, lineWidth: 1))
+    }
+
+    private var notificationsCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HomitaSectionHeader(title: "Notificaciones", systemImage: "bell")
+            Button { showNotifications = true } label: {
+                linkRow(title: "Avisos, widgets y pantalla de bloqueo", systemImage: "bell.badge", tint: Palette.accentHex)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("ajustes.notificaciones")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Palette.card, in: RoundedRectangle(cornerRadius: 24))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Palette.cardBorder, lineWidth: 1))
+    }
+
+    private func openNotificationsIfRequested(_ link: HomitaDeepLink?) {
+        guard link == .ajustesNotificaciones else { return }
+        showNotifications = true
     }
 
     // 1.15 (D-016): fuera del `if case .ready`, visible también sin hogar activo.
