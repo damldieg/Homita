@@ -111,4 +111,60 @@ final class RoutineSectionsTests: XCTestCase {
         XCTAssertFalse(store.isSoon(early))
         XCTAssertEqual(store.minutesUntilStart(of: soon), 30)
     }
+
+    private func ruleJSON(_ id: Int, time: String, frequency: String, days: String = "[]", active: Bool = true) -> String {
+        #"{"id":\#(id),"calendar_id":3,"title":"R\#(id)","time":"\#(time)","start_date":"2026-11-02","frequency":"\#(frequency)","interval":1,"days":\#(days),"active":\#(active)}"#
+    }
+
+    /// CAL-02: «Hoy» lista todas las rutinas del día, no solo las que tienen una sesión futura.
+    func testTodayKeepsStartedAndFinishedRoutinesEvenIfNextIsTomorrow() async {
+        let store = await makeStore(
+            now: "2026-11-09 10:30:00", zone: utc,
+            routines: [routineJSON(1, time: "10:00"), routineJSON(2, time: "08:00"), routineJSON(3, time: "12:00")],
+            sessions: [
+                sessionJSON(1, routine: 1, at: "2026-11-09 10:00:00"), sessionJSON(2, routine: 1, at: "2026-11-10 10:00:00"),
+                sessionJSON(3, routine: 2, at: "2026-11-09 08:00:00"), sessionJSON(4, routine: 2, at: "2026-11-10 08:00:00"),
+                sessionJSON(5, routine: 3, at: "2026-11-09 12:00:00")
+            ]
+        )
+        let sections = store.routineSections
+        XCTAssertEqual(sections.map(\.group), [.today, .tomorrow])
+        // En curso y por empezar por hora; la caducada al final.
+        XCTAssertEqual(sections[0].routines.map(\.id), [1, 3, 2])
+        XCTAssertEqual(sections[1].routines.map(\.id), [2, 1])
+        let byId = Dictionary(uniqueKeysWithValues: store.routines.map { ($0.id, $0) })
+        XCTAssertEqual(store.status(for: byId[1]!, in: .today), .inProgress)
+        XCTAssertEqual(store.status(for: byId[2]!, in: .today), .expired)
+    }
+
+    /// Sin sesiones generadas, la regla decide qué toca hoy; las pausadas también salen en «Hoy».
+    func testTodayUsesRuleWhenNoSessionsAndIncludesPaused() async {
+        let store = await makeStore(
+            now: "2026-11-09 10:30:00", zone: utc,   // lunes
+            routines: [
+                ruleJSON(1, time: "10:00", frequency: "daily"),
+                ruleJSON(2, time: "08:00", frequency: "daily", active: false),
+                ruleJSON(3, time: "09:00", frequency: "weekly", days: "[2]"),   // martes
+                ruleJSON(4, time: "09:00", frequency: "weekly", days: "[3]")    // miércoles
+            ],
+            sessions: []
+        )
+        let sections = store.routineSections
+        XCTAssertEqual(sections.map(\.group), [.today, .tomorrow, .nextWeek])
+        XCTAssertEqual(sections[0].routines.map(\.id), [2, 1], "la pausada también sale; por hora")
+        XCTAssertEqual(Set(sections[1].routines.map(\.id)), [1, 3], "mañana por regla, solo activas")
+        XCTAssertEqual(sections[2].routines.map(\.id), [4])
+        let byId = Dictionary(uniqueKeysWithValues: store.routines.map { ($0.id, $0) })
+        XCTAssertEqual(store.status(for: byId[1]!, in: .today), .inProgress, "la regla da el inicio de hoy")
+        XCTAssertEqual(store.status(for: byId[2]!, in: .today), .normal, "pausada: no corre, no caduca")
+    }
+
+    func testRoutineTodayOnlyIsNotRepeatedInNextWeek() async {
+        let store = await makeStore(
+            now: "2026-11-09 18:00:00", zone: utc,
+            routines: [routineJSON(1, time: "08:00")],
+            sessions: [sessionJSON(1, routine: 1, at: "2026-11-09 08:00:00")]
+        )
+        XCTAssertEqual(store.routineSections.map(\.group), [.today], "sin próxima sesión, caducada y solo en Hoy")
+    }
 }
