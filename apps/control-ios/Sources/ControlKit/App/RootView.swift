@@ -25,16 +25,28 @@ public struct RootView: View {
         _services = State(initialValue: AppServices(config: config, session: session, tokenStore: tokenStore))
     }
 
+    /// Hogar activo aún sin resolver (primera carga o tras reiniciar): no se muestran pestañas.
+    private var isResolvingHome: Bool {
+        guard services.homeContext.activeHomeId == nil else { return false }
+        switch services.homeContext.state {
+        case .unresolved, .loading: return true
+        case .ready, .noHome, .failed: return false
+        }
+    }
+
     public var body: some View {
         Group {
             if session.session == nil {
                 WelcomeView(services: services)
+            } else if isResolvingHome {
+                // Carga inicial: solo esqueleto a pantalla completa, sin pestañas ni barra inferior.
+                HomeLoadingView()
             } else {
                 MainTabView(services: services)
-                    .task(id: session.session?.id) {
-                        await services.homeContext.load(using: services.homes)
-                    }
             }
+        }
+        .task(id: session.session?.id) {
+            await services.homeContext.load(using: services.homes)
         }
         .environment(session)
         .preferredColorScheme((AppearancePreference(rawValue: appearance) ?? .system).colorScheme)
