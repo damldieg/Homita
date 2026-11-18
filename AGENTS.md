@@ -67,6 +67,6 @@ licenses/                 Geist-OFL.txt
 - UI is designed in native pixels: `Density(1f)` fixed; do not change system density.
 - Data layer: every remote datum cached on disk, stale-if-error (`DiskCache` + `CachedResource`); HTTP errors as `HttpError`; 401 clears session.
 - Tests are plain JUnit4 unit tests under `app/src/test`; no instrumentation tests.
-- No CI: tests and lint run manually (`:app:testDebugUnitTest`, `:app:lintDebug`).
+- CI only for the Edge: `.github/workflows/edge-tests.yml` runs `scripts/supabase/ci.sh` (contract, cross-tenant and SQL checks on an ephemeral local Supabase stack; reproduce locally with `scripts/supabase/ci.sh`, see `supabase/README.md`). Android tests and lint stay manual (`:app:testDebugUnitTest`, `:app:lintDebug`).
 - `supabase/functions/api` es el backend único y canónico desde el corte (función Deno por casos de uso, contrato PHP-compat D-008); producción apunta a Supabase desde el corte 2026-11-08. El PHP legacy se retiró del repo (tag `legacy-php-final`, change remove-php-legacy).
 - `apps/control` es un git subtree de https://github.com/eusonlito/Planify-APP (su `android/` aplanado a la raíz con `git mv`); sincronía upstream: `git subtree pull --prefix=apps/control …` y re-aplano manual si upstream añade rutas nuevas bajo `android/`.
