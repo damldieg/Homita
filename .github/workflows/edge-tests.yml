@@ -15,8 +15,8 @@ on:
   pull_request:
     branches: [master]
 
-permissions:
-  contents: read
+# Mínimo privilegio: el token queda sin permisos por defecto y cada job pide los suyos.
+permissions: {}
 
 concurrency:
   group: edge-tests-${{ github.ref }}
@@ -26,6 +26,8 @@ jobs:
   edge-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    permissions:
+      contents: read  # solo actions/checkout; upload-artifact usa el runtime de Actions, no el token
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0

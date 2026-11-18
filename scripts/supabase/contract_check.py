@@ -205,7 +205,9 @@ CASES_115 = 3 + 8 + 19 + 7 + 19 + 11 + 2  # bloque 1.15 de invitaciones: IX1–I
                                           # 401/400 de las 4 rutas, IC1–IC19 create (+ IR7),
                                           # IL1–IL7 listado, IA1–IA19 accept, IR1–IR11 revoke
                                           # (IR7 va con create) e IQ1–IQ2 email externo 403
-EXPECTED_CASES = CASES_BASE + CASES_110 + CASES_115  # 351 + 34 + 69 = 454
+# Valores de can_edit (0029: 14) y app_user_id (0028: 5) en lugar de solo la forma; medido.
+CASES_VALUES = 14 + 5
+EXPECTED_CASES = CASES_BASE + CASES_110 + CASES_115 + CASES_VALUES  # 351 + 34 + 69 + 19 = 473
 
 
 def record(route, name, ok, detail=""):
@@ -1454,6 +1456,64 @@ check("POST /calendar/user", "owner invita al viewer (200 tras membresía, A-7)"
 check("POST /task-list/user", "owner invita al viewer (200 tras membresía, A-7)",
       request("POST", "/task-list/user", {"task_list_id": vlist, "email": B_EMAIL}, tok), 200, USER)
 
+# Valores de can_edit (0029; el resto del contrato valida solo la forma "<bool>"): owner true (la
+# API devuelve role='owner' or can_edit aunque la columna sea false), viewer nuevo false, y true
+# tras el PATCH del owner. El PATCH se revierte para no alterar la matriz viewer de abajo.
+a_home = psql("select default_home_id from app_user where email = '" + args.email + "'")
+
+
+def can_edit_of(path, key, rid, uid, token, home=None):
+    """can_edit del usuario `uid` en el recurso `rid` (listado de usuarios o get del recurso)."""
+    if uid is None:
+        res = request("GET", path, None, token, home=home)
+        rows = parse(res[1]) if res[0] == 200 else []
+        return next((r.get("can_edit") for r in rows if isinstance(r, dict) and r.get("id") == rid), "?")
+    res = request("GET", f"{path}?{key}={rid}", None, token)
+    rows = parse(res[1]) if res[0] == 200 else []
+    return next((r.get("can_edit") for r in rows if isinstance(r, dict) and r.get("user_id") == uid), "?")
+
+
+value("GET /calendar", "can_edit del owner en su calendario = true (role owner, 0029)",
+      can_edit_of("/calendar", "calendar_id", vcal, None, tok) is True,
+      repr(can_edit_of("/calendar", "calendar_id", vcal, None, tok)))
+value("GET /task-list", "can_edit del owner en su lista = true (role owner, 0029)",
+      can_edit_of("/task-list", "task_list_id", vlist, None, tok) is True,
+      repr(can_edit_of("/task-list", "task_list_id", vlist, None, tok)))
+value("GET /calendar/user", "can_edit del viewer nuevo en el calendario = false",
+      can_edit_of("/calendar/user", "calendar_id", vcal, vid, tok) is False,
+      repr(can_edit_of("/calendar/user", "calendar_id", vcal, vid, tok)))
+value("GET /task-list/user", "can_edit del viewer nuevo en la lista = false",
+      can_edit_of("/task-list/user", "task_list_id", vlist, vid, tok) is False,
+      repr(can_edit_of("/task-list/user", "task_list_id", vlist, vid, tok)))
+value("GET /calendar", "viewer nuevo lee su calendario con can_edit = false",
+      can_edit_of("/calendar", "calendar_id", vcal, None, vtok, home=a_home) is False,
+      repr(can_edit_of("/calendar", "calendar_id", vcal, None, vtok, home=a_home)))
+value("GET /task-list", "viewer nuevo lee su lista con can_edit = false",
+      can_edit_of("/task-list", "task_list_id", vlist, None, vtok, home=a_home) is False,
+      repr(can_edit_of("/task-list", "task_list_id", vlist, None, vtok, home=a_home)))
+res = request("PATCH", "/calendar/user", {"calendar_id": vcal, "user_id": vid, "can_edit": True}, tok)
+value("PATCH /calendar/user", "owner da can_edit al viewer en el calendario → 200", res[0] == 200, repr(res)[:300])
+value("GET /calendar/user", "tras el PATCH, can_edit del viewer en el calendario = true (owner)",
+      can_edit_of("/calendar/user", "calendar_id", vcal, vid, tok) is True,
+      repr(can_edit_of("/calendar/user", "calendar_id", vcal, vid, tok)))
+value("GET /calendar", "tras el PATCH, el viewer lee su calendario con can_edit = true",
+      can_edit_of("/calendar", "calendar_id", vcal, None, vtok, home=a_home) is True,
+      repr(can_edit_of("/calendar", "calendar_id", vcal, None, vtok, home=a_home)))
+res = request("PATCH", "/calendar/user", {"calendar_id": vcal, "user_id": vid, "can_edit": False}, tok)
+value("PATCH /calendar/user", "owner revierte can_edit del viewer → 200 y false",
+      res[0] == 200 and can_edit_of("/calendar/user", "calendar_id", vcal, vid, tok) is False, repr(res)[:300])
+res = request("PATCH", "/task-list/user", {"task_list_id": vlist, "user_id": vid, "can_edit": True}, tok)
+value("PATCH /task-list/user", "owner da can_edit al viewer en la lista → 200", res[0] == 200, repr(res)[:300])
+value("GET /task-list/user", "tras el PATCH, can_edit del viewer en la lista = true (owner)",
+      can_edit_of("/task-list/user", "task_list_id", vlist, vid, tok) is True,
+      repr(can_edit_of("/task-list/user", "task_list_id", vlist, vid, tok)))
+value("GET /task-list", "tras el PATCH, el viewer lee su lista con can_edit = true",
+      can_edit_of("/task-list", "task_list_id", vlist, None, vtok, home=a_home) is True,
+      repr(can_edit_of("/task-list", "task_list_id", vlist, None, vtok, home=a_home)))
+res = request("PATCH", "/task-list/user", {"task_list_id": vlist, "user_id": vid, "can_edit": False}, tok)
+value("PATCH /task-list/user", "owner revierte can_edit del viewer → 200 y false",
+      res[0] == 200 and can_edit_of("/task-list/user", "task_list_id", vlist, vid, tok) is False, repr(res)[:300])
+
 # Matriz viewer del calendario (owner-only 403 y self-remove 400, desviaciones)
 check("PATCH /calendar/update", "viewer PATCH /calendar/update cambia name (403, desviación documentada)",
       request("PATCH", "/calendar/update", {"id": vcal, "name": "CC-Viewer-Cal RENOMBRADO",
@@ -1513,6 +1573,10 @@ def scenario_member():
     value("GET /person", "K1 la persona nueva con home_member_id y kind=child",
           p1 is not None and any(x.get("id") == p1 and x.get("kind") == "child" for x in b),
           repr(b)[:300])
+    # app_user_id (0028): valor, no solo forma. m1 aún sin cuenta vinculada → null.
+    value("GET /person", "K1 app_user_id de la persona de m1 (sin cuenta, antes de vincular) = null",
+          any(x.get("id") == p1 and "app_user_id" in x and x["app_user_id"] is None for x in b),
+          repr(b)[:300])
     # K2: pet sin cuenta — sin filas nuevas en home_membership ni membership_permission
     pre = psql("select (select count(*) from home_membership where home_id = %d) || ' ' || "
                "(select count(*) from membership_permission mp "
@@ -1532,6 +1596,11 @@ def scenario_member():
     value("POST /home/member/create", "K2 sin filas nuevas en home_membership ni membership_permission",
           pre == post, f"antes={pre!r} después={post!r}")
     p2 = psql(f"select id from person where home_member_id = {m2}")
+    b = check("GET /person", "K2 GET /person lista la persona de la mascota (home_member_id)",
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
+    value("GET /person", "K2 app_user_id de la persona de la mascota m2 = null",
+          any(x.get("home_member_id") == m2 and "app_user_id" in x and x["app_user_id"] is None
+              for x in b), repr(b)[:300])
     # K3–K5: validación de entrada (la RPC es la fuente única: fn_validate_person_fields)
     check("POST /home/member/create", "K3 create kind robot → 400 Invalid member",
           request("POST", "/home/member/create",
@@ -1665,6 +1734,12 @@ def scenario_member():
     value("GET /home/member", "K15 miembro vinculado con linked=true",
           isinstance(b, list) and any(x.get("id") == m1 and x.get("linked") is True for x in b),
           repr(b)[:300])
+    b = check("GET /person", "K15 GET /person tras vincular por psql",
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
+    value("GET /person", "K15 app_user_id de la persona de m1 vinculado = entero (id del viewer)",
+          any(x.get("home_member_id") == m1 and isinstance(x.get("app_user_id"), int)
+              and not isinstance(x.get("app_user_id"), bool) and x["app_user_id"] == vid
+              for x in b), repr(b)[:300])
     check("PATCH /home/member/update", "K15 PATCH kind pet sobre vinculado → 400 Invalid member",
           request("PATCH", "/home/member/update", {"id": m1, "kind": "pet"}, tok), 400, ERR_INVALID_MEMBER)
     # K16: baja legacy DELETE /person/delete (soft + desasignación, Q1a) por el creador
@@ -2572,5 +2647,5 @@ if len(results) != EXPECTED_CASES:
           f"M/C2 de 1.6 + 6 del bloque de permisos por kind de 1.7 + 40 del bloque matriz §3.4.1 "
           f"de 1.8 + 39 del bloque 1.9 de configuración de permisos (3+8+15+7+6) + 34 del bloque "
           f"1.10 de contratos home (15+15+4) + 69 del bloque 1.15 de invitaciones "
-          f"(3+8+19+7+19+11+2))")
+          f"(3+8+19+7+19+11+2) + 19 de valores de can_edit (14) y app_user_id (5))")
 sys.exit(1 if fails or missing or thin or len(results) != EXPECTED_CASES else 0)

@@ -54,7 +54,7 @@ admin A y miembro adult sin vincular M 998210; H2 998201 con admin B, M2 998211 
 B sobre H1 por RPC directa → Not Found (crear, listar, revocar en H1 y con su hogar H2), member_id
 de otro hogar e inexistente → el mismo Invalid member, anon sin EXECUTE en accept, SELECT/INSERT
 directo en home_invitation denegados, y accept por RPC directa con X-Home-Id de H2 → ok en H1 (la
-RPC ignora la cabecera, D-015). INV_RACE (INV_ITERS carreras con rendezvous y orden alterno, como
+RPC ignora la cabecera, D-015). INV_RACE (INV_ITERS carreras con barrera advisory y orden alterno, como
 F1/F2): mismo código B ∥ C (1 ok + 1 Not Found, 1 membresía, accepted_by = ganador), dos códigos
 del mismo usuario (1 ok + 1 Already member, la otra sigue pending), accept con miembro ∥ baja del
 miembro, accept ∥ revoke, accept ∥ remove_home_membership de otro miembro, accept de C en H1 ∥ C
@@ -957,27 +957,120 @@ c_uid = psql(f"select auth_uid from app_user where id = {c_id}")
 HC = 998001  # XT-Conc
 
 
-def psql_async(sql):
+_app_seq = 0
+
+
+def app_name(tag):
+    """application_name único por sesión de carrera (xt-<tag>-<n>): permite identificarla en
+    pg_stat_activity sin casar por subcadena de query con sesiones de otros bloques."""
+    global _app_seq
+    _app_seq += 1
+    return f"xt-{tag}-{_app_seq}"
+
+
+def psql_async(sql, app=None):
+    """psql en segundo plano con `sql` por stdin. Con `app`, la sesión fija application_name (la
+    primera sentencia; el env del host no entra en `docker exec`, así que va por SQL)."""
     assert_psql_local()
     cmd = shlex.split(os.environ.get("PSQL", "psql"))
     p = subprocess.Popen(cmd + ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-t", "-A"],
                          stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT, text=True, env=psql_env())
+    if app:
+        sql = f"set application_name = '{app}';\n" + sql
     p.stdin.write(sql)
     p.stdin.close()
     return p
 
 
-def wait_locked(like, timeout=15):
-    """True si alguna sesión está bloqueada en un lock con `like` en su query (pg_stat_activity)."""
-    for _ in range(int(timeout * 10)):
-        n = psql("select count(*) from pg_stat_activity "
-                 f"where wait_event_type = 'Lock' and query ilike '%{like}%' "
-                 "and query not ilike '%pg_stat_activity%'")
-        if n != "0":
+def _poll(sql, timeout):
+    """Sondea `sql` (count) cada 0,1 s hasta que sea != 0 o venza el tope. → bool."""
+    deadline = time.monotonic() + timeout
+    while True:
+        if psql(sql) != "0":
             return True
+        if time.monotonic() >= deadline:
+            return False
         time.sleep(0.1)
-    return False
+
+
+def wait_locked(app, timeout=15):
+    """True si la sesión `app` está bloqueada en un lock (pg_stat_activity, por application_name)."""
+    return _poll("select count(*) from pg_stat_activity "
+                 f"where application_name = '{app}' and wait_event_type = 'Lock'", timeout)
+
+
+def wait_holding(app, timeout=15):
+    """True cuando la sesión `app` ya ejecutó su RPC y está en el pg_sleep del hold (state active
+    con pg_sleep en curso): solo entonces S1 tiene el lock y se puede lanzar S2. Sin reintentos:
+    si vence el tope devuelve False y el llamador falla explícitamente."""
+    return _poll("select count(*) from pg_stat_activity "
+                 f"where application_name = '{app}' and state = 'active' "
+                 "and query ilike '%pg_sleep%'", timeout)
+
+
+def kill_procs(*procs):
+    for p in procs:
+        if p is not None and p.poll() is None:
+            p.kill()
+        if p is not None:
+            p.communicate()
+
+
+def start_s1(sql, app, name, hold=6):
+    """Lanza S1 (sql ya con begin+set_config+RPC, sin pg_sleep ni commit) con hold y espera a que
+    tenga el lock. → proceso, o None tras kill y un check FALLIDO explícito si vence el tope."""
+    s1 = psql_async(sql + f"select pg_sleep({hold});\ncommit;\n", app)
+    if wait_holding(app):
+        return s1
+    kill_procs(s1)
+    check(f"{name}: S1 ({app}) no llegó a sostener el lock en 15 s (wait_holding)", False,
+          "la RPC de S1 falló o no terminó; carrera abortada sin reintento")
+    return None
+
+
+def barrier_pair(sql_a, sub_a, sql_b, sub_b, i, tag, name):
+    """Dos sesiones psql que arrancan su RPC a la vez sin depender de relojes: un holder del
+    orquestador toma pg_advisory_lock(K) (stdin abierto); A y B hacen set_config y piden
+    pg_advisory_xact_lock_shared(K) (bloquea mientras el holder lo tenga). Cuando pg_stat_activity
+    muestra a las dos esperando, se libera el holder y despiertan juntas. El orden de lanzamiento
+    alterna por iteración. Con tope de 15 s y fallo explícito (check falso + kill).
+    → (out_a, out_b) o None si la barrera no se armó."""
+    global _app_seq
+    _app_seq += 1
+    key = 99_000_000 + _app_seq
+    app_h, app_a, app_b = (app_name(f"{tag}-{x}") for x in ("h", "a", "b"))
+    cmd = shlex.split(os.environ.get("PSQL", "psql"))
+    holder = subprocess.Popen(cmd + ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-t", "-A"],
+                              stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, text=True, env=psql_env())
+    holder.stdin.write(f"set application_name = '{app_h}';\nselect pg_advisory_lock({key});\n")
+    holder.stdin.flush()
+    held = _poll("select count(*) from pg_locks l join pg_stat_activity a on a.pid = l.pid "
+                 f"where l.locktype = 'advisory' and l.granted and a.application_name = '{app_h}'", 15)
+    if not held:
+        kill_procs(holder)
+        check(f"{name}: el holder de la barrera no tomó el advisory lock en 15 s", False, app_h)
+        return None
+    sa = (f"begin;\nselect set_config('request.jwt.claim.sub', '{sub_a}', true);\n"
+          f"select pg_advisory_xact_lock_shared({key});\n{sql_a};\ncommit;\n")
+    sb = (f"begin;\nselect set_config('request.jwt.claim.sub', '{sub_b}', true);\n"
+          f"select pg_advisory_xact_lock_shared({key});\n{sql_b};\ncommit;\n")
+    if i % 2 == 0:  # orden de lanzamiento alterno; ya no condiciona el solape
+        pa = psql_async(sa, app_a); pb = psql_async(sb, app_b)
+    else:
+        pb = psql_async(sb, app_b); pa = psql_async(sa, app_a)
+    if not (wait_locked(app_a) and wait_locked(app_b)):
+        kill_procs(pa, pb, holder)
+        check(f"{name}: las dos sesiones no llegaron a la barrera advisory en 15 s", False,
+              f"{app_a}/{app_b}")
+        return None
+    holder.stdin.write(f"select pg_advisory_unlock({key});\n")
+    holder.stdin.close()
+    holder.communicate(timeout=30)
+    out_a, _ = pa.communicate(timeout=120)
+    out_b, _ = pb.communicate(timeout=120)
+    return out_a, out_b
 
 
 psql(f"""
@@ -1018,17 +1111,17 @@ select fn_seed_kind_permissions(998003, 'adult');
 """)
 
 # T-C1: degradación (set_home_membership_role) ∥ update_calendar de A
-s1 = psql_async(f"begin;\nselect set_config('request.jwt.claim.sub', '{b_uid}', true);\n"
-                f"select set_home_membership_role({HC}, 998001, 'member');\n"
-                "select pg_sleep(6);\ncommit;\n")
-time.sleep(1.5)
+app1, app2 = app_name("tc1-s1"), app_name("tc1-s2")
+s1 = start_s1(f"begin;\nselect set_config('request.jwt.claim.sub', '{b_uid}', true);\n"
+              f"select set_home_membership_role({HC}, 998001, 'member');\n", app1, "T-C1")
 s2 = psql_async(f"begin;\nselect set_config('request.jwt.claim.sub', '{a_uid}', true);\n"
-                f"select update_calendar(998001, 'XT-C1 X', '#111111', true, true);\ncommit;\n")
+                f"select update_calendar(998001, 'XT-C1 X', '#111111', true, true);\ncommit;\n",
+                app2) if s1 else None
 check("T-C1 S2 update_calendar de A bloquea en home (pg_stat_activity.wait_event_type='Lock')",
-      wait_locked("update_calendar(998001"))
-out1, _ = s1.communicate(timeout=60)
-out2, _ = s2.communicate(timeout=60)
-check("T-C1 S1 (degradación de A) commitea sin error", s1.returncode == 0, out1[:200])
+      bool(s1) and wait_locked(app2))
+out1, _ = s1.communicate(timeout=60) if s1 else ("", "")
+out2, _ = s2.communicate(timeout=60) if s2 else ("", "")
+check("T-C1 S1 (degradación de A) commitea sin error", bool(s1) and s1.returncode == 0, out1[:200])
 check("T-C1 S2 tras el commit → Not Allowed (A member con legacy17 sin calendar.manage)",
       "Not Allowed" in out2 and "ERROR" in out2, out2[:200])
 t_c1v = psql(f"begin;\nselect set_config('request.jwt.claim.sub', '{a_uid}', true);\n"
@@ -1040,16 +1133,16 @@ check("T-C1 variante: update_calendar solo widget de A (member) → ok (ACL prop
 psql(f"insert into calendar_user (calendar_id, user_id, role, widget, dashboard, home_id) "
      f"values (998001, {a_id}, 'owner', true, true, {HC}) on conflict do nothing")
 n_eu_pre = psql(f"select count(*) from event_user where user_id = {a_id}")
-s1 = psql_async(f"begin;\nselect set_config('request.jwt.claim.sub', '{b_uid}', true);\n"
-                f"select remove_home_membership({HC}, 998001);\nselect pg_sleep(6);\ncommit;\n")
-time.sleep(1.5)
+app1, app2 = app_name("tc1b-s1"), app_name("tc1b-s2")
+s1 = start_s1(f"begin;\nselect set_config('request.jwt.claim.sub', '{b_uid}', true);\n"
+              f"select remove_home_membership({HC}, 998001);\n", app1, "T-C1b")
 s2 = psql_async(f"begin;\nselect set_config('request.jwt.claim.sub', '{a_uid}', true);\n"
-                f"select set_event_alarm(998002, 5, '{TZ}');\ncommit;\n")
+                f"select set_event_alarm(998002, 5, '{TZ}');\ncommit;\n", app2) if s1 else None
 check("T-C1b S2 set_event_alarm de A bloquea en home (pg_stat_activity.wait_event_type='Lock')",
-      wait_locked("set_event_alarm(998002"))
-out1, _ = s1.communicate(timeout=60)
-out2, _ = s2.communicate(timeout=60)
-check("T-C1b S1 (baja de A) commitea sin error", s1.returncode == 0, out1[:200])
+      bool(s1) and wait_locked(app2))
+out1, _ = s1.communicate(timeout=60) if s1 else ("", "")
+out2, _ = s2.communicate(timeout=60) if s2 else ("", "")
+check("T-C1b S1 (baja de A) commitea sin error", bool(s1) and s1.returncode == 0, out1[:200])
 check("T-C1b S2 tras el commit → Not Found (ACL borrada en cascada; R1-02)",
       "Not Found" in out2 and "ERROR" in out2, out2[:200])
 n_eu_post = psql(f"select count(*) from event_user where user_id = {a_id}")
@@ -1197,7 +1290,10 @@ def out_json(out):
 
 
 def outcome(out):
-    """Clasifica la salida de psql de una RPC: ok | Not Found | Not Allowed | deadlock | otro."""
+    """Clasifica la salida de psql de una RPC: ok | Not Found | Not Allowed | deadlock | otro |
+    aborted. Salida vacía = carrera abortada (la sesión no corrió): nunca es ok."""
+    if not out.strip():
+        return "aborted"
     if "40P01" in out or "deadlock" in out.lower():
         return "deadlock"
     if "ERROR" not in out:
@@ -1235,16 +1331,20 @@ select fn_seed_kind_permissions(998103, '{kind_m}');
 """)
 
 
-def p19_race(sql1, sub1, sql2, sub2, wait_like=None, hold=6, stagger=1.5):
-    """Patrón T-C1: S1 mantiene la transacción abierta con pg_sleep(hold) y S2 se lanza `stagger`
-    después; con wait_like se comprueba que S2 queda bloqueado en pg_stat_activity.
-    → (out1, out2, blocked|None)."""
-    s1 = psql_async(f"begin;\nselect set_config('request.jwt.claim.sub', '{sub1}', true);\n"
-                    f"{sql1};\nselect pg_sleep({hold});\ncommit;\n")
-    time.sleep(stagger)
+def p19_race(sql1, sub1, sql2, sub2, wait_for_lock=False, hold=6):
+    """Patrón T-C1: S1 mantiene la transacción abierta con pg_sleep(hold) (tope de la sección
+    crítica, no espera de sincronización); S2 se lanza solo cuando S1 ya tiene el lock
+    (wait_holding). Con wait_for_lock se comprueba que S2 queda bloqueado (wait_locked por
+    application_name). Si S1 no llega a sostener el lock hay un check fallido explícito y se
+    devuelve ("", "", None) (carrera abortada, sin reintento). → (out1, out2, blocked|None)."""
+    app1, app2 = app_name("race-s1"), app_name("race-s2")
+    s1 = start_s1(f"begin;\nselect set_config('request.jwt.claim.sub', '{sub1}', true);\n{sql1};\n",
+                  app1, "p19_race", hold)
+    if s1 is None:
+        return "", "", False if wait_for_lock else None
     s2 = psql_async(f"begin;\nselect set_config('request.jwt.claim.sub', '{sub2}', true);\n"
-                    f"{sql2};\ncommit;\n")
-    blocked = wait_locked(wait_like) if wait_like else None
+                    f"{sql2};\ncommit;\n", app2)
+    blocked = wait_locked(app2) if wait_for_lock else None
     out1, _ = s1.communicate(timeout=120)
     out2, _ = s2.communicate(timeout=120)
     return out1, out2, blocked
@@ -1269,7 +1369,7 @@ def block_f1(sql_other, name):
     """F1/F2: O1 quita a O2 ∥ O2 quita a O1 en el mismo recurso (A-12) → exactamente 1 éxito +
     perdedor Not Found/Not Allowed, owners finales = 1 y 0×40P01 (R1-06). Carreras de solape real
     (estilo T-DL, F1_ITERS por bloque): ambas RPC se lanzan en sesiones psql que despiertan a la
-    vez (pg_sleep hasta un instante común) y el orden de lanzamiento se alterna. El patrón T-C1
+    vez (barrera con advisory lock, barrier_pair) y el orden de lanzamiento se alterna. El patrón T-C1
     serializado NO expone el bug de 0020 (FOR SHARE propio + DELETE cruzado = ciclo de mejora de
     lock entre dos removes → 40P01, plan §6.3 «remove ∥ remove»); contra 0021 el set-lock ACL en
     orden de id serializa y el invariante se cumple en todas las carreras (desviación documentada
@@ -1280,20 +1380,11 @@ def block_f1(sql_other, name):
         if i:  # reseed ligero entre carreras: la anterior deja el recurso con 1 owner
             psql(f"begin;\ndelete from {sql_other[2]} where {sql_other[3]};\n"
                  f"{sql_other[4]};\ncommit;")
-        until = (datetime.datetime.now(datetime.timezone.utc)
-                 + datetime.timedelta(seconds=1)).strftime("%Y-%m-%d %H:%M:%S.%f+00")
-        rendezvous = ("select pg_sleep(greatest(0::double precision, "
-                      f"extract(epoch from (timestamptz '{until}' - now()))::double precision));")
-        sa = (f"begin;\nselect set_config('request.jwt.claim.sub', '{a_uid}', true);\n"
-              f"{rendezvous}\n{sql_other[0]};\ncommit;\n")
-        sb = (f"begin;\nselect set_config('request.jwt.claim.sub', '{b_uid}', true);\n"
-              f"{rendezvous}\n{sql_other[1]};\ncommit;\n")
-        if i % 2 == 0:  # orden invertido (T-DL): par → S1 primero; impar → S2 primero
-            p1 = psql_async(sa); time.sleep(0.1); p2 = psql_async(sb)
-        else:
-            p2 = psql_async(sb); time.sleep(0.1); p1 = psql_async(sa)
-        out1, _ = p1.communicate(timeout=120)
-        out2, _ = p2.communicate(timeout=120)
+        pair = barrier_pair(sql_other[0], a_uid, sql_other[1], b_uid, i, f"{name.lower()}-i{i}", name)
+        if pair is None:  # barrera no armada: check fallido explícito ya emitido
+            bad_out.append(f"iter{i}:barrera")
+            continue
+        out1, out2 = pair
         outs = out1 + out2
         if "40P01" in outs or "deadlock" in outs.lower():
             deadlocks.append(i)
@@ -1315,7 +1406,7 @@ def block_f1(sql_other, name):
 def block_f3(sql_add, count_sql, name):
     """F3/F4: dos adds del mismo email (A-12) → 2 éxitos, 1 fila, sin 23505."""
     p19_reset()
-    out1, out2, blocked = p19_race(sql_add, a_uid, sql_add, b_uid, sql_add.split("(")[0].split()[-1])
+    out1, out2, blocked = p19_race(sql_add, a_uid, sql_add, b_uid, True)
     check(f"{name} S2 (segundo add del mismo email) espera el índice único (pg_stat_activity)",
           blocked is True, f"S1={outcome(out1)} S2={outcome(out2)}")
     ok = outcome(out1) == "ok" and outcome(out2) == "ok" and "23505" not in out1 + out2
@@ -1329,7 +1420,7 @@ def block_f5(sql_remove, count_sql, name):
     """F5/F6: remove_home_membership(O1) ∥ remove_*_user (O1 quita a O2) → owners ≥ 1 (A-5)."""
     p19_reset()
     out1, out2, blocked = p19_race("select remove_home_membership(998100, 998101)", b_uid,
-                                   sql_remove, a_uid, sql_remove.split("(")[0].split()[-1])
+                                   sql_remove, a_uid, True)
     check(f"{name} S2 (O1 quita a O2) espera el lock de hogar de la baja", blocked is True,
           f"S1={outcome(out1)} S2={outcome(out2)}")
     ok = (outcome(out1) == "ok" and outcome(out2) in ("Not Found", "Not Allowed")
@@ -1384,7 +1475,7 @@ if xt_on("F7"):
     out1, out2, blocked = p19_race(
         "select set_home_permissions(998100, 998103, '[\"home.view\"]'::jsonb)", a_uid,
         "select set_home_membership_role(998100, 998103, 'admin')", b_uid,
-        "set_home_membership_role")
+        True)
     check("F7 S2 (promoción del target) espera el lock de membresía del set", blocked is True,
           f"S1={outcome(out1)} S2={outcome(out2)}")
     ok = outcome(out1) == "ok" and outcome(out2) == "ok" and "40P01" not in out1 + out2
@@ -1414,7 +1505,7 @@ if xt_on("F9"):
     out1, out2, blocked = p19_race(
         "select set_home_permissions(998100, 998103, '[\"home.view\"]'::jsonb)", a_uid,
         "select set_home_permissions(998100, 998103, '[\"calendar.view\"]'::jsonb)", b_uid,
-        "set_home_permissions")
+        True)
     check("F9 los dos sets del mismo target serializan (pg_stat_activity)", blocked is True,
           f"S1={outcome(out1)} S2={outcome(out2)}")
     check("F9 estado final = el segundo set ([calendar.view])", m_perms() == "calendar.view",
@@ -1455,7 +1546,7 @@ if xt_on("F11"):
          f"({P19_MID_B}, 'home.members.manage'), ({P19_MID_B}, 'home.view')")
     out0, out1, blocked = p19_race(
         "select update_home_member(998110, 'adult', null, null, null)", a_uid,
-        "select update_home_member(998110, 'child', null, null, null)", b_uid, "update_home_member")
+        "select update_home_member(998110, 'child', null, null, null)", b_uid, True)
     check("F11 S1 (no-admin con manage, kind leído = child) espera el lock de hogar", blocked is True,
           f"S0={outcome(out0)} S1={outcome(out1)}")
     ok = (outcome(out0) == "ok" and outcome(out1) == "Not Allowed" and "40P01" not in out0 + out1)
@@ -1478,12 +1569,13 @@ if xt_on("F11"):
 XT_BLOCK = "F12"
 if xt_on("F12"):
     p19_reset(kind_m="adult")
-    out1, out2, _ = p19_race(
+    out1, out2, blocked = p19_race(
         "select update_home_member(998110, 'child', null, null, null)", a_uid,
         "select update_home_member(998110, 'relative', null, null, null)", a_uid,
-        hold=0.3, stagger=0.1)
-    check("F12(a) ambos 200 sin 40P01 (2 sesiones del admin)",
-          outcome(out1) == "ok" and outcome(out2) == "ok" and "40P01" not in out1 + out2,
+        True, hold=2)
+    check("F12(a) ambos 200 sin 40P01 (2 sesiones del admin, solape: S2 esperó el lock de S1)",
+          blocked is True and outcome(out1) == "ok" and outcome(out2) == "ok"
+          and "40P01" not in out1 + out2,
           f"S1={out1[:120]!r} S2={out2[:120]!r}")
     kind = psql("select kind from home_member where id = 998110")
     check("F12(a) kind final = el del segundo (relative)", kind == "relative", f"kind={kind}")
@@ -1495,14 +1587,14 @@ if xt_on("F12"):
           int(n1) > 0 and int(n2) > 0, f"adult→child={n1} child→relative={n2}")
 
     p19_reset(kind_m="adult")
-    out1, out2, _ = p19_race(
+    out1, out2, blocked = p19_race(
         "select update_home_member(998110, 'child', null, null, null)", a_uid,
         "select update_home_member(998110, 'child', null, null, null)", a_uid,
-        hold=0.3, stagger=0.1)
+        True, hold=2)
     n_all = kind_change()
     n_ok = kind_change(where="and payload->>'kind_from' = 'adult' and payload->>'kind_to' = 'child'")
-    check("F12(b) ambos 200 sin 40P01 y exactamente un reset (una tanda kind_change)",
-          outcome(out1) == "ok" and outcome(out2) == "ok" and "40P01" not in out1 + out2
+    check("F12(b) ambos 200 sin 40P01 y exactamente un reset (una tanda kind_change; con solape)",
+          blocked is True and outcome(out1) == "ok" and outcome(out2) == "ok" and "40P01" not in out1 + out2
           and int(n_all) > 0 and n_all == n_ok,
           f"S1={out1[:120]!r} S2={out2[:120]!r} tandas={n_all} adult→child={n_ok}")
     kind = psql("select kind from home_member where id = 998110")
@@ -1514,7 +1606,7 @@ if xt_on("F12"):
     n_pre = kind_change()
     out0, out1, blocked = p19_race(
         "select remove_home_membership(998100, 998103)", a_uid,
-        "select update_home_member(998110, 'child', null, null, null)", a_uid, "update_home_member")
+        "select update_home_member(998110, 'child', null, null, null)", a_uid, True)
     body = out_json(out1)
     check("F12(c) S1 espera el lock de hogar y responde ok con kind = child (rama 4a)",
           blocked is True and outcome(out0) == "ok" and outcome(out1) == "ok"
@@ -1699,6 +1791,8 @@ def inv_code(home=998200, kind="'guest'", member="null", sub=None, email=None):
 
 
 def inv_outcome(out):
+    if not out.strip():  # carrera abortada (barrera no armada): fallo, no ok
+        return "aborted"
     if "40P01" in out or "deadlock" in out.lower():
         return "deadlock"
     if "ERROR" not in out:
@@ -1710,23 +1804,11 @@ def inv_outcome(out):
 
 
 def inv_pair(sql_a, sub_a, sql_b, sub_b, i):
-    """Dos sesiones psql que despiertan a la vez (rendezvous de block_f1); orden de lanzamiento
-    alterno por iteración. → (out_a, out_b)."""
-    until = (datetime.datetime.now(datetime.timezone.utc)
-             + datetime.timedelta(seconds=1)).strftime("%Y-%m-%d %H:%M:%S.%f+00")
-    rendezvous = ("select pg_sleep(greatest(0::double precision, "
-                  f"extract(epoch from (timestamptz '{until}' - now()))::double precision));")
-    sa = (f"begin;\nselect set_config('request.jwt.claim.sub', '{sub_a}', true);\n"
-          f"{rendezvous}\n{sql_a};\ncommit;\n")
-    sb = (f"begin;\nselect set_config('request.jwt.claim.sub', '{sub_b}', true);\n"
-          f"{rendezvous}\n{sql_b};\ncommit;\n")
-    if i % 2 == 0:
-        pa = psql_async(sa); time.sleep(0.1); pb = psql_async(sb)
-    else:
-        pb = psql_async(sb); time.sleep(0.1); pa = psql_async(sa)
-    out_a, _ = pa.communicate(timeout=120)
-    out_b, _ = pb.communicate(timeout=120)
-    return out_a, out_b
+    """Dos sesiones psql que despiertan a la vez (barrera advisory de barrier_pair); orden de
+    lanzamiento alterno por iteración. → (out_a, out_b); ("", "") si la barrera no se armó
+    (check fallido explícito ya emitido)."""
+    pair = barrier_pair(sql_a, sub_a, sql_b, sub_b, i, f"inv-i{i}", "INV carrera")
+    return pair if pair is not None else ("", "")
 
 
 def pg_code(res):
@@ -1903,7 +1985,7 @@ if xt_on("INV_RACE"):
     inv_reset()
     _, code = inv_code(email=C_EMAIL)
     out1, out2, blocked = p19_race(accept_sql(code), c_uid, accept_sql(code), b_uid,
-                                   "accept_home_invitation")
+                                   True)
     check("INV24 S2 espera el lock de hogar (pg_stat_activity) y tras el commit de S1 → Not Found",
           blocked is True and inv_outcome(out1) == "ok" and inv_outcome(out2) == "Not Found",
           f"blocked={blocked} S1={inv_outcome(out1)} S2={inv_outcome(out2)}")
