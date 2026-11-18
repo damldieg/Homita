@@ -1,0 +1,81 @@
+---
+# Pruebas de la Edge Function `api` (contrato, aislamiento entre tenants y SQL de migraciones)
+# sobre un stack Supabase LOCAL y efímero levantado en el runner. Toda la secuencia vive en
+# scripts/supabase/ci.sh (se reproduce en local igual). Este workflow no usa secretos ni
+# ~/.homita/supabase.env: las claves son las del stack local generado aquí.
+#
+# Versiones fijadas (anotadas en T1, change edge-tests-contrato):
+#   - Supabase CLI 3.1.0 (la de desarrollo). Sus imágenes por defecto incluyen la BD
+#     public.ecr.aws/supabase/postgres:17.11.0.018 (major_version = 17 en supabase/config.toml);
+#     ci.sh falla si la imagen de supabase_db_homita-api no es supabase/postgres:17.*.
+#   - postgresql-client-17 desde PGDG (psql de diagnóstico; los tests usan `docker exec ... psql`).
+name: edge-tests
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: edge-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  edge-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Supabase CLI 3.1.0
+        uses: supabase/setup-cli@afb1b15109756ea5cf9d8985a359d9095235ca2b # v2.1.2
+        with:
+          version: 3.1.0
+
+      - name: postgresql-client-17 (PGDG)
+        run: |
+          set -euo pipefail
+          sudo install -d -m 0755 /usr/share/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+          gpg --show-keys --with-colons /usr/share/keyrings/postgresql.gpg \
+            | grep -q 'B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8'
+          codename="$(lsb_release -cs)"
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt ${codename}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          # La imagen del runner trae otro psql en el PATH (16): se comprueba el binario de PGDG.
+          which -a psql || true
+          PSQL17=/usr/lib/postgresql/17/bin/psql
+          if [ ! -x "$PSQL17" ]; then
+            echo "::error::no existe $PSQL17 tras instalar postgresql-client-17"
+            exit 1
+          fi
+          "$PSQL17" --version
+          "$PSQL17" --version | grep -q 'psql (PostgreSQL) 17\.'
+
+      - name: Versiones del entorno
+        run: |
+          set -euo pipefail
+          docker --version
+          python3 --version
+          supabase --version
+
+      - name: Pruebas (scripts/supabase/ci.sh)
+        run: scripts/supabase/ci.sh
+
+      - name: Subir logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: edge-tests-logs
+          path: .demo/ci/
+          include-hidden-files: true   # .demo es un directorio oculto: sin esto el artefacto sale vacío
+          if-no-files-found: ignore
+          retention-days: 7

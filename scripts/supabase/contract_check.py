@@ -244,16 +244,21 @@ def value(route, name, ok, detail=""):
 PERSON = {"id": "<id>", "user_id": "<int>", "name": "<str>", "color": "<str>",
           "created_at": "<ts>", "updated_at": "<ts>", "editable": "<bool>",
           "home_member_id": "<id>", "kind": "<str>"}
+# 0028: solo get_persons (GET /person) añade la cuenta vinculada del miembro (null en mascotas o
+# miembros sin cuenta); create/update de persona devuelven PERSON sin esa clave.
+PERSON_ITEM = dict(PERSON, app_user_id="<int?>")
 PERSON_REF = {"id": "<id>", "user_id": "<int>", "name": "<str>", "color": "<str>"}
 CAL_ITEM = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>",
             "created_at": "<ts>", "updated_at": "<ts>", "widget": "<01>", "dashboard": "<01>",
-            "upcoming_event_count": "<int>", "home_id": "<id>"}
+            "upcoming_event_count": "<int>", "home_id": "<id>",
+            "can_edit": "<bool>"}  # 0029: owner o can_edit
 CAL_DETAIL = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>",
               "created_at": "<ts>", "updated_at": "<ts>", "home_id": "<id>"}
 CAL_USER = {"cu_id": "<id>", "user_id": "<id>", "name": "<str>", "email": "<str>", "role": "<str>",
-            "home_role": "<str>"}
+            "home_role": "<str>", "can_edit": "<bool>"}  # 0029
 USER = {"id": "<id>", "name": "<str>", "email": "<str>", "created_at": "<ts>", "updated_at": "<ts>"}
 USER_CREATE = {"id": "<id>", "name": "<str>", "email": "<str>", "token": "<token>",
+               "refresh_token": "<token>",  # aditivo (como user/auth): la sesión del registro se refresca
                "created_at": "<ts>", "updated_at": "<ts>"}
 USER_AUTH = {"id": "<id>", "name": "<str>", "email": "<str>", "token": "<token>",
              "refresh_token": "<token>", "created_at": "<ts>", "updated_at": "<ts>"}
@@ -271,14 +276,15 @@ EVENT_DETAIL = {"id": "<id>", "calendar_id": "<id>", "title": "<str>", "date_at"
                 "routine_date": "<str?>", "alarm": "<int?>", "persons": [PERSON_REF]}
 TASK_ITEM = {"id": "<id>", "task_list_id": "<id>", "title": "<str>", "completed_at": "<ts?>",
              "created_at": "<ts>", "updated_at": "<ts>", "order": "<int>",
-             "task_list_color": "<str>", "task_list_name": "<str>"}
+             "task_list_color": "<str>", "task_list_name": "<str>", "persons": [PERSON_REF]}
 TL_ITEM = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>", "sort": "<str>",
            "created_at": "<ts>", "updated_at": "<ts>", "widget": "<01>", "dashboard": "<01>",
-           "pending_task_count": "<int>", "home_id": "<id>"}
+           "pending_task_count": "<int>", "home_id": "<id>",
+           "can_edit": "<bool>"}  # 0029: owner o can_edit
 TL_DETAIL = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>", "sort": "<str>",
              "created_at": "<ts>", "updated_at": "<ts>", "home_id": "<id>"}
 TL_USER = {"tlu_id": "<id>", "user_id": "<id>", "name": "<str>", "email": "<str>", "role": "<str>",
-           "home_role": "<str>"}
+           "home_role": "<str>", "can_edit": "<bool>"}  # 0029
 # Contrato nuevo de 1.4 (§2, sin oráculo PHP). R1-03: role es "<str>" (shape() no conoce
 # "<admin|member>"); el dominio admin|member se valida con value() en el escenario.
 HOME_ITEM = {"home_id": "<id>", "name": "<str>", "role": "<str>", "is_default": "<bool>",
@@ -310,9 +316,11 @@ HOME_MEMBER = {"id": "<id>", "home_id": "<id>", "kind": "<str>", "name": "<str>"
 # Contrato nuevo de 1.15 (diseño §5.2): invitaciones. INVITATION_ITEM nunca lleva code ni
 # code_hash; el código en claro solo sale en INVITATION_CREATED (una vez).
 INVITATION_ITEM = {"id": "<id>", "home_id": "<id>", "kind": "<str>", "member_id": "<int?>",
-                   "member_name": "<str?>", "status": "<str>", "expires_at": "<ts>",
+                   "member_name": "<str?>", "email": "<str?>", "status": "<str>", "expires_at": "<ts>",
                    "created_by": "<int?>", "created_at": "<ts>"}
-INVITATION_CREATED = dict(INVITATION_ITEM, code="<str>")
+# Al crear, 0026 exige email: en la respuesta de create nunca es null (en el listado sí puede serlo:
+# invitaciones anteriores a 0026).
+INVITATION_CREATED = dict(INVITATION_ITEM, code="<str>", email="<str>")
 INVITATION_ACCEPTED = {"home_id": "<id>", "membership_id": "<id>", "member_id": "<id>",
                        "role": "member", "kind": "<str>"}
 SUCCESS = {"success": True}
@@ -444,13 +452,53 @@ def load_service_key():
     return None
 
 
+# Variables de libpq/entorno que pueden redirigir psql a un host remoto sin que PSQL lo diga.
+PG_ENV_UNSAFE = ("PGHOST", "PGHOSTADDR", "PGSERVICE", "PGSERVICEFILE", "PGPASSFILE", "PGOPTIONS",
+                 "PGSYSCONFDIR", "DATABASE_URL")
+_psql_checked = False
+
+
+def psql_env():
+    """Entorno del subproceso psql: sin PSQL explícito se quitan las variables PG* que podrían
+    apuntar a un host remoto (con PSQL explícito manda la guarda assert_psql_local)."""
+    env = dict(os.environ)
+    if "PSQL" not in os.environ:
+        for name in PG_ENV_UNSAFE:
+            env.pop(name, None)
+    return env
+
+
+def assert_psql_local():
+    """Guarda de BD local, sin override: antes de cualquier escritura exige que psql hable con el
+    servidor por socket Unix (sin dirección) o loopback (127.0.0.1/::1). Cubre `-h`, URLs y PGHOST.
+    Se comprueba una sola vez por ejecución."""
+    global _psql_checked
+    if _psql_checked:
+        return
+    cmd = shlex.split(os.environ.get("PSQL", "psql"))
+    try:
+        r = subprocess.run(cmd + ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-t", "-A"],
+                           input="select coalesce(host(inet_server_addr()), '')",
+                           capture_output=True, text=True, env=psql_env())
+    except OSError as e:
+        sys.exit(f"guarda psql: no se pudo ejecutar {cmd[0]}: {e}")
+    if r.returncode != 0:
+        sys.exit(f"guarda psql: no se pudo comprobar el servidor ({r.returncode}): "
+                 f"{r.stderr.strip()[:300]}")
+    addr = r.stdout.strip()
+    if addr not in ("", "127.0.0.1", "::1"):
+        sys.exit(f"guarda psql: solo BD local (socket o loopback); servidor {addr}")
+    _psql_checked = True
+
+
 def psql(sql):
     """SQL por psql local (variable PSQL: comando completo; default `psql`). Se usa para la
     membresía del bloque viewer y su limpieza (el REST service_role no altera los triggers
     diferidos de 0015)."""
+    assert_psql_local()
     cmd = shlex.split(os.environ.get("PSQL", "psql"))
     r = subprocess.run(cmd + ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-t", "-A"], input=sql,
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, env=psql_env())
     if r.returncode != 0:
         sys.exit(f"psql falló ({r.returncode}): {r.stderr.strip()[:300]}")
     return r.stdout.strip()
@@ -474,6 +522,7 @@ def reset_leftovers():
     ANTES de `delete from home_member` — person_home_member_fk es ON DELETE RESTRICT (0015:35) y
     delete_person/PATCH status ya no borran person (baja soft); el trigger 0014c borra su
     home_member al borrar la person."""
+    assert_psql_local()  # antes de cualquier DELETE (REST o psql)
     key = load_service_key()
     if not key:
         print("aviso: sin SUPABASE_SERVICE_ROLE_KEY local: reset_leftovers omitido "
@@ -993,7 +1042,7 @@ for name, path in cases:
 read_lists = [
     ("GET /calendar", "/calendar", [CAL_ITEM]),
     ("GET /calendar/user", "/calendar/user?calendar_id=1", [CAL_USER]),
-    ("GET /person", "/person", [PERSON]),
+    ("GET /person", "/person", [PERSON_ITEM]),
     ("GET /routine", f"/routine?timezone={tz}", [ROUTINE]),
     ("GET /task-list", "/task-list", [TL_ITEM]),
     ("GET /task-list/user", "/task-list/user?task_list_id=1", [TL_USER]),
@@ -1061,13 +1110,13 @@ def scenario_person():
     value("PATCH /person/update", "escenario person/update → nombre nuevo",
           isinstance(b, dict) and b.get("name") == "CC-Persona 2")
     b = check("GET /person", "escenario GET /person tras update",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     value("GET /person", "escenario GET /person contiene la renombrada",
           isinstance(b, list) and any(x.get("id") == pid and x.get("name") == "CC-Persona 2" for x in b))
     check("DELETE /person/delete", "escenario person/delete",
           request("DELETE", "/person/delete", {"id": pid}, tok), 200, SUCCESS)
     b = check("GET /person", "escenario GET /person tras delete",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     value("GET /person", "escenario GET /person ya sin la borrada",
           isinstance(b, list) and all(x.get("id") != pid for x in b))
 
@@ -1459,7 +1508,7 @@ def scenario_member():
           and b.get("kind") == "child" and b.get("home_id") == hmem, repr(b)[:300])
     m1 = b.get("id") if isinstance(b, dict) else None
     b = check("GET /person", "K1 GET /person lista la persona del miembro (home_member_id)",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     p1 = next((x.get("id") for x in b if isinstance(x, dict) and x.get("home_member_id") == m1), None)
     value("GET /person", "K1 la persona nueva con home_member_id y kind=child",
           p1 is not None and any(x.get("id") == p1 and x.get("kind") == "child" for x in b),
@@ -1537,7 +1586,7 @@ def scenario_member():
           isinstance(b, dict) and b.get("name") == "CC-Miembro-Child 2" and b.get("color") == "#112233"
           and b.get("linked") is False and b.get("status") == "active", repr(b)[:300])
     b = check("GET /person", "K9 GET /person refleja el nombre nuevo (D12)",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     value("GET /person", "K9 persona con nombre nuevo",
           isinstance(b, list) and any(x.get("id") == p1 and x.get("name") == "CC-Miembro-Child 2"
                                       for x in b), repr(b)[:300])
@@ -1557,7 +1606,7 @@ def scenario_member():
     value("PATCH /home/member/update", "K10 status=inactive en la respuesta",
           isinstance(b, dict) and b.get("status") == "inactive", repr(b)[:300])
     b = check("GET /person", "K10 GET /person ya no lista la inactiva",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     value("GET /person", "K10 persona oculta tras la baja (sin borrar filas)",
           isinstance(b, list) and all(x.get("id") != p1 for x in b), repr(b)[:300])
     b = check("GET /home/member", "K10 GET /home/member la lista con status inactive",
@@ -1588,7 +1637,7 @@ def scenario_member():
           request("PATCH", "/home/member/update",
                   {"id": m2, "name": "CC-Miembro-Pet", "color": "#B2C3D4"}, tok), 200, HOME_MEMBER)
     b = check("GET /person", "K13b GET /person tras PATCH sin cambios",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     value("GET /person", "K13b person.updated_at intacto (2000-01-01 00:00:00)",
           isinstance(b, list) and any(x.get("id") == int(p2)
                                       and x.get("updated_at") == "2000-01-01 00:00:00" for x in b),
@@ -1600,7 +1649,7 @@ def scenario_member():
     value("PATCH /home/member/update", "K14 status=active",
           isinstance(b, dict) and b.get("status") == "active", repr(b)[:300])
     b = check("GET /person", "K14 GET /person vuelve a listarla",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     value("GET /person", "K14 persona visible otra vez",
           isinstance(b, list) and any(x.get("id") == p1 for x in b), repr(b)[:300])
     check("POST /event/create", "K14 POST /event/create con la re-alta → 200",
@@ -1638,7 +1687,7 @@ def scenario_member():
     value("DELETE /person/delete", "K16 home_member inactive, person existe, asignaciones borradas",
           row == "inactive 1 0", f"psql: {row!r}")
     b = check("GET /person", "K16 GET /person ya no la lista",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     value("GET /person", "K16 persona oculta tras la baja legacy",
           isinstance(b, list) and all(x.get("id") != int(p3) for x in b), repr(b)[:300])
     # K17: PATCH /person/update por admin no creador → 200 (D15); la crea el viewer con cabecera
@@ -1806,9 +1855,11 @@ def scenario_membership():
          "delete from membership_permission where home_membership_id in "
          "(select id from home_membership where home_id = %d); "
          "delete from home_membership where home_id = %d; "
+         "delete from person where home_id = %d; "
+         "delete from home_member where home_id = %d; "
          "delete from audit_log where home_id = %d; "
          "delete from home where id = %d; "
-         "commit;" % (cc_home, cc_home, cc_home, cc_home))
+         "commit;" % (cc_home, cc_home, cc_home, cc_home, cc_home, cc_home))
     check("DELETE /home/membership", "M15 último hogar (cc-mem solo vive en CC-Membresias) → 403",
           request("DELETE", "/home/membership", {"home_id": hM, "membership_id": mem_m}, mtok),
           403, ERR_NOT_ALLOWED)
@@ -2228,6 +2279,9 @@ scenario_home_110(hM, mem_m)
 
 INV_PWD = "ccinv12345"
 INV_EMAILS = ["cc-inv@homita.example", "cc-inv2@homita.example", "cc-inv3@homita.example"]
+# 0026: crear una invitación exige un email (el que debe tener la cuenta que acepta). Este no
+# pertenece a ninguna cuenta del bloque: sirve para las que no se aceptan o ya hay miembro.
+INV_EXTRA_EMAIL = "cc-inv-extra@homita.example"
 
 
 def inv_member(home, kind, name, status="active", linked=None):
@@ -2286,7 +2340,8 @@ def scenario_invitations(hM, mem_m, mid):
     C, R, A, L = ("POST /home/invitation/create", "POST /home/invitation/revoke",
                   "POST /home/invitation/accept", "GET /home/invitation")
     b = check(C, "IC1 admin crea guest → 201 INVITATION_CREATED",
-              request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest"}, tok),
+              request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest",
+                                                      "email": INV_EMAILS[0]}, tok),
               201, INVITATION_CREATED)
     k1, id1 = (b.get("code"), b.get("id")) if isinstance(b, dict) else (None, None)
     row = psql("select code_hash || '|' || extract(epoch from (expires_at - created_at))::bigint "
@@ -2305,40 +2360,49 @@ def scenario_invitations(hM, mem_m, mid):
             ("IC8", "miembro inactivo", {"home_id": hM, "member_id": inactive}),
             ("IC9", "miembro de otro hogar", {"home_id": hM, "member_id": other})):
         check(C, f"{n} {name} → 400 Invalid member",
-              request("POST", "/home/invitation/create", body, tok), 400, ERR_INVALID_MEMBER)
+              request("POST", "/home/invitation/create", dict(body, email=INV_EXTRA_EMAIL), tok),
+              400, ERR_INVALID_MEMBER)
     b = check(C, "IC10 miembro relative sin vincular (CC-Inv-Abuela) → 201 kind relative",
-              request("POST", "/home/invitation/create", {"home_id": hM, "member_id": abuela}, tok),
+              request("POST", "/home/invitation/create", {"home_id": hM, "member_id": abuela,
+                                                      "email": INV_EMAILS[1]}, tok),
               201, dict(INVITATION_CREATED, kind="relative", member_id=abuela,
                         member_name="CC-Inv-Abuela"))
     k10 = b.get("code") if isinstance(b, dict) else None
     check(C, "IC11 miembro + kind distinto → 400 Invalid member",
           request("POST", "/home/invitation/create", {"home_id": hM, "member_id": abuela,
-                                                      "kind": "guest"}, tok), 400, ERR_INVALID_MEMBER)
+                                                      "kind": "guest", "email": INV_EXTRA_EMAIL}, tok), 400, ERR_INVALID_MEMBER)
     check(C, "IC12 cc-mem sin home.invite → 403 Not Allowed",
-          request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest"}, mtok),
+          request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest",
+                                                      "email": INV_EXTRA_EMAIL}, mtok),
           403, ERR_NOT_ALLOWED)
     check(C, "IC13 cc-inv no miembro → 404 Not Found",
-          request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest"}, itok),
+          request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest",
+                                                      "email": INV_EXTRA_EMAIL}, itok),
           404, ERR_NOT_FOUND)
     check(C, "IC14 cabecera de otro hogar del admin → 404 Not Found",
-          request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest"}, tok,
+          request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest",
+                                                      "email": INV_EXTRA_EMAIL}, tok,
                   home=demo_home), 404, ERR_NOT_FOUND)
     check(C, "IC15 sin home_id → 400 Home ID is required",
           request("POST", "/home/invitation/create", {"kind": "guest"}, tok), 400, ERR_HOME_ID_REQUIRED)
     check(C, "IC16 member_id 'x' → 400 Invalid member",
-          request("POST", "/home/invitation/create", {"home_id": hM, "member_id": "x"}, tok),
+          request("POST", "/home/invitation/create", {"home_id": hM, "member_id": "x",
+                                                      "email": INV_EXTRA_EMAIL}, tok),
           400, ERR_INVALID_MEMBER)
     psql("insert into membership_permission (home_membership_id, permission_code) "
          "values (%d, 'home.invite') on conflict do nothing" % mem_m)
     b = check(C, "IC17 cc-mem con home.invite (psql) crea guest → 201",
-              request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest"}, mtok),
+              request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest",
+                                                      "email": INV_EXTRA_EMAIL}, mtok),
               201, INVITATION_CREATED)
     id17 = b.get("id") if isinstance(b, dict) else 0
     check(C, "IC18 D-017: cc-mem (no admin) con home.invite crea adult → 403 Not Allowed",
-          request("POST", "/home/invitation/create", {"home_id": hM, "kind": "adult"}, mtok),
+          request("POST", "/home/invitation/create", {"home_id": hM, "kind": "adult",
+                                                      "email": INV_EXTRA_EMAIL}, mtok),
           403, ERR_NOT_ALLOWED)
     check(C, "IC19 D-017: cc-mem (no admin) invita a un miembro adult → 403 Not Allowed",
-          request("POST", "/home/invitation/create", {"home_id": hM, "member_id": adult}, mtok),
+          request("POST", "/home/invitation/create", {"home_id": hM, "member_id": adult,
+                                                      "email": INV_EXTRA_EMAIL}, mtok),
           403, ERR_NOT_ALLOWED)
     psql("delete from membership_permission where home_membership_id = %d "
          "and permission_code = 'home.invite'" % mem_m)
@@ -2386,7 +2450,8 @@ def scenario_invitations(hM, mem_m, mid):
     check(A, "IA4 cc-inv2 reutiliza el código de IC1 → 404 Not Found",
           request("POST", "/home/invitation/accept", {"code": k1}, itok2), 404, ERR_NOT_FOUND)
     b = check(C, "IA5 admin crea K2 (guest) → 201",
-              request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest"}, tok),
+              request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest",
+                                                      "email": INV_EMAILS[2]}, tok),
               201, INVITATION_CREATED)
     k2, id2 = (b.get("code"), b.get("id")) if isinstance(b, dict) else (None, 0)
     check(A, "IA6 cc-inv (ya miembro) acepta K2 → 400 Already member",
@@ -2415,7 +2480,8 @@ def scenario_invitations(hM, mem_m, mid):
           request("POST", "/home/invitation/accept?code=" + "fedcba9876543210" * 2, None, itok3),
           400, ERR_INVITATION_CODE_REQUIRED)
     b = check(C, "IA13 admin crea K-exp (guest) → 201",
-              request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest"}, tok),
+              request("POST", "/home/invitation/create", {"home_id": hM, "kind": "guest",
+                                                      "email": INV_EMAILS[2]}, tok),
               201, INVITATION_CREATED)
     kexp, idexp = (b.get("code"), b.get("id")) if isinstance(b, dict) else (None, 0)
     psql("update home_invitation set expires_at = (now() at time zone 'UTC') - interval '1 minute' "
@@ -2429,7 +2495,8 @@ def scenario_invitations(hM, mem_m, mid):
               request("POST", "/home/create", {"name": "CC-Inv-Arch"}, tok), 201, HOME_DETAIL)
     harch = b.get("id") if isinstance(b, dict) else 0
     b = check(C, "IA17 invitación en CC-Inv-Arch → 201",
-              request("POST", "/home/invitation/create", {"home_id": harch, "kind": "guest"}, tok),
+              request("POST", "/home/invitation/create", {"home_id": harch, "kind": "guest",
+                                                      "email": INV_EMAILS[0]}, tok),
               201, INVITATION_CREATED)
     karch = b.get("code") if isinstance(b, dict) else None
     psql("update home set status = 'archived' where id = %d" % harch)
@@ -2441,7 +2508,8 @@ def scenario_invitations(hM, mem_m, mid):
           listed is not None and id1 not in listed and id2 not in listed and '"code"' not in b[1],
           repr(listed)[:200])
     b = check(C, "IR1 admin crea K3 → 201",
-              request("POST", "/home/invitation/create", {"home_id": hM, "kind": "child"}, tok),
+              request("POST", "/home/invitation/create", {"home_id": hM, "kind": "child",
+                                                      "email": INV_EXTRA_EMAIL}, tok),
               201, INVITATION_CREATED)
     k3, id3 = (b.get("code"), b.get("id")) if isinstance(b, dict) else (None, 0)
     check(R, "IR2 revoke K3 → 200 INVITATION_ITEM con status revoked",

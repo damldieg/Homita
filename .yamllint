@@ -1,0 +1,11 @@
+---
+# Config de yamllint para los workflows (.github/workflows). Se ejecuta a mano:
+#   yamllint .github/workflows
+extends: default
+rules:
+  line-length:
+    max: 160
+  truthy:
+    check-keys: false   # `on:` de GitHub Actions
+  comments:
+    min-spaces-from-content: 1

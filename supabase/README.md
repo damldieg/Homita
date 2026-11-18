@@ -153,9 +153,43 @@ python3 scripts/supabase/contract_check.py  # o --fn URL o SUPABASE_FUNCTIONS_UR
 Complementos sin oráculo: `scripts/supabase/tests/expected_shape_check.py`
 (forma esperada: `refresh_token`, `config` con flag `ALLOW_REGISTRATION`, Gemini 400, alta de
 usuarios; se ejecuta una vez por configuración de flag) y `scripts/supabase/tests/cross_tenant_check.py`
-(aislamiento entre tenants: ~55 casos, ids ajenos → `500 Not Found`, RPC directas
+(aislamiento entre tenants: 256 casos —`EXPECTED_CASES` en el script—, ids ajenos → `500 Not Found`, RPC directas
 `/rest/v1/rpc/*` con JWT ajeno sin fugas, owner vs viewer). Fixture:
 `scripts/supabase/fixture_two_families.py` (RLS).
+
+## CI de la Edge (`.github/workflows/edge-tests.yml`)
+
+Primer CI del repo, solo para la Edge y su BD. En cada pull request a `master` un job levanta un
+stack Supabase local y efímero en `ubuntu-latest` y corre `scripts/supabase/ci.sh`:
+
+1. `supabase start -x studio,imgproxy,vector,logflare,mailpit` y comprobación de que la BD es
+   `supabase/postgres:17.*` y la API es local (127.0.0.1/localhost).
+2. `scripts/demo.sh up`: db reset (migraciones), `functions serve api` con `ALLOW_REGISTRATION=true`
+   y seed. Es el único reset.
+3. SQL `invitaciones_check.sql` (`ok N1..N22`) y `home_checks_compat.sql` (`ok V5j..V5p`).
+4. `contract_check.py` completo (`454/454`; `CONTRACT_ONLY` se anula).
+5. `cross_tenant_check.py` (`256/256`; sale 1 si hay un fallo o si el número de casos no es
+   `EXPECTED_CASES`).
+
+Se ejecutan todas las suites aunque una falle y el job falla si falla cualquiera; ante fallo se
+suben `.demo/ci/` (logs, `serve.log`, `supabase status`). Versiones fijadas: Supabase CLI 3.1.0,
+`postgresql-client-17` (PGDG) y acciones por SHA. Sin secretos ni `~/.homita/supabase.env`: las
+claves son las del stack local (`supabase status -o env`). psql va por
+`docker exec -i supabase_db_homita-api psql -U postgres -d postgres` (socket Unix): las guardas
+de host de los tests (socket o loopback, sin override) no admiten la IP del contenedor.
+
+Reproducir en local (Docker arriba, CLI 3.1.0; resetea la BD local):
+
+```sh
+scripts/supabase/ci.sh
+```
+
+Lint del workflow: `actionlint`, `yamllint .github/workflows`, `shellcheck scripts/supabase/ci.sh`.
+
+Pendiente del primer run real en GitHub (no verificable en local): versión de Docker, memoria y
+tiempo de arranque del runner; que `supabase/setup-cli` resuelva la 3.1.0; la instalación apt de
+PGDG; flakiness de las pruebas de concurrencia de `cross_tenant_check` (carreras con `pg_sleep`);
+y los permisos de `GITHUB_TOKEN` (solo `contents: read`). Los tests Android siguen siendo manuales.
 
 ## Flujo demo local
 

@@ -160,13 +160,53 @@ def parse(text):
         return text
 
 
+# Variables de libpq/entorno que pueden redirigir psql a un host remoto sin que PSQL lo diga.
+PG_ENV_UNSAFE = ("PGHOST", "PGHOSTADDR", "PGSERVICE", "PGSERVICEFILE", "PGPASSFILE", "PGOPTIONS",
+                 "PGSYSCONFDIR", "DATABASE_URL")
+_psql_checked = False
+
+
+def psql_env():
+    """Entorno del subproceso psql: sin PSQL explícito se quitan las variables PG* que podrían
+    apuntar a un host remoto (con PSQL explícito manda la guarda assert_psql_local)."""
+    env = dict(os.environ)
+    if "PSQL" not in os.environ:
+        for name in PG_ENV_UNSAFE:
+            env.pop(name, None)
+    return env
+
+
+def assert_psql_local():
+    """Guarda de BD local, sin override: antes de cualquier escritura exige que psql hable con el
+    servidor por socket Unix (sin dirección) o loopback (127.0.0.1/::1). Cubre `-h`, URLs y PGHOST.
+    Se comprueba una sola vez por ejecución."""
+    global _psql_checked
+    if _psql_checked:
+        return
+    cmd = shlex.split(os.environ.get("PSQL", "psql"))
+    try:
+        r = subprocess.run(cmd + ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-t", "-A"],
+                           input="select coalesce(host(inet_server_addr()), '')",
+                           capture_output=True, text=True, env=psql_env())
+    except OSError as e:
+        sys.exit(f"guarda psql: no se pudo ejecutar {cmd[0]}: {e}")
+    if r.returncode != 0:
+        sys.exit(f"guarda psql: no se pudo comprobar el servidor ({r.returncode}): "
+                 f"{r.stderr.strip()[:300]}")
+    addr = r.stdout.strip()
+    if addr not in ("", "127.0.0.1", "::1"):
+        sys.exit(f"guarda psql: solo BD local (socket o loopback); servidor {addr}")
+    _psql_checked = True
+
+
 def psql_run(sql, verbose=False):
     """SQL por psql local (variable PSQL: comando completo). Devuelve (rc, salida+errores)."""
+    assert_psql_local()
     cmd = shlex.split(os.environ.get("PSQL", "psql"))
     args = cmd + ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-t", "-A"]
     if verbose:
         args += ["-v", "VERBOSITY=verbose"]
-    r = subprocess.run(args, input=sql, capture_output=True, text=True)
+    r = subprocess.run(args, input=sql, capture_output=True, text=True, env=psql_env())
     return r.returncode, (r.stdout + r.stderr).strip()
 
 
@@ -190,6 +230,7 @@ def clean_xt():
     usuarios con /user/create y 0014a les asigne hogar (sin hogar, create_calendar fallaría con
     'Home header required'). Verifica al final: sin filas XT-% ni membresías ni hogares de xt — así
     3 ejecuciones seguidas son verdes."""
+    assert_psql_local()  # antes de cualquier DELETE (REST o psql)
     for table, column in (("event", "title"), ("routine", "title"), ("task", "title"),
                           ("task_list", "name"), ("calendar", "name"), ("person", "name")):
         status, text = request(URL, "DELETE", f"/rest/v1/{table}?{column}=like.XT-*", None, None, apikey=SVC)
@@ -239,6 +280,8 @@ commit;
 # TDL_A12 y BASE = fases legacy); vacío = todo. A12_ITERS controla las iteraciones del bloque
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
+# Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
+EXPECTED_CASES = 256
 A12_ITERS = int(os.environ.get("A12_ITERS", "20"))
 # F1_ITERS: carreras de solape real por bloque F1/F2 (R1-06; el solape expone el 40P01 de 0020)
 F1_ITERS = int(os.environ.get("F1_ITERS", "10"))
@@ -575,7 +618,15 @@ expect("viewer PATCH /task-list/update cambia name → 403",
 res = edge("PATCH", "/task-list/update", {"id": lst, "name": "XT-Lista", "color": "#222222",
                                          "sort": "title", "widget": False}, b_tok)
 check("viewer PATCH /task-list/update solo flags propias → 200", res[0] == 200, repr(res)[:200])
-check("viewer POST /task/create en la lista compartida → 200 (A8: escribe contenido)",
+# 0029: las altas nuevas por email entran en solo lectura (can_edit = false; el backfill a true solo
+# afectó a las filas viewer anteriores a la migración). A8 (el viewer escribe contenido) ahora exige
+# antes que el owner le dé can_edit con PATCH /task-list/user; sin él, escribir es 403.
+expect("viewer sin can_edit POST /task/create en la lista compartida → 403 Not Allowed (0029)",
+       edge("POST", "/task/create", {"task_list_id": lst, "title": "XT-Tarea B"}, b_tok), NOT_ALLOWED)
+check("owner PATCH /task-list/user da can_edit a B → 200 (0029)",
+      edge("PATCH", "/task-list/user", {"task_list_id": lst, "user_id": b_id, "can_edit": True},
+           a_tok)[0] == 200)
+check("viewer con can_edit POST /task/create en la lista compartida → 200 (A8: escribe contenido)",
       edge("POST", "/task/create", {"task_list_id": lst, "title": "XT-Tarea B"}, b_tok)[0] in (200, 201))
 check("viewer GET /task-list/detail del compartido → 200",
       edge("GET", f"/task-list/detail?id={lst}", None, b_tok)[0] == 200)
@@ -907,10 +958,11 @@ HC = 998001  # XT-Conc
 
 
 def psql_async(sql):
+    assert_psql_local()
     cmd = shlex.split(os.environ.get("PSQL", "psql"))
     p = subprocess.Popen(cmd + ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-t", "-A"],
                          stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT, text=True)
+                         stderr=subprocess.STDOUT, text=True, env=psql_env())
     p.stdin.write(sql)
     p.stdin.close()
     return p
@@ -1911,7 +1963,12 @@ check("I5: sin home_member huérfano de person (tras K1–K21)", i5b == "0", f"n
 check("I5: todo home_member con person del mismo home_id", i5c == "0", f"n={i5c}")
 
 clean_xt()
-fugas = results.count(False)
-print(f"\n{len(results) - fugas}/{len(results)} casos ok — {fugas} fugas"
+fallos = results.count(False)
+print(f"\n{len(results) - fallos}/{len(results)} casos ok — {fallos} fallos"
       + (" · bloques: " + " ".join(f"{k}={v}" for k, v in counts.items()) if counts else ""))
-sys.exit(1 if fugas else 0)
+# Un bloque omitido en silencio no debe pasar verde: con la suite completa (sin XT_ONLY) se exige el
+# número exacto de casos. Si se añaden o quitan casos a propósito, actualizar EXPECTED_CASES.
+if not XT_ONLY and len(results) != EXPECTED_CASES:
+    print(f"FAIL: se esperaban {EXPECTED_CASES} casos y se ejecutaron {len(results)}")
+    sys.exit(1)
+sys.exit(1 if fallos else 0)

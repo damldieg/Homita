@@ -18,6 +18,20 @@
 -- usuarios scratch usa session_replication_role = replica SOLO para saltarse la FK
 -- app_user→auth.users y el trigger 0014(a) (V5j lo prueba aparte, en modo normal).
 
+-- ── Guarda de BD local ──
+-- Este fichero BORRA datos scratch con session_replication_role = replica. Misma guarda que
+-- invitaciones_check.sql, sin override: solo conexión por socket Unix (p. ej. `docker exec … psql`
+-- dentro del contenedor local) o loopback (127.0.0.1/::1); cualquier otra aborta antes de tocar datos.
+-- ON_ERROR_STOP se fuerza aquí para que la guarda corte aunque se invoque sin `-v ON_ERROR_STOP=1`.
+
+\set ON_ERROR_STOP 1
+do $$
+begin
+    if inet_server_addr() is not null and host(inet_server_addr()) not in ('127.0.0.1', '::1') then
+        raise exception 'home_checks_compat: solo BD local (socket o loopback); servidor %', host(inet_server_addr());
+    end if;
+end $$;
+
 -- ── Preambulo scratch: usuarios 990001–990004 ──
 
 set session_replication_role = replica;
