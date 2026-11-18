@@ -244,16 +244,21 @@ def value(route, name, ok, detail=""):
 PERSON = {"id": "<id>", "user_id": "<int>", "name": "<str>", "color": "<str>",
           "created_at": "<ts>", "updated_at": "<ts>", "editable": "<bool>",
           "home_member_id": "<id>", "kind": "<str>"}
+# 0028: solo get_persons (GET /person) añade la cuenta vinculada del miembro (null en mascotas o
+# miembros sin cuenta); create/update de persona devuelven PERSON sin esa clave.
+PERSON_ITEM = dict(PERSON, app_user_id="<int?>")
 PERSON_REF = {"id": "<id>", "user_id": "<int>", "name": "<str>", "color": "<str>"}
 CAL_ITEM = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>",
             "created_at": "<ts>", "updated_at": "<ts>", "widget": "<01>", "dashboard": "<01>",
-            "upcoming_event_count": "<int>", "home_id": "<id>"}
+            "upcoming_event_count": "<int>", "home_id": "<id>",
+            "can_edit": "<bool>"}  # 0029: owner o can_edit
 CAL_DETAIL = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>",
               "created_at": "<ts>", "updated_at": "<ts>", "home_id": "<id>"}
 CAL_USER = {"cu_id": "<id>", "user_id": "<id>", "name": "<str>", "email": "<str>", "role": "<str>",
-            "home_role": "<str>"}
+            "home_role": "<str>", "can_edit": "<bool>"}  # 0029
 USER = {"id": "<id>", "name": "<str>", "email": "<str>", "created_at": "<ts>", "updated_at": "<ts>"}
 USER_CREATE = {"id": "<id>", "name": "<str>", "email": "<str>", "token": "<token>",
+               "refresh_token": "<token>",  # aditivo (como user/auth): la sesión del registro se refresca
                "created_at": "<ts>", "updated_at": "<ts>"}
 USER_AUTH = {"id": "<id>", "name": "<str>", "email": "<str>", "token": "<token>",
              "refresh_token": "<token>", "created_at": "<ts>", "updated_at": "<ts>"}
@@ -274,11 +279,12 @@ TASK_ITEM = {"id": "<id>", "task_list_id": "<id>", "title": "<str>", "completed_
              "task_list_color": "<str>", "task_list_name": "<str>", "persons": [PERSON_REF]}
 TL_ITEM = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>", "sort": "<str>",
            "created_at": "<ts>", "updated_at": "<ts>", "widget": "<01>", "dashboard": "<01>",
-           "pending_task_count": "<int>", "home_id": "<id>"}
+           "pending_task_count": "<int>", "home_id": "<id>",
+           "can_edit": "<bool>"}  # 0029: owner o can_edit
 TL_DETAIL = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>", "sort": "<str>",
              "created_at": "<ts>", "updated_at": "<ts>", "home_id": "<id>"}
 TL_USER = {"tlu_id": "<id>", "user_id": "<id>", "name": "<str>", "email": "<str>", "role": "<str>",
-           "home_role": "<str>"}
+           "home_role": "<str>", "can_edit": "<bool>"}  # 0029
 # Contrato nuevo de 1.4 (§2, sin oráculo PHP). R1-03: role es "<str>" (shape() no conoce
 # "<admin|member>"); el dominio admin|member se valida con value() en el escenario.
 HOME_ITEM = {"home_id": "<id>", "name": "<str>", "role": "<str>", "is_default": "<bool>",
@@ -1036,7 +1042,7 @@ for name, path in cases:
 read_lists = [
     ("GET /calendar", "/calendar", [CAL_ITEM]),
     ("GET /calendar/user", "/calendar/user?calendar_id=1", [CAL_USER]),
-    ("GET /person", "/person", [PERSON]),
+    ("GET /person", "/person", [PERSON_ITEM]),
     ("GET /routine", f"/routine?timezone={tz}", [ROUTINE]),
     ("GET /task-list", "/task-list", [TL_ITEM]),
     ("GET /task-list/user", "/task-list/user?task_list_id=1", [TL_USER]),
@@ -1104,13 +1110,13 @@ def scenario_person():
     value("PATCH /person/update", "escenario person/update → nombre nuevo",
           isinstance(b, dict) and b.get("name") == "CC-Persona 2")
     b = check("GET /person", "escenario GET /person tras update",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     value("GET /person", "escenario GET /person contiene la renombrada",
           isinstance(b, list) and any(x.get("id") == pid and x.get("name") == "CC-Persona 2" for x in b))
     check("DELETE /person/delete", "escenario person/delete",
           request("DELETE", "/person/delete", {"id": pid}, tok), 200, SUCCESS)
     b = check("GET /person", "escenario GET /person tras delete",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     value("GET /person", "escenario GET /person ya sin la borrada",
           isinstance(b, list) and all(x.get("id") != pid for x in b))
 
@@ -1502,7 +1508,7 @@ def scenario_member():
           and b.get("kind") == "child" and b.get("home_id") == hmem, repr(b)[:300])
     m1 = b.get("id") if isinstance(b, dict) else None
     b = check("GET /person", "K1 GET /person lista la persona del miembro (home_member_id)",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     p1 = next((x.get("id") for x in b if isinstance(x, dict) and x.get("home_member_id") == m1), None)
     value("GET /person", "K1 la persona nueva con home_member_id y kind=child",
           p1 is not None and any(x.get("id") == p1 and x.get("kind") == "child" for x in b),
@@ -1580,7 +1586,7 @@ def scenario_member():
           isinstance(b, dict) and b.get("name") == "CC-Miembro-Child 2" and b.get("color") == "#112233"
           and b.get("linked") is False and b.get("status") == "active", repr(b)[:300])
     b = check("GET /person", "K9 GET /person refleja el nombre nuevo (D12)",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     value("GET /person", "K9 persona con nombre nuevo",
           isinstance(b, list) and any(x.get("id") == p1 and x.get("name") == "CC-Miembro-Child 2"
                                       for x in b), repr(b)[:300])
@@ -1600,7 +1606,7 @@ def scenario_member():
     value("PATCH /home/member/update", "K10 status=inactive en la respuesta",
           isinstance(b, dict) and b.get("status") == "inactive", repr(b)[:300])
     b = check("GET /person", "K10 GET /person ya no lista la inactiva",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     value("GET /person", "K10 persona oculta tras la baja (sin borrar filas)",
           isinstance(b, list) and all(x.get("id") != p1 for x in b), repr(b)[:300])
     b = check("GET /home/member", "K10 GET /home/member la lista con status inactive",
@@ -1631,7 +1637,7 @@ def scenario_member():
           request("PATCH", "/home/member/update",
                   {"id": m2, "name": "CC-Miembro-Pet", "color": "#B2C3D4"}, tok), 200, HOME_MEMBER)
     b = check("GET /person", "K13b GET /person tras PATCH sin cambios",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     value("GET /person", "K13b person.updated_at intacto (2000-01-01 00:00:00)",
           isinstance(b, list) and any(x.get("id") == int(p2)
                                       and x.get("updated_at") == "2000-01-01 00:00:00" for x in b),
@@ -1643,7 +1649,7 @@ def scenario_member():
     value("PATCH /home/member/update", "K14 status=active",
           isinstance(b, dict) and b.get("status") == "active", repr(b)[:300])
     b = check("GET /person", "K14 GET /person vuelve a listarla",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     value("GET /person", "K14 persona visible otra vez",
           isinstance(b, list) and any(x.get("id") == p1 for x in b), repr(b)[:300])
     check("POST /event/create", "K14 POST /event/create con la re-alta → 200",
@@ -1681,7 +1687,7 @@ def scenario_member():
     value("DELETE /person/delete", "K16 home_member inactive, person existe, asignaciones borradas",
           row == "inactive 1 0", f"psql: {row!r}")
     b = check("GET /person", "K16 GET /person ya no la lista",
-              request("GET", "/person", None, tok), 200, [PERSON])
+              request("GET", "/person", None, tok), 200, [PERSON_ITEM])
     value("GET /person", "K16 persona oculta tras la baja legacy",
           isinstance(b, list) and all(x.get("id") != int(p3) for x in b), repr(b)[:300])
     # K17: PATCH /person/update por admin no creador → 200 (D15); la crea el viewer con cabecera

@@ -45,7 +45,8 @@ export const handleUserAuth = async (req: Request): Promise<Response> => {
 };
 
 // POST /user/create (UserCreate.php): flag → validaciones → alta GoTrue (trigger 0004 crea
-// app_user). Q4: confirmación de email desactivada; si GoTrue no devuelve sesión → error explícito.
+// app_user). Q4: confirmación de email desactivada; si GoTrue no devuelve sesión → password grant;
+// si tampoco hay sesión → 400 «Email confirmation is pending» (la app lleva al login).
 export const handleUserCreate = async (req: Request): Promise<Response> => {
     if (!allowRegistration()) return errNotAllowed(); // UserCreate.php:13 (verbatim)
 
@@ -84,8 +85,17 @@ export const handleUserCreate = async (req: Request): Promise<Response> => {
         // Desviación: GoTrue valida el formato del email; PHP aceptaba cualquier string
         return error(msg || "Internal error", 400);
     }
-    const session = await res.json();
-    if (!session.access_token) return error("Email confirmation is pending", 400);
+    let session = await res.json();
+    // Sin sesión en el signup (p. ej. GoTrue con autoconfirm pero sin tokens en la respuesta):
+    // se intenta el login con las mismas credenciales. Si «Confirm email» está activo, GoTrue lo
+    // rechaza hasta confirmar y se mantiene el 400 del contrato; la app lo trata llevando al login
+    // con los datos cargados (change permisos-edicion-registro-sesion).
+    if (!session.access_token) {
+        const grant = await passwordGrant(email as string, password as string);
+        if (!grant.ok) return error("Email confirmation is pending", 400);
+        session = await grant.json();
+        if (!session.access_token) return error("Email confirmation is pending", 400);
+    }
     const me = await appUserRow(session.user.id, session.access_token);
     if (me === null) return errNotFound500();
 
@@ -94,6 +104,8 @@ export const handleUserCreate = async (req: Request): Promise<Response> => {
         name: me.name,
         email: me.email,
         token: session.access_token,
+        // Aditivo (como user/auth): sin él la sesión del registro caducaba sin poder refrescarse.
+        refresh_token: session.refresh_token,
         created_at: fmt(me.created_at as string),
         updated_at: fmt(me.updated_at as string),
     }, 201);

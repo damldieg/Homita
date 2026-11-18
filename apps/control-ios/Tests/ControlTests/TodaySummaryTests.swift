@@ -67,6 +67,24 @@ final class TodaySummaryTests: XCTestCase {
         XCTAssertEqual(TodaySummary.events(list, on: monday, timeZone: utc).map(\.id), [2])
     }
 
+    func testSplitEventsSeparatesPastFromUpcoming() throws {
+        let list = [
+            try event(1, "2026-11-09 08:00:00"),  // 2 h antes: pasado
+            try event(2, "2026-11-09 09:00:00"),  // justo 1 h antes: pasado
+            try event(3, "2026-11-09 09:30:00"),  // en curso (30 min): sigue arriba
+            try event(4, "2026-11-09 20:00:00"),  // próximo
+        ]
+        let split = TodaySummary.splitEvents(list, now: monday, timeZone: utc)
+        XCTAssertEqual(split.past.map(\.id), [1, 2])
+        XCTAssertEqual(split.upcoming.map(\.id), [3, 4])
+    }
+
+    func testSplitEventsKeepsUnreadableDatesUpcoming() throws {
+        let split = TodaySummary.splitEvents([try event(1, "no-es-fecha")], now: monday, timeZone: utc)
+        XCTAssertTrue(split.past.isEmpty)
+        XCTAssertEqual(split.upcoming.map(\.id), [1])
+    }
+
     // MARK: tareas
 
     func testPendingTasksAreLimitedAndOrdered() throws {

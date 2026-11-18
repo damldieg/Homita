@@ -3,7 +3,7 @@ import { inputBool, inputEmail, inputInt, inputString, json, contractEmpty, cont
 import {
     errNotFound500, errTaskListCreateRequired, errTaskListIdRequired, errTaskListSort,
     errTaskListUpdateRequired, errTaskListUserCreateRequired, errTaskListUserDeleteRequired,
-    errTaskListUserIdRequired, rpcPass,
+    errTaskListUserIdRequired, errTaskListUserAccessRequired, rpcPass,
 } from "../_shared/errors.ts";
 import { rpc, selectRows } from "../_shared/supabase.ts";
 import { currentHome } from "../_shared/home.ts";
@@ -103,4 +103,16 @@ export const handleTaskListUserDelete = async (req: Request, token: string): Pro
     const userId = inputInt(input, "user_id");
     if (contractEmpty(taskListId) || contractEmpty(userId)) return errTaskListUserDeleteRequired();
     return rpcPass(await rpc("remove_task_list_user", { p_task_list_id: taskListId, p_user_id: userId }, token));
+};
+
+// PATCH /task-list/user (0029, ruta nueva): el owner cambia el permiso de un miembro entre lectura
+// y edición; mismas reglas que PATCH /calendar/user (403 'Not Allowed' / 500 'Not Found').
+export const handleTaskListUserAccess = async (req: Request, token: string): Promise<Response> => {
+    const input = await contractInput(req);
+    const taskListId = inputInt(input, "task_list_id");
+    const userId = inputInt(input, "user_id");
+    const canEdit = inputBool(input, "can_edit");
+    if (contractEmpty(taskListId) || contractEmpty(userId) || canEdit === null) return errTaskListUserAccessRequired();
+    return rpcPass(await rpc("set_task_list_user_access",
+        { p_task_list_id: taskListId, p_user_id: userId, p_can_edit: canEdit }, token));
 };

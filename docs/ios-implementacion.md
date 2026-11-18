@@ -214,3 +214,5 @@ Decisiones:
 - El permiso de iOS se pide en la primera sincronización con la app abierta y avisos activos, no en el arranque.
 - La Live Activity se inicia con la app abierta y reutiliza la regla de «Rutinas de hoy» (en curso, o aviso ≤ 60 min).
 - Cambios de proyecto: target `HomitaWidgets` (`com.lito.planify.control.ios.widgets`), App Group en `Entitlements/`, esquema `homita://`, `NSSupportsLiveActivities`, `UIBackgroundModes: fetch` y `BGTaskSchedulerPermittedIdentifiers` en `ControlApp/Info.plist`.
+
+Ajuste posterior (2026-11-13): los avisos entregados se quedan en el panel (solo se reprograman los pendientes); la Live Activity se limita a rutinas asignadas a la persona de la cuenta (`GET person` ahora trae `app_user_id`, migración 0028 + `rollback_0028.sql`); widgets de alta *Nueva tarea / evento / rutina* y deep link `homita://nueva-rutina`. Los avisos de rutina también se limitan a las rutinas asignadas a la persona de la cuenta (`NotificationPlanner.plan(myPersonIds:)`); sin persona vinculada no avisan. Los eventos siguen siendo para todo el hogar, como Calendario.

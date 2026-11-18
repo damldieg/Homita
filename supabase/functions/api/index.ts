@@ -38,7 +38,7 @@ import {
 } from "./usecases/auth.ts";
 import {
     handleCalendarCreate, handleCalendarDelete, handleCalendarDetail, handleCalendarIndex,
-    handleCalendarUpdate, handleCalendarUserCreate, handleCalendarUserDelete, handleCalendarUserIndex,
+    handleCalendarUpdate, handleCalendarUserAccess, handleCalendarUserCreate, handleCalendarUserDelete, handleCalendarUserIndex,
 } from "./usecases/calendars.ts";
 import { handlePersonCreate, handlePersonDelete, handlePersonIndex, handlePersonUpdate } from "./usecases/persons.ts";
 import {
@@ -51,7 +51,7 @@ import {
 } from "./usecases/events.ts";
 import {
     handleTaskListCreate, handleTaskListDelete, handleTaskListDetail, handleTaskListIndex,
-    handleTaskListUpdate, handleTaskListUserCreate, handleTaskListUserDelete, handleTaskListUserIndex,
+    handleTaskListUpdate, handleTaskListUserAccess, handleTaskListUserCreate, handleTaskListUserDelete, handleTaskListUserIndex,
 } from "./usecases/task-lists.ts";
 import {
     handleTask, handleTaskComplete, handleTaskCreate, handleTaskDelete, handleTaskDetail,
@@ -85,6 +85,7 @@ const ROUTES: Record<string, { auth: boolean; home?: boolean; homeContext?: bool
     "GET /calendar/user": { auth: true, handler: (req, t) => handleCalendarUserIndex(req, t) },
     "POST /calendar/user": { auth: true, handler: (req, t) => handleCalendarUserCreate(req, t) },
     "DELETE /calendar/user": { auth: true, handler: (req, t) => handleCalendarUserDelete(req, t) },
+    "PATCH /calendar/user": { auth: true, handler: (req, t) => handleCalendarUserAccess(req, t) },
 
     "GET /person": { auth: true, handler: (req, t) => handlePersonIndex(req, t) },
     "POST /person/create": { auth: true, handler: (req, t) => handlePersonCreate(req, t) },
@@ -113,6 +114,7 @@ const ROUTES: Record<string, { auth: boolean; home?: boolean; homeContext?: bool
     "GET /task-list/user": { auth: true, handler: (req, t) => handleTaskListUserIndex(req, t) },
     "POST /task-list/user": { auth: true, handler: (req, t) => handleTaskListUserCreate(req, t) },
     "DELETE /task-list/user": { auth: true, handler: (req, t) => handleTaskListUserDelete(req, t) },
+    "PATCH /task-list/user": { auth: true, handler: (req, t) => handleTaskListUserAccess(req, t) },
 
     "GET /task": { auth: true, handler: (req, t) => handleTask(req, t) },
     "GET /task/detail": { auth: true, handler: (req, t) => handleTaskDetail(req, t) },

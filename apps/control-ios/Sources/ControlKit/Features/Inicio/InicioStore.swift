@@ -45,6 +45,15 @@ public final class InicioStore: WriteFailureReporting {
         return TodaySummary.events(events, on: current.now, timeZone: current.timeZone)
     }
 
+    /// Eventos de hoy separados en pasados y próximos/en curso.
+    public var eventSplit: (past: [EventEntry], upcoming: [EventEntry]) {
+        let current = clock()
+        return TodaySummary.splitEvents(todayEvents, now: current.now, timeZone: current.timeZone)
+    }
+
+    /// Filas por lista en la tarjeta de tareas de Inicio.
+    public static let cardTaskLimit = 3
+
     /// Primeras tareas pendientes.
     public var pendingTasks: [TaskEntry] { TodaySummary.pendingTasks(tasks) }
 
@@ -57,7 +66,7 @@ public final class InicioStore: WriteFailureReporting {
     }
 
     /// Pendientes agrupadas por lista (orden de `TodaySummary.pendingTasks`, sin límite global;
-    /// cada página muestra las primeras `taskLimit`).
+    /// cada página muestra las primeras `cardTaskLimit`).
     public var pendingTaskPages: [TaskPage] {
         let all = TodaySummary.pendingTasks(tasks, limit: tasks.count)
         var order: [Int] = []
@@ -68,7 +77,7 @@ public final class InicioStore: WriteFailureReporting {
             return TaskPage(
                 id: listId, name: first.task_list_name ?? "Tareas",
                 colorHex: first.task_list_color ?? Palette.accentHex,
-                tasks: Array(items.prefix(TodaySummary.taskLimit))
+                tasks: Array(items.prefix(Self.cardTaskLimit))
             )
         }
     }
@@ -222,5 +231,22 @@ public final class InicioStore: WriteFailureReporting {
 
     private func message(_ error: Error) -> String {
         (error as? APIError)?.userMessage ?? error.localizedDescription
+    }
+}
+
+/// Navegación entre las listas de la tarjeta de tareas de Inicio (swipe y VoiceOver).
+public enum InicioTaskPaging {
+    /// Id de la lista contigua a `current` (`forward` = la siguiente); `nil` en los extremos o si
+    /// `current` no está en `ids`. Sin vuelta al principio: el gesto se detiene en la última lista.
+    public static func neighbor(of current: Int, in ids: [Int], forward: Bool) -> Int? {
+        guard let index = ids.firstIndex(of: current) else { return nil }
+        let target = forward ? index + 1 : index - 1
+        return ids.indices.contains(target) ? ids[target] : nil
+    }
+
+    /// `true` si un arrastre cuenta como swipe horizontal: recorrido suficiente y claramente más
+    /// horizontal que vertical (así no compite con el scroll de la home).
+    public static func isHorizontalSwipe(width: Double, height: Double) -> Bool {
+        abs(width) >= 50 && abs(width) > abs(height) * 2
     }
 }

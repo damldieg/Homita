@@ -84,6 +84,17 @@ insert into task_list_user (task_list_id, user_id, role, widget, dashboard, home
 insert into task (id, task_list_id, title) values
     (997001, 997001, 'PM-Tarea1'),
     (997002, 997002, 'PM-Tarea2');
+-- 0029 (tope adicional): esta matriz prueba el catálogo por kind, así que los viewers tienen
+-- permiso de edición en el ACL (equivale al backfill de 0029). Sin la columna (pre-0029), no-op.
+-- El tope en sí lo prueba acl_can_edit_check.sql.
+do $$
+begin
+    if exists (select 1 from information_schema.columns
+               where table_name = 'calendar_user' and column_name = 'can_edit') then
+        execute 'update calendar_user set can_edit = true where calendar_id between 997001 and 997003';
+        execute 'update task_list_user set can_edit = true where task_list_id between 997001 and 997002';
+    end if;
+end $$;
 insert into home_member (id, home_id, kind, name, color, status) values
     (997001, 997001, 'adult', 'PM-Miembro', '#AA0000', 'active'),
     (997002, 997001, 'adult', 'PM-Inactivo', '#00AA00', 'inactive'),

@@ -30,17 +30,20 @@ public struct NotificationScheduler {
         return granted ?? false
     }
 
-    /// Sustituye todos los avisos pendientes propios por `planned`.
+    /// Sustituye los avisos **pendientes** propios por `planned`. Los ya entregados se dejan en el
+    /// panel de notificaciones, como hace Calendario: no se tocan en cada sincronización.
     public func replaceAll(with planned: [PlannedNotification], timeZone: TimeZone = .current) async {
         let center = UNUserNotificationCenter.current()
-        await removeAll()
+        await removePending()
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
         for item in planned {
             let content = UNMutableNotificationContent()
             content.title = item.title
             content.body = item.body
+            // Suena (tono de aviso por defecto), sale como banner y queda en el panel.
             content.sound = .default
+            content.interruptionLevel = .active
             content.threadIdentifier = "homita.\(item.kind.rawValue)"
             content.userInfo = [NotificationRouter.linkKey: item.link.url.absoluteString]
             let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: item.fireDate)
@@ -49,14 +52,19 @@ public struct NotificationScheduler {
         }
     }
 
-    /// Borra los avisos pendientes y los ya entregados de la app.
-    public func removeAll() async {
+    /// Borra los avisos pendientes propios (los entregados siguen en el panel).
+    public func removePending() async {
         let center = UNUserNotificationCenter.current()
         let pending = await center.pendingNotificationRequests()
         center.removePendingNotificationRequests(
             withIdentifiers: pending.map(\.identifier).filter { $0.hasPrefix(Self.idPrefix) }
         )
-        center.removeAllDeliveredNotifications()
+    }
+
+    /// Borra pendientes y entregados (cierre de sesión: nada del usuario anterior en el panel).
+    public func removeAll() async {
+        await removePending()
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     }
 }
 

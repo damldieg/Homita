@@ -281,7 +281,7 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 254
+EXPECTED_CASES = 256
 A12_ITERS = int(os.environ.get("A12_ITERS", "20"))
 # F1_ITERS: carreras de solape real por bloque F1/F2 (R1-06; el solape expone el 40P01 de 0020)
 F1_ITERS = int(os.environ.get("F1_ITERS", "10"))
@@ -618,7 +618,15 @@ expect("viewer PATCH /task-list/update cambia name → 403",
 res = edge("PATCH", "/task-list/update", {"id": lst, "name": "XT-Lista", "color": "#222222",
                                          "sort": "title", "widget": False}, b_tok)
 check("viewer PATCH /task-list/update solo flags propias → 200", res[0] == 200, repr(res)[:200])
-check("viewer POST /task/create en la lista compartida → 200 (A8: escribe contenido)",
+# 0029: las altas nuevas por email entran en solo lectura (can_edit = false; el backfill a true solo
+# afectó a las filas viewer anteriores a la migración). A8 (el viewer escribe contenido) ahora exige
+# antes que el owner le dé can_edit con PATCH /task-list/user; sin él, escribir es 403.
+expect("viewer sin can_edit POST /task/create en la lista compartida → 403 Not Allowed (0029)",
+       edge("POST", "/task/create", {"task_list_id": lst, "title": "XT-Tarea B"}, b_tok), NOT_ALLOWED)
+check("owner PATCH /task-list/user da can_edit a B → 200 (0029)",
+      edge("PATCH", "/task-list/user", {"task_list_id": lst, "user_id": b_id, "can_edit": True},
+           a_tok)[0] == 200)
+check("viewer con can_edit POST /task/create en la lista compartida → 200 (A8: escribe contenido)",
       edge("POST", "/task/create", {"task_list_id": lst, "title": "XT-Tarea B"}, b_tok)[0] in (200, 201))
 check("viewer GET /task-list/detail del compartido → 200",
       edge("GET", f"/task-list/detail?id={lst}", None, b_tok)[0] == 200)

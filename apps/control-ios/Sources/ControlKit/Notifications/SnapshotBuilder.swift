@@ -8,18 +8,18 @@ public enum SnapshotBuilder {
 
     public static func build(
         events: [EventEntry], routines: [RoutineEntry], tasks: [TaskEntry],
-        homeName: String?, now: Date, timeZone: TimeZone = .current
+        homeName: String?, now: Date, timeZone: TimeZone = .current, myPersonIds: Set<Int> = []
     ) -> HomitaSnapshot {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
         let todayRoutines = TodaySummary.routines(routines, on: now, timeZone: timeZone)
         let timed = todayRoutines.compactMap { routine -> HomitaSnapshot.Routine? in
             guard let start = RoutineStatus.startToday(time: routine.time, now: now, timeZone: timeZone) else { return nil }
-            return snapshotRoutine(routine, start: start)
+            return snapshotRoutine(routine, start: start, myPersonIds: myPersonIds)
         }
         let untimed = todayRoutines.compactMap { routine -> HomitaSnapshot.Routine? in
             RoutineStatus.startToday(time: routine.time, now: now, timeZone: timeZone) == nil
-                ? snapshotRoutine(routine, start: nil) : nil
+                ? snapshotRoutine(routine, start: nil, myPersonIds: myPersonIds) : nil
         }
         let todayEvents = TodaySummary.events(events.filter { $0.routine_id == nil }, on: now, timeZone: timeZone)
             .compactMap { event -> HomitaSnapshot.Event? in
@@ -41,10 +41,13 @@ public enum SnapshotBuilder {
         )
     }
 
-    private static func snapshotRoutine(_ routine: RoutineEntry, start: Date?) -> HomitaSnapshot.Routine {
+    private static func snapshotRoutine(
+        _ routine: RoutineEntry, start: Date?, myPersonIds: Set<Int>
+    ) -> HomitaSnapshot.Routine {
         HomitaSnapshot.Routine(
             id: routine.id, title: routine.title, colorHex: routine.calendar_color ?? Palette.fallbackItem,
-            start: start, persons: (routine.persons ?? []).map(\.name)
+            start: start, persons: (routine.persons ?? []).map(\.name),
+            assignedToMe: (routine.persons ?? []).contains { myPersonIds.contains($0.id) }
         )
     }
 }

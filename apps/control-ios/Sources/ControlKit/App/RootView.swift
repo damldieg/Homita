@@ -163,6 +163,8 @@ struct MainTabView: View {
         switch link {
         case .nuevaTarea, .nuevoEvento:
             selectedTab = 0
+        case .nuevaRutina:
+            calendarSegment = 1; selectedTab = 2
         case .rutinas:
             calendarSegment = 1; selectedTab = 2; deepLinks.consume(link)
         case .calendario:

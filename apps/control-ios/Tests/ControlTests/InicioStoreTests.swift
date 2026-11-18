@@ -68,4 +68,19 @@ final class InicioStoreTests: XCTestCase {
         XCTAssertEqual(requests.first?.httpMethod, "PATCH")
         XCTAssertEqual(requests.last.map(route), "task")
     }
+
+    /// Cada lista de la tarjeta muestra como mucho 3 pendientes (el widget conserva su límite de 5).
+    func testTaskPagesShowAtMostThreeRowsPerList() async {
+        let tasks = (1...5).map {
+            #"{"id":\#($0),"task_list_id":2,"title":"T\#($0)","completed_at":null,"order":\#($0)}"#
+        }.joined(separator: ",")
+        let store = makeStore { request in
+            self.route(request) == "task" ? StubURLProtocol.Stub(json: "[\(tasks)]") : StubURLProtocol.Stub(json: "[]")
+        }
+        await store.load()
+        XCTAssertEqual(InicioStore.cardTaskLimit, 3)
+        XCTAssertEqual(store.pendingTaskPages.count, 1)
+        XCTAssertEqual(store.pendingTaskPages.first?.tasks.map(\.id), [1, 2, 3])
+        XCTAssertEqual(TodaySummary.taskLimit, 5)
+    }
 }

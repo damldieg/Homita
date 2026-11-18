@@ -16,11 +16,16 @@ final class NotificationPlannerTests: XCTestCase {
         return try JSONDecoder().decode(EventEntry.self, from: Data(json.utf8))
     }
 
-    private func routine(_ id: Int, time: String = "08:00:00", alarm: Int?, active: Int = 1) throws -> RoutineEntry {
+    private func routine(
+        _ id: Int, time: String = "08:00:00", alarm: Int?, active: Int = 1, personIds: [Int]? = nil
+    ) throws -> RoutineEntry {
         let alarmJSON = alarm.map(String.init) ?? "null"
+        let personsJSON = personIds.map { ids in
+            ",\"persons\":[" + ids.map { "{\"id\":\($0),\"user_id\":1,\"name\":\"P\($0)\",\"color\":\"#000000\"}" }.joined(separator: ",") + "]"
+        } ?? ""
         let json = """
         {"id":\(id),"calendar_id":1,"title":"Desayuno","days":null,"time":"\(time)","start_date":"2026-11-01",
-         "end_date":null,"active":\(active),"frequency":"daily","interval":1,"alarm":\(alarmJSON)}
+         "end_date":null,"active":\(active),"frequency":"daily","interval":1,"alarm":\(alarmJSON)\(personsJSON)}
         """
         return try JSONDecoder().decode(RoutineEntry.self, from: Data(json.utf8))
     }
@@ -40,6 +45,25 @@ final class NotificationPlannerTests: XCTestCase {
         NotificationPlanner.plan(
             events: events, routines: routines, pendingTasks: tasks, preferences: prefs, now: now, timeZone: utc
         )
+    }
+
+    func testRoutineAlertsOnlyForAssignedPerson() throws {
+        let routines = [
+            try routine(1, alarm: 0, personIds: [7]),
+            try routine(2, alarm: 0, personIds: [8]),
+            try routine(3, alarm: 0),
+        ]
+        let mine = NotificationPlanner.plan(
+            events: [], routines: routines, pendingTasks: [], preferences: NotificationPreferences(),
+            now: now, timeZone: utc, myPersonIds: [7]
+        )
+        XCTAssertFalse(mine.isEmpty)
+        XCTAssertTrue(mine.allSatisfy { $0.id.hasPrefix("homita.routine.1.") })
+        let unlinked = NotificationPlanner.plan(
+            events: [], routines: routines, pendingTasks: [], preferences: NotificationPreferences(),
+            now: now, timeZone: utc, myPersonIds: []
+        )
+        XCTAssertTrue(unlinked.isEmpty)
     }
 
     func testEventFiresAlarmMinutesBeforeStart() throws {

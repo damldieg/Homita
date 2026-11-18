@@ -5,6 +5,8 @@ import Foundation
 public final class CalendarStore: WriteFailureReporting {
     public private(set) var calendars: [CalendarEntry] = []
     public private(set) var members: [MemberEntry] = []
+    /// Personas del hogar (`GET person`): fuente de las cuentas a las que se puede dar acceso.
+    public private(set) var homePersons: [PersonEntry] = []
     public private(set) var isLoading = false
     /// Primera carga completada (loader hasta entonces).
     public private(set) var hasLoaded = false
@@ -21,11 +23,14 @@ public final class CalendarStore: WriteFailureReporting {
     private let repo: CalendarRepository
     private let events: EventRepository?
     private let routines: RoutineRepository?
+    private let persons: PersonRepository?
 
-    public init(repo: CalendarRepository, events: EventRepository? = nil, routines: RoutineRepository? = nil) {
+    public init(repo: CalendarRepository, events: EventRepository? = nil, routines: RoutineRepository? = nil,
+                persons: PersonRepository? = nil) {
         self.repo = repo
         self.events = events
         self.routines = routines
+        self.persons = persons
     }
 
     /// Carga los eventos (futuros, sin sesiones de rutina) y las rutinas del calendario (A4).
@@ -91,6 +96,27 @@ public final class CalendarStore: WriteFailureReporting {
             members = try await repo.users(calendarId: calendarId)
         } catch {
             report(error)
+        }
+        // Las cuentas del hogar solo hacen falta si el usuario es owner (selector de permisos).
+        // Un fallo aquí no tapa la lista de miembros: el selector muestra solo el ACL.
+        if let persons, AccessRoster.callerIsOwner(currentUserId, in: members) {
+            homePersons = (try? await persons.index()) ?? []
+        }
+    }
+
+    /// Usuario de la sesión (lo fija la vista antes de cargar miembros).
+    public var currentUserId: Int?
+
+    /// Filas del panel de acceso (miembros + cuentas del hogar sin acceso, solo para el owner).
+    public var accessRows: [AccessRow] {
+        AccessRoster.rows(members: members, persons: homePersons, currentUserId: currentUserId)
+    }
+
+    /// Cambia el permiso de un miembro (o comparte con una cuenta del hogar). Error → toast.
+    public func setAccess(calendarId: Int, userId: Int, level: AccessLevel) async {
+        await performWrite { store in
+            try await store.repo.setAccess(calendarId: calendarId, userId: userId, canEdit: level.canEdit)
+            await store.loadMembers(calendarId: calendarId)
         }
     }
 

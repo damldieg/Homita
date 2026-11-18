@@ -33,8 +33,10 @@ final class WriteFailureTests: XCTestCase {
     }
 
     func testMessageIsServerUserMessage() {
+        // 403 `Not Allowed` en una escritura = falta de permiso de edición (0029): mensaje claro.
         let failure = WriteFailure(error: APIError.http(status: 403, message: "Not Allowed")) { true }
-        XCTAssertEqual(failure.message, "Solo el propietario puede realizar esta acción")
+        XCTAssertEqual(failure.message,
+                       "No tienes permiso para hacer este cambio. Pide al propietario que te dé permiso de edición.")
         XCTAssertEqual(WriteFailure(error: APIError.network("x")) { true }.message, "Error de conexión. Comprueba la red.")
     }
 

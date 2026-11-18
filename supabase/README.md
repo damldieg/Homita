@@ -153,7 +153,7 @@ python3 scripts/supabase/contract_check.py  # o --fn URL o SUPABASE_FUNCTIONS_UR
 Complementos sin oráculo: `scripts/supabase/tests/expected_shape_check.py`
 (forma esperada: `refresh_token`, `config` con flag `ALLOW_REGISTRATION`, Gemini 400, alta de
 usuarios; se ejecuta una vez por configuración de flag) y `scripts/supabase/tests/cross_tenant_check.py`
-(aislamiento entre tenants: 254 casos —`EXPECTED_CASES` en el script—, ids ajenos → `500 Not Found`, RPC directas
+(aislamiento entre tenants: 256 casos —`EXPECTED_CASES` en el script—, ids ajenos → `500 Not Found`, RPC directas
 `/rest/v1/rpc/*` con JWT ajeno sin fugas, owner vs viewer). Fixture:
 `scripts/supabase/fixture_two_families.py` (RLS).
 
@@ -168,7 +168,7 @@ stack Supabase local y efímero en `ubuntu-latest` y corre `scripts/supabase/ci.
    y seed. Es el único reset.
 3. SQL `invitaciones_check.sql` (`ok N1..N22`) y `home_checks_compat.sql` (`ok V5j..V5p`).
 4. `contract_check.py` completo (`454/454`; `CONTRACT_ONLY` se anula).
-5. `cross_tenant_check.py` (`254/254`; sale 1 si hay un fallo o si el número de casos no es
+5. `cross_tenant_check.py` (`256/256`; sale 1 si hay un fallo o si el número de casos no es
    `EXPECTED_CASES`).
 
 Se ejecutan todas las suites aunque una falle y el job falla si falla cualquiera; ante fallo se

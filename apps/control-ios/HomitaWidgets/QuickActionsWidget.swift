@@ -35,8 +35,8 @@ struct QuickActionsProvider: TimelineProvider {
     }
 }
 
-/// Accesos rápidos: crear tarea, crear evento y ver las rutinas. Cada botón abre la app con un
-/// enlace profundo (`homita://nueva-tarea`, …) y la app abre directamente el formulario.
+/// Accesos rápidos: crear tarea, evento y rutina. Cada botón abre la app con un enlace profundo
+/// (`homita://nueva-tarea`, `nuevo-evento`, `nueva-rutina`) y la app abre directamente el formulario.
 struct QuickActionsWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: HomitaShared.quickActionsWidgetKind, provider: QuickActionsProvider()) { entry in
@@ -44,7 +44,7 @@ struct QuickActionsWidget: Widget {
                 .containerBackground(WidgetTheme.surface, for: .widget)
         }
         .configurationDisplayName("Accesos rápidos")
-        .description("Crea una tarea o un evento y mira las rutinas con un toque.")
+        .description("Crea una tarea, un evento o una rutina con un toque.")
         .supportedFamilies([.systemMedium, .accessoryCircular])
     }
 }
@@ -66,8 +66,8 @@ struct QuickActionsView: View {
                      tint: WidgetTheme.accent, link: .nuevaTarea)
                 tile("Evento", systemImage: "calendar.badge.plus", detail: detail(entry.eventsToday, "hoy", "hoy"),
                      tint: WidgetTheme.now, link: .nuevoEvento)
-                tile("Rutinas", systemImage: "arrow.triangle.2.circlepath", detail: "Ver hoy",
-                     tint: WidgetTheme.soon, link: .rutinas)
+                tile("Rutina", systemImage: "arrow.triangle.2.circlepath", detail: "Nueva",
+                     tint: WidgetTheme.soon, link: .nuevaRutina)
             }
         } else {
             Link(destination: HomitaDeepLink.ajustesNotificaciones.url) {

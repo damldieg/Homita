@@ -144,7 +144,9 @@ struct CalendarEventsView: View {
             .tint(Palette.accent)
             .padding(.horizontal)
             .navigationTitle("Elegir fecha")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Hoy") {

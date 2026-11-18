@@ -53,9 +53,14 @@ public struct RoutineActivityAttributes: ActivityAttributes {
 }
 
 extension HomitaSnapshot {
-    /// Contenido de la Live Activity a la hora `now`: la rutina en curso o en aviso. `nil` si no
-    /// hay ninguna (entonces la actividad se termina).
+    /// Contenido de la Live Activity a la hora `now`: la rutina en curso o en aviso **asignada a la
+    /// persona de esta cuenta**. `nil` si no hay ninguna (entonces la actividad se termina).
     public func liveActivityState(at now: Date) -> RoutineActivityAttributes.ContentState? {
+        let mine = assignedToMeOnly
+        return mine.unscopedLiveActivityState(at: now)
+    }
+
+    fileprivate func unscopedLiveActivityState(at now: Date) -> RoutineActivityAttributes.ContentState? {
         guard let focus = focusRoutine(at: now), let start = focus.start, let end = focus.end else { return nil }
         let phase = focus.phase(at: now)
         let state: RoutineActivityAttributes.ContentState.Phase

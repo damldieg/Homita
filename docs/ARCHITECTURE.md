@@ -89,17 +89,19 @@ Para probar el quiosco en el emulador basta con `adb shell dpm set-device-owner 
 
 ## Contrato del backend (control-api)
 
-El contrato es el **(a) PHP-compat** (D-008): la Edge Function `supabase/functions/api` implementa ruta a ruta el contrato del backend retirado — mismos parámetros, validaciones y mensajes exactos, misma forma de respuesta y mismos efectos — y es su **única fuente** desde la retirada del PHP (change `remove-php-legacy`, tag `legacy-php-final`). El detalle por ruta (43) está en el propio código: la tabla de rutas (`ROUTES`) de `supabase/functions/api/index.ts` y `scripts/supabase/contract_check.py`, que verifica la Edge contra el contrato documentado (inventario histórico en `.dorch/archive/control-api/contract-inventory.md`, local y no versionado). El cliente iOS (`apps/control-ios`, Swift/SwiftUI, lógica en el paquete `ControlKit`) consume esta misma Edge con este mismo contrato.
+El contrato es el **(a) PHP-compat** (D-008): la Edge Function `supabase/functions/api` implementa ruta a ruta el contrato del backend retirado — mismos parámetros, validaciones y mensajes exactos, misma forma de respuesta y mismos efectos — y es su **única fuente** desde la retirada del PHP (change `remove-php-legacy`, tag `legacy-php-final`). El detalle por ruta (43 legacy + rutas nuevas como `PATCH calendar/user` y `PATCH task-list/user`) está en el propio código: la tabla de rutas (`ROUTES`) de `supabase/functions/api/index.ts` y `scripts/supabase/contract_check.py`, que verifica la Edge contra el contrato documentado (inventario histórico en `.dorch/archive/control-api/contract-inventory.md`, local y no versionado). El cliente iOS (`apps/control-ios`, Swift/SwiftUI, lógica en el paquete `ControlKit`) consume esta misma Edge con este mismo contrato.
 
-**Matriz de autorización** (owner/viewer; §3 del plan de `control-api`). Notación: **M** = miembro del calendario o la lista (no miembro → `500 {"error":"Not Found"}`); **O** = owner; **S** = self (`user_id` de la sesión). El orden de comprobación es el PHP: validación 400 → M → S → O.
+**Matriz de autorización** (owner/viewer; §3 del plan de `control-api`, con el permiso de edición de 0029). Notación: **M** = miembro del calendario o la lista (no miembro → `500 {"error":"Not Found"}`); **O** = owner; **E** = permiso de edición (owner o `can_edit`); **S** = self (`user_id` de la sesión). El orden de comprobación es el PHP: validación 400 → M → S → O.
 
 | Rutas | Regla |
 |---|---|
-| `calendar/detail`, `calendar/user` (GET), `task-list/detail`, `task-list/user` (GET), `routine/*`, `event/*`, `task/*` | M (cualquier rol: el viewer escribe contenido, como en PHP) |
+| `calendar/detail`, `calendar/user` (GET), `task-list/detail`, `task-list/user` (GET), `routine/*` y `event/*` (GET), `task/*` (GET) | M (cualquier rol) |
+| `routine/*`, `event/*`, `task/*` (escrituras de contenido) | M + **E** (permiso de edición: owner o `can_edit`, 0029) + permiso del catálogo del hogar; lectura → 403. Las alarmas propias (`event/alarm`, `routine/alarm`) solo M |
 | `calendar/create`, `task-list/create`, `person/create` | cualquiera; el creador queda owner |
-| `calendar/update`, `task-list/update` | M; `name`/`color`/`sort` compartidos → O (403); `widget`/`dashboard` → fila propia (S, cualquier rol) |
+| `calendar/update`, `task-list/update` | M; `name`/`color`/`sort` compartidos → E (403 si lectura, 0029); `widget`/`dashboard` → fila propia (S, cualquier rol) |
 | `calendar/delete`, `task-list/delete`, `calendar/user` y `task-list/user` (POST/DELETE) | M + O (viewer → 403) |
 | `calendar/user` y `task-list/user` (DELETE) | M → S (`400 {"error":"User cannot remove themselves"}`) → O (403) |
+| `calendar/user` y `task-list/user` (PATCH, 0029) | M + O; destino = cuenta del hogar del recurso, ni la propia fila ni otro owner (403); si no estaba en el ACL, se agrega en el permiso pedido |
 | `person` PATCH/DELETE | solo el creador; el resto → `500 {"error":"Not Found"}` (paridad PHP, no 403) |
 
 **Desviaciones documentadas** del contrato PHP-compat (todas verificadas en `scripts/supabase/`):
@@ -107,7 +109,7 @@ El contrato es el **(a) PHP-compat** (D-008): la Edge Function `supabase/functio
 - **401 vs 500 (legacy):** login con email inexistente — PHP `500 {"error":"Not Found"}`, Edge `401 {"error":"Invalid credentials"}`.
 - **Owner-only 403:** en `calendar/update|delete`, `task-list/update|delete` y `*/user`, PHP no comprueba owner (acepta al viewer); la Edge responde `403 {"error":"Not Allowed"}` (Q5: enforce).
 - **Gemini 400:** `POST event/create` con `text` y sin `title`+`date_at` → `400 {"error":"Title and date_at are required if text is not provided"}` (mensaje PHP exacto, pero PHP solo lo emitiría si Gemini falla: la conversión de texto está diferida).
-- **`refresh_token` aditivo:** `POST /user/auth` añade `refresh_token` a las claves PHP (el dashboard sigue con su JWT de 7 días; el refresco directo a GoTrue es para la app iOS). Aditivo: Gson ignora claves desconocidas.
+- **`refresh_token` aditivo:** `POST /user/auth` (y desde 0029 también `POST /user/create`) añade `refresh_token` a las claves PHP (el dashboard sigue con su JWT de 7 días; el refresco directo a GoTrue es para la app iOS). Aditivo: Gson ignora claves desconocidas.
 - **Flag de `GET /config`:** PHP `config/public.json` → `allow_registration: true`; la Edge usa el env `ALLOW_REGISTRATION` con default **false** (Q3: registro cerrado salvo que se configure).
 - **`calendar/create` sin `color`:** ambos responden `500` con el TypeError del motor (`App\Models\Calendar::create(): Argument #2 ($color) must be of type string, null given, called in … on line 21`; el default `#6923E2` de la firma no aplica: el controlador pasa null explícito). Desviación solo en el sufijo `called in …`: PHP imprime la ruta absoluta de su despliegue, la Edge fija la del contrato, `CalendarCreate.php on line 21` (sin ruta de despliegue).
 - **Body en GET (plataforma):** PHP lee body+query con precedencia del body en todas las rutas (p.ej. `task_list_id` de `GET /task` → M-check + filtro); el runtime de Edge Functions descarta el body de GET/HEAD (fetch spec: `Request` sin body para GET, medido `req.body === null`), así que en GET solo llega el query (los consumidores reales envían los filtros por query). El código honra body+query con precedencia del body si el body llega; `contract_check` pinnea la desviación y falla si la plataforma cambia.

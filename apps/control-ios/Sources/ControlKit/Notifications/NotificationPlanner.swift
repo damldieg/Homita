@@ -25,7 +25,8 @@ public enum NotificationPlanner {
 
     public static func plan(
         events: [EventEntry], routines: [RoutineEntry], pendingTasks: [TaskEntry],
-        preferences: NotificationPreferences, now: Date, timeZone: TimeZone = .current
+        preferences: NotificationPreferences, now: Date, timeZone: TimeZone = .current,
+        myPersonIds: Set<Int>? = nil
     ) -> [PlannedNotification] {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
@@ -34,7 +35,12 @@ public enum NotificationPlanner {
             result += eventNotifications(events, now: now, timeZone: timeZone)
         }
         if preferences.routineReminders {
-            result += routineNotifications(routines, now: now, calendar: calendar, timeZone: timeZone)
+            // Con `myPersonIds` solo avisan las rutinas asignadas a la persona de esta cuenta
+            // (conjunto vacío = cuenta sin persona vinculada: ninguna). `nil` = sin filtro.
+            let mine = myPersonIds.map { ids in
+                routines.filter { routine in (routine.persons ?? []).contains { ids.contains($0.id) } }
+            } ?? routines
+            result += routineNotifications(mine, now: now, calendar: calendar, timeZone: timeZone)
         }
         if preferences.taskDigest {
             result += digestNotifications(pendingTasks, preferences: preferences, now: now, calendar: calendar)

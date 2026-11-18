@@ -14,7 +14,7 @@ public struct CalendarsRootView: View {
     public init(services: AppServices, segment: Binding<Int>) {
         self.services = services
         _segment = segment
-        _calendarStore = State(initialValue: CalendarStore(repo: services.calendars, events: services.events, routines: services.routines))
+        _calendarStore = State(initialValue: CalendarStore(repo: services.calendars, events: services.events, routines: services.routines, persons: services.persons))
         _eventStore = State(initialValue: EventStore(repo: services.events))
         _calendarAgenda = State(initialValue: CalendarAgendaStore(repo: services.events))
         _routineStore = State(initialValue: RoutineStore(repo: services.routines, events: services.events))
