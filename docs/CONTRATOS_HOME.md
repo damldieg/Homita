@@ -5,7 +5,7 @@ Contrato de las 19 rutas `/home/*` de la Edge Function `api` (tarjeta 1.10 de `H
 ## Alcance y fuentes
 
 - **Fuente.** No hay oráculo PHP para `/home/*` (`supabase/functions/api/usecases/homes.ts:2`). El contrato es el código de la Edge (`index.ts`, `usecases/homes.ts`, `_shared/errors.ts`, `_shared/home.ts`), las migraciones 0012 a 0021 y los casos de `scripts/supabase/contract_check.py`. Cada código HTTP y mensaje de este documento sale de ahí; donde no hay caso de contrato se indica "sin caso".
-- **Verificación.** `contract_check.py` completo contra la Edge local: 454/454 casos, 43/43 rutas legacy, 19/19 rutas home, mínimo 3 casos por ruta home. El total sube de 351 a 385 con el bloque 1.10 (15 casos 401, 15 casos `Invalid home` y 4 específicos) y de 385 a 454 con el bloque 1.15 de invitaciones (69 casos).
+- **Verificación.** `contract_check.py` completo contra la Edge local: 473/473 casos, 43/43 rutas legacy, 19/19 rutas home, mínimo 3 casos por ruta home. El total sube de 351 a 385 con el bloque 1.10 (15 casos 401, 15 casos `Invalid home` y 4 específicos) y de 385 a 454 con el bloque 1.15 de invitaciones (69 casos) y de 454 a 473 con los casos de valor de `can_edit` (14) y `app_user_id` (5).
 - **Invitaciones (1.15, vigente).** Las 4 rutas `/home/invitation*` y la tabla `home_invitation` (migración `0022_home_invitations.sql`) se documentan en la sección [Invitaciones](#invitaciones-115).
 - **Idioma de los errores.** Los mensajes son inglés, exactos y sensibles a mayúsculas. Los clientes pueden depender del texto.
 

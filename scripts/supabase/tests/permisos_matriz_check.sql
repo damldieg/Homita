@@ -1,6 +1,6 @@
 -- permisos_matriz_check.sql — Matriz §3.4.1 (fase 1.8): enforcement por kind × recurso ×
--- operación sobre 0020_home_write_guards.sql. Se ejecuta con psql DESPUÉS del reset 0001–0020 y
--- la seed (E4):
+-- operación sobre 0020_home_write_guards.sql. Solo BD local, tras el reset de migraciones
+-- 0001–0029 (no necesita la seed demo). Re-ejecutable: limpia sus datos 997xxx al inicio.
 --   psql -v ON_ERROR_STOP=1 -f permisos_matriz_check.sql
 -- Cada bloque DO emite 'ok Mx: …' o aborta con 'permisos_matriz Mx: …'.
 --
@@ -15,6 +15,47 @@
 -- Datos scratch 997xxx (usuarios auth_uid …0971–0976) borrados al final. Impersonación vía
 -- set_config('request.jwt.claim.sub', …, true) (auth.uid()). El RLS directo (M1b/M18/M21) usa
 -- set role authenticated con capturas en una tabla temporal de la sesión.
+
+\set ON_ERROR_STOP 1
+do $$
+begin
+    if inet_server_addr() is not null and host(inet_server_addr()) not in ('127.0.0.1', '::1') then
+        raise exception 'permisos_matriz_check: solo BD local (socket o loopback); servidor %', host(inet_server_addr());
+    end if;
+end $$;
+
+-- Limpieza inicial idempotente (mismo alcance y orden que la limpieza final del archivo): deja
+-- el script re-ejecutable tras un aborto a mitad, sin depender del reset.
+create function pg_temp.clean() returns void
+language plpgsql as $$
+begin
+    set local session_replication_role = replica;
+    delete from event_user where user_id between 997001 and 997006
+       or event_id in (select id from event where calendar_id between 997001 and 997003);
+    delete from routine_event_alarm where user_id between 997001 and 997006;
+    delete from routine_exception where routine_id between 997001 and 997003;
+    delete from event_person where event_id in (select id from event where calendar_id between 997001 and 997003);
+    delete from routine_person where routine_id between 997001 and 997003;
+    delete from event where calendar_id between 997001 and 997003;
+    delete from routine where calendar_id between 997001 and 997003;
+    delete from task where task_list_id between 997001 and 997002;
+    delete from task_list_user where home_id = 997001 and task_list_id between 997001 and 997002;
+    delete from task_list where id between 997001 and 997002;
+    delete from calendar_user where calendar_id between 997001 and 997003;
+    delete from calendar where id between 997001 and 997003;
+    delete from person where home_id in (997001, 997002) or name like 'PM-%';
+    delete from home_member where home_id in (997001, 997002) or name like 'PM-%';
+    delete from membership_permission where home_membership_id between 997001 and 997007;
+    delete from home_membership where home_id in (997001, 997002, 997003);
+    delete from audit_log where home_id in (997001, 997002, 997003);
+    delete from home where id in (997001, 997002, 997003);
+    delete from app_user where id between 997001 and 997006;
+    delete from auth.users where id in (
+        '00000000-0000-4000-8000-000000000971', '00000000-0000-4000-8000-000000000972',
+        '00000000-0000-4000-8000-000000000973', '00000000-0000-4000-8000-000000000974',
+        '00000000-0000-4000-8000-000000000975', '00000000-0000-4000-8000-000000000976');
+end $$;
+select pg_temp.clean();
 
 -- ── Preambulo scratch: usuarios 997001–997006 ──
 

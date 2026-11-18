@@ -166,8 +166,9 @@ stack Supabase local y efímero en `ubuntu-latest` y corre `scripts/supabase/ci.
    `supabase/postgres:17.*` y la API es local (127.0.0.1/localhost).
 2. `scripts/demo.sh up`: db reset (migraciones), `functions serve api` con `ALLOW_REGISTRATION=true`
    y seed. Es el único reset.
-3. SQL `invitaciones_check.sql` (`ok N1..N22`) y `home_checks_compat.sql` (`ok V5j..V5p`).
-4. `contract_check.py` completo (`454/454`; `CONTRACT_ONLY` se anula).
+3. SQL `invitaciones_check.sql` (`ok N1..N22`), `home_checks_compat.sql` (`ok V5j..V5p`),
+   `acl_can_edit_check.sql` (`ok K1..K8`) y `permisos_matriz_check.sql` (29 `ok M`: M1, M1b, M2..M27 y M8b).
+4. `contract_check.py` completo (`473/473`; `CONTRACT_ONLY` se anula).
 5. `cross_tenant_check.py` (`256/256`; sale 1 si hay un fallo o si el número de casos no es
    `EXPECTED_CASES`).
 

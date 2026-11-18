@@ -8,7 +8,8 @@
 #   1. Stack local (`supabase start`, sin studio/imgproxy/vector/logflare/mailpit) si no está levantado.
 #   2. Guardas: API_URL local y la BD es `supabase/postgres:17.*`.
 #   3. `scripts/demo.sh up`: db reset (migraciones) + `functions serve api` + seed. Es el único reset.
-#   4. SQL (invitaciones_check, home_checks_compat), contract_check.py y cross_tenant_check.py.
+#   4. SQL (invitaciones_check, home_checks_compat, acl_can_edit_check, permisos_matriz_check),
+#      contract_check.py y cross_tenant_check.py.
 #      Se ejecutan todas aunque una falle; el exit final es != 0 si alguna falló.
 #
 # Nunca usa ~/.homita/supabase.env ni secretos: las claves son las del stack local
@@ -121,8 +122,17 @@ run "SQL home_checks_compat" sql-compat sql "$HERE/scripts/supabase/tests/home_c
 v_pat=(); for v in j k l m n o p; do v_pat+=("ok V5$v([^a-z]|\$)"); done
 expect_log "SQL home_checks_compat" sql-compat "${v_pat[@]}"
 
+run "SQL acl_can_edit_check" sql-acl-can-edit sql "$HERE/scripts/supabase/tests/acl_can_edit_check.sql"
+k_pat=(); for i in $(seq 1 8); do k_pat+=("ok K$i([^0-9a-z]|\$)"); done
+expect_log "SQL acl_can_edit_check" sql-acl-can-edit "${k_pat[@]}"
+
+run "SQL permisos_matriz_check" sql-permisos-matriz sql "$HERE/scripts/supabase/tests/permisos_matriz_check.sql"
+# M1, M1b, M2..M27 y M8b (29 avisos): el cierre ([^0-9a-z]|$) evita que M1 case con M10 o M1b.
+m_pat=("ok M1([^0-9a-z]|\$)" "ok M1b([^0-9a-z]|\$)" "ok M8b([^0-9a-z]|\$)"); for i in $(seq 2 27); do m_pat+=("ok M$i([^0-9a-z]|\$)"); done
+expect_log "SQL permisos_matriz_check" sql-permisos-matriz "${m_pat[@]}"
+
 run "contract_check.py" contract python3 "$HERE/scripts/supabase/contract_check.py"
-expect_log "contract_check.py" contract '^454/454 casos ok'
+expect_log "contract_check.py" contract '^473/473 casos ok'
 
 run "cross_tenant_check.py" cross-tenant python3 "$HERE/scripts/supabase/tests/cross_tenant_check.py"
 # N/N con N == EXPECTED_CASES (el propio script sale 1 si difiere; aquí se exige además el formato).
@@ -137,4 +147,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (SQL, contract_check 454/454, cross_tenant ${expected}/${expected})"
+echo "ci.sh: todo ok (SQL, contract_check 473/473, cross_tenant ${expected}/${expected})"
