@@ -50,8 +50,15 @@ jobs:
             | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends postgresql-client-17
-          psql --version | grep -q 'psql (PostgreSQL) 17\.'
-          psql --version
+          # La imagen del runner trae otro psql en el PATH (16): se comprueba el binario de PGDG.
+          which -a psql || true
+          PSQL17=/usr/lib/postgresql/17/bin/psql
+          if [ ! -x "$PSQL17" ]; then
+            echo "::error::no existe $PSQL17 tras instalar postgresql-client-17"
+            exit 1
+          fi
+          "$PSQL17" --version
+          "$PSQL17" --version | grep -q 'psql (PostgreSQL) 17\.'
 
       - name: Versiones del entorno
         run: |
