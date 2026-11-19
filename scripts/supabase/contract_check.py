@@ -207,7 +207,9 @@ CASES_115 = 3 + 8 + 19 + 7 + 19 + 11 + 2  # bloque 1.15 de invitaciones: IX1–I
                                           # (IR7 va con create) e IQ1–IQ2 email externo 403
 # Valores de can_edit (0029: 14) y app_user_id (0028: 5) en lugar de solo la forma; medido.
 CASES_VALUES = 14 + 5
-EXPECTED_CASES = CASES_BASE + CASES_110 + CASES_115 + CASES_VALUES  # 351 + 34 + 69 + 19 = 473
+# 0030 (event-end-date): 23 en scenario_event_end_date + 2 del viewer (create/update con end_date → 403)
+CASES_END_DATE = 23 + 2
+EXPECTED_CASES = CASES_BASE + CASES_110 + CASES_115 + CASES_VALUES + CASES_END_DATE  # 351 + 34 + 69 + 19 + 25 = 498
 
 
 def record(route, name, ok, detail=""):
@@ -270,10 +272,12 @@ ROUTINE = {"id": "<id>", "calendar_id": "<id>", "title": "<str>", "days": ["<int
            "calendar_name": "<str>", "calendar_color": "<str>", "alarm": "<int?>",
            "persons": [PERSON_REF]}
 EVENT_ITEM = {"id": "<id>", "calendar_id": "<id>", "title": "<str>", "date_at": "<ts>",
+              "end_date": "<str?>",  # 0030 (D-019, aditivo): día de fin o null
               "created_at": "<ts>", "updated_at": "<ts>", "routine_id": "<int?>",
               "routine_date": "<str?>", "calendar_color": "<str>", "calendar_name": "<str>",
               "alarm": "<int?>", "persons": [PERSON_REF]}
 EVENT_DETAIL = {"id": "<id>", "calendar_id": "<id>", "title": "<str>", "date_at": "<ts>",
+                "end_date": "<str?>",  # 0030 (D-019, aditivo)
                 "created_at": "<ts>", "updated_at": "<ts>", "routine_id": "<int?>",
                 "routine_date": "<str?>", "alarm": "<int?>", "persons": [PERSON_REF]}
 TASK_ITEM = {"id": "<id>", "task_list_id": "<id>", "title": "<str>", "completed_at": "<ts?>",
@@ -332,6 +336,8 @@ ERR_EMAIL_EXISTS = '{"error":"Email already exists"}'
 ERR_SELF_REMOVE = '{"error":"User cannot remove themselves"}'
 ERR_NOT_ALLOWED = '{"error":"Not Allowed"}'
 ERR_NOT_FOUND = '{"error":"Not Found"}'
+ERR_END_RANGE = '{"error":"End date cannot be before start date"}'
+ERR_END_INVALID = '{"error":"Invalid end date"}'
 ERR_ALARM = '{"error":"Alarm must be nonnegative minutes or null"}'
 ERR_NAME_REQUIRED = '{"error":"Name is required"}'
 ERR_INVALID_TZ = '{"error":"Invalid timezone"}'
@@ -1253,6 +1259,82 @@ def scenario_event():
           request("DELETE", f"/event/delete?timezone={tz}", {"id": eid}, tok), 200, SUCCESS)
     check("GET /event/detail", "escenario event/detail tras delete (500 Not Found)",
           request("GET", f"/event/detail?id={eid}&timezone={tz}", None, tok), 500, ERR_NOT_FOUND)
+    scenario_event_end_date()
+
+
+def scenario_event_end_date():
+    """0030 (event-end-date, D-019): end_date opcional. CA-1..CA-4 y CA-8 (el viewer, CA-6, va en
+    el bloque viewer)."""
+    def ev_create(title, date_at, **extra):
+        return request("POST", f"/event/create?timezone={tz}", dict(
+            {"calendar_id": 1, "title": title, "date_at": date_at}, **extra), tok)
+
+    def ev_update(eid, title, date_at, **extra):
+        return request("PATCH", f"/event/update?timezone={tz}", dict(
+            {"id": eid, "title": title, "date_at": date_at}, **extra), tok)
+
+    def detail(eid):
+        b = parse(request("GET", f"/event/detail?id={eid}&timezone={tz}", None, tok)[1])
+        return b.get("end_date", "SIN-CLAVE") if isinstance(b, dict) else None
+
+    # CA-1: con fin
+    b = check("POST /event/create", "end_date: create con fin → 200 EVENT_DETAIL",
+              ev_create("CC-Vacaciones", "2026-11-10 09:00:00", end_date="2026-11-20"), 200, EVENT_DETAIL)
+    vid_ = b.get("id") if isinstance(b, dict) else None
+    value("POST /event/create", "end_date: create con fin → end_date = 2026-11-20 en la respuesta",
+          isinstance(b, dict) and b.get("end_date") == "2026-11-20")
+    value("GET /event/detail", "end_date: GET /event/detail devuelve 2026-11-20", detail(vid_) == "2026-11-20")
+    # CA-2: sin fin
+    b = check("POST /event/create", "end_date: create sin fin → 200 EVENT_DETAIL",
+              ev_create("CC-SinFin", "2026-11-10 09:00:00"), 200, EVENT_DETAIL)
+    sid = b.get("id") if isinstance(b, dict) else None
+    value("POST /event/create", "end_date: create sin fin → end_date null",
+          isinstance(b, dict) and "end_date" in b and b["end_date"] is None)
+    # CA-3: rango y formato inválidos (create y update); la fila no cambia
+    check("POST /event/create", "end_date: create con fin anterior al inicio → 400",
+          ev_create("CC-FinMal", "2026-11-10 09:00:00", end_date="2026-11-05"), 400, ERR_END_RANGE)
+    check("POST /event/create", "end_date: create con fecha inexistente → 400",
+          ev_create("CC-FinMal", "2026-11-10 09:00:00", end_date="2026-02-30"), 400, ERR_END_INVALID)
+    check("PATCH /event/update", "end_date: update con fin anterior al inicio → 400",
+          ev_update(vid_, "CC-Vacaciones", "2026-11-10 09:00:00", end_date="2026-11-05"), 400, ERR_END_RANGE)
+    value("PATCH /event/update", "end_date: tras el 400 la fila conserva 2026-11-20",
+          detail(vid_) == "2026-11-20")
+    # A8: update sin clave conserva el fin guardado (y lo revalida contra el nuevo inicio)
+    b = check("PATCH /event/update", "end_date: update sin clave conserva el fin → 200 EVENT_DETAIL",
+              ev_update(vid_, "CC-Vacaciones", "2026-11-11 10:00:00"), 200, EVENT_DETAIL)
+    value("PATCH /event/update", "end_date: update sin clave → sigue 2026-11-20",
+          isinstance(b, dict) and b.get("end_date") == "2026-11-20")
+    check("PATCH /event/update", "end_date: update sin clave con inicio posterior al fin guardado → 400",
+          ev_update(vid_, "CC-Vacaciones", "2026-11-25 10:00:00"), 400, ERR_END_RANGE)
+    # CA-8: listado por solapamiento (start_date/end_date = epoch UTC de 10 dígitos)
+    def epoch(day, h=0, m=0, s=0):
+        y, mo, d = (int(x) for x in day.split("-"))
+        return int(datetime.datetime(y, mo, d, h, m, s, tzinfo=datetime.timezone.utc).timestamp())
+
+    def listed(first, last):
+        res = request("GET", f"/event?start_date={epoch(first)}&end_date={epoch(last, 23, 59, 59)}"
+                             f"&timezone={tz}", None, tok)
+        b = parse(res[1])
+        return res, [x.get("id") for x in b] if isinstance(b, list) else None
+
+    res, ids = listed("2026-11-12", "2026-11-18")
+    check("GET /event", "end_date: GET /event por solapamiento → 200 [EVENT_ITEM]", res, 200, [EVENT_ITEM])
+    value("GET /event", "end_date: semana 12–18 incluye el evento 11–20", ids is not None and vid_ in ids)
+    value("GET /event", "end_date: día 20 (último del rango) lo incluye", vid_ in (listed("2026-11-20", "2026-11-20")[1] or []))
+    value("GET /event", "end_date: día 11 (inicio) lo incluye", vid_ in (listed("2026-11-11", "2026-11-11")[1] or []))
+    value("GET /event", "end_date: día 21 no lo incluye", vid_ not in (listed("2026-11-21", "2026-11-21")[1] or [vid_]))
+    value("GET /event", "end_date: día 10 no lo incluye (empieza el 11)", vid_ not in (listed("2026-11-10", "2026-11-10")[1] or [vid_]))
+    value("GET /event", "end_date: un evento sin fin sigue saliendo solo su día",
+          sid in (listed("2026-11-10", "2026-11-10")[1] or []) and sid not in (listed("2026-11-11", "2026-11-12")[1] or [sid]))
+    # CA-4: borrar el fin con null explícito
+    b = check("PATCH /event/update", "end_date: update con end_date null borra el fin → 200",
+              ev_update(vid_, "CC-Vacaciones", "2026-11-11 10:00:00", end_date=None), 200, EVENT_DETAIL)
+    value("PATCH /event/update", "end_date: tras borrar, detalle con end_date null", detail(vid_) is None)
+    b = check("PATCH /event/update", "end_date: update fija un fin nuevo → 200",
+              ev_update(vid_, "CC-Vacaciones", "2026-11-11 10:00:00", end_date="2026-11-12"), 200, EVENT_DETAIL)
+    value("PATCH /event/update", "end_date: tras fijar 2026-11-12, detalle lo devuelve", detail(vid_) == "2026-11-12")
+    for e in (vid_, sid):
+        request("DELETE", f"/event/delete?timezone={tz}", {"id": e}, tok)
 
 
 def scenario_profile():
@@ -1532,6 +1614,18 @@ check("PATCH /calendar/update", "viewer PATCH /calendar/update solo flags propia
                                             "widget": False}, vtok), 200, CAL_DETAIL)
 check("DELETE /calendar/delete", "viewer DELETE /calendar/delete (403, desviación documentada)",
       request("DELETE", "/calendar/delete", {"id": vcal}, vtok), 403, ERR_NOT_ALLOWED)
+
+# CA-6 (0030): el viewer no crea ni edita eventos (ni su fecha de fin) → 403 Not Allowed
+check("POST /event/create", "viewer POST /event/create con end_date (403)",
+      request("POST", f"/event/create?timezone={tz}", {
+          "calendar_id": vcal, "title": "CC-ViewerEv", "date_at": "2026-11-10 09:00:00",
+          "end_date": "2026-11-20"}, vtok), 403, ERR_NOT_ALLOWED)
+vev = parse(request("POST", f"/event/create?timezone={tz}", {
+    "calendar_id": vcal, "title": "CC-ViewerEv", "date_at": "2026-11-10 09:00:00"}, tok)[1])
+check("PATCH /event/update", "viewer PATCH /event/update con end_date (403)",
+      request("PATCH", f"/event/update?timezone={tz}", {
+          "id": vev.get("id") if isinstance(vev, dict) else None, "title": "CC-ViewerEv",
+          "date_at": "2026-11-10 09:00:00", "end_date": "2026-11-20"}, vtok), 403, ERR_NOT_ALLOWED)
 
 # Misma matriz con task-list: retirada de miembros
 check("DELETE /task-list/user", "viewer DELETE /task-list/user saca al owner (403, desviación documentada)",

@@ -2,7 +2,7 @@
 // personIdsOf, que consulta get_persons para la visibilidad (Person::validateIds).
 import { getInput, type ContractInput } from "./contract.ts";
 import {
-    errAlarmInvalid, errPersonIdsIds, errPersonIdsList, errPersonInvalid,
+    errAlarmInvalid, errEventEndDate, errEventEndDateRange, errPersonIdsIds, errPersonIdsList, errPersonInvalid,
     errRoutineActive, errRoutineDate, errRoutineDateRange, errRoutineDaysRange, errRoutineDaysRequired,
     errRoutineFrequency, errRoutineInterval, errRoutineTime, errRoutineTitleRequired,
 } from "./errors.ts";
@@ -21,6 +21,25 @@ export const validateAlarm = (v: unknown): number | null | Response => {
     if (v === null || v === undefined) return null;
     if (typeof v === "number" && Number.isInteger(v) && v >= 0) return v;
     return errAlarmInvalid();
+};
+
+export type EventEndDate = { present: boolean; value: string | null } | { err: Response };
+
+// end_date opcional de event/create y event/update (0030). `present` = la clave viene en el body
+// (incluido null o ''), que en update significa "fijar o borrar"; ausente = conservar el guardado.
+// null/'' → value null. Si hay valor: 'YYYY-MM-DD' real (round-trip) y no anterior al día de
+// `dateAt` ('YYYY-MM-DD HH:MM:SS'). La RPC repite las comprobaciones (defensa ante llamada directa).
+export const validateEventEndDate = (input: ContractInput, dateAt: string | null): EventEndDate => {
+    const present = "end_date" in input;
+    const raw = getInput(input, "end_date");
+    if (raw === null || raw === "") return { present, value: null };
+    if (typeof raw !== "string" || !DATE_RE.test(raw)) return { err: errEventEndDate() };
+    const parsed = new Date(raw + "T00:00:00Z");
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== raw) {
+        return { err: errEventEndDate() };
+    }
+    if (dateAt !== null && raw < dateAt.slice(0, 10)) return { err: errEventEndDateRange() };
+    return { present, value: raw };
 };
 
 export type RoutineValues = {
