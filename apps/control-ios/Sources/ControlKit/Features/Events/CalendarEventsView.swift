@@ -49,10 +49,12 @@ struct CalendarEventsView: View {
         .writeFailureToast($eventStore.writeFailure)
         // Al volver del detalle (guardar, eliminar o atrás) se recarga el rango visible.
         .onChange(of: selectedEvent?.id) { _, id in
-            if id == nil { Task { await calendarStore.load() } }
+            if id == nil { Task { await calendarStore.load(); await eventStore.load() } }
         }
         .task {
             if !calendarStore.hasLoaded { await calendarStore.load() }
+            // «En curso» (D-020) sale de la lista de Próximos del store de eventos.
+            await eventStore.load()
         }
     }
 
@@ -75,6 +77,7 @@ struct CalendarEventsView: View {
                     HomitaSkeletonRows(count: 3, height: 64, label: "Cargando calendario")
                 } else {
                     weekStrip
+                    ongoingSection
                     dayList
                 }
             }
@@ -210,6 +213,23 @@ struct CalendarEventsView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Self.accessibilityLabel(day: day, count: dayEvents.count, grid: grid))
+    }
+
+    // MARK: - En curso
+
+    /// Eventos de varios días cuyo rango contiene hoy (D-020). Sin sección si no hay ninguno.
+    @ViewBuilder
+    private var ongoingSection: some View {
+        if !eventStore.ongoing.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HomitaSectionHeader(title: "En curso", count: eventStore.ongoing.count, systemImage: "calendar.badge.clock")
+                ForEach(eventStore.ongoing, id: \.id) { event in
+                    CalendarEventRow(event: event) { selectedEvent = event }
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("En curso, \(eventStore.ongoing.count) \(eventStore.ongoing.count == 1 ? "evento" : "eventos")")
+        }
     }
 
     // MARK: - Lista del día seleccionado
