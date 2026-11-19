@@ -105,6 +105,8 @@ app; el refresco queda para una fase posterior):
 | `migrations/0009_task_order.sql` | `task_order` (Task::moveToPosition: splice + renumerar 1..n) |
 | `migrations/0010_profile_sync.sql` | Trigger `on auth.users update` → sincronía de `app_user` (name/email) |
 | `migrations/0030_event_end_date.sql` | Fecha de fin opcional de eventos (change `event-end-date`, D-019); ver «Extensión `event.end_date`». Reversa: `scripts/supabase/rollback/rollback_0030.sql` |
+| `migrations/0031_feedback_trigger.sql` | Trigger `homita_feedback_creation` (webhook a `procesar-feedback` de prod). Con guard: sale sin efecto si `public.feedback` no existe. Idéntica a la de la rama `dc/feedback-trigger-migration` |
+| `migrations/0032_feedback_schema.sql` | DDL `if not exists` de `public.backlog` y `public.feedback` (RLS + política «insertar mi feedback») para local/CI; no-op en prod, sin trigger. Ver «Feedback» |
 
 ## Edge Function `functions/api/`
 
@@ -170,6 +172,32 @@ existentes; solo añade la clave `end_date` a las respuestas de evento.
 - **Fuera de alcance:** las vistas por día (Agenda/Inicio de iOS, vista semanal y puntos del mes
   del dashboard) siguen mostrando el evento solo en su día de inicio; la app iOS muestra el rango
   («10 nov → 20 nov») en la fila del evento y en el editor.
+
+## Feedback (`POST /feedback`, change control-ios-feedback)
+
+Ruta **aditiva** (D-008): fuera de las 43 rutas legacy y de `EXPECTED_CASES`. La app Control iOS la usa
+desde Ajustes («Enviar feedback») para reportar un bug o proponer una mejora.
+
+- **Request:** `POST /feedback` con Bearer (cualquier miembro autenticado; sin `X-Home-Id`) y body JSON
+  `{"seccion","subseccion","tipo","texto"}`. `seccion` ∈ Inicio, Tareas, Calendario, Hogar, Ajustes;
+  `tipo` ∈ `bug`, `mejora`; `texto` 1..2000 caracteres tras recortar; `subseccion` opcional con formato
+  `"<sub-área>: <acción>"` (acción ∈ ver, crear, editar, eliminar; máx. 100). El cliente no envía `user_id`.
+- **Respuesta:** `201 {"ok":true}`. Errores: `400` validación (`{"error":"Invalid tipo"}`…), `401` sin
+  token, `403 Not Allowed` si la RLS rechaza. *Desviación del plan:* no devuelve el `id`, porque la tabla solo
+  tiene política de INSERT (como en prod) y `RETURNING` exige SELECT; el insert va con `return=minimal`.
+- **Inserción:** PostgREST con el JWT del usuario (RLS «insertar mi feedback»; `user_id` = `auth.uid()` por
+  defecto). No usa service role.
+- **Orden 0031 -> 0032 y advertencia del trigger:** 0031 crea el trigger solo si `public.feedback` ya existe,
+  y su URL es la de la función `procesar-feedback` de **producción**. En un `db reset` local 0031 corre antes
+  que 0032, ve la tabla inexistente y sale sin trigger; 0032 crea la tabla sin trigger. **No reaplicar 0031 a
+  mano en local con la tabla creada**: dispararía un webhook a prod en cada insert.
+- **Producción (requiere confirmación explícita, D-008):** verificar con un SELECT de solo lectura que
+  `feedback`, `backlog` y el trigger existen y que `backlog.seccion` usa los nombres de sección; aplicar
+  0031/0032 (0032 es no-op allí); desplegar la Edge `api`; un insert real de prueba. Nada de esto se hace
+  desde el repo.
+- **Pruebas:** `supabase/functions/api/tests/feedback_test.ts` (Deno), bloque `scenario_feedback` de
+  `contract_check.py` (7 casos propios, no cuentan en el 502/502) y bloque `FB` de `cross_tenant_check.py`
+  (4 casos: no suplantar `user_id`, no leer feedback ajeno).
 
 ## Verificación de contrato (`scripts/supabase/contract_check.py`)
 
