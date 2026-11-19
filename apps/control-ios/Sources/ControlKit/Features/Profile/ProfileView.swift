@@ -58,6 +58,7 @@ public struct ProfileView: View {
                     familyCard
                     invitationsCard
                     notificationsCard
+                    feedbackCard
                     HomitaCard {
                         HomitaToggle(title: "Modo oscuro", isOn: darkModeBinding)
                             .accessibilityIdentifier("ajustes.modo-oscuro")
@@ -154,6 +155,24 @@ public struct ProfileView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("ajustes.notificaciones")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Palette.card, in: RoundedRectangle(cornerRadius: 24))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Palette.cardBorder, lineWidth: 1))
+    }
+
+    /// Feedback (bug o mejora): al final de las tarjetas, formulario en pantalla aparte.
+    private var feedbackCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HomitaSectionHeader(title: "Feedback", systemImage: "text.bubble")
+            NavigationLink {
+                FeedbackView(repo: services.feedback)
+            } label: {
+                linkRow(title: "Enviar feedback", systemImage: "paperplane", tint: Palette.accentHex)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("ajustes.feedback")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)

@@ -12,6 +12,7 @@ public struct AppServices {
     public let tasks: TaskRepository
     public let persons: PersonRepository
     public let homes: HomeRepository
+    public let feedback: FeedbackRepository
     public let homeContext: HomeContextStore
 
     public init(config: AppConfig, session: SessionStore, tokenStore: TokenStore, http: URLSession = .shared) {
@@ -45,6 +46,7 @@ public struct AppServices {
         tasks = TaskRepository(client: client)
         persons = PersonRepository(client: client)
         homes = HomeRepository(client: client)
+        feedback = FeedbackRepository(client: client)
     }
 
     /// Cierra sesión: limpia primero el hogar activo y luego la sesión. Único camino de logout.

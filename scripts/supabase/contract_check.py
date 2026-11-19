@@ -72,6 +72,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import time
 import threading
 import urllib.error
 import urllib.parse
@@ -393,6 +394,11 @@ HOME_ROUTES = [
     "GET /home/invitation", "POST /home/invitation/create", "POST /home/invitation/accept",
     "POST /home/invitation/revoke",
 ]
+
+# Ruta aditiva POST /feedback (change control-ios-feedback). Fuera de ROUTES y de EXPECTED_CASES: sus
+# casos se cuentan aparte (FEEDBACK_EXPECTED) para no alterar el 502/502 legacy que exige ci.sh.
+FEEDBACK_ROUTES = ["POST /feedback"]
+FEEDBACK_EXPECTED = 8
 
 
 def epoch(local_date):
@@ -2749,6 +2755,52 @@ def scenario_invitations(hM, mem_m, mid):
 scenario_invitations(hM, mem_m, mid)
 
 
+# ── POST /feedback (aditiva, fuera de las 43 legacy): casos propios, no entran en `results` ──
+
+fb_results = []
+
+
+def fb_case(name, ok, detail=""):
+    fb_results.append(bool(ok))
+    covered_fb[FEEDBACK_ROUTES[0]] += 1
+    print(("ok   " if ok else "FAIL ") + name)
+    if not ok and detail:
+        print("     " + detail)
+
+
+covered_fb = collections.Counter()
+
+
+def scenario_feedback():
+    marca = "CC-feedback-%d" % int(time.time())
+    body = {"seccion": "Tareas", "subseccion": "listas: crear", "tipo": "mejora", "texto": marca}
+    r = request("POST", "/feedback", body, tok)
+    fb_case("POST /feedback F1 201 {ok:true}", r[0] == 201 and parse(r[1]) == {"ok": True}, repr(r)[:200])
+    row = psql("select seccion || '|' || subseccion || '|' || tipo || '|' || estado from feedback "
+               f"where texto = '{marca}'")
+    fb_case("POST /feedback F2 fila con seccion, subseccion, tipo y estado pendiente",
+            row == "Tareas|listas: crear|mejora|pendiente", repr(row))
+    n = psql("select count(*) from feedback f join app_user a on a.auth_uid = f.user_id "
+             f"where f.texto = '{marca}' and a.id = {aid}")
+    fb_case("POST /feedback F3 user_id es el del JWT (auth.uid)", n == "1", f"filas={n}")
+    r = request("POST", "/feedback", dict(body, tipo="otro"), tok)
+    fb_case("POST /feedback F4 tipo inválido → 400", r[0] == 400, repr(r)[:200])
+    r = request("POST", "/feedback", dict(body, texto="   "), tok)
+    fb_case("POST /feedback F5 texto vacío → 400", r[0] == 400, repr(r)[:200])
+    r = request("POST", "/feedback", body)
+    fb_case("POST /feedback F6 sin token → 401", r[0] == 401, repr(r)[:200])
+    r = request("POST", "/feedback", dict(body, user_id="00000000-0000-4000-8000-000000000001",
+                                          texto=marca + "-ajeno"), tok)
+    n = psql(f"select count(*) from feedback where texto = '{marca}-ajeno' "
+             f"and user_id <> (select auth_uid from app_user where id = {aid})")
+    fb_case("POST /feedback F7 user_id del cliente se ignora (nunca fila de otro usuario)", n == "0", f"filas={n}")
+    r = request("POST", "/feedback", dict(body, subseccion="eventos: ver"), tok)  # sub-área de otra sección (Calendario)
+    fb_case("POST /feedback F8 subseccion que no es de la sección → 400", r[0] == 400, repr(r)[:200])
+    psql(f"delete from feedback where texto like '{marca}%'")
+
+
+scenario_feedback()
+
 # ── Resumen: cobertura de las 43 rutas legacy + 19 rutas home y rutas con regresión ──
 
 missing = [r for r in ROUTES + HOME_ROUTES if r not in covered]
@@ -2771,4 +2823,8 @@ if len(results) != EXPECTED_CASES:
           f"de 1.8 + 39 del bloque 1.9 de configuración de permisos (3+8+15+7+6) + 34 del bloque "
           f"1.10 de contratos home (15+15+4) + 69 del bloque 1.15 de invitaciones "
           f"(3+8+19+7+19+11+2) + 19 de valores de can_edit (14) y app_user_id (5))")
-sys.exit(1 if fails or missing or thin or len(results) != EXPECTED_CASES else 0)
+fb_fails = fb_results.count(False)
+print(f"{len(fb_results) - fb_fails}/{len(fb_results)} casos feedback ok (esperados {FEEDBACK_EXPECTED})"
+      f" · {len([r for r in FEEDBACK_ROUTES if r in covered_fb])}/{len(FEEDBACK_ROUTES)} ruta feedback")
+sys.exit(1 if fails or missing or thin or len(results) != EXPECTED_CASES or fb_fails
+         or len(fb_results) != FEEDBACK_EXPECTED else 0)

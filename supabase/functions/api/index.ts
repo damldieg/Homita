@@ -57,6 +57,7 @@ import {
     handleTask, handleTaskComplete, handleTaskCreate, handleTaskDelete, handleTaskDetail,
     handleTaskOrder, handleTaskUpdate,
 } from "./usecases/tasks.ts";
+import { handleFeedbackCreate } from "./usecases/feedback.ts";
 import {
     handleHomeCreate, handleHomeDefault, handleHomeDetail, handleHomeIndex, handleHomeMemberCreate,
     handleHomeMemberIndex, handleHomeMemberUpdate, handleHomeMembership, handleHomeMembershipRemove,
@@ -143,6 +144,9 @@ const ROUTES: Record<string, { auth: boolean; home?: boolean; homeContext?: bool
     "POST /home/invitation/create": { auth: true, home: true, handler: (req, t) => handleHomeInvitationCreate(req, t) },
     "POST /home/invitation/accept": { auth: true, homeContext: false, handler: (req, t) => handleHomeInvitationAccept(req, t) },
     "POST /home/invitation/revoke": { auth: true, home: true, handler: (req, t) => handleHomeInvitationRevoke(req, t) },
+
+    // change control-ios-feedback: ruta aditiva (D-008), fuera de las 43 legacy; sin X-Home-Id.
+    "POST /feedback": { auth: true, handler: (req, t) => handleFeedbackCreate(req, t) },
 };
 
 // Ruta lógica sin el prefijo de montaje (…/functions/v1/api/… o …/api/…) — sin endsWith
