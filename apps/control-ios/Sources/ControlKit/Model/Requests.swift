@@ -131,13 +131,16 @@ public struct CreateEventRequest: Encodable, Equatable {
     public let date_at: String
     public let alarm: Int?
     public let person_ids: [Int]
+    /// Último día (`YYYY-MM-DD`, inclusive); `nil` se omite (= evento de un día).
+    public let end_date: String?
 
-    public init(calendar_id: Int, title: String, date_at: String, alarm: Int?, person_ids: [Int]) {
+    public init(calendar_id: Int, title: String, date_at: String, alarm: Int?, person_ids: [Int], end_date: String? = nil) {
         self.calendar_id = calendar_id
         self.title = title
         self.date_at = date_at
         self.alarm = alarm
         self.person_ids = person_ids
+        self.end_date = end_date
     }
 }
 
@@ -147,13 +150,43 @@ public struct UpdateEventRequest: Encodable, Equatable {
     public let date_at: String
     public let alarm: Int?
     public let person_ids: [Int]
+    /// Valor de `end_date`; solo se envía si `sendEndDate` (RN-3).
+    public let end_date: String?
+    /// `false` = la clave `end_date` se omite y el servidor conserva el fin guardado (también para
+    /// eventos de rutina, que no admiten fin). `true` con `end_date == nil` envía `"end_date":null`
+    /// y borra el fin.
+    public let sendEndDate: Bool
 
-    public init(id: Int, title: String, date_at: String, alarm: Int?, person_ids: [Int]) {
+    public init(id: Int, title: String, date_at: String, alarm: Int?, person_ids: [Int],
+                end_date: String? = nil, sendEndDate: Bool = false) {
         self.id = id
         self.title = title
         self.date_at = date_at
         self.alarm = alarm
         self.person_ids = person_ids
+        self.end_date = end_date
+        self.sendEndDate = sendEndDate
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, date_at, alarm, person_ids, end_date
+    }
+
+    /// `alarm` nil se omite (como Gson); `end_date` va como `null` explícito cuando hay que borrarlo.
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(date_at, forKey: .date_at)
+        try container.encodeIfPresent(alarm, forKey: .alarm)
+        try container.encode(person_ids, forKey: .person_ids)
+        if sendEndDate {
+            if let end_date {
+                try container.encode(end_date, forKey: .end_date)
+            } else {
+                try container.encodeNil(forKey: .end_date)
+            }
+        }
     }
 }
 

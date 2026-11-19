@@ -49,10 +49,12 @@ struct CalendarEventsView: View {
         .writeFailureToast($eventStore.writeFailure)
         // Al volver del detalle (guardar, eliminar o atrás) se recarga el rango visible.
         .onChange(of: selectedEvent?.id) { _, id in
-            if id == nil { Task { await calendarStore.load() } }
+            if id == nil { Task { await calendarStore.load(); await eventStore.load() } }
         }
         .task {
             if !calendarStore.hasLoaded { await calendarStore.load() }
+            // «En curso» (D-020) sale de la lista de Próximos del store de eventos.
+            await eventStore.load()
         }
     }
 
@@ -75,6 +77,7 @@ struct CalendarEventsView: View {
                     HomitaSkeletonRows(count: 3, height: 64, label: "Cargando calendario")
                 } else {
                     weekStrip
+                    ongoingSection
                     dayList
                 }
             }
@@ -212,6 +215,23 @@ struct CalendarEventsView: View {
         .accessibilityLabel(Self.accessibilityLabel(day: day, count: dayEvents.count, grid: grid))
     }
 
+    // MARK: - En curso
+
+    /// Eventos de varios días cuyo rango contiene hoy (D-020). Sin sección si no hay ninguno.
+    @ViewBuilder
+    private var ongoingSection: some View {
+        if !eventStore.ongoing.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HomitaSectionHeader(title: "En curso", count: eventStore.ongoing.count, systemImage: "calendar.badge.clock")
+                ForEach(eventStore.ongoing, id: \.id) { event in
+                    CalendarEventRow(event: event) { selectedEvent = event }
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("En curso, \(eventStore.ongoing.count) \(eventStore.ongoing.count == 1 ? "evento" : "eventos")")
+        }
+    }
+
     // MARK: - Lista del día seleccionado
 
     private var dayList: some View {
@@ -284,6 +304,12 @@ struct CalendarEventRow: View {
                         Text(DateDisplay.dateTime(event.date_at).uppercased())
                             .font(HomitaFont.inter(12, weight: .semibold, relativeTo: .caption))
                             .foregroundStyle(Palette.inkSoft)
+                        // Evento de varios días (0030): rango inicio → fin.
+                        if let range = DateDisplay.eventRange(dateAt: event.date_at, endDate: event.end_date) {
+                            Text(range)
+                                .font(HomitaFont.inter(12, weight: .medium, relativeTo: .caption))
+                                .foregroundStyle(Palette.inkSoft)
+                        }
                         Text(event.title)
                             .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)

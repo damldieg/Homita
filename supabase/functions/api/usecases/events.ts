@@ -9,7 +9,7 @@ import {
     errEventUpdateRequired, errInvalidTimezone, errNotFound500, rpcError, rpcPass,
 } from "../_shared/errors.ts";
 import { appUserRow, materializeRoutines, rpc } from "../_shared/supabase.ts";
-import { personIdsOf, validateAlarm } from "../_shared/validate.ts";
+import { personIdsOf, validateAlarm, validateEventEndDate } from "../_shared/validate.ts";
 
 // getFilterString de ModelAbstract: truthy → trim(strval); vacío/'0' → sin filtro
 const filterString = (input: Record<string, unknown>, key: string): string | null => {
@@ -89,6 +89,9 @@ export const handleEventCreate = async (req: Request, token: string): Promise<Re
     if (contractEmpty(text) && (contractEmpty(title) || contractEmpty(dateAt))) return errEventTextOnly();
     // PHP: $title && $dateAt → manual; si no → Gemini (diferido, Q2)
     if (contractEmpty(title) || dateAt === null) return errEventTextOnly();
+    // end_date opcional (0030): tras los checks PHP de alarm/person_ids/title/date_at
+    const endDate = validateEventEndDate(input, dateAt);
+    if ("err" in endDate) return endDate.err;
 
     return rpcPass(await rpc("create_event", {
         p_calendar_id: calendarId,
@@ -96,6 +99,7 @@ export const handleEventCreate = async (req: Request, token: string): Promise<Re
         p_date_at: dateAt,
         p_alarm: alarm,
         p_person_ids: personIds,
+        p_end_date: endDate.value,
     }, token));
 };
 
@@ -114,9 +118,13 @@ export const handleEventUpdate = async (req: Request, token: string): Promise<Re
     if (personIds instanceof Response) return personIds;
 
     if (contractEmpty(id) || contractEmpty(title) || contractEmpty(dateAt)) return errEventUpdateRequired();
+    // end_date (0030): clave presente (también null/'') = fijar o borrar; ausente = conservar
+    const endDate = validateEventEndDate(input, dateAt);
+    if ("err" in endDate) return endDate.err;
     return rpcPass(await rpc("update_event", {
         p_id: id, p_title: title, p_date_at: dateAt, p_alarm: alarm,
         p_person_ids: personIds, p_timezone: tz,
+        p_end_date: endDate.value, p_end_date_set: endDate.present,
     }, token));
 };
 

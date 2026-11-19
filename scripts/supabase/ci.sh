@@ -132,7 +132,7 @@ m_pat=("ok M1([^0-9a-z]|\$)" "ok M1b([^0-9a-z]|\$)" "ok M8b([^0-9a-z]|\$)"); for
 expect_log "SQL permisos_matriz_check" sql-permisos-matriz "${m_pat[@]}"
 
 run "contract_check.py" contract python3 "$HERE/scripts/supabase/contract_check.py"
-expect_log "contract_check.py" contract '^473/473 casos ok'
+expect_log "contract_check.py" contract '^502/502 casos ok'
 
 run "cross_tenant_check.py" cross-tenant python3 "$HERE/scripts/supabase/tests/cross_tenant_check.py"
 # N/N con N == EXPECTED_CASES (el propio script sale 1 si difiere; aquí se exige además el formato).
@@ -147,4 +147,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (SQL, contract_check 473/473, cross_tenant ${expected}/${expected})"
+echo "ci.sh: todo ok (SQL, contract_check 502/502, cross_tenant ${expected}/${expected})"

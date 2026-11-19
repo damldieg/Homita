@@ -104,6 +104,7 @@ app; el refresco queda para una fase posterior):
 | `migrations/0008_invites.sql` | Invitación/retirada por email (`add_*_user`, `remove_*_user`), owner-only |
 | `migrations/0009_task_order.sql` | `task_order` (Task::moveToPosition: splice + renumerar 1..n) |
 | `migrations/0010_profile_sync.sql` | Trigger `on auth.users update` → sincronía de `app_user` (name/email) |
+| `migrations/0030_event_end_date.sql` | Fecha de fin opcional de eventos (change `event-end-date`, D-019); ver «Extensión `event.end_date`». Reversa: `scripts/supabase/rollback/rollback_0030.sql` |
 
 ## Edge Function `functions/api/`
 
@@ -132,6 +133,44 @@ Comandos sin cambios: `supabase functions serve api --no-verify-jwt` y
 `supabase functions deploy api --no-verify-jwt --remote="$SUPABASE_PROJECT_REF" --yes`, ver
 variantes arriba).
 
+## Extensión `event.end_date` (0030, D-019)
+
+Desviación **aditiva** del contrato PHP-compat (D-008), como `refresh_token`: el evento manual admite
+un fin opcional de varios días. No existe en el backend PHP original ni cambia rutas ni shapes
+existentes; solo añade la clave `end_date` a las respuestas de evento.
+
+- **Dato:** `event.end_date date` nullable (solo día `YYYY-MM-DD`, inclusive; mismo criterio que
+  `routine.end_date`). Null = evento de un día. Sin backfill.
+- **Lectura:** `GET /event` y `GET /event/detail` devuelven siempre `end_date` (null si no hay).
+- **Escritura:** `POST /event/create` acepta `end_date` opcional. `PATCH /event/update` distingue
+  clave **ausente** (conserva el fin guardado; los clientes antiguos no lo borran) de clave
+  **presente** (valor = fija; `null` o `""` = borra). La Edge lo traduce a
+  `p_end_date` + `p_end_date_set` de la RPC `update_event`; las firmas antiguas de
+  `create_event`/`update_event` se sustituyen por las nuevas (parámetros con `DEFAULT`, las llamadas
+  antiguas siguen valiendo). Mismo `403 {"error":"Not Allowed"}` para el viewer.
+- **Validación (RN-2):** fin anterior al día de `date_at` → `400 {"error":"End date cannot be before
+  start date"}`; formato o fecha inválidos → `400 {"error":"Invalid end date"}`. Se valida en la Edge,
+  en la RPC (llamada directa) y en el formulario de iOS. Con `update` sin `end_date` y un
+  `date_at` nuevo, el fin guardado se revalida contra el nuevo inicio.
+- **Rutinas (RN-4):** un evento con `routine_id` no acepta fin (`400 Routine events cannot have an
+  end date`); la materialización de rutinas no cambia.
+- **Listado (RN-5):** `GET /event?start_date&end_date` incluye el evento si su rango
+  `[date_at, end_date + 1 día)` se solapa con el pedido. Sin `end_date` el predicado es el mismo de
+  antes (`date_at` dentro del rango), así que los resultados de eventos de un día no cambian. Orden
+  por `date_at` intacto.
+- **En curso (D-020):** por RN-5, un evento multi-día ya empezado llega a `GET /event` con un
+  `date_at` anterior al rango pedido (p. ej. 10-20 nov consultado desde el 15). El backend no
+  cambia: la clasificación «en curso» (`end_date` no nulo y ESTRICTAMENTE posterior a `día(date_at)`,
+  y `día(date_at) <= hoy <= end_date`; un `end_date` igual al día de inicio es un evento de un solo día,
+  se trata como sin fin y no muestra rango; RN-2 sigue permitiendo `end_date == día(date_at)`) es
+  del cliente, por día y con la zona horaria del dispositivo (nunca la del servidor). La app iOS
+  (`EventStore.ongoing`, sección «En curso» de la pestaña Eventos) y el dashboard Android
+  (bloque «En curso» de la tarjeta de eventos de Hoy) lo sacan de «Próximos» y «Pasados».
+  Los eventos sin `end_date` no cambian.
+- **Fuera de alcance:** las vistas por día (Agenda/Inicio de iOS, vista semanal y puntos del mes
+  del dashboard) siguen mostrando el evento solo en su día de inicio; la app iOS muestra el rango
+  («10 nov → 20 nov») en la fila del evento y en el editor.
+
 ## Verificación de contrato (`scripts/supabase/contract_check.py`)
 
 Smoke Edge-solo: aserciones de estado/valor/forma esperada por ruta contra el contrato documentado
@@ -153,7 +192,7 @@ python3 scripts/supabase/contract_check.py  # o --fn URL o SUPABASE_FUNCTIONS_UR
 Complementos sin oráculo: `scripts/supabase/tests/expected_shape_check.py`
 (forma esperada: `refresh_token`, `config` con flag `ALLOW_REGISTRATION`, Gemini 400, alta de
 usuarios; se ejecuta una vez por configuración de flag) y `scripts/supabase/tests/cross_tenant_check.py`
-(aislamiento entre tenants: 256 casos —`EXPECTED_CASES` en el script—, ids ajenos → `500 Not Found`, RPC directas
+(aislamiento entre tenants: 262 casos —`EXPECTED_CASES` en el script—, ids ajenos → `500 Not Found`, RPC directas
 `/rest/v1/rpc/*` con JWT ajeno sin fugas, owner vs viewer). Fixture:
 `scripts/supabase/fixture_two_families.py` (RLS).
 
@@ -168,8 +207,8 @@ stack Supabase local y efímero en `ubuntu-latest` y corre `scripts/supabase/ci.
    y seed. Es el único reset.
 3. SQL `invitaciones_check.sql` (`ok N1..N22`), `home_checks_compat.sql` (`ok V5j..V5p`),
    `acl_can_edit_check.sql` (`ok K1..K8`) y `permisos_matriz_check.sql` (29 `ok M`: M1, M1b, M2..M27 y M8b).
-4. `contract_check.py` completo (`473/473`; `CONTRACT_ONLY` se anula).
-5. `cross_tenant_check.py` (`256/256`; sale 1 si hay un fallo o si el número de casos no es
+4. `contract_check.py` completo (`502/502`; `CONTRACT_ONLY` se anula).
+5. `cross_tenant_check.py` (`262/262`; sale 1 si hay un fallo o si el número de casos no es
    `EXPECTED_CASES`).
 
 Se ejecutan todas las suites aunque una falle y el job falla si falla cualquiera; ante fallo se

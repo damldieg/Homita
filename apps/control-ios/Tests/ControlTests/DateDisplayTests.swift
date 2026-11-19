@@ -13,6 +13,22 @@ final class DateDisplayTests: XCTestCase {
         XCTAssertTrue(shown.contains("9:30"), shown)
     }
 
+    func testEventRangeShowsStartToEnd() {
+        let range = DateDisplay.eventRange(dateAt: "2026-11-10 09:00:00", endDate: "2026-11-20", timeZone: utc, locale: es)
+        XCTAssertNotNil(range)
+        XCTAssertTrue(range!.contains("→"), range!)
+        XCTAssertTrue(range!.contains("10"), range!)
+        XCTAssertTrue(range!.contains("20"), range!)
+        XCTAssertTrue(range!.lowercased().contains("nov"), range!)
+    }
+
+    func testEventRangeIsNilWithoutRealRange() {
+        XCTAssertNil(DateDisplay.eventRange(dateAt: "2026-11-10 09:00:00", endDate: nil, timeZone: utc, locale: es))
+        XCTAssertNil(DateDisplay.eventRange(dateAt: "2026-11-10 09:00:00", endDate: "", timeZone: utc, locale: es))
+        XCTAssertNil(DateDisplay.eventRange(dateAt: "2026-11-10 09:00:00", endDate: "2026-11-10", timeZone: utc, locale: es))
+        XCTAssertNil(DateDisplay.eventRange(dateAt: "no es fecha", endDate: "2026-11-20", timeZone: utc, locale: es))
+    }
+
     func testUnparseableTextIsReturnedAsIs() {
         XCTAssertEqual(DateDisplay.dateTime("no es fecha", timeZone: utc, locale: es), "no es fecha")
         XCTAssertEqual(DateDisplay.dateTime("", timeZone: utc, locale: es), "")

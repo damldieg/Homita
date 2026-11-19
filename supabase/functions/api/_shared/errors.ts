@@ -36,6 +36,10 @@ const RPC_STATUS: Record<string, number> = {
     "Already member": 400,
     // 1.15 + 0026: email de invitación ausente o mal formado (create)
     "Invalid email": 400,
+    // 0030 (event-end-date): fecha de fin del evento
+    "Invalid end date": 400,
+    "End date cannot be before start date": 400,
+    "Routine events cannot have an end date": 400,
 };
 
 // Router::error de PHP: InvalidArgumentException → 400; el resto → 500 con el mensaje
@@ -138,6 +142,9 @@ export const errRoutineTime = (): Response => error("Invalid time", 400);
 export const errRoutineDate = (): Response => error("Invalid date", 400);
 export const errRoutineDateRange = (): Response => error("Invalid date range", 400);
 export const errRoutineActive = (): Response => error("Active must be boolean", 400);
+// event end_date (0030, extensión aditiva D-019): mismos mensajes que lanza la RPC
+export const errEventEndDate = (): Response => error("Invalid end date", 400);
+export const errEventEndDateRange = (): Response => error("End date cannot be before start date", 400);
 export const errAlarmInvalid = (): Response => error("Alarm must be nonnegative minutes or null", 400);
 
 // event (Event*.php)

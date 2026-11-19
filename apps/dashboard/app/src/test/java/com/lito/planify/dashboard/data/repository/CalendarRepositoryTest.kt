@@ -28,11 +28,12 @@ class CalendarRepositoryTest {
     private class FakeApi : Api {
         var failure: Exception? = null
         var status = 200
+        var endDate: String? = null
 
         override suspend fun events(auth: String, start: Long, end: Long?, routine: Boolean, timezone: String, dashboard: Boolean): Response<List<Event>> {
             failure?.let { throw it }
             if (status != 200) return Response.error(status, "".toResponseBody())
-            return Response.success(listOf(Event(1, 1, "Casa", "#000000", if (routine) "Rutina" else "Evento", "2026-10-14 10:00:00")))
+            return Response.success(listOf(Event(1, 1, "Casa", "#000000", if (routine) "Rutina" else "Evento", "2026-10-14 10:00:00", end_date = endDate)))
         }
 
         override suspend fun auth(request: AuthRequest): Response<UserResponse> = error("no se usa")
@@ -93,5 +94,41 @@ class CalendarRepositoryTest {
         repository.clear()
         assertTrue(repository.weeks.value.isEmpty())
         assertTrue(repository().weeks.value.isEmpty())
+    }
+
+    @Test
+    fun endDateTravelsThroughTheCacheAndOffline() = runBlocking {
+        api.endDate = "2026-10-20"
+        val repository = repository()
+        repository.refresh("token", monday)
+        clock += CalendarRepository.MAX_AGE_MS
+        api.failure = IOException("sin red")
+        assertTrue(repository.refresh("token", monday).isFailure)
+        assertEquals("2026-10-20", repository().weeks.value[monday]?.events?.single()?.end_date)
+    }
+
+    @Test
+    fun cacheWrittenBeforeEndDateLoadsWithNull() {
+        // Fichero de una versión anterior: sin la clave `end_date`.
+        val old = """{"value":{"events":[{"id":1,"calendar_id":1,"calendar_name":"Casa","calendar_color":"#000000",""" +
+            """"title":"Evento","date_at":"2026-10-14 10:00:00"}],"sessions":[]},"fetchedAt":$clock}"""
+        folder.root.mkdirs()
+        java.io.File(folder.root, "week-$monday.json").writeText(old)
+        val event = repository().weeks.value[monday]?.events?.single()
+        assertEquals("Evento", event?.title)
+        assertEquals(null, event?.end_date)
+        assertTrue(event?.isOngoing(monday) == false)
+    }
+
+    @Test
+    fun multiDayEventKeepsItsStartDateAtAndIsNotOngoingOutsideItsRange() {
+        // Cobertura acotada: el filtro por día de CalendarScreen (`it.at.toLocalDate() == date`) es
+        // inline en un composable y no se puede ejercitar sin UI. Aquí solo se verifica el dato que
+        // ese filtro usa: `at` sigue siendo el día de inicio (DD-12), y `isOngoing` no se confunde
+        // con él. NO se prueba el pintado de la semana.
+        val vacation = Event(9, 1, "Casa", "#000000", "Vacaciones", "2026-11-10 09:00:00", end_date = "2026-11-20")
+        assertEquals(LocalDate.of(2026, 11, 10), vacation.at.toLocalDate())
+        assertTrue(vacation.isOngoing(LocalDate.of(2026, 11, 16)))
+        assertTrue(vacation.at.toLocalDate() != LocalDate.of(2026, 11, 16))
     }
 }

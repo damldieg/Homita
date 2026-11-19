@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import com.lito.planify.dashboard.UiState
 import com.lito.planify.dashboard.data.Event
 import com.lito.planify.dashboard.data.Person
+import com.lito.planify.dashboard.data.partitionEvents
 import com.lito.planify.dashboard.data.Task
 import com.lito.planify.dashboard.data.repository.ContentRepository
 import com.lito.planify.dashboard.ui.theme.Palette
@@ -159,7 +160,8 @@ private fun ClockColumn(state: UiState, modifier: Modifier) {
  */
 private fun nextUp(state: UiState): Event? {
     val content = state.content ?: return null
-    val next = (content.events + content.sessions).filter { !it.at.isBefore(state.now) }.minByOrNull { it.at } ?: return null
+    val today = state.now.toLocalDate()
+    val next = (content.events + content.sessions).filter { !it.at.isBefore(state.now) && !it.isOngoing(today) }.minByOrNull { it.at } ?: return null
     return next.takeIf { it.at.toLocalDate() <= state.now.toLocalDate().plusDays(1) }
 }
 
@@ -296,21 +298,22 @@ private fun MonthDay(date: LocalDate, isToday: Boolean, isPicked: Boolean, dots:
 private fun EventsCard(state: UiState, day: LocalDate?, lastTouch: Long, modifier: Modifier) {
     val now = state.now
     val all = state.content?.events.orEmpty()
-    val events = if (day != null) {
-        all.filter { it.at.toLocalDate() == day }
-    } else {
-        val next = nextUp(state)
-        all.filter { it.at.toLocalDate() >= now.toLocalDate() && it !== next }
-    }
+    val next = if (day == null) nextUp(state) else null
+    val parts = partitionEvents(all, now, next)
+    val events = if (day != null) all.filter { it.at.toLocalDate() == day } else parts.upcoming
+    // Con un día elegido la lista es por día (como antes); «En curso» solo sin día elegido.
+    val ongoing = if (day == null) parts.ongoing else emptyList()
     Card(modifier) {
         val dayName = day?.let { "${it.weekdayName()} ${it.dayOfMonth}" }
         if (dayName != null) CardHeader(dayName, Icons.Outlined.Event, Palette.Rain, count = events.size)
         else CardHeader("Próximos eventos", Icons.Outlined.Event, Palette.Rain, count = events.count { !it.at.isBefore(now) })
-        if (events.isEmpty()) {
+        if (ongoing.isNotEmpty()) OngoingBlock(ongoing)
+        if (events.isEmpty() && ongoing.isEmpty()) {
             if (dayName != null) EmptyState(Icons.Outlined.EventAvailable, Palette.Rain, "Sin eventos", "Nada el ${dayName.lowercase(Spanish)}", Modifier.weight(1f).fillMaxWidth())
             else EmptyState(Icons.Outlined.EventAvailable, Palette.Rain, "Sin eventos próximos", "Nada pendiente en los calendarios", Modifier.weight(1f).fillMaxWidth())
             return@Card
         }
+        if (events.isEmpty()) return@Card
         key(day) {
             UpcomingList(events, now, lastTouch) { event ->
                 EventRow(event, now)
@@ -320,21 +323,38 @@ private fun EventsCard(state: UiState, day: LocalDate?, lastTouch: Long, modifie
     }
 }
 
+/** «En curso»: eventos de varios días cuyo rango contiene hoy, con el rango «10 OCT → 20 OCT». */
 @Composable
-private fun EventRow(event: Event, now: LocalDateTime) {
-    val past = event.at.isBefore(now)
+private fun OngoingBlock(events: List<Event>) {
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Text(
+            "EN CURSO",
+            style = Type.Tiny.copy(color = Palette.InkSoft, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp),
+            modifier = Modifier.padding(vertical = 6.dp)
+        )
+        events.forEach { event ->
+            EventRow(event, event.at, ongoing = true)
+            Hairline()
+        }
+    }
+}
+
+@Composable
+private fun EventRow(event: Event, now: LocalDateTime, ongoing: Boolean = false) {
+    val past = !ongoing && event.at.isBefore(now)
     val color = if (past) Palette.Line else parseColor(event.calendar_color)
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
         Box(Modifier.width(7.dp).fillMaxHeight().background(color))
         Column(Modifier.weight(1f).padding(start = 18.dp, top = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "${event.at.toLocalDate().shortLabel()} · ${event.at.format(HourMinute)}",
+                    if (ongoing) "${event.at.toLocalDate().shortLabel()} → ${event.endDay?.shortLabel().orEmpty()}"
+                    else "${event.at.toLocalDate().shortLabel()} · ${event.at.format(HourMinute)}",
                     style = Type.Tiny.copy(color = if (past) Palette.InkMuted else Palette.InkSoft, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp),
                     maxLines = 1,
                     modifier = Modifier.weight(1f)
                 )
-                if (!past) {
+                if (!past && !ongoing) {
                     Text(
                         relativeBadge(now, event.at),
                         style = Type.Tiny.copy(color = Palette.InkSoft, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp),

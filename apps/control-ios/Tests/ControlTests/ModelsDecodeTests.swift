@@ -79,6 +79,16 @@ final class ModelsDecodeTests: XCTestCase {
         XCTAssertNotNil(PHPDateTime.parse(event.date_at))
     }
 
+    func testEventEntryEndDateWithAndWithout() throws {
+        let with = try decodeFixture(EventEntry.self, #"{"id":5,"calendar_id":3,"title":"Vacaciones","date_at":"2026-11-10 09:00:00","end_date":"2026-11-20","alarm":null}"#)
+        XCTAssertEqual(with.end_date, "2026-11-20")
+        let null = try decodeFixture(EventEntry.self, #"{"id":5,"calendar_id":3,"title":"E","date_at":"2026-11-10 09:00:00","end_date":null,"alarm":null}"#)
+        XCTAssertNil(null.end_date)
+        // Backend anterior a 0030: la clave no existe.
+        let absent = try decodeFixture(EventEntry.self, #"{"id":5,"calendar_id":3,"title":"E","date_at":"2026-11-10 09:00:00","alarm":null}"#)
+        XCTAssertNil(absent.end_date)
+    }
+
     func testEventDetailMinimal() throws {
         let event = try decodeFixture(EventEntry.self, #"{"id":5,"calendar_id":3,"title":"E","date_at":"2026-11-08 09:30:00","alarm":null}"#)
         XCTAssertNil(event.alarm)

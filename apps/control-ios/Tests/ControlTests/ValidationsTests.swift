@@ -10,6 +10,16 @@ final class ValidationsTests: XCTestCase {
         XCTAssertNil(EventValidation.validate(title: "Reunión", dateAt: "2026-11-08 09:30:00"))
     }
 
+    func testEventEndDateValidation() {
+        let start = "2026-11-10 09:00:00"
+        // RN-2: fin anterior al día de inicio → error; mismo día, posterior o ausente → válido.
+        XCTAssertEqual(EventValidation.validate(title: "Vacaciones", dateAt: start, endDate: "2026-11-05"),
+                       "La fecha de fin no puede ser anterior al inicio")
+        XCTAssertNil(EventValidation.validate(title: "Vacaciones", dateAt: start, endDate: "2026-11-10"))
+        XCTAssertNil(EventValidation.validate(title: "Vacaciones", dateAt: start, endDate: "2026-11-20"))
+        XCTAssertNil(EventValidation.validate(title: "Vacaciones", dateAt: start, endDate: nil))
+    }
+
     func testPersonActionsByEditable() {
         XCTAssertEqual(PersonActions.available(editable: true), [.edit, .delete])
         XCTAssertEqual(PersonActions.available(editable: false), [])

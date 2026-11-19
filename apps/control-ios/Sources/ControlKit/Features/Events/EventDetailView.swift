@@ -15,6 +15,8 @@ struct EventDetailView: View {
     @State private var calendarId: Int
     @State private var alarm: Int?
     @State private var personIds: [Int]
+    @State private var hasEndDate: Bool
+    @State private var endDate: Date
     @State private var showDeleteConfirm = false
     @State private var isWorking = false
 
@@ -28,6 +30,20 @@ struct EventDetailView: View {
         _calendarId = State(initialValue: event?.calendar_id ?? calendars.calendars.first?.id ?? 0)
         _alarm = State(initialValue: event?.alarm)
         _personIds = State(initialValue: event?.persons?.map(\.id) ?? [])
+        _hasEndDate = State(initialValue: event?.end_date != nil)
+        _endDate = State(initialValue: event?.end_date.flatMap { PHPDateTime.parseDay($0) }
+            ?? event.flatMap { PHPDateTime.parse($0.date_at) } ?? defaultDate ?? Date())
+    }
+
+    /// Los eventos de rutina no llevan fecha de fin (RN-4): su vigencia la define la rutina.
+    private var supportsEndDate: Bool { event?.routine_id == nil }
+
+    /// Fin elegido como `YYYY-MM-DD`, o `nil` (un solo día).
+    private var endDateString: String? { supportsEndDate && hasEndDate ? PHPDateTime.formatDay(endDate) : nil }
+
+    /// Mensaje de validación (RN-2) del rango actual; `nil` si es válido.
+    private var rangeProblem: String? {
+        EventValidation.validate(title: "x", dateAt: PHPDateTime.format(date), endDate: endDateString)
     }
 
     var body: some View {
@@ -35,6 +51,22 @@ struct EventDetailView: View {
             HomitaPanel("Evento", systemImage: "calendar") {
                 HomitaField(placeholder: "Título", text: $title)
                 HomitaDatePicker(title: "Fecha y hora", selection: $date, components: [.date, .hourAndMinute])
+                if supportsEndDate {
+                    HomitaToggle(title: "Fecha de fin", isOn: $hasEndDate)
+                    if hasEndDate {
+                        HomitaDatePicker(title: "Fin", selection: $endDate, components: .date)
+                        if let range = DateDisplay.eventRange(dateAt: PHPDateTime.format(date), endDate: endDateString) {
+                            Text(range)
+                                .font(HomitaFont.inter(14, weight: .medium, relativeTo: .footnote))
+                                .foregroundStyle(Palette.inkSoft)
+                        }
+                        if let problem = rangeProblem {
+                            Text(problem)
+                                .font(HomitaFont.inter(14, weight: .medium, relativeTo: .footnote))
+                                .foregroundStyle(Palette.ink)
+                        }
+                    }
+                }
                 Group {
                     Text("Calendario")
                         .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
@@ -56,7 +88,7 @@ struct EventDetailView: View {
             PersonSelector(persons: persons.persons, selected: $personIds)
             HomitaButton(
                 title: event == nil ? "Crear evento" : "Guardar",
-                isEnabled: !title.trimmingCharacters(in: .whitespaces).isEmpty && !isWorking,
+                isEnabled: !title.trimmingCharacters(in: .whitespaces).isEmpty && rangeProblem == nil && !isWorking,
                 isLoading: isWorking
             ) {
                 Task { await save() }
@@ -90,7 +122,8 @@ struct EventDetailView: View {
             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
             dateAt: PHPDateTime.format(date),
             alarm: alarm,
-            personIds: personIds
+            personIds: personIds,
+            endDate: endDateString
         )
         let ok = await store.save(draft: draft, editing: event)
         if ok { dismiss() }
