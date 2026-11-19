@@ -171,3 +171,6 @@ export const errTaskUpdateRequired = (): Response => error("Task ID and title ar
 export const errTaskCompleteRequired = (): Response => error("Task ID and completed are required", 400);
 export const errTaskOrderRequired = (): Response => error("id and position are required", 400);
 export const errTaskOrderNegative = (): Response => error("position must be zero or positive", 400);
+
+// feedback (POST /feedback, change control-ios-feedback): ruta nueva sin equivalente PHP.
+export const errFeedbackInvalid = (message: string): Response => error(message, 400);

@@ -81,6 +81,19 @@ export const rpc = async (name: string, args: Record<string, unknown>, token: st
     });
 };
 
+// INSERT por PostgREST con el JWT del usuario (RLS activa); return=minimal (RETURNING exigiría una política SELECT).
+export const insertRow = async (table: string, row: Record<string, unknown>, token: string): Promise<Response> =>
+    await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+        method: "POST",
+        headers: {
+            apikey: ANON_KEY,
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Prefer: "return=minimal",
+        },
+        body: JSON.stringify(row),
+    });
+
 // RPC pública (sin sesión, rol anon): solo para funciones con GRANT a anon (0026, registro con
 // código). No envía cabeceras de hogar.
 export const rpcAnon = async (name: string, args: Record<string, unknown>): Promise<Response> => {

@@ -2,7 +2,7 @@
 // personIdsOf, que consulta get_persons para la visibilidad (Person::validateIds).
 import { getInput, type ContractInput } from "./contract.ts";
 import {
-    errAlarmInvalid, errEventEndDate, errEventEndDateRange, errPersonIdsIds, errPersonIdsList, errPersonInvalid,
+    errAlarmInvalid, errEventEndDate, errFeedbackInvalid, errEventEndDateRange, errPersonIdsIds, errPersonIdsList, errPersonInvalid,
     errRoutineActive, errRoutineDate, errRoutineDateRange, errRoutineDaysRange, errRoutineDaysRequired,
     errRoutineFrequency, errRoutineInterval, errRoutineTime, errRoutineTitleRequired,
 } from "./errors.ts";
@@ -148,4 +148,42 @@ export const personIdsOf = async (
     if (!res.ok) return errPersonInvalid();
     const rows: { id: number }[] = await res.json().catch(() => []);
     return validatePersonIdsWith(input, rows.map((r) => r.id));
+};
+
+// ── feedback (POST /feedback) ──
+
+export const FEEDBACK_SECCIONES = ["Inicio", "Tareas", "Calendario", "Hogar", "Ajustes"];
+export const FEEDBACK_TIPOS = ["bug", "mejora"];
+export const FEEDBACK_ACCIONES = ["ver", "crear", "editar", "eliminar"];
+export const FEEDBACK_TEXTO_MAX = 2000;
+const FEEDBACK_SUBSECCION_MAX = 100;
+
+export type FeedbackValues = { seccion: string; subseccion: string | null; tipo: string; texto: string };
+
+// Valida el cuerpo de POST /feedback (pura). `subseccion` opcional; si viene: "<subárea>: <acción>"
+// con acción en FEEDBACK_ACCIONES y longitud <= 100. `texto` se recorta y debe tener 1..2000.
+export const validateFeedback = (input: ContractInput): FeedbackValues | Response => {
+    const seccion = getInput(input, "seccion");
+    if (typeof seccion !== "string" || !FEEDBACK_SECCIONES.includes(seccion)) {
+        return errFeedbackInvalid("Invalid seccion");
+    }
+    const tipo = getInput(input, "tipo");
+    if (typeof tipo !== "string" || !FEEDBACK_TIPOS.includes(tipo)) return errFeedbackInvalid("Invalid tipo");
+    const rawTexto = getInput(input, "texto");
+    const texto = typeof rawTexto === "string" ? rawTexto.trim() : "";
+    if (texto.length === 0) return errFeedbackInvalid("Texto is required");
+    if (texto.length > FEEDBACK_TEXTO_MAX) return errFeedbackInvalid("Texto is too long (max 2000 characters)");
+    const rawSub = getInput(input, "subseccion");
+    let subseccion: string | null = null;
+    if (rawSub !== null && rawSub !== undefined && rawSub !== "") {
+        if (typeof rawSub !== "string" || rawSub.length > FEEDBACK_SUBSECCION_MAX) {
+            return errFeedbackInvalid("Invalid subseccion");
+        }
+        const m = rawSub.match(/^(.+): (\S+)$/);
+        if (m === null || m[1].trim() === "" || !FEEDBACK_ACCIONES.includes(m[2])) {
+            return errFeedbackInvalid("Invalid subseccion");
+        }
+        subseccion = rawSub;
+    }
+    return { seccion, subseccion, tipo, texto };
 };
