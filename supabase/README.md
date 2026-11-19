@@ -158,9 +158,16 @@ existentes; solo añade la clave `end_date` a las respuestas de evento.
   `[date_at, end_date + 1 día)` se solapa con el pedido. Sin `end_date` el predicado es el mismo de
   antes (`date_at` dentro del rango), así que los resultados de eventos de un día no cambian. Orden
   por `date_at` intacto.
-- **Fuera de alcance:** el dashboard Android (Gson ignora la clave) y las vistas Agenda/Inicio de iOS
-  siguen mostrando el evento solo en el día de inicio; la app iOS muestra el rango («10 nov → 20 nov»)
-  en la fila del evento y en el editor.
+- **En curso (D-020):** por RN-5, un evento multi-día ya empezado llega a `GET /event` con un
+  `date_at` anterior al rango pedido (p. ej. 10-20 nov consultado desde el 15). El backend no
+  cambia: la clasificación «en curso» (`end_date` no nulo y `día(date_at) <= hoy <= end_date`) es
+  del cliente, por día y con la zona horaria del dispositivo (nunca la del servidor). La app iOS
+  (`EventStore.ongoing`, sección «En curso» de la pestaña Eventos) y el dashboard Android
+  (bloque «En curso» de la tarjeta de eventos de Hoy) lo sacan de «Próximos» y «Pasados».
+  Los eventos sin `end_date` no cambian.
+- **Fuera de alcance:** las vistas por día (Agenda/Inicio de iOS, vista semanal y puntos del mes
+  del dashboard) siguen mostrando el evento solo en su día de inicio; la app iOS muestra el rango
+  («10 nov → 20 nov») en la fila del evento y en el editor.
 
 ## Verificación de contrato (`scripts/supabase/contract_check.py`)
 
