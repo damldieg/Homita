@@ -64,4 +64,19 @@ class EventOngoingTest {
         val after = partitionEvents(listOf(vacation), LocalDateTime.of(2026, 11, 21, 0, 0))
         assertTrue(after.ongoing.isEmpty() && after.upcoming.isEmpty())
     }
+
+    @Test
+    fun endEqualToStartDayIsASingleDayEvent() {
+        val e = event(end = "2026-11-10")
+        assertEquals(null, e.endDay)
+        assertFalse(e.isOngoing(day(10)))
+        val now = LocalDateTime.of(2026, 11, 10, 8, 0)
+        val parts = partitionEvents(listOf(e), now, next = null)
+        assertTrue(parts.ongoing.isEmpty())
+        assertEquals(listOf(e), parts.upcoming)
+        // Un fin anterior al inicio tampoco es un rango.
+        assertEquals(null, event(end = "2026-11-09").endDay)
+        // Fin un día después: sí es rango.
+        assertTrue(event(end = "2026-11-11").isOngoing(day(11)))
+    }
 }

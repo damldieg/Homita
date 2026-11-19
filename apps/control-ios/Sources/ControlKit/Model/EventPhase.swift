@@ -24,7 +24,8 @@ extension EventEntry {
     /// Día de inicio (`yyyy-MM-dd`): prefijo de 10 caracteres de `date_at`.
     var startDay: String { String(date_at.prefix(10)) }
 
-    /// `end_date` solo si es una fecha `yyyy-MM-dd` válida; nulo o malformado = sin fin.
+    /// `end_date` solo si es una fecha `yyyy-MM-dd` válida y ESTRICTAMENTE posterior al día de inicio;
+    /// nulo, malformado o igual/anterior al inicio = sin fin (evento de un solo día).
     var validEndDay: String? {
         guard let end = end_date, end.count >= 10 else { return nil }
         let day = String(end.prefix(10))
@@ -32,10 +33,11 @@ extension EventEntry {
         guard parts.count == 3, parts[0].count == 4, parts[1].count == 2, parts[2].count == 2,
               let y = Int(parts[0]), let m = Int(parts[1]), let d = Int(parts[2]),
               (1...12).contains(m), (1...31).contains(d), y > 0 else { return nil }
-        return day
+        // R2-01: un fin igual (o anterior) al día de inicio es un evento de un solo día, no «en curso».
+        return day > startDay ? day : nil
     }
 
-    /// «En curso» solo con fin válido y `inicio <= hoy <= fin`. Comparación de textos `yyyy-MM-dd`
+    /// «En curso» solo con fin válido (posterior al inicio) y `inicio <= hoy <= fin`. Comparación de textos `yyyy-MM-dd`
     /// (orden lexicográfico = cronológico). Sin fin nunca está en curso.
     public func isOngoing(today: String) -> Bool {
         guard let end = validEndDay else { return false }

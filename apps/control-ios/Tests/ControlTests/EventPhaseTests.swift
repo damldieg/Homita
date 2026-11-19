@@ -55,4 +55,17 @@ final class EventPhaseTests: XCTestCase {
         XCTAssertEqual(event().phase(clock: clock(instant, utc)), .ongoing)
         XCTAssertEqual(event().phase(clock: clock(instant, madrid)), .past)
     }
+
+    func testEndEqualToStartDayIsSingleDayNotOngoing() {
+        let same = event(end: "2026-11-10")
+        XCTAssertNil(same.validEndDay)
+        XCTAssertFalse(same.isOngoing(today: "2026-11-10"))
+        XCTAssertEqual(same.phase(clock: clock("2026-11-09T12:00:00Z")), .upcoming)
+        XCTAssertEqual(same.phase(clock: clock("2026-11-10T12:00:00Z")), .upcoming)
+        XCTAssertEqual(same.phase(clock: clock("2026-11-11T00:00:00Z")), .past)
+        // Fin anterior al inicio: tampoco es rango.
+        XCTAssertNil(event(end: "2026-11-09").validEndDay)
+        // Fin un día después: sí es rango.
+        XCTAssertTrue(event(end: "2026-11-11").isOngoing(today: "2026-11-11"))
+    }
 }

@@ -27,8 +27,13 @@ data class Event(
 ) {
     val at: LocalDateTime get() = LocalDateTime.parse(date_at, SQL_DATE_TIME)
 
-    /** Último día del evento, o nulo si no hay fin o está malformado (se trata como ausente). */
-    val endDay: LocalDate? get() = end_date?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() }
+    /**
+     * Último día del evento, o nulo si no hay fin, está malformado o no es ESTRICTAMENTE posterior al
+     * día de inicio (fin == inicio es un evento de un solo día; se trata como ausente).
+     */
+    val endDay: LocalDate? get() = end_date
+        ?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() }
+        ?.takeIf { it.isAfter(at.toLocalDate()) }
 
     /** En curso: tiene fin y `día(date_at) <= hoy <= fin`, por día y sin hora (D-020). */
     fun isOngoing(today: LocalDate): Boolean {

@@ -121,13 +121,14 @@ class CalendarRepositoryTest {
     }
 
     @Test
-    fun multiDayEventFromAnEarlierStartIsNotPaintedAsAnotherDaysEvent() {
-        // La vista semanal pinta por día de `date_at` (DD-12): el de inicio previo no cae en los días 16..20.
+    fun multiDayEventKeepsItsStartDateAtAndIsNotOngoingOutsideItsRange() {
+        // Cobertura acotada: el filtro por día de CalendarScreen (`it.at.toLocalDate() == date`) es
+        // inline en un composable y no se puede ejercitar sin UI. Aquí solo se verifica el dato que
+        // ese filtro usa: `at` sigue siendo el día de inicio (DD-12), y `isOngoing` no se confunde
+        // con él. NO se prueba el pintado de la semana.
         val vacation = Event(9, 1, "Casa", "#000000", "Vacaciones", "2026-11-10 09:00:00", end_date = "2026-11-20")
-        val week = LocalDate.of(2026, 11, 16)
-        (0L until 7).forEach { offset ->
-            val date = week.plusDays(offset)
-            assertTrue(listOf(vacation).none { it.at.toLocalDate() == date })
-        }
+        assertEquals(LocalDate.of(2026, 11, 10), vacation.at.toLocalDate())
+        assertTrue(vacation.isOngoing(LocalDate.of(2026, 11, 16)))
+        assertTrue(vacation.at.toLocalDate() != LocalDate.of(2026, 11, 16))
     }
 }

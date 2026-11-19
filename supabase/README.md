@@ -160,7 +160,9 @@ existentes; solo añade la clave `end_date` a las respuestas de evento.
   por `date_at` intacto.
 - **En curso (D-020):** por RN-5, un evento multi-día ya empezado llega a `GET /event` con un
   `date_at` anterior al rango pedido (p. ej. 10-20 nov consultado desde el 15). El backend no
-  cambia: la clasificación «en curso» (`end_date` no nulo y `día(date_at) <= hoy <= end_date`) es
+  cambia: la clasificación «en curso» (`end_date` no nulo y ESTRICTAMENTE posterior a `día(date_at)`,
+  y `día(date_at) <= hoy <= end_date`; un `end_date` igual al día de inicio es un evento de un solo día,
+  se trata como sin fin y no muestra rango; RN-2 sigue permitiendo `end_date == día(date_at)`) es
   del cliente, por día y con la zona horaria del dispositivo (nunca la del servidor). La app iOS
   (`EventStore.ongoing`, sección «En curso» de la pestaña Eventos) y el dashboard Android
   (bloque «En curso» de la tarjeta de eventos de Hoy) lo sacan de «Próximos» y «Pasados».
