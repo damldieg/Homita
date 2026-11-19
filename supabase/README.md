@@ -22,6 +22,10 @@ Los comandos usan `supabase …`; sin CLI instalada, `npx supabase@latest …`.
 | `SUPABASE_DB_URL` | (opcional) psql para verificación de esquema |
 | `SUPABASE_ACCESS_TOKEN` | Token personal del CLI (`login`, `link`, `migration list`, `db push`, `functions deploy`) |
 | `SUPABASE_PROJECT_REF` | Ref del proyecto para `supabase link --project-ref` |
+| `TRELLO_KEY`, `TRELLO_TOKEN` | Secretos de `procesar-feedback` (Supabase Secrets): key y token de Trello; solo viajan en la cabecera `Authorization: OAuth …` |
+| `TRELLO_LIST_ID` | Secreto de `procesar-feedback`: id de la lista «Feedback» del tablero Homita (destino de las tarjetas y fuente del gate) |
+| `FEEDBACK_WEBHOOK_SECRET` | Secreto de `procesar-feedback`: valor que debe traer la cabecera `x-feedback-secret`. El **mismo valor** va en Vault como `feedback_webhook_secret` (lo lee el trigger de `0033`) |
+| `ANTHROPIC_API_KEY`, `CLAUDE_MODEL` | Secretos de `procesar-feedback`: clave de Anthropic y modelo del gate (opcional; por defecto `claude-haiku-5-5`) |
 | `ALLOW_REGISTRATION` | Secreto de la función (`functions serve --env-file` o Supabase Secrets): alta abierta de usuarios (`POST user/create`). Default `false` (registro cerrado, Q3); ver `docs/SETUP.md`. También gobierna el registro con `invitation_code` (no lo salta); contrato en `docs/CONTRATOS_HOME.md` (Invitaciones) |
 
 ## Stack local (Docker)
@@ -107,6 +111,8 @@ app; el refresco queda para una fase posterior):
 | `migrations/0030_event_end_date.sql` | Fecha de fin opcional de eventos (change `event-end-date`, D-019); ver «Extensión `event.end_date`». Reversa: `scripts/supabase/rollback/rollback_0030.sql` |
 | `migrations/0031_feedback_trigger.sql` | Trigger `homita_feedback_creation` (webhook a `procesar-feedback` de prod). Con guard: sale sin efecto si `public.feedback` no existe. Idéntica a la de la rama `dc/feedback-trigger-migration`. Reversa: `scripts/supabase/rollback/rollback_0031.sql` |
 | `migrations/0032_feedback_schema.sql` | DDL `if not exists` de `public.backlog` y `public.feedback` (RLS + política «insertar mi feedback») para local/CI; no-op en prod, sin trigger. Ver «Feedback» |
+| `migrations/0032_feedback_trello.sql` | Change `feedback-trello-gate` (D-021), aditiva: `backlog.trello_card_id`/`trello_card_url` + índice único parcial, `feedback.procesando_desde` (reserva) y RPC `homita_feedback_finalize` (escritura final atómica, solo `service_role`). Guard `to_regclass` de `feedback` y `backlog`: no-op en local/CI. Reversa: `scripts/supabase/rollback/rollback_0032.sql` (pierde los vínculos con Trello) |
+| `migrations/0033_feedback_trigger_secret.sql` | Change `feedback-trello-gate` (D-021): reemplaza el trigger de `0031` por `homita_feedback_notify` → `homita_feedback_dispatch` (SECURITY DEFINER, EXECUTE revocado a `anon`/`authenticated`/`service_role`), que lee el secreto de Vault y encola `net.http_post` con cabecera `x-feedback-secret` y solo el id. Guard `to_regclass('public.feedback')`: no-op en local/CI. Reversa: `scripts/supabase/rollback/rollback_0033.sql` (restaura `0031`; orden en «Rollback»: con la pausa de Vault hecha, tras redesplegar la antigua; sin pausa, ANTES del redeploy, con la función nueva desplegada. Nunca redeploy de la antigua con 0033 aplicado y el secreto cargado) |
 
 ## Edge Function `functions/api/`
 
@@ -137,22 +143,215 @@ variantes arriba).
 
 ## Edge Function `functions/procesar-feedback/`
 
-Copia de la función desplegada en prod (`index.ts` tal cual), que el trigger de `0031` invoca por HTTP
-al insertar en `public.feedback`. Notas:
+La dispara el trigger `homita_feedback_creation` de `0033` al insertar en `public.feedback` y crea o
+vincula la tarjeta en Trello, con el modelo como **gate** (change `feedback-trello-gate`, D-021/D-022).
+El modelo solo clasifica: las llamadas a Trello y a la BD las hace el código.
 
-- `config.toml` declara `[functions.procesar-feedback] verify_jwt = false`, igual que prod. **Deuda
-  pre-existente, fuera de alcance:** el endpoint es público, gasta API de Anthropic y escribe en
-  `backlog` con service role.
-- `public.feedback` y `backlog` **no tienen DDL en el repo** (solo existen en prod). Por eso `0031` lleva
-  el guard `to_regclass('public.feedback')`: en local/CI la tabla no existe y no se crea el trigger, así
-  no hay webhook hacia producción. `scripts/supabase/tests/feedback_trigger_check.sql` (F1-F5, enganchado
-  en `ci.sh`) comprueba la ausencia en local y, con una tabla scratch en transacción, la definición exacta
-  y la idempotencia. Si algún día se versiona `public.feedback` en una migración previa, F1/F2 fallarán
-  y obligarán a revisar el guard.
-- Aplicar a prod **no es parte del build**: prod ya tiene el trigger y `0031` es un no-op efectivo
-  (breve `ACCESS EXCLUSIVE` sobre `feedback`). Se aplica solo con el procedimiento de despliegue vigente
-  y confirmación explícita del usuario (ver «Despliegue a producción»), nunca con un `db push` por cuenta
-  propia.
+| Fichero | Contenido |
+|---|---|
+| `index.ts` | Solo cableado: cliente supabase-js (service role), `createHandler`, `Deno.serve` |
+| `handler.ts` | Flujo completo (auth, reserva, gate, Trello, final, compensación); dependencias inyectadas |
+| `gate.ts` | Puro: prompt, topes, `parseDecision`, plantillas de tarjeta y comentario, marcador |
+| `trello.ts` | Cliente Trello con `fetch` inyectado (`listCards`, `createCard`, `addComment`, `archiveCard`) |
+| `db.ts` | Interfaz `FeedbackDb` + adaptador supabase-js sin lógica (`claim`, `exists`, `getEstado`, `markError`, `finalize`) |
+| `tests/*_test.ts` | `deno test` con `fetch` y `db` falsos (sin red, sin Trello ni Anthropic reales) |
+
+**Flujo** (cada paso corta si falla):
+
+1. **Auth:** `FEEDBACK_WEBHOOK_SECRET` vacío → 500 (falla cerrado). Cabecera `x-feedback-secret`
+   ausente o distinta → 401 (comparación en tiempo constante, antes de leer el body).
+2. **Body:** del payload solo se usa `record.id` (entero > 0; si no, 400). Sección, tipo y texto se
+   leen de la BD. Configuración de Trello/Anthropic incompleta → 500 sin reservar.
+3. **Reserva atómica:** `update feedback set procesando_desde = now() where id = … and estado =
+   'pendiente' and procesando_desde is null returning …`. Solo una ejecución avanza; las demás
+   responden 200 «ya procesado o en curso» (o 404 si el id no existe).
+4. **Tarjetas abiertas** de `TRELLO_LIST_ID`. Si una tiene en `desc` la línea exacta
+   `Homita-feedback-id: <id>` (intento anterior cuyo final falló), se reutiliza sin llamar al modelo.
+5. **Gate:** instrucción en `system`; reporte y tarjetas como datos en `<reporte>`/`<tarjetas>` (JSON con
+   `<` escapado), máximo 100 tarjetas (las más recientes), `name` ≤ 120, `desc` ≤ 300, reporte ≤ 2000.
+   Se exige exactamente un `tool_use` (`vincular_tarjeta{card_id}` o `crear_tarjeta{titulo,
+   descripcion}`); `card_id` debe ser una de las tarjetas enviadas; título a una línea ≤ 120.
+6. **Trello:** `crear` → `POST /1/cards` en la lista (descripción del modelo + marcador + metadatos +
+   reporte citado con `> `); `vincular` → comentario en la tarjeta con el reporte citado.
+7. **Final atómico:** RPC `homita_feedback_finalize` (`0032`): inserta en `backlog` con
+   `trello_card_id`/`url` (vincular a una tarjeta sin fila → `votos = 2`; ya con fila → `votos + 1`, upsert
+   atómico) y deja el feedback `procesado` con `backlog_id`.
+
+**Fallos:** antes de escribir en Trello (lectura de tarjetas, modelo, validación) → `estado = 'error'`
+y 500, sin tocar Trello ni `backlog`. Si el final falla tras crear, se relee la fila (`getEstado`):
+el error puede llegar tras el COMMIT (red o corte de PostgREST). Solo si sigue `pendiente` la tarjeta se
+archiva (`closed=true`, nunca DELETE) y el feedback queda en `error`; si ya está `procesado` (o la
+relectura falla) **no** se archiva y se registra un log de inconsistencia con ids (feedback, tarjeta,
+backlog), para revisarlo a mano. Si el archivado también falla se registra el id de la tarjeta y el
+marcador evita duplicarla al reprocesar. Tras vincular, el comentario queda
+(al reprocesar se repetiría). Timeouts: 8 s Trello, 20 s Anthropic. Los logs llevan solo operación,
+status e ids: nunca URL, cabeceras, body, texto del reporte ni secretos.
+
+**Secreto del webhook:** el trigger lo lee en cada INSERT de Vault (`feedback_webhook_secret`) dentro de
+`homita_feedback_dispatch`; el repo no contiene ningún valor. Sin secreto en Vault, el INSERT no falla
+(warning) y el feedback queda `pendiente`. Ningún error del webhook hace fallar el INSERT. Mientras
+pg_net no ha enviado la petición, la cabecera está en claro en `net.http_request_queue` (el esquema
+`net` no está expuesto en la API REST; se revisa en el pre-check P2). Rotación: primero
+`supabase secrets set FEEDBACK_WEBHOOK_SECRET=…` y después `select vault.update_secret(id, '<nuevo>')`
+(ventana de 401 recuperable con el reproceso).
+
+**Grants:** `homita_feedback_finalize` solo para `service_role`; `homita_feedback_dispatch` y
+`homita_feedback_notify` sin EXECUTE para `anon`, `authenticated` ni `service_role` (solo el owner, es
+decir, el SQL editor). `public.feedback` y `backlog` **no tienen DDL en el repo**: `0031`–`0033` llevan
+guard `to_regclass` y en local/CI no crean nada (no hay webhook hacia producción). Los checks lo
+comprueban en local y, con tablas scratch en transacción, prueban la definición, los grants, la RPC y
+el trigger (`feedback_trello_check.sql` B1-B8 y `feedback_trigger_check.sql` F1-F11). Si algún día se
+versiona `public.feedback` en una migración previa, B1/F1/F2 fallarán y obligarán a revisar los guards.
+
+**Deploy:** `config.toml` declara `verify_jwt = false`; el despliegue debe ser
+`supabase functions deploy procesar-feedback --no-verify-jwt` (en hosted, con
+`--remote="$SUPABASE_PROJECT_REF" --yes`). Sin `--no-verify-jwt` el gateway responde 401 a todo.
+
+### Puesta en producción (D-022): el merge aplica las migraciones
+
+El merge a `master` aplica `0031`–`0033` en prod, pero no despliega la función. Ningún paso es parte
+del build y cada uno requiere confirmación explícita del usuario (nunca con `~/.homita/supabase.env`
+en pruebas). **P1–P5 van antes del merge**; el secreto de Vault se carga **después** del deploy de la
+función nueva (P7), no antes del merge (corrección R1-01, actualización de D-022):
+
+1. **P1.** Confirmar que el merge a `master` sigue aplicando solo migraciones (no Edge Functions).
+2. **P2.** Pre-check SELECT-only en el SQL editor de prod: columnas, constraints y triggers de
+   `feedback` y `backlog` (supuesto: `feedback(id, texto, seccion, subseccion, tipo, estado,
+   backlog_id)`, `backlog(id, titulo, descripcion, seccion, subseccion, tipo, votos)` con `votos` con
+   default); extensiones `pg_net` y `supabase_vault`; `oid::regprocedure` de `net.http_post`;
+   `has_table_privilege` sobre `vault.decrypted_secrets` y `net.http_request_queue` para el rol que
+   aplica migraciones, `anon`, `authenticated` y `public`; schemas expuestos de la API (Dashboard →
+   API settings / `pgrst.db_schemas`); policies de `feedback` (¿quién puede insertar?); `count(*)` de
+   `feedback` por `estado`. Además:
+   - `has_table_privilege('service_role', …)`: INSERT y UPDATE en `public.backlog`, UPDATE en
+     `public.feedback` (`homita_feedback_finalize` es `security invoker`);
+   - `backlog.votos` con default (`column_default` en `information_schema.columns`);
+   - si `backlog.seccion`, `subseccion` y `tipo` son NOT NULL o no (`is_nullable`).
+
+   **Go/no-go (R1-03):** si `has_table_privilege(r, 'net.http_request_queue', 'select')` es true
+   para `r` en `anon`, `authenticated` o `public`, o si `net` figura en los schemas expuestos de la
+   API, **no se mergea** hasta decidir el remedio por escrito: revoke de SELECT en la cola a esos roles
+   (si pg_net lo admite sin romper el worker) o aceptar el riesgo de forma explícita (el secreto del
+   webhook es legible en la cola hasta el envío). Si `service_role` no tiene los privilegios de arriba,
+   si `votos` no tiene default o si las columnas difieren de A1, tampoco: se ajusta el plan antes.
+
+   **Privilegios de Vault (R2-01, R2-02):**
+   ```sql
+   select p.oid::regprocedure, has_function_privilege(current_user, p.oid, 'execute')
+     from pg_proc p
+    where p.pronamespace = 'vault'::regnamespace
+      and p.proname in ('create_secret', 'update_secret');
+   ```
+   Sin EXECUTE en `vault.create_secret(text,text,text,uuid)` **no se mergea** (P7 depende de él y,
+   tras el merge, todos los feedback nuevos se quedarían `pendiente`). Sin EXECUTE en
+   `vault.update_secret` no se puede pausar el despacho: el rollback usa entonces el orden
+   alternativo (ver «Rollback»), que es seguro; no bloquea el merge, pero se anota.
+
+   **Owner de las funciones de migración (R2-02):** el reproceso (P8 y runbook) llama a
+   `homita_feedback_dispatch`, con EXECUTE revocado a PUBLIC: solo lo ejecuta su owner, que será el
+   rol con el que el auto-deploy aplica migraciones. Se mide con funciones de una migración anterior
+   aplicada igual (0030):
+   ```sql
+   select p.proname, p.proowner::regrole as owner, current_user,
+          pg_has_role(current_user, p.proowner, 'member') as editor_es_miembro
+     from pg_proc p
+    where p.pronamespace = 'public'::regnamespace
+      and p.proname in ('create_event', 'update_event');
+   ```
+   - **Go** si `owner = current_user`: el reproceso se ejecuta tal cual desde el SQL editor.
+   - **Go** si el owner es otro rol pero `editor_es_miembro` es true: el reproceso se ejecuta con
+     `set role <owner>;` … `reset role;` en la misma sesión del editor.
+   - **No-go** en cualquier otro caso (p. ej. owner `supabase_admin` sin membresía): no se mergea hasta
+     fijar por escrito otra vía. Opciones: una migración posterior (la aplica el mismo rol owner) que
+     conceda EXECUTE sobre `homita_feedback_dispatch(bigint)` solo al rol del editor; o invocar la
+     función desde la terminal del usuario, una fila cada vez, con
+     `curl -H "x-feedback-secret: $FEEDBACK_WEBHOOK_SECRET" -d '{"record":{"id":<id>}}' …` (el secreto
+     sale de la base de datos al entorno local del usuario; la decisión es suya).
+
+   **Reproceso en serie (R2-04):** con el `count(*)` por `estado`, anotar cuántos `pendiente` hay. P8 y
+   el runbook reprocesan siempre de a uno (ver «Runbook»): así varios reportes del mismo problema se
+   vinculan a una sola tarjeta en lugar de crear una por reporte.
+3. **P3.** `pg_dump` de prod.
+4. **P4.** Crear la lista «Feedback» en el tablero Homita y anotar su id.
+5. **P5.** `supabase secrets set TRELLO_KEY TRELLO_TOKEN TRELLO_LIST_ID FEEDBACK_WEBHOOK_SECRET
+   ANTHROPIC_API_KEY` (secretos de la función; la antigua los ignora). **Vault todavía vacío**: no se
+   ejecuta `vault.create_secret` aquí.
+6. **P6.** Merge del PR (aplica `0031`–`0033`). Con Vault vacío, `homita_feedback_dispatch` no encola
+   nada (warning) y cada feedback nuevo queda `pendiente` con `procesando_desde` null: la función
+   antigua no recibe ninguna llamada. Verificar `migration list`, el trigger, `prosecdef`, los grants y
+   `select proowner::regrole from pg_proc where oid =
+   'public.homita_feedback_dispatch(bigint)'::regprocedure`, que tiene que coincidir con el owner
+   medido en P2 (el go/no-go ya se decidió allí, antes del merge). Si no coincide, parar antes de P7
+   y aplicar la vía alternativa fijada en P2.
+7. **P7.** `supabase functions deploy procesar-feedback --no-verify-jwt`; **después**
+   `select vault.create_secret('<mismo valor que FEEDBACK_WEBHOOK_SECRET>', 'feedback_webhook_secret');`
+   y smoke con un feedback de prueba por cada rama (crear y vincular).
+8. **P8.** Reprocesar con el runbook los `pendiente` acumulados entre P6 y P7 y los atascados,
+   **de a uno** (`order by id limit 1`) y esperando a que cada fila quede `procesado` o `error` antes
+   del siguiente: un `dispatch` masivo lanza N invocaciones que leen la lista de tarjetas a la vez y
+   duplican tarjetas para reportes del mismo problema (R2-04).
+9. **P9.** Completar `.dorch/po-board.md` con el nombre y el id reales de la lista.
+
+**La función antigua no procesa como antes con 0033:** lee `seccion`, `subseccion`, `tipo` y `texto`
+del payload, y 0033 solo envía `record.id`. Si recibiera una llamada de 0033 clasificaría
+«undefined» y podría insertar en `backlog` una fila inventada, votar un `backlog_id` arbitrario y
+marcar el feedback `procesado` (el reporte real se pierde para el gate). Por eso el secreto de Vault
+no se carga hasta que la función nueva está desplegada.
+
+### Runbook (pg_net no reintenta)
+
+```sql
+-- Respuestas fallidas de las últimas ~6 h (TTL de net._http_response)
+select id, status_code, timed_out, error_msg, created from net._http_response
+ where status_code is distinct from 200 order by created desc;
+-- Pendientes (sin reservar o atascadas: procesando_desde no nulo) y en error
+select id, estado, procesando_desde from public.feedback
+ where estado = 'pendiente' or estado = 'error' order by id;
+-- Liberar atascadas o en error tras revisar la causa (y, si se creó tarjeta, Trello).
+-- El guard nunca toca filas `procesado` (finalize no limpia procesando_desde).
+update public.feedback set estado = 'pendiente', procesando_desde = null
+ where id in (…)
+   and (estado = 'error' or (estado = 'pendiente' and procesando_desde is not null));
+-- Reproceso sin exponer el secreto, DE A UNO (si el owner es otro rol: set role, ver P2)
+select id, public.homita_feedback_dispatch(id) from public.feedback
+ where estado = 'pendiente' and procesando_desde is null
+ order by id limit 1;
+-- Antes de repetir la anterior, esperar a que esa fila quede `procesado` o `error`
+select id, estado, procesando_desde from public.feedback where id = <id>;
+```
+
+Nunca reprocesar con un `dispatch` sin `limit 1`: las invocaciones en paralelo leen la lista de tarjetas
+antes de que las demás creen las suyas y duplican tarjetas. Si la fila sigue `pendiente` con
+`procesando_desde` null pasado ~1 min, la llamada no llegó a reservar (401, 5xx, timeout): revisar
+`net._http_response` y parar; repetir la consulta volvería a elegir el mismo id.
+
+### Rollback (en este orden)
+
+1. **Pausar el despacho** vaciando el secreto con la API de Vault (solo si P2 mostró EXECUTE en
+   `vault.update_secret`):
+   `select vault.update_secret(id, '') from vault.decrypted_secrets where name = 'feedback_webhook_secret';`
+   `dispatch` trata `''` como ausente (`if v_secret is null or v_secret = ''`, `0033:61`). Comprobar
+   que `select decrypted_secret = '' from vault.decrypted_secrets where name = 'feedback_webhook_secret'`
+   da true. Desde aquí los feedback nuevos quedan `pendiente` sin llamar a ninguna función.
+2. Redeploy de la función **antigua** (desde `master` previo al merge).
+3. `scripts/supabase/rollback/rollback_0033.sql` **obligatorio** tras el paso 2: la función antigua
+   necesita el payload completo de 0031 (ver arriba).
+4. `scripts/supabase/rollback/rollback_0032.sql` (pierde `trello_card_id`/`trello_card_url`).
+5. Los `pendiente` acumulados desde el paso 1 no los reenvía el trigger de 0031 (solo actúa en
+   INSERT): revisarlos a mano.
+
+**Si no se puede pausar** (sin EXECUTE en `vault.update_secret`, el paso 1 falla o la comprobación no
+da true), el orden obligatorio es otro: **`rollback_0033` ANTES del redeploy** de la función antigua.
+Nunca redeploy de la antigua con 0033 aplicado y el secreto cargado: cada INSERT le llegaría solo con
+`record.id` (ver arriba).
+1. `rollback_0033.sql` con la función nueva aún desplegada: el trigger de 0031 no envía secreto y todo
+   responde 401. La auth falla antes del `claim` (`handler.ts`), así que las filas quedan `pendiente`
+   sin efectos en Trello ni en `backlog`.
+2. Redeploy de la función **antigua**.
+3. `rollback_0032.sql`.
+4. Revisar a mano los `pendiente` acumulados desde el paso 1.
+
+Las tarjetas creadas solo se archivan y los comentarios permanecen.
 
 ## Extensión `event.end_date` (0030, D-019)
 
@@ -252,15 +451,21 @@ stack Supabase local y efímero en `ubuntu-latest` y corre `scripts/supabase/ci.
    `supabase/postgres:17.*` y la API es local (127.0.0.1/localhost).
 2. `scripts/demo.sh up`: db reset (migraciones), `functions serve api` con `ALLOW_REGISTRATION=true`
    y seed. Es el único reset.
-3. SQL `invitaciones_check.sql` (`ok N1..N22`), `home_checks_compat.sql` (`ok V5j..V5p`),
-   `acl_can_edit_check.sql` (`ok K1..K8`) y `permisos_matriz_check.sql` (29 `ok M`: M1, M1b, M2..M27 y M8b).
-4. `contract_check.py` completo (`502/502`; `CONTRACT_ONLY` se anula).
-5. `cross_tenant_check.py` (`262/262`; sale 1 si hay un fallo o si el número de casos no es
+3. `deno check` de `procesar-feedback/index.ts` y `deno test` de `procesar-feedback/tests/` (mocks, sin
+   red ni secretos; `ok | N passed | 0 failed`).
+4. SQL `invitaciones_check.sql` (`ok N1..N22`), `home_checks_compat.sql` (`ok V5j..V5p`),
+   `acl_can_edit_check.sql` (`ok K1..K8`), `permisos_matriz_check.sql` (29 `ok M`: M1, M1b, M2..M27 y M8b),
+   `feedback_trello_check.sql` (`ok B1..B8`) y `feedback_trigger_check.sql` (`ok F1..F11`). Los dos
+   últimos reciben las migraciones y los rollbacks expandidos desde los marcadores
+   `-- @MIGRATION:<fichero>@` / `-- @ROLLBACK:<fichero>@`; F10 usa un stub de `net.http_post` porque el
+   stack local no instala `pg_net` (si estuviera, mira la cola real).
+5. `contract_check.py` completo (`502/502`; `CONTRACT_ONLY` se anula).
+6. `cross_tenant_check.py` (`262/262`; sale 1 si hay un fallo o si el número de casos no es
    `EXPECTED_CASES`).
 
 Se ejecutan todas las suites aunque una falle y el job falla si falla cualquiera; ante fallo se
 suben `.demo/ci/` (logs, `serve.log`, `supabase status`). Versiones fijadas: Supabase CLI 3.1.0,
-`postgresql-client-17` (PGDG) y acciones por SHA. Sin secretos ni `~/.homita/supabase.env`: las
+Deno 2.9.8 (`denoland/setup-deno` v2.0.5), `postgresql-client-17` (PGDG) y acciones por SHA. Sin secretos ni `~/.homita/supabase.env`: las
 claves son las del stack local (`supabase status -o env`). psql va por
 `docker exec -i supabase_db_homita-api psql -U postgres -d postgres` (socket Unix): las guardas
 de host de los tests (socket o loopback, sin override) no admiten la IP del contenedor.

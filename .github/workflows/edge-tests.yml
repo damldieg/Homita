@@ -9,6 +9,8 @@
 #     public.ecr.aws/supabase/postgres:17.11.0.018 (major_version = 17 en supabase/config.toml);
 #     ci.sh falla si la imagen de supabase_db_homita-api no es supabase/postgres:17.*.
 #   - postgresql-client-17 desde PGDG (psql de diagnóstico; los tests usan `docker exec ... psql`).
+#   - Deno 2.9.8 (denoland/setup-deno v2.0.5) para `deno check`/`deno test` de procesar-feedback
+#     (change feedback-trello-gate; tests con mocks, sin secretos ni red hacia Trello/Anthropic).
 name: edge-tests
 
 on:
@@ -39,6 +41,11 @@ jobs:
         with:
           version: 3.1.0
 
+      - name: Deno 2.9.8
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: 2.9.8
+
       - name: postgresql-client-17 (PGDG)
         run: |
           set -euo pipefail
@@ -68,6 +75,7 @@ jobs:
           docker --version
           python3 --version
           supabase --version
+          deno --version
 
       - name: Pruebas (scripts/supabase/ci.sh)
         run: scripts/supabase/ci.sh

@@ -8,8 +8,9 @@
 #   1. Stack local (`supabase start`, sin studio/imgproxy/vector/logflare/mailpit) si no está levantado.
 #   2. Guardas: API_URL local y la BD es `supabase/postgres:17.*`.
 #   3. `scripts/demo.sh up`: db reset (migraciones) + `functions serve api` + seed. Es el único reset.
-#   4. SQL (invitaciones_check, home_checks_compat, acl_can_edit_check, permisos_matriz_check,
-#      feedback_trigger_check),
+#   4. Deno: `deno check` y `deno test` de procesar-feedback (mocks, sin red ni permisos).
+#   5. SQL (invitaciones_check, home_checks_compat, acl_can_edit_check, permisos_matriz_check,
+#      feedback_trello_check B1-B8, feedback_trigger_check F1-F11),
 #      contract_check.py y cross_tenant_check.py.
 #      Se ejecutan todas aunque una falle; el exit final es != 0 si alguna falló.
 #
@@ -40,7 +41,9 @@ rm -f "$OUT"/*.log
 command -v docker >/dev/null 2>&1 || fail "falta docker"
 command -v supabase >/dev/null 2>&1 || fail "falta la Supabase CLI (supabase)"
 command -v python3 >/dev/null 2>&1 || fail "falta python3"
+command -v deno >/dev/null 2>&1 || fail "falta deno"
 step "Supabase CLI $(supabase --version 2>/dev/null | head -1)"
+step "$(deno --version | head -1)"
 if command -v psql >/dev/null 2>&1; then step "$(psql --version)"; fi
 
 status_env() { supabase status -o env 2>/dev/null || true; }
@@ -115,6 +118,12 @@ expect_log() {
 
 sql() { "${PSQL_CMD[@]}" -v ON_ERROR_STOP=1 < "$1"; }
 
+# Edge Function procesar-feedback: tipado del cableado (index.ts, db.ts) y tests con mocks.
+FEEDBACK_FN="$HERE/supabase/functions/procesar-feedback"
+run "deno check procesar-feedback" deno-check env NO_COLOR=1 deno check "$FEEDBACK_FN/index.ts"
+run "deno test procesar-feedback" deno-test env NO_COLOR=1 deno test --no-prompt "$FEEDBACK_FN/tests/"
+expect_log "deno test procesar-feedback" deno-test '^ok \| [0-9]+ passed \| 0 failed'
+
 run "SQL invitaciones_check" sql-invitaciones sql "$HERE/scripts/supabase/tests/invitaciones_check.sql"
 n_pat=(); for i in $(seq 1 22); do n_pat+=("ok N$i([^0-9]|\$)"); done
 expect_log "SQL invitaciones_check" sql-invitaciones "${n_pat[@]}"
@@ -132,15 +141,36 @@ run "SQL permisos_matriz_check" sql-permisos-matriz sql "$HERE/scripts/supabase/
 m_pat=("ok M1([^0-9a-z]|\$)" "ok M1b([^0-9a-z]|\$)" "ok M8b([^0-9a-z]|\$)"); for i in $(seq 2 27); do m_pat+=("ok M$i([^0-9a-z]|\$)"); done
 expect_log "SQL permisos_matriz_check" sql-permisos-matriz "${m_pat[@]}"
 
-# feedback_trigger_check: sustituye cada `-- @MIGRATION@` por el texto de 0031 y lo pasa por stdin.
-feedback_check() {
-    awk -v mig="$HERE/supabase/migrations/0031_feedback_trigger.sql" \
-        '/^-- @MIGRATION@$/ { while ((getline l < mig) > 0) print l; close(mig); next } { print }' \
-        "$HERE/scripts/supabase/tests/feedback_trigger_check.sql" \
-        | "${PSQL_CMD[@]}" -v ON_ERROR_STOP=1
+# Checks de feedback: psql corre dentro del contenedor y no ve el host, así que se expanden los marcadores
+# `-- @MIGRATION:<fichero>@` (supabase/migrations/<fichero>) y `-- @ROLLBACK:<fichero>@`
+# (scripts/supabase/rollback/<fichero>) y el resultado va por stdin. Un marcador desconocido o un
+# fichero ausente o vacío aborta.
+expand_sql() {
+    awk -v root="$HERE" '
+        function include(path,    line, n) {
+            n = 0
+            while ((getline line < path) > 0) { print line; n++ }
+            close(path)
+            if (n == 0) { print "expand_sql: no existe o está vacío: " path > "/dev/stderr"; exit 2 }
+        }
+        /^-- @MIGRATION:[A-Za-z0-9_.-]+@$/ { f = $0; sub(/^-- @MIGRATION:/, "", f); sub(/@$/, "", f); include(root "/supabase/migrations/" f); next }
+        /^-- @ROLLBACK:[A-Za-z0-9_.-]+@$/ { f = $0; sub(/^-- @ROLLBACK:/, "", f); sub(/@$/, "", f); include(root "/scripts/supabase/rollback/" f); next }
+        /^-- @/ { print "expand_sql: marcador no reconocido: " $0 > "/dev/stderr"; exit 2 }
+        { print }
+    ' "$1"
 }
-run "SQL feedback_trigger_check" sql-feedback-trigger feedback_check
-f_pat=(); for i in $(seq 1 5); do f_pat+=("ok F$i([^0-9a-z]|\$)"); done
+sql_expanded() {
+    local expanded
+    expanded="$(expand_sql "$1")" || return 1
+    printf '%s\n' "$expanded" | "${PSQL_CMD[@]}" -v ON_ERROR_STOP=1
+}
+
+run "SQL feedback_trello_check" sql-feedback-trello sql_expanded "$HERE/scripts/supabase/tests/feedback_trello_check.sql"
+b_pat=(); for i in $(seq 1 8); do b_pat+=("ok B$i([^0-9a-z]|\$)"); done
+expect_log "SQL feedback_trello_check" sql-feedback-trello "${b_pat[@]}"
+
+run "SQL feedback_trigger_check" sql-feedback-trigger sql_expanded "$HERE/scripts/supabase/tests/feedback_trigger_check.sql"
+f_pat=(); for i in $(seq 1 11); do f_pat+=("ok F$i([^0-9a-z]|\$)"); done
 expect_log "SQL feedback_trigger_check" sql-feedback-trigger "${f_pat[@]}"
 
 run "contract_check.py" contract python3 "$HERE/scripts/supabase/contract_check.py"
@@ -159,4 +189,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (SQL incl. feedback F1-F5, contract_check 502/502, cross_tenant ${expected}/${expected})"
+echo "ci.sh: todo ok (deno check/test procesar-feedback, SQL incl. feedback B1-B8 y F1-F11, contract_check 502/502, cross_tenant ${expected}/${expected})"
