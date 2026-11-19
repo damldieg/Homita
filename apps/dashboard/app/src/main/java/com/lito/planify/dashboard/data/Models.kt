@@ -1,5 +1,6 @@
 package com.lito.planify.dashboard.data
 
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -20,9 +21,20 @@ data class Event(
     val title: String,
     val date_at: String,
     val routine_id: Int? = null,
-    val persons: List<Person>? = null
+    val persons: List<Person>? = null,
+    /** Último día (inclusive, `yyyy-MM-dd`) de un evento de varios días; nulo = un solo día. */
+    val end_date: String? = null
 ) {
     val at: LocalDateTime get() = LocalDateTime.parse(date_at, SQL_DATE_TIME)
+
+    /** Último día del evento, o nulo si no hay fin o está malformado (se trata como ausente). */
+    val endDay: LocalDate? get() = end_date?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() }
+
+    /** En curso: tiene fin y `día(date_at) <= hoy <= fin`, por día y sin hora (D-020). */
+    fun isOngoing(today: LocalDate): Boolean {
+        val end = endDay ?: return false
+        return !at.toLocalDate().isAfter(today) && !end.isBefore(today)
+    }
 }
 
 data class Task(
