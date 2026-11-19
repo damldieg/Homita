@@ -257,6 +257,8 @@ delete from audit_log
                       where created_by in (select id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}', '{C_EMAIL}')));
 delete from home
     where created_by in (select id from app_user where email in ('{A_EMAIL}', '{B_EMAIL}', '{C_EMAIL}'));
+delete from public.feedback
+    where user_id in (select auth_uid from app_user where email in ('{A_EMAIL}', '{B_EMAIL}', '{C_EMAIL}'));
 delete from auth.users
     where id in (select auth_uid from app_user where email in ('{A_EMAIL}', '{B_EMAIL}', '{C_EMAIL}'));
 commit;
@@ -281,7 +283,7 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 262
+EXPECTED_CASES = 266
 A12_ITERS = int(os.environ.get("A12_ITERS", "20"))
 # F1_ITERS: carreras de solape real por bloque F1/F2 (R1-06; el solape expone el 40P01 de 0020)
 F1_ITERS = int(os.environ.get("F1_ITERS", "10"))
@@ -2034,6 +2036,28 @@ if xt_on("INV"):
                 f"where h.created_by in ({a_id}, {b_id}, {c_id}))")
     check("INV25 0 filas residuales 9982xx y 0 home_invitation en hogares de xt", left == "0",
           f"residuos={left}")
+XT_BLOCK = "BASE"
+
+# ── FB (change control-ios-feedback): POST /feedback y RLS de public.feedback ──
+XT_BLOCK = "FB"
+a_uid = psql(f"select auth_uid from app_user where email = '{A_EMAIL}'")
+fb_body = {"seccion": "Hogar", "subseccion": "miembros: ver", "tipo": "bug", "texto": "XT-feedback"}
+r = edge("POST", "/feedback", fb_body, a_tok)
+check("FB1 A envía feedback por la Edge → 201", r[0] == 201, f"obtenido {r!r}")
+r = request(URL, "POST", "/rest/v1/feedback",
+            {"user_id": a_uid, "seccion": "Hogar", "tipo": "bug", "texto": "XT-feedback-suplantado"},
+            b_tok, apikey=ANON)
+n = psql("select count(*) from feedback where texto = 'XT-feedback-suplantado'")
+check("FB2 B no puede insertar feedback con el user_id de A (RLS) → rechazado y 0 filas",
+      r[0] in (401, 403) and n == "0", f"obtenido {r!r} filas={n}")
+r = request(URL, "GET", "/rest/v1/feedback?select=id", None, b_tok, apikey=ANON)
+check("FB3 B no puede leer feedback (sin política SELECT) → lista vacía", r[0] == 200 and parse(r[1]) == [],
+      f"obtenido {r!r}")
+r = edge("POST", "/feedback", dict(fb_body, texto="XT-feedback-b", user_id=a_uid), b_tok)
+n = psql("select count(*) from feedback where texto = 'XT-feedback-b' "
+         f"and user_id = '{a_uid}'")
+check("FB4 B con user_id de A en el body → 201 pero la fila nunca es de A", r[0] == 201 and n == "0",
+      f"obtenido {r!r} filas_de_A={n}")
 XT_BLOCK = "BASE"
 
 # ── K21 (1.5, plan §8.2) y §8.3: cascada app_user → person → home_member (trigger 0014c, I5) ──
