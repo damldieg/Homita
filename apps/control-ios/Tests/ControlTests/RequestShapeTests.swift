@@ -137,6 +137,41 @@ final class RequestShapeTests: XCTestCase {
                         query: [("timezone", "Europe/Madrid")],
                         body: #"{"date_at":"2026-11-08 10:00:00","id":5,"person_ids":[],"title":"Reunión"}"#)
 
+        // 0030: crear con fin; sin fin la clave se omite (arriba).
+        _ = try await repo.create(CreateEventRequest(
+            calendar_id: 3, title: "Vacaciones", date_at: "2026-11-10 09:00:00", alarm: nil, person_ids: [],
+            end_date: "2026-11-20"
+        ))
+        try assertShape(sent(), method: "POST", path: "/event/create",
+                        body: #"{"calendar_id":3,"date_at":"2026-11-10 09:00:00","end_date":"2026-11-20","person_ids":[],"title":"Vacaciones"}"#)
+
+        // Editar fijando fin.
+        _ = try await repo.update(UpdateEventRequest(
+            id: 5, title: "Vacaciones", date_at: "2026-11-10 09:00:00", alarm: nil, person_ids: [],
+            end_date: "2026-11-20", sendEndDate: true
+        ), timezone: timezone)
+        try assertShape(sent(), method: "PATCH", path: "/event/update",
+                        query: [("timezone", "Europe/Madrid")],
+                        body: #"{"date_at":"2026-11-10 09:00:00","end_date":"2026-11-20","id":5,"person_ids":[],"title":"Vacaciones"}"#)
+
+        // Editar borrando el fin (RN-3): `end_date` null explícito.
+        _ = try await repo.update(UpdateEventRequest(
+            id: 5, title: "Vacaciones", date_at: "2026-11-10 09:00:00", alarm: nil, person_ids: [],
+            end_date: nil, sendEndDate: true
+        ), timezone: timezone)
+        try assertShape(sent(), method: "PATCH", path: "/event/update",
+                        query: [("timezone", "Europe/Madrid")],
+                        body: #"{"date_at":"2026-11-10 09:00:00","end_date":null,"id":5,"person_ids":[],"title":"Vacaciones"}"#)
+
+        // Evento de rutina (RN-4): la clave se omite.
+        _ = try await repo.update(UpdateEventRequest(
+            id: 6, title: "Sesión", date_at: "2026-11-10 09:00:00", alarm: nil, person_ids: [],
+            end_date: nil, sendEndDate: false
+        ), timezone: timezone)
+        try assertShape(sent(), method: "PATCH", path: "/event/update",
+                        query: [("timezone", "Europe/Madrid")],
+                        body: #"{"date_at":"2026-11-10 09:00:00","id":6,"person_ids":[],"title":"Sesión"}"#)
+
         _ = try await repo.setAlarm(SetEventAlarmRequest(event_id: 5, alarm: 30), timezone: timezone)
         try assertShape(sent(), method: "PATCH", path: "/event/alarm",
                         query: [("timezone", "Europe/Madrid")], body: #"{"alarm":30,"event_id":5}"#)

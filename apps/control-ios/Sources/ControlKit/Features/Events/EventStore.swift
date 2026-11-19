@@ -104,20 +104,26 @@ public final class EventStore: WriteFailureReporting {
     /// Alta/edición. La validación de cliente exige título (v1 sin "modo IA").
     @discardableResult
     public func save(draft: EventDraft, editing: EventEntry?) async -> Bool {
-        if let problem = EventValidation.validate(title: draft.title, dateAt: draft.dateAt) {
+        if let problem = EventValidation.validate(title: draft.title, dateAt: draft.dateAt, endDate: draft.endDate) {
             rejectWrite(problem)
             return false
         }
         return await performWrite { store in
             if let editing {
                 _ = try await store.repo.update(
-                    UpdateEventRequest(id: editing.id, title: draft.title, date_at: draft.dateAt, alarm: draft.alarm, person_ids: draft.personIds),
+                    // Evento de rutina: sin fin (RN-4), la clave se omite. Si no: se envía siempre
+                    // (valor o null explícito para borrarlo, RN-3).
+                    UpdateEventRequest(
+                        id: editing.id, title: draft.title, date_at: draft.dateAt, alarm: draft.alarm,
+                        person_ids: draft.personIds, end_date: draft.endDate,
+                        sendEndDate: editing.routine_id == nil
+                    ),
                     timezone: store.timezone
                 )
             } else {
                 _ = try await store.repo.create(CreateEventRequest(
                     calendar_id: draft.calendarId, title: draft.title, date_at: draft.dateAt,
-                    alarm: draft.alarm, person_ids: draft.personIds
+                    alarm: draft.alarm, person_ids: draft.personIds, end_date: draft.endDate
                 ))
             }
             await store.load()
@@ -150,12 +156,15 @@ public struct EventDraft: Equatable, Sendable {
     public var dateAt: String
     public var alarm: Int?
     public var personIds: [Int]
+    /// Último día (`YYYY-MM-DD`, inclusive); `nil` = evento de un solo día.
+    public var endDate: String?
 
-    public init(calendarId: Int, title: String, dateAt: String, alarm: Int?, personIds: [Int]) {
+    public init(calendarId: Int, title: String, dateAt: String, alarm: Int?, personIds: [Int], endDate: String? = nil) {
         self.calendarId = calendarId
         self.title = title
         self.dateAt = dateAt
         self.alarm = alarm
         self.personIds = personIds
+        self.endDate = endDate
     }
 }

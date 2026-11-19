@@ -284,6 +284,12 @@ struct CalendarEventRow: View {
                         Text(DateDisplay.dateTime(event.date_at).uppercased())
                             .font(HomitaFont.inter(12, weight: .semibold, relativeTo: .caption))
                             .foregroundStyle(Palette.inkSoft)
+                        // Evento de varios días (0030): rango inicio → fin.
+                        if let range = DateDisplay.eventRange(dateAt: event.date_at, endDate: event.end_date) {
+                            Text(range)
+                                .font(HomitaFont.inter(12, weight: .medium, relativeTo: .caption))
+                                .foregroundStyle(Palette.inkSoft)
+                        }
                         Text(event.title)
                             .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                             .foregroundStyle(Palette.ink)

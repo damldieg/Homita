@@ -117,6 +117,9 @@ public struct EventEntry: Codable, Equatable, Identifiable {
     public let calendar_name: String?
     public let alarm: Int?
     public let persons: [PersonEntry]?
+    /// Último día (inclusive, `YYYY-MM-DD`) de un evento de varios días; `nil` = un solo día. Se
+    /// tolera su ausencia (backend anterior a la migración 0030).
+    public var end_date: String? = nil
 }
 
 // MARK: - Rutinas
