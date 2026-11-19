@@ -105,7 +105,7 @@ app; el refresco queda para una fase posterior):
 | `migrations/0009_task_order.sql` | `task_order` (Task::moveToPosition: splice + renumerar 1..n) |
 | `migrations/0010_profile_sync.sql` | Trigger `on auth.users update` → sincronía de `app_user` (name/email) |
 | `migrations/0030_event_end_date.sql` | Fecha de fin opcional de eventos (change `event-end-date`, D-019); ver «Extensión `event.end_date`». Reversa: `scripts/supabase/rollback/rollback_0030.sql` |
-| `migrations/0031_feedback_trigger.sql` | Trigger `homita_feedback_creation` (webhook a `procesar-feedback` de prod). Con guard: sale sin efecto si `public.feedback` no existe. Idéntica a la de la rama `dc/feedback-trigger-migration` |
+| `migrations/0031_feedback_trigger.sql` | Trigger `homita_feedback_creation` (webhook a `procesar-feedback` de prod). Con guard: sale sin efecto si `public.feedback` no existe. Idéntica a la de la rama `dc/feedback-trigger-migration`. Reversa: `scripts/supabase/rollback/rollback_0031.sql` |
 | `migrations/0032_feedback_schema.sql` | DDL `if not exists` de `public.backlog` y `public.feedback` (RLS + política «insertar mi feedback») para local/CI; no-op en prod, sin trigger. Ver «Feedback» |
 
 ## Edge Function `functions/api/`
@@ -134,6 +134,25 @@ Comandos sin cambios: `supabase functions serve api --no-verify-jwt` y
 `supabase functions deploy api --no-verify-jwt` (en hosted:
 `supabase functions deploy api --no-verify-jwt --remote="$SUPABASE_PROJECT_REF" --yes`, ver
 variantes arriba).
+
+## Edge Function `functions/procesar-feedback/`
+
+Copia de la función desplegada en prod (`index.ts` tal cual), que el trigger de `0031` invoca por HTTP
+al insertar en `public.feedback`. Notas:
+
+- `config.toml` declara `[functions.procesar-feedback] verify_jwt = false`, igual que prod. **Deuda
+  pre-existente, fuera de alcance:** el endpoint es público, gasta API de Anthropic y escribe en
+  `backlog` con service role.
+- `public.feedback` y `backlog` **no tienen DDL en el repo** (solo existen en prod). Por eso `0031` lleva
+  el guard `to_regclass('public.feedback')`: en local/CI la tabla no existe y no se crea el trigger, así
+  no hay webhook hacia producción. `scripts/supabase/tests/feedback_trigger_check.sql` (F1-F5, enganchado
+  en `ci.sh`) comprueba la ausencia en local y, con una tabla scratch en transacción, la definición exacta
+  y la idempotencia. Si algún día se versiona `public.feedback` en una migración previa, F1/F2 fallarán
+  y obligarán a revisar el guard.
+- Aplicar a prod **no es parte del build**: prod ya tiene el trigger y `0031` es un no-op efectivo
+  (breve `ACCESS EXCLUSIVE` sobre `feedback`). Se aplica solo con el procedimiento de despliegue vigente
+  y confirmación explícita del usuario (ver «Despliegue a producción»), nunca con un `db push` por cuenta
+  propia.
 
 ## Extensión `event.end_date` (0030, D-019)
 

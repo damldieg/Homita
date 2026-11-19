@@ -8,7 +8,8 @@
 #   1. Stack local (`supabase start`, sin studio/imgproxy/vector/logflare/mailpit) si no está levantado.
 #   2. Guardas: API_URL local y la BD es `supabase/postgres:17.*`.
 #   3. `scripts/demo.sh up`: db reset (migraciones) + `functions serve api` + seed. Es el único reset.
-#   4. SQL (invitaciones_check, home_checks_compat, acl_can_edit_check, permisos_matriz_check),
+#   4. SQL (invitaciones_check, home_checks_compat, acl_can_edit_check, permisos_matriz_check,
+#      feedback_trigger_check),
 #      contract_check.py y cross_tenant_check.py.
 #      Se ejecutan todas aunque una falle; el exit final es != 0 si alguna falló.
 #
@@ -131,6 +132,17 @@ run "SQL permisos_matriz_check" sql-permisos-matriz sql "$HERE/scripts/supabase/
 m_pat=("ok M1([^0-9a-z]|\$)" "ok M1b([^0-9a-z]|\$)" "ok M8b([^0-9a-z]|\$)"); for i in $(seq 2 27); do m_pat+=("ok M$i([^0-9a-z]|\$)"); done
 expect_log "SQL permisos_matriz_check" sql-permisos-matriz "${m_pat[@]}"
 
+# feedback_trigger_check: sustituye cada `-- @MIGRATION@` por el texto de 0031 y lo pasa por stdin.
+feedback_check() {
+    awk -v mig="$HERE/supabase/migrations/0031_feedback_trigger.sql" \
+        '/^-- @MIGRATION@$/ { while ((getline l < mig) > 0) print l; close(mig); next } { print }' \
+        "$HERE/scripts/supabase/tests/feedback_trigger_check.sql" \
+        | "${PSQL_CMD[@]}" -v ON_ERROR_STOP=1
+}
+run "SQL feedback_trigger_check" sql-feedback-trigger feedback_check
+f_pat=(); for i in $(seq 1 5); do f_pat+=("ok F$i([^0-9a-z]|\$)"); done
+expect_log "SQL feedback_trigger_check" sql-feedback-trigger "${f_pat[@]}"
+
 run "contract_check.py" contract python3 "$HERE/scripts/supabase/contract_check.py"
 expect_log "contract_check.py" contract '^502/502 casos ok'
 
@@ -147,4 +159,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (SQL, contract_check 502/502, cross_tenant ${expected}/${expected})"
+echo "ci.sh: todo ok (SQL incl. feedback F1-F5, contract_check 502/502, cross_tenant ${expected}/${expected})"
