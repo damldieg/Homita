@@ -398,7 +398,7 @@ HOME_ROUTES = [
 # Ruta aditiva POST /feedback (change control-ios-feedback). Fuera de ROUTES y de EXPECTED_CASES: sus
 # casos se cuentan aparte (FEEDBACK_EXPECTED) para no alterar el 502/502 legacy que exige ci.sh.
 FEEDBACK_ROUTES = ["POST /feedback"]
-FEEDBACK_EXPECTED = 7
+FEEDBACK_EXPECTED = 8
 
 
 def epoch(local_date):
@@ -2794,6 +2794,8 @@ def scenario_feedback():
     n = psql(f"select count(*) from feedback where texto = '{marca}-ajeno' "
              f"and user_id <> (select auth_uid from app_user where id = {aid})")
     fb_case("POST /feedback F7 user_id del cliente se ignora (nunca fila de otro usuario)", n == "0", f"filas={n}")
+    r = request("POST", "/feedback", dict(body, subseccion="eventos: ver"), tok)  # sub-área de otra sección (Calendario)
+    fb_case("POST /feedback F8 subseccion que no es de la sección → 400", r[0] == 400, repr(r)[:200])
     psql(f"delete from feedback where texto like '{marca}%'")
 
 

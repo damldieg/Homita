@@ -34,6 +34,19 @@ Deno.test("validateFeedback: rechazos 400", () => {
     assertEquals(status(validateFeedback({ ...valid, subseccion: "a".repeat(100) + ": ver" })), 400);
 });
 
+Deno.test("validateFeedback: subseccion debe pertenecer a la sección (R1-03)", () => {
+    assertEquals(status(validateFeedback({ ...valid, seccion: "Tareas" })), 400); // "eventos de hoy" es de Inicio
+    assertEquals(status(validateFeedback({ ...valid, subseccion: "inventada: ver" })), 400);
+    assertEquals(status(validateFeedback({ ...valid, seccion: "Tareas", subseccion: "listas: crear" })), null);
+    assertEquals(status(validateFeedback({ ...valid, seccion: "Ajustes", subseccion: "cuenta: eliminar" })), null);
+});
+
+Deno.test("validateFeedback: límite en UTF-16 code units, emoji = 2 (R1-01)", () => {
+    assertEquals(status(validateFeedback({ ...valid, texto: "😀".repeat(1000) })), null); // 2000 unidades
+    assertEquals(status(validateFeedback({ ...valid, texto: "😀".repeat(1000) + "a" })), 400);
+    assertEquals(status(validateFeedback({ ...valid, texto: "😀".repeat(1001) })), 400);
+});
+
 type Call = { url: string; headers: Headers; body: unknown };
 
 const withFetch = async (
@@ -92,6 +105,8 @@ Deno.test("handleFeedbackCreate: RLS denegada -> 403", async () => {
     await withFetch(() => jsonRes(403, { code: "42501", message: "new row violates row-level security policy" }), async () => {
         const res = await handleFeedbackCreate(post(valid), "t");
         assertEquals(res.status, 403);
+        // R1-02: no debe ser «Not Allowed» (la app lo mostraría como «solo propietario»)
+        assertEquals((await res.json()).error, "Feedback not allowed");
     });
 });
 

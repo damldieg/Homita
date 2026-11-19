@@ -81,6 +81,15 @@ public enum APIError: Error, Equatable {
         return userMessage
     }
 
+    /// Mensaje del envío de feedback: cualquier miembro puede enviarlo, así que un 403 no es
+    /// «solo propietario» (el servidor responde `Feedback not allowed`; `Not Allowed` por compat).
+    public var feedbackMessage: String {
+        if case .http(let status, _) = self, status == 403 {
+            return "No se pudo enviar el comentario. Inténtalo de nuevo más tarde."
+        }
+        return userMessage
+    }
+
     /// Mensaje en español para la UI.
     public var userMessage: String {
         switch self {

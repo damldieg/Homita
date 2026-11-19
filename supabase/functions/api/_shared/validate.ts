@@ -153,15 +153,25 @@ export const personIdsOf = async (
 // ── feedback (POST /feedback) ──
 
 export const FEEDBACK_SECCIONES = ["Inicio", "Tareas", "Calendario", "Hogar", "Ajustes"];
+// Sub-áreas válidas por sección (catálogo de la app, FeedbackCatalog.swift). Mantener sincronizado.
+export const FEEDBACK_SUBAREAS: Record<string, string[]> = {
+    Inicio: ["resumen del día", "eventos de hoy", "rutinas de hoy"],
+    Tareas: ["listas", "tareas"],
+    Calendario: ["eventos", "rutinas", "calendarios"],
+    Hogar: ["miembros", "invitaciones", "administradores", "permisos"],
+    Ajustes: ["perfil", "notificaciones", "cuenta"],
+};
 export const FEEDBACK_TIPOS = ["bug", "mejora"];
 export const FEEDBACK_ACCIONES = ["ver", "crear", "editar", "eliminar"];
+// Límite en UTF-16 code units (String.length de JS). El cliente iOS cuenta igual (`String.utf16.count`),
+// así un emoji (2 unidades) cuenta lo mismo en ambos lados.
 export const FEEDBACK_TEXTO_MAX = 2000;
 const FEEDBACK_SUBSECCION_MAX = 100;
 
 export type FeedbackValues = { seccion: string; subseccion: string | null; tipo: string; texto: string };
 
 // Valida el cuerpo de POST /feedback (pura). `subseccion` opcional; si viene: "<subárea>: <acción>"
-// con acción en FEEDBACK_ACCIONES y longitud <= 100. `texto` se recorta y debe tener 1..2000.
+// con subárea de la sección (FEEDBACK_SUBAREAS), acción en FEEDBACK_ACCIONES y longitud <= 100. `texto` se recorta y debe tener 1..2000.
 export const validateFeedback = (input: ContractInput): FeedbackValues | Response => {
     const seccion = getInput(input, "seccion");
     if (typeof seccion !== "string" || !FEEDBACK_SECCIONES.includes(seccion)) {
@@ -180,7 +190,7 @@ export const validateFeedback = (input: ContractInput): FeedbackValues | Respons
             return errFeedbackInvalid("Invalid subseccion");
         }
         const m = rawSub.match(/^(.+): (\S+)$/);
-        if (m === null || m[1].trim() === "" || !FEEDBACK_ACCIONES.includes(m[2])) {
+        if (m === null || !FEEDBACK_SUBAREAS[seccion].includes(m[1]) || !FEEDBACK_ACCIONES.includes(m[2])) {
             return errFeedbackInvalid("Invalid subseccion");
         }
         subseccion = rawSub;

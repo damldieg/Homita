@@ -18,7 +18,8 @@ public struct FeedbackRequest: Codable, Equatable, Sendable {
 
 /// Borrador del formulario de feedback: validación y mapeo al request (puro, sin red).
 public struct FeedbackDraft: Equatable, Sendable {
-    /// Límite de caracteres del texto (igual que el servidor, `FEEDBACK_TEXTO_MAX`).
+    /// Límite de caracteres del texto en UTF-16 code units, igual que el servidor
+    /// (`FEEDBACK_TEXTO_MAX`, `String.length` de JS); un emoji cuenta 2 en ambos lados.
     public static let maxLength = 2000
 
     public var section: FeedbackSection?
@@ -34,6 +35,22 @@ public struct FeedbackDraft: Equatable, Sendable {
         self.action = action
         self.kind = kind
         self.text = text
+    }
+
+    /// Longitud del texto en UTF-16 code units (el criterio del servidor).
+    public static func length(of text: String) -> Int { text.utf16.count }
+
+    /// Recorta a `maxLength` UTF-16 code units sin partir un grapheme (emoji).
+    public static func clamped(_ text: String) -> String {
+        var out = ""
+        var used = 0
+        for ch in text {
+            let n = ch.utf16.count
+            if used + n > maxLength { break }
+            out.append(ch)
+            used += n
+        }
+        return out
     }
 
     public var trimmedText: String {
@@ -53,7 +70,7 @@ public struct FeedbackDraft: Equatable, Sendable {
 
     /// Texto no vacío (tras recortar), sección, sub-área y acción elegidas y tipo elegido.
     public var isValid: Bool {
-        !trimmedText.isEmpty && text.count <= Self.maxLength
+        !trimmedText.isEmpty && Self.length(of: trimmedText) <= Self.maxLength
             && section != nil && subseccion != nil && kind != nil
     }
 

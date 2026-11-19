@@ -60,6 +60,32 @@ final class FeedbackTests: XCTestCase {
         XCTAssertFalse(d.isValid)
     }
 
+    func testLimitCountsUTF16LikeServer() {
+        var d = validDraft(); d.text = String(repeating: "😀", count: 1000) // 2000 UTF-16, 1000 graphemes
+        XCTAssertTrue(d.isValid)
+        d.text += "a"
+        XCTAssertFalse(d.isValid)
+        d.text = String(repeating: "😀", count: 1001)
+        XCTAssertFalse(d.isValid)
+        XCTAssertEqual(FeedbackDraft.clamped(d.text).utf16.count, 2000)
+    }
+
+    func testStoreClampsEmojiWithoutSplitting() {
+        let store = FeedbackStore(send: { _ in })
+        store.text = String(repeating: "😀", count: 1500)
+        XCTAssertEqual(store.text.utf16.count, FeedbackDraft.maxLength)
+        XCTAssertEqual(store.text.count, 1000)
+    }
+
+    func testFeedbackForbiddenIsNotOwnerOnlyMessage() {
+        for message in ["Feedback not allowed", "Not Allowed"] {
+            let e = APIError.http(status: 403, message: message)
+            XCTAssertEqual(e.feedbackMessage, "No se pudo enviar el comentario. Inténtalo de nuevo más tarde.")
+            XCTAssertFalse(e.feedbackMessage.contains("propietario"))
+        }
+        XCTAssertEqual(APIError.http(status: 400, message: "Invalid tipo").feedbackMessage, "Invalid tipo")
+    }
+
     func testDraftRequestMapping() {
         XCTAssertEqual(validDraft().request,
                        FeedbackRequest(seccion: "Inicio", subseccion: "eventos de hoy: ver", tipo: "bug", texto: "Falla"))

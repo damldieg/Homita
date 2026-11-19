@@ -16,7 +16,7 @@ export const handleFeedbackCreate = async (req: Request, token: string): Promise
     if (!res.ok) {
         const body = await res.json().catch(() => null) as { code?: string; message?: string } | null;
         // 42501 = RLS/privilegios denegados
-        if (res.status === 401 || res.status === 403 || body?.code === "42501") return error("Not Allowed", 403);
+        if (res.status === 401 || res.status === 403 || body?.code === "42501") return error("Feedback not allowed", 403); // no "Not Allowed": en la app significaría «solo propietario»
         if (res.status >= 400 && res.status < 500) return error("Invalid feedback", 400);
         return error("Internal error", 500);
     }

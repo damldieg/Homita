@@ -29,10 +29,10 @@ struct HomitaTextEditor: View {
                 }
                 .overlay(RoundedRectangle(cornerRadius: 18).stroke(Palette.line, lineWidth: 1.5))
                 .onChange(of: text) { _, newValue in
-                    if newValue.count > limit { text = String(newValue.prefix(limit)) }
+                    if FeedbackDraft.length(of: newValue) > limit { text = FeedbackDraft.clamped(newValue) }
                 }
                 .accessibilityLabel(placeholder)
-            Text("\(text.count)/\(limit)")
+            Text("\(FeedbackDraft.length(of: text))/\(limit)")
                 .font(HomitaFont.inter(12, relativeTo: .caption))
                 .foregroundStyle(Palette.inkMuted)
                 .accessibilityHidden(true)

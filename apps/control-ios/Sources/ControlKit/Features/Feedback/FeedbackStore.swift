@@ -30,7 +30,7 @@ public final class FeedbackStore {
 
     public var text: String {
         get { draft.text }
-        set { draft.text = String(newValue.prefix(FeedbackDraft.maxLength)) }
+        set { draft.text = FeedbackDraft.clamped(newValue) }
     }
 
     /// Cambiar de sección reinicia sub-área y acción.
@@ -74,7 +74,7 @@ public final class FeedbackStore {
             didSend = true
             return true
         } catch {
-            errorMessage = (error as? APIError)?.userMessage ?? error.localizedDescription
+            errorMessage = (error as? APIError)?.feedbackMessage ?? error.localizedDescription
             return false
         }
     }
