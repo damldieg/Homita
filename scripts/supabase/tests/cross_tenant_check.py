@@ -281,7 +281,7 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 260
+EXPECTED_CASES = 262
 A12_ITERS = int(os.environ.get("A12_ITERS", "20"))
 # F1_ITERS: carreras de solape real por bloque F1/F2 (R1-06; el solape expone el 40P01 de 0020)
 F1_ITERS = int(os.environ.get("F1_ITERS", "10"))
@@ -532,6 +532,16 @@ e3 = rpc_direct("update_event", {"p_id": evt, "p_title": "XT-Evento", "p_date_at
                                  "p_end_date": "2026-12-25", "p_end_date_set": True}, b_tok)
 expect_err("E3 B rpc update_event de A con end_date → Not Found", e3, "Not Found")
 check("E3b el end_date del evento de A sigue null tras el intento de B", svc_end_date(evt) is None)
+e4 = rpc_direct("create_event", {"p_calendar_id": cal, "p_title": "XT-Fin-E4", "p_date_at": "2026-12-30 11:00:00",
+                                 "p_alarm": None, "p_person_ids": None, "p_end_date": "2026-02-30"}, a_tok)
+check("E4 rpc create_event con end_date inexistente → 400 Invalid end date",
+      e4[0] == 400 and parse(e4[1]).get("message") == "Invalid end date", repr(e4)[:200])
+e5 = rpc_direct("update_event", {"p_id": evt, "p_title": "XT-Evento", "p_date_at": "2026-12-20 12:00:00",
+                                 "p_alarm": 15, "p_person_ids": None, "p_timezone": TZ,
+                                 "p_end_date": "29/12/2026", "p_end_date_set": True}, a_tok)
+check("E5 rpc update_event con end_date mal formada → 400 Invalid end date y end_date intacto",
+      e5[0] == 400 and parse(e5[1]).get("message") == "Invalid end date"
+      and svc_end_date(evt) is None, repr(e5)[:200])
 tasks = parse(request(URL, "GET", f"/rest/v1/task?task_list_id=eq.{lst}&select=title", None, None, apikey=SVC)[1])
 check("V1-V4 nada se escribe: la lista de A solo tiene su tarea", tasks == [{"title": "XT-Tarea"}], repr(tasks)[:200])
 

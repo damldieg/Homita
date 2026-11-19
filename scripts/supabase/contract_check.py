@@ -208,8 +208,9 @@ CASES_115 = 3 + 8 + 19 + 7 + 19 + 11 + 2  # bloque 1.15 de invitaciones: IX1–I
 # Valores de can_edit (0029: 14) y app_user_id (0028: 5) en lugar de solo la forma; medido.
 CASES_VALUES = 14 + 5
 # 0030 (event-end-date): 23 en scenario_event_end_date + 2 del viewer (create/update con end_date → 403)
-CASES_END_DATE = 23 + 2
-EXPECTED_CASES = CASES_BASE + CASES_110 + CASES_115 + CASES_VALUES + CASES_END_DATE  # 351 + 34 + 69 + 19 + 25 = 498
+# + 4 de RN-4 y fecha inválida en update (R1-03)
+CASES_END_DATE = 23 + 2 + 4
+EXPECTED_CASES = CASES_BASE + CASES_110 + CASES_115 + CASES_VALUES + CASES_END_DATE  # 351 + 34 + 69 + 19 + 29 = 502
 
 
 def record(route, name, ok, detail=""):
@@ -338,6 +339,7 @@ ERR_NOT_ALLOWED = '{"error":"Not Allowed"}'
 ERR_NOT_FOUND = '{"error":"Not Found"}'
 ERR_END_RANGE = '{"error":"End date cannot be before start date"}'
 ERR_END_INVALID = '{"error":"Invalid end date"}'
+ERR_END_ROUTINE = '{"error":"Routine events cannot have an end date"}'
 ERR_ALARM = '{"error":"Alarm must be nonnegative minutes or null"}'
 ERR_NAME_REQUIRED = '{"error":"Name is required"}'
 ERR_INVALID_TZ = '{"error":"Invalid timezone"}'
@@ -1333,6 +1335,33 @@ def scenario_event_end_date():
     b = check("PATCH /event/update", "end_date: update fija un fin nuevo → 200",
               ev_update(vid_, "CC-Vacaciones", "2026-11-11 10:00:00", end_date="2026-11-12"), 200, EVENT_DETAIL)
     value("PATCH /event/update", "end_date: tras fijar 2026-11-12, detalle lo devuelve", detail(vid_) == "2026-11-12")
+    check("PATCH /event/update", "end_date: update con fecha inexistente → 400 Invalid end date",
+          ev_update(vid_, "CC-Vacaciones", "2026-11-11 10:00:00", end_date="2026-02-30"), 400, ERR_END_INVALID)
+    # RN-4 (R1-03): un evento de rutina no admite fin
+    rstart = (monday - datetime.timedelta(days=7)).isoformat()
+    rb = parse(request("POST", f"/routine/create?timezone={tz}", {
+        "calendar_id": 1, "title": "CC-RutinaFin", "frequency": "weekly", "interval": 1,
+        "days": [1, 3], "time": "09:30", "start_date": rstart, "end_date": None,
+        "active": True}, tok)[1])
+    rid_ = rb.get("id") if isinstance(rb, dict) else None
+    # las sesiones se materializan desde available_from (≈ ahora): se lista la semana siguiente
+    nm = (monday + datetime.timedelta(days=7)).isoformat()
+    nm_end = (monday + datetime.timedelta(days=14)).isoformat()
+    lb = parse(request("GET", f"/event?routine=true&start_date={epoch(nm)}&end_date={epoch(nm_end) - 1}"
+                              f"&timezone={tz}", None, tok)[1])
+    rev = next((x for x in lb if x.get("routine_id") == rid_), None) if isinstance(lb, list) else None
+    value("PATCH /event/update", "end_date: hay una sesión de rutina para probar RN-4", rev is not None)
+    if rev is not None:
+        check("PATCH /event/update", "end_date: update de evento de rutina con end_date → 400",
+              ev_update(rev["id"], "CC-RutinaFin", rev["date_at"], end_date="2999-01-01"),
+              400, ERR_END_ROUTINE)
+        value("GET /event/detail", "end_date: la sesión de rutina sigue sin fin tras el 400",
+              detail(rev["id"]) is None)
+    else:
+        record("PATCH /event/update", "end_date: update de evento de rutina con end_date → 400", False, "sin sesión")
+        record("GET /event/detail", "end_date: la sesión de rutina sigue sin fin tras el 400", False, "sin sesión")
+    if rid_:
+        request("DELETE", f"/routine/delete?timezone={tz}", {"id": rid_}, tok)
     for e in (vid_, sid):
         request("DELETE", f"/event/delete?timezone={tz}", {"id": e}, tok)
 
