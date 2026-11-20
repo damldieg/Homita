@@ -63,6 +63,7 @@ struct FeedbackView: View {
             .accessibilityIdentifier("feedback.enviar")
         }
         .navigationTitle("Enviar feedback")
+        .onAppear { store.reset() }
         .disabled(store.isWorking)
         .overlay {
             if store.isWorking {

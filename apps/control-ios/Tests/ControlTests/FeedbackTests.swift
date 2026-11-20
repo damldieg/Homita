@@ -193,6 +193,15 @@ final class FeedbackTests: XCTestCase {
                                                  texto: "Quiero ordenar listas"))
     }
 
+    func testResetClearsDraftAfterSend() async {
+        let store = filledStore { _ in }
+        _ = await store.submit()
+        store.reset()
+        XCTAssertEqual(store.draft, FeedbackDraft())
+        XCTAssertFalse(store.didSend)
+        XCTAssertNil(store.errorMessage)
+    }
+
     func testSubmitOfflineDoesNotSend() async {
         var calls = 0
         let store = filledStore { _ in calls += 1 }

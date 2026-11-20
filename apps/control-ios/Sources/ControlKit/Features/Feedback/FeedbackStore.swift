@@ -57,6 +57,13 @@ public final class FeedbackStore {
         draft.kind = kind
     }
 
+    /// Vuelve al formulario vacío (borrador, error y estado de envío). Se llama al abrir la pantalla.
+    public func reset() {
+        draft = FeedbackDraft()
+        errorMessage = nil
+        didSend = false
+    }
+
     /// Envío habilitado: borrador válido, sin envío en curso y con conexión.
     public func canSubmit(isOffline: Bool) -> Bool {
         draft.isValid && !isWorking && !isOffline
