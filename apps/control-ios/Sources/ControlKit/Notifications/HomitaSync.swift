@@ -42,6 +42,8 @@ public final class HomitaSync {
     }
 
     public var isAttached: Bool { services != nil }
+    /// Servicios registrados (el refresco en segundo plano reproduce con ellos la cola offline).
+    var attachedServices: AppServices? { services }
 
     /// La raíz de la app registra aquí sus servicios (hogar y sesión ya activos).
     public func attach(_ services: AppServices) {

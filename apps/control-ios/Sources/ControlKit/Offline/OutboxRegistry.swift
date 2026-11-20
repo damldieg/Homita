@@ -39,6 +39,16 @@ public final class OutboxRegistry {
         return store
     }
 
+    /// Cambios pendientes del usuario en todos sus hogares (los que están en disco también), para
+    /// avisar antes de cerrar sesión (T29).
+    public func pendingCount(userId: Int) -> Int {
+        let userDirectory = directory.appendingPathComponent(String(userId), isDirectory: true)
+        let files = (try? FileManager.default.contentsOfDirectory(at: userDirectory, includingPropertiesForKeys: nil)) ?? []
+        var homes = Set(files.filter { $0.pathExtension == "json" }.map { $0.deletingPathExtension().lastPathComponent })
+        for key in stores.keys where key.userId == userId { homes.insert(key.homeId) }
+        return homes.reduce(0) { $0 + store(user: userId, home: $1).pendingCount }
+    }
+
     /// Borra todas las colas (cierre de sesión manual).
     public func removeAll() {
         for store in stores.values { store.wipe() }

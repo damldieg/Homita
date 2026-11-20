@@ -8,10 +8,11 @@ public struct TasksRootView: View {
     /// Lista pedida desde Inicio («Ver más»): se despliega solo esa y se pliegan las demás.
     @Binding var listRequest: Int?
 
-    public init(services: AppServices, listRequest: Binding<Int?> = .constant(nil)) {
+    /// `outbox`: cola offline del hogar activo (D-024); nil = solo en línea.
+    public init(services: AppServices, outbox: OutboxStore? = nil, listRequest: Binding<Int?> = .constant(nil)) {
         self.services = services
         _listRequest = listRequest
-        _store = State(initialValue: TasksStore(taskLists: services.taskLists, tasks: services.tasks, persons: services.persons))
+        _store = State(initialValue: TasksStore(taskLists: services.taskLists, tasks: services.tasks, persons: services.persons, outbox: outbox))
     }
 
     public var body: some View {
@@ -46,6 +47,13 @@ public struct TasksRootView: View {
                 if store.listFilterId != nil {
                     store.listFilterId = nil
                     Task { await store.loadTasks() }
+                }
+            }
+            .onChange(of: store.outbox?.generation) {
+                // Cola sincronizada (ack): recarga con los IDs reales.
+                Task {
+                    await store.loadLists()
+                    await store.loadTasks()
                 }
             }
             .errorAlert($store.errorMessage)
@@ -165,7 +173,7 @@ struct TasksView: View {
                         .listRowSeparator(.hidden)
                     if !collapsedListIds.contains(group.listId) {
                         ForEach(Array(group.tasks.enumerated()), id: \.element.id) { index, task in
-                            TaskRow(task: task, showListName: false, plain: true) {
+                            TaskRow(task: task, showListName: false, plain: true, isPending: store.pendingTaskIds.contains(task.id)) {
                                 Task { await store.toggleComplete(task) }
                             } onEdit: {
                                 taskToEdit = task
@@ -208,6 +216,10 @@ struct TasksView: View {
         .onChange(of: expandRequest, initial: true) { applyExpandRequest() }
         .onChange(of: store.hasLoadedTasks) { applyExpandRequest() }
         .onChange(of: store.isLoading) { applyExpandRequest() }
+        .onChange(of: store.outbox?.generation) {
+            // Las listas creadas offline pasan a su ID real: se conserva su estado plegado.
+            collapsedListIds = Set(collapsedListIds.map { store.resolve($0) })
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { showCreateTask = true } label: {
@@ -328,6 +340,9 @@ struct TaskListsView: View {
                                 Text(list.name)
                                     .font(HomitaFont.inter(17, weight: .semibold, relativeTo: .body))
                                     .foregroundStyle(Palette.ink)
+                                if store.pendingListIds.contains(list.id) {
+                                    PendingSyncIcon()
+                                }
                                 Spacer()
                                 HomitaBadge(title: "\(list.pendingTaskCount)", tintHex: list.color)
                             }
@@ -381,6 +396,8 @@ struct TaskRow: View {
     let showListName: Bool
     /// Fila plana dentro de la tarjeta de su lista (wireframe): sin tarjeta propia.
     var plain: Bool = false
+    /// Cambio aún en la cola offline (D-024): icono «Pendiente de sincronizar».
+    var isPending: Bool = false
     let onToggle: () -> Void
     let onEdit: () -> Void
 
@@ -407,6 +424,9 @@ struct TaskRow: View {
                 }
             }
             Spacer()
+            if isPending {
+                PendingSyncIcon()
+            }
         }
         return Group {
             if plain {
@@ -415,6 +435,16 @@ struct TaskRow: View {
                 HomitaCard { row }
             }
         }
+    }
+}
+
+/// Marca de una fila con cambios en la cola offline (D-024).
+struct PendingSyncIcon: View {
+    var body: some View {
+        Image(systemName: "clock.arrow.circlepath")
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(Palette.inkSoft)
+            .accessibilityLabel("Pendiente de sincronizar")
     }
 }
 

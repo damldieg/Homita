@@ -18,18 +18,22 @@ struct TaskListDetailView: View {
     @State private var editMode: EditMode = .inactive
     #endif
 
-    /// La lista recargada desde el store (tras editar); si no está, la recibida.
+    /// La lista recargada desde el store (tras editar); si no está, la recibida. Una lista creada
+    /// offline se busca por su ID real en cuanto se sincroniza (D-024, R4).
     private var current: TaskListEntry {
-        store.taskLists.first { $0.id == list.id } ?? list
+        let id = store.resolve(list.id)
+        return store.taskLists.first { $0.id == id } ?? list
     }
 
     /// Tareas de esta lista (el store puede tener el filtro global activo: se filtra en cliente).
     private var listTasks: [TaskEntry] {
-        store.tasks.filter { $0.task_list_id == current.id }
+        let id = store.resolve(current.id)
+        return store.tasks.filter { $0.task_list_id == id }
     }
     private var pending: [TaskEntry] { listTasks.filter { !$0.isCompleted } }
     private var completed: [TaskEntry] { listTasks.filter { $0.isCompleted } }
-    private var canReorder: Bool { current.sort == "custom" }
+    /// Reordenar solo con orden personalizado, red y sin cambios pendientes (Q9).
+    private var canReorder: Bool { current.sort == "custom" && store.canReorder }
 
     var body: some View {
         List {
@@ -60,7 +64,7 @@ struct TaskListDetailView: View {
             if !pending.isEmpty {
                 Section {
                     ForEach(Array(pending.enumerated()), id: \.element.id) { index, task in
-                        TaskRow(task: task, showListName: false, plain: true) {
+                        TaskRow(task: task, showListName: false, plain: true, isPending: store.pendingTaskIds.contains(task.id)) {
                             Task { await store.toggleComplete(task) }
                         } onEdit: {
                             taskToEdit = task
@@ -87,7 +91,7 @@ struct TaskListDetailView: View {
             if !completed.isEmpty {
                 Section {
                     ForEach(Array(completed.enumerated()), id: \.element.id) { index, task in
-                        TaskRow(task: task, showListName: false, plain: true) {
+                        TaskRow(task: task, showListName: false, plain: true, isPending: store.pendingTaskIds.contains(task.id)) {
                             Task { await store.toggleComplete(task) }
                         } onEdit: {
                             taskToEdit = task
@@ -168,8 +172,9 @@ struct TaskListDetailView: View {
         #if os(iOS)
         .environment(\.editMode, $editMode)
         #endif
-        .task {
-            store.listFilterId = current.id
+        // Se repite cuando la lista creada offline recibe su ID real: filtro y datos con ese ID.
+        .task(id: store.resolve(list.id)) {
+            store.listFilterId = store.resolve(current.id)
             store.currentUserId = session.session?.id
             await store.loadTasks()
             await store.loadMembers(listId: current.id)
