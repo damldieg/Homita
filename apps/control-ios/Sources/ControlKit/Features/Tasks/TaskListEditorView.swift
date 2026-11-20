@@ -14,11 +14,13 @@ enum TaskListEditorFields {
         return isOwner == true
     }
 
-    /// «Eliminar lista» (solo en edición). Borrar es owner-only en el servidor; sin red, encolar el
-    /// borrado de un no propietario quitaría de la cola las ops de sus tareas y luego acabaría en 403
-    /// (R1-03). Misma regla que nombre, color y orden.
-    static func deleteEnabled(isLocalList: Bool, isOnline: Bool, isOwner: Bool?) -> Bool {
-        ownerFieldsEnabled(isEditing: true, isLocalList: isLocalList, isOnline: isOnline, isOwner: isOwner)
+    /// «Eliminar lista» (solo en edición). Borrar es owner-only en el servidor; encolar el borrado de
+    /// un no propietario quitaría de la cola las ops de sus tareas y luego acabaría en 403 (R1-03).
+    /// Se encola sin red y también con red si la cola del hogar no está vacía (FIFO, R8; R2-02), así
+    /// que en ambos casos solo lo permite al propietario (o en una lista creada offline).
+    /// - Parameter pendingCount: ops en la cola del hogar.
+    static func deleteEnabled(isLocalList: Bool, isOnline: Bool, isOwner: Bool?, pendingCount: Int) -> Bool {
+        ownerFieldsEnabled(isEditing: true, isLocalList: isLocalList, isOnline: isOnline && pendingCount == 0, isOwner: isOwner)
     }
 }
 
@@ -66,7 +68,8 @@ struct TaskListEditorView: View {
 
     /// «Eliminar lista» habilitado (ver `TaskListEditorFields.deleteEnabled`).
     private var deleteEnabled: Bool {
-        TaskListEditorFields.deleteEnabled(isLocalList: isLocalList, isOnline: isOnline, isOwner: isOwner)
+        TaskListEditorFields.deleteEnabled(isLocalList: isLocalList, isOnline: isOnline, isOwner: isOwner,
+                                           pendingCount: store.outbox?.pendingCount ?? 0)
     }
 
     var body: some View {
@@ -105,7 +108,9 @@ struct TaskListEditorView: View {
                     showDeleteConfirm = true
                 }
                 if !deleteEnabled {
-                    HomitaFootnote(text: "Sin conexión, solo quien creó la lista puede eliminarla.")
+                    HomitaFootnote(text: isOnline
+                        ? "Hay cambios pendientes de sincronizar; hasta que terminen, solo quien creó la lista puede eliminarla."
+                        : "Sin conexión, solo quien creó la lista puede eliminarla.")
                 }
             }
         }

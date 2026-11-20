@@ -27,12 +27,21 @@ final class TaskListEditorFieldsTests: XCTestCase {
 
     /// R1-03: «Eliminar lista» sin red solo para el propietario (o una lista creada offline).
     func testDeleteEnabled() {
-        XCTAssertTrue(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: true, isOwner: false), "con red decide el servidor")
-        XCTAssertTrue(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: true, isOwner: nil))
-        XCTAssertTrue(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: false, isOwner: true))
-        XCTAssertFalse(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: false, isOwner: false), "no propietario sin red")
-        XCTAssertFalse(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: false, isOwner: nil), "miembros desconocidos sin red")
-        XCTAssertTrue(TaskListEditorFields.deleteEnabled(isLocalList: true, isOnline: false, isOwner: nil), "lista creada offline")
+        XCTAssertTrue(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: true, isOwner: false, pendingCount: 0), "con red y cola vacía decide el servidor")
+        XCTAssertTrue(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: true, isOwner: nil, pendingCount: 0))
+        XCTAssertTrue(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: false, isOwner: true, pendingCount: 0))
+        XCTAssertFalse(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: false, isOwner: false, pendingCount: 0), "no propietario sin red")
+        XCTAssertFalse(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: false, isOwner: nil, pendingCount: 0), "miembros desconocidos sin red")
+        XCTAssertTrue(TaskListEditorFields.deleteEnabled(isLocalList: true, isOnline: false, isOwner: nil, pendingCount: 0), "lista creada offline")
+    }
+
+    /// R2-02: con red pero la cola del hogar no vacía el borrado se encola; misma regla que sin red.
+    func testDeleteEnabledOnlineWithPendingQueue() {
+        XCTAssertFalse(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: true, isOwner: false, pendingCount: 2), "no propietario con cola no vacía")
+        XCTAssertTrue(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: true, isOwner: true, pendingCount: 2), "propietario con cola no vacía")
+        XCTAssertTrue(TaskListEditorFields.deleteEnabled(isLocalList: true, isOnline: true, isOwner: nil, pendingCount: 2), "lista creada offline con cola no vacía")
+        XCTAssertFalse(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: true, isOwner: nil, pendingCount: 1), "miembros desconocidos con cola no vacía")
+        XCTAssertFalse(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: false, isOwner: false, pendingCount: 3), "no propietario sin red y con cola")
     }
 
     func testSignOutMessage() {
