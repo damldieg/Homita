@@ -422,3 +422,7 @@ enabled = true
 # (FEEDBACK_WEBHOOK_SECRET / Vault feedback_webhook_secret); deploy con --no-verify-jwt. Ver supabase/README.md.
 [functions.procesar-feedback]
 verify_jwt = false
+
+# Edge Function asistente (Kito, change kito-asistente): auth manual con el Bearer del usuario, como `api`.
+[functions.asistente]
+verify_jwt = false
