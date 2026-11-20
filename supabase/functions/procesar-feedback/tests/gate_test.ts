@@ -41,10 +41,10 @@ const contentOf = (body: Record<string, unknown>) =>
 
 const toolUse = (name: string, input: unknown) => ({ type: "tool_use", id: "t1", name, input });
 
-Deno.test("buildGateRequest: system fijo, tool_choice any sin paralelo, temperature 0, max_tokens 512", () => {
+Deno.test("buildGateRequest: system fijo, tool_choice any sin paralelo, sin temperature, max_tokens 512", () => {
     const { body } = buildGateRequest(row(), [card(1)], "modelo-x");
     assertEquals(body.model, "modelo-x");
-    assertEquals(body.temperature, 0);
+    assertEquals(body.temperature, undefined);
     assertEquals(body.max_tokens, 512);
     assertEquals(body.tool_choice, { type: "any", disable_parallel_tool_use: true });
     assert(typeof body.system === "string" && (body.system as string).includes("no confiables"));
@@ -112,6 +112,38 @@ Deno.test("parseDecision: 0 o 2 tool_use, tool desconocido, no 2xx o sin content
     assertThrows(() => parseDecision(500, { content: [v] }, s), GateError);
     assertThrows(() => parseDecision(200, null, s), GateError);
     assertThrows(() => parseDecision(200, { content: [toolUse("crear_tarjeta", "texto")] }, s), GateError);
+});
+
+Deno.test("parseDecision: 400 con error.type y error.message lo incluye en el GateError", () => {
+    const e = assertThrows(
+        () => parseDecision(400, { error: { type: "invalid_request_error", message: "x" } }, new Set()),
+        GateError,
+    );
+    assertEquals(e.message, "gate: http 400: invalid_request_error: x");
+});
+
+Deno.test("parseDecision: 400 con mensaje largo o con saltos de línea -> una línea y ≤ 200", () => {
+    const largo = assertThrows(
+        () => parseDecision(400, { error: { type: "invalid_request_error", message: "a".repeat(500) } }, new Set()),
+        GateError,
+    );
+    assertEquals(largo.message, `gate: http 400: ${("invalid_request_error: " + "a".repeat(500)).slice(0, 200)}`);
+    const saltos = assertThrows(
+        () => parseDecision(400, { error: { type: "t", message: "uno\ndos\r\ntres" } }, new Set()),
+        GateError,
+    );
+    assertEquals(saltos.message, "gate: http 400: t: uno dos tres");
+});
+
+Deno.test("parseDecision: 400 sin error utilizable -> http 400", () => {
+    assertEquals(assertThrows(() => parseDecision(400, {}, new Set()), GateError).message, "gate: http 400");
+    assertEquals(assertThrows(() => parseDecision(400, null, new Set()), GateError).message, "gate: http 400");
+    assertEquals(assertThrows(() => parseDecision(400, { error: { type: 1 } }, new Set()), GateError).message, "gate: http 400");
+});
+
+Deno.test("parseDecision: un 2xx válido sigue devolviendo la decisión", () => {
+    const d = parseDecision(200, { content: [toolUse("vincular_tarjeta", { card_id: "c1" })] }, new Set(["c1"]));
+    assertEquals(d, { kind: "vincular", cardId: "c1" });
 });
 
 Deno.test("parseDecision crear: título a una línea ≤ 120, vacío es error, descripción ≤ 1500", () => {
