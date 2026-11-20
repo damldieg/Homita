@@ -9,11 +9,20 @@ final class StubURLProtocol: URLProtocol, @unchecked Sendable {
         var status: Int
         var body: Data
         var delay: TimeInterval
+        /// Si no es nil, la petición falla sin respuesta (sin red → `APIError.network`).
+        var failure: URLError?
 
         init(status: Int = 200, json: String = "{}", delay: TimeInterval = 0) {
             self.status = status
             self.body = Data(json.utf8)
             self.delay = delay
+        }
+
+        /// Fallo de red (sin respuesta HTTP).
+        static var offline: Stub {
+            var stub = Stub()
+            stub.failure = URLError(.notConnectedToInternet)
+            return stub
         }
     }
 
@@ -63,6 +72,10 @@ final class StubURLProtocol: URLProtocol, @unchecked Sendable {
         Self.lock.unlock()
         let respond: @Sendable () -> Void = { [weak self] in
             guard let self, let client = self.client, let url = request.url else { return }
+            if let failure = stub.failure {
+                client.urlProtocol(self, didFailWithError: failure)
+                return
+            }
             let response = HTTPURLResponse(
                 url: url, statusCode: stub.status, httpVersion: "HTTP/1.1",
                 headerFields: ["Content-Type": "application/json"]
