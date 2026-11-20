@@ -150,6 +150,10 @@ run "SQL client_request_check" sql-client-request sql "$HERE/scripts/supabase/te
 c_pat=(); for i in $(seq 1 9); do c_pat+=("ok C$i([^0-9a-z]|\$)"); done
 expect_log "SQL client_request_check" sql-client-request "${c_pat[@]}"
 
+run "SQL assistant_usage_check" sql-assistant-usage sql "$HERE/scripts/supabase/tests/assistant_usage_check.sql"
+u_pat=(); for i in $(seq 1 7); do u_pat+=("ok U$i([^0-9a-z]|\$)"); done
+expect_log "SQL assistant_usage_check" sql-assistant-usage "${u_pat[@]}"
+
 # Checks de feedback: psql corre dentro del contenedor y no ve el host, así que se expanden los marcadores
 # `-- @MIGRATION:<fichero>@` (supabase/migrations/<fichero>) y `-- @ROLLBACK:<fichero>@`
 # (scripts/supabase/rollback/<fichero>) y el resultado va por stdin. Un marcador desconocido o un
