@@ -152,26 +152,155 @@ export const personIdsOf = async (
 
 // ── feedback (POST /feedback) ──
 
-export const FEEDBACK_SECCIONES = ["Inicio", "Tareas", "Calendario", "Hogar", "Ajustes"];
-// Sub-áreas válidas por sección (catálogo de la app, FeedbackCatalog.swift). Mantener sincronizado.
-export const FEEDBACK_SUBAREAS: Record<string, string[]> = {
+export type FeedbackPantalla = { nombre: string; acciones: string[] };
+export type FeedbackSeccion = { nombre: string; pantallas: FeedbackPantalla[] };
+
+// Catálogo de la app (FeedbackCatalog.swift): sección › pantalla › acción. Mantener sincronizado a mano; el
+// fixture tests/fixtures/feedback_catalog.json es la referencia y feedback_test.ts exige igualdad exacta.
+// Ningún nombre contiene ": " (el parseo de `subseccion` usa el último). El valor enviado es el nombre visible.
+// Una pantalla alcanzable desde varios sitios lleva el camino desde la raíz de la sección, con " › ".
+export const FEEDBACK_CATALOG: FeedbackSeccion[] = [
+    {
+        nombre: "Inicio",
+        pantallas: [
+            { nombre: "Inicio", acciones: ["Ver / cargar", "Tirar para actualizar", "Crear › Tarea", "Crear › Evento", "Ir a Hogar"] },
+            { nombre: "Inicio › Nueva tarea", acciones: ["Título", "Lista", "Personas", "Crear tarea", "Cancelar"] },
+            { nombre: "Inicio › Nuevo evento", acciones: ["Título", "Fecha y hora", "Fecha de fin", "Calendario", "Aviso", "Personas", "Crear evento", "Cancelar"] },
+            { nombre: "Hoy · Eventos", acciones: ["Ver / cargar", "Ir a Hoy · Eventos", "Ya pasaron", "Reintentar"] },
+            { nombre: "Tareas pendientes", acciones: ["Ver / cargar", "Ir a Tareas pendientes", "Marcar hecha", "Lista", "Deslizar entre listas", "Ver más", "Reintentar"] },
+            { nombre: "Rutinas de hoy", acciones: ["Ver / cargar", "Ver todas", "Completadas", "Reintentar"] },
+        ],
+    },
+    {
+        nombre: "Tareas",
+        pantallas: [
+            { nombre: "Tareas", acciones: ["Ver / cargar", "Tirar para actualizar", "Nueva tarea", "Filtrar", "Campo Nueva tarea", "Marcar hecha", "Editar tarea", "Deslizar para eliminar", "Editar", "Plegar / desplegar lista", "Eliminar tareas completadas"] },
+            { nombre: "Tareas › Nueva tarea", acciones: ["Título", "Lista", "Personas", "Crear tarea", "Cancelar"] },
+            { nombre: "Tareas › Editar tarea", acciones: ["Título", "Personas", "Personas con acceso", "Guardar", "Eliminar tarea", "Cancelar"] },
+            { nombre: "Listas", acciones: ["Ver / cargar", "Tirar para actualizar", "Abrir lista", "Nueva lista"] },
+            { nombre: "Listas › Nueva lista", acciones: ["Nombre", "Color", "Orden de las tareas", "Widget", "Dashboard", "Crear lista", "Cancelar"] },
+            { nombre: "Detalle de lista", acciones: ["Ver / cargar", "Tirar para actualizar", "Campo Nueva tarea", "Marcar hecha", "Editar tarea", "Deslizar para eliminar", "Reordenar", "Editar lista", "Eliminar todas las completadas", "Email a invitar", "Invitar", "Quitar persona", "Dar acceso", "Lectura", "Edición"] },
+            { nombre: "Detalle de lista › Editar tarea", acciones: ["Título", "Personas", "Personas con acceso", "Guardar", "Eliminar tarea", "Cancelar"] },
+            { nombre: "Detalle de lista › Editar lista", acciones: ["Nombre", "Color", "Orden de las tareas", "Widget", "Dashboard", "Guardar", "Eliminar lista", "Cancelar"] },
+        ],
+    },
+    {
+        nombre: "Calendario",
+        pantallas: [
+            { nombre: "Eventos", acciones: ["Ver / cargar", "Día anterior", "Día siguiente", "Deslizar entre días", "Tira de semana", "Hoy", "Elegir fecha", "Nuevo evento", "Abrir evento"] },
+            { nombre: "Eventos › Elegir fecha", acciones: ["Fecha", "Hoy", "Listo"] },
+            { nombre: "Eventos › Nuevo evento", acciones: ["Título", "Fecha y hora", "Fecha de fin", "Calendario", "Aviso", "Personas", "Crear evento", "Cancelar"] },
+            { nombre: "Eventos › Editar evento", acciones: ["Título", "Fecha y hora", "Fecha de fin", "Aviso", "Personas", "Guardar", "Eliminar evento", "Cancelar"] },
+            { nombre: "Rutinas", acciones: ["Ver / cargar", "Tirar para actualizar", "Nueva rutina", "Abrir rutina", "Deslizar para eliminar"] },
+            { nombre: "Rutinas › Nueva rutina", acciones: ["Título", "Calendario", "Frecuencia", "Horario", "Activa", "Aviso", "Personas", "Crear rutina", "Cancelar"] },
+            { nombre: "Rutinas › Editar rutina", acciones: ["Título", "Frecuencia", "Horario", "Activa", "Aviso", "Personas", "Guardar", "Eliminar rutina", "Cancelar"] },
+            { nombre: "Calendarios", acciones: ["Ver / cargar", "Tirar para actualizar", "Nuevo calendario", "Abrir calendario"] },
+            { nombre: "Calendarios › Nuevo calendario", acciones: ["Nombre", "Color", "Widget", "Dashboard", "Crear calendario", "Cancelar"] },
+            { nombre: "Calendarios › Editar calendario", acciones: ["Nombre", "Color", "Widget", "Dashboard", "Guardar", "Email a invitar", "Invitar", "Quitar persona", "Dar acceso", "Lectura", "Edición", "Eliminar calendario", "Cancelar"] },
+        ],
+    },
+    {
+        nombre: "Hogar",
+        pantallas: [
+            { nombre: "Hogar", acciones: ["Ver / cargar", "Tirar para actualizar", "Hogar activo", "Ver más", "Crear invitación", "Invitaciones pendientes", "Administración", "Reintentar"] },
+            { nombre: "Permisos del hogar", acciones: ["Cerrar"] },
+            { nombre: "Hogar › Nueva invitación", acciones: ["Tipo", "Vincular a un miembro (opcional)", "Email del invitado", "Crear", "Cancelar"] },
+            { nombre: "Hogar › Invitación creada", acciones: ["Copiar código", "Enviar por WhatsApp", "Compartir invitación", "Listo"] },
+            { nombre: "Hogar › Invitaciones", acciones: ["Ver / cargar", "Tirar para actualizar", "Crear invitación", "Revocar", "Reintentar"] },
+            { nombre: "Hogar › Invitaciones › Nueva invitación", acciones: ["Tipo", "Vincular a un miembro (opcional)", "Email del invitado", "Crear", "Cancelar"] },
+            { nombre: "Hogar › Invitaciones › Invitación creada", acciones: ["Copiar código", "Enviar por WhatsApp", "Compartir invitación", "Listo"] },
+            { nombre: "Administración", acciones: ["Configuración", "Administradores", "Miembros", "Invitaciones", "Accesos", "Auditoría"] },
+            { nombre: "Administración › Configuración", acciones: ["Ver / cargar", "Nombre", "Zona horaria", "Guardar cambios", "Reintentar"] },
+            { nombre: "Administración › Configuración › Zona horaria", acciones: ["Buscar zona horaria", "Elegir zona", "Cerrar"] },
+            { nombre: "Administración › Administradores", acciones: ["Ver / cargar", "Tirar para actualizar", "Quitar admin", "Quitar", "Hacer admin", "Transferir", "Salir", "Reintentar"] },
+            { nombre: "Administración › Miembros", acciones: ["Ver / cargar", "Tirar para actualizar", "Agregar", "Abrir miembro", "Reintentar"] },
+            { nombre: "Administración › Miembros › Nuevo miembro", acciones: ["Nombre (1-50)", "Color", "Tipo", "Agregar", "Cancelar"] },
+            { nombre: "Administración › Miembros › Editar miembro", acciones: ["Nombre (1-50)", "Color", "Tipo", "Estado", "Guardar", "Cambiar tipo", "Cancelar"] },
+            { nombre: "Administración › Invitaciones", acciones: ["Ver / cargar", "Tirar para actualizar", "Crear invitación", "Revocar", "Reintentar"] },
+            { nombre: "Administración › Invitaciones › Nueva invitación", acciones: ["Tipo", "Vincular a un miembro (opcional)", "Email del invitado", "Crear", "Cancelar"] },
+            { nombre: "Administración › Invitaciones › Invitación creada", acciones: ["Copiar código", "Enviar por WhatsApp", "Compartir invitación", "Listo"] },
+            { nombre: "Administración › Accesos", acciones: ["Ver / cargar", "Tirar para actualizar", "Editar", "Reintentar"] },
+            { nombre: "Administración › Accesos › Editor de accesos", acciones: ["Interruptor de permiso", "Restablecer a tipo", "Guardar", "Cancelar"] },
+            { nombre: "Administración › Auditoría", acciones: ["Ver / cargar", "Tirar para actualizar", "Todo", "Acción", "Persona", "Cargar más", "Reintentar"] },
+        ],
+    },
+    {
+        nombre: "Ajustes",
+        pantallas: [
+            { nombre: "Ajustes", acciones: ["Nombre", "Email", "Nueva contraseña (opcional, mínimo 8)", "Guardar cambios", "Personas", "Avisos, widgets y pantalla de bloqueo", "Unirse a un hogar con un código", "Enviar feedback", "Modo oscuro", "Cerrar sesión"] },
+            { nombre: "Personas", acciones: ["Ver / cargar", "Tirar para actualizar", "Nueva persona", "Editar persona", "Eliminar persona", "Reintentar"] },
+            { nombre: "Personas › Nueva persona", acciones: ["Nombre (1-50)", "Color", "Crear persona", "Cancelar"] },
+            { nombre: "Personas › Editar persona", acciones: ["Nombre (1-50)", "Color", "Guardar", "Eliminar persona", "Cancelar"] },
+            { nombre: "Notificaciones", acciones: ["Eventos", "Rutinas", "Resumen de tareas pendientes", "Hora del resumen", "Rutinas en tiempo real", "Datos en widgets", "Abrir Ajustes de iOS"] },
+            { nombre: "Unirse a un hogar", acciones: ["Código de invitación", "Unirse", "Ver el hogar"] },
+            { nombre: "Enviar feedback", acciones: ["Sección", "Pantalla", "Acción", "Tipo", "Qué pasó o qué mejorarías", "Enviar feedback"] },
+        ],
+    },
+    {
+        nombre: "Acceso",
+        pantallas: [
+            { nombre: "Bienvenida", acciones: ["Iniciar sesión", "Registrarse"] },
+            { nombre: "Iniciar sesión", acciones: ["Email", "Contraseña", "Iniciar sesión"] },
+            { nombre: "Registrarse", acciones: ["Nombre", "Email", "Contraseña (mínimo 8)", "Código (opcional)", "Crear cuenta"] },
+            { nombre: "No tienes ningún hogar", acciones: ["Nombre del hogar", "Crear hogar", "Aceptar invitación", "Ahora no"] },
+            { nombre: "Cargando inicio", acciones: ["Ver / cargar"] },
+            { nombre: "No se pudo cargar tu hogar", acciones: ["Reintentar"] },
+        ],
+    },
+    {
+        nombre: "General / otro",
+        pantallas: [
+            { nombre: "Otro", acciones: ["General"] },
+            { nombre: "Banner sin conexión", acciones: ["General"] },
+            { nombre: "Animación de arranque", acciones: ["General"] },
+        ],
+    },
+];
+export const FEEDBACK_SECCIONES = FEEDBACK_CATALOG.map((s) => s.nombre);
+
+// TRANSITORIO (compat con el catálogo 2026-11-19, apps instaladas): sub-áreas por sección y acciones ver/crear/
+// editar/eliminar en minúscula. Se retira en un cambio posterior, no antes de que las apps viejas dejen de usarse.
+const FEEDBACK_LEGACY_SUBAREAS: Record<string, string[]> = {
     Inicio: ["resumen del día", "eventos de hoy", "rutinas de hoy"],
     Tareas: ["listas", "tareas"],
     Calendario: ["eventos", "rutinas", "calendarios"],
     Hogar: ["miembros", "invitaciones", "administradores", "permisos"],
     Ajustes: ["perfil", "notificaciones", "cuenta"],
 };
+const FEEDBACK_LEGACY_ACCIONES = ["ver", "crear", "editar", "eliminar"];
 export const FEEDBACK_TIPOS = ["bug", "mejora"];
-export const FEEDBACK_ACCIONES = ["ver", "crear", "editar", "eliminar"];
 // Límite en UTF-16 code units (String.length de JS). El cliente iOS cuenta igual (`String.utf16.count`),
 // así un emoji (2 unidades) cuenta lo mismo en ambos lados.
 export const FEEDBACK_TEXTO_MAX = 2000;
-const FEEDBACK_SUBSECCION_MAX = 100;
+export const FEEDBACK_SUBSECCION_MAX = 100;
+
+// "<pantalla>: <acción>" en el catálogo nuevo: pantalla y acción exactas de la sección (comparación en arrays).
+const isCurrentSubseccion = (seccion: string, sub: string): boolean => {
+    const i = sub.lastIndexOf(": ");
+    if (i <= 0 || i + 2 >= sub.length) return false;
+    const pantalla = sub.slice(0, i);
+    const accion = sub.slice(i + 2);
+    const sec = FEEDBACK_CATALOG.find((s) => s.nombre === seccion);
+    const pan = sec?.pantallas.find((p) => p.nombre === pantalla);
+    return pan !== undefined && pan.acciones.includes(accion);
+};
+
+// Catálogo 2026-11-19 (transitorio): regex vieja, sub-área de la sección y acción de la lista vieja.
+const isLegacySubseccion = (seccion: string, sub: string): boolean => {
+    const m = sub.match(/^(.+): (\S+)$/);
+    if (m === null) return false;
+    const subareas = Object.hasOwn(FEEDBACK_LEGACY_SUBAREAS, seccion) ? FEEDBACK_LEGACY_SUBAREAS[seccion] : [];
+    // "resumen del día" solo admitía "ver" en el cliente viejo (la Edge vieja aceptaba cualquiera; se estrecha).
+    if (!subareas.includes(m[1])) return false;
+    if (m[1] === "resumen del día") return m[2] === "ver";
+    return FEEDBACK_LEGACY_ACCIONES.includes(m[2]);
+};
 
 export type FeedbackValues = { seccion: string; subseccion: string | null; tipo: string; texto: string };
 
-// Valida el cuerpo de POST /feedback (pura). `subseccion` opcional; si viene: "<subárea>: <acción>"
-// con subárea de la sección (FEEDBACK_SUBAREAS), acción en FEEDBACK_ACCIONES y longitud <= 100. `texto` se recorta y debe tener 1..2000.
+// Valida el cuerpo de POST /feedback (pura). `subseccion` opcional; si viene: "<pantalla>: <acción>" con
+// pantalla de la sección y acción de esa pantalla (FEEDBACK_CATALOG), o un par del catálogo viejo (transitorio),
+// y longitud <= 100. `texto` se recorta y debe tener 1..2000.
 export const validateFeedback = (input: ContractInput): FeedbackValues | Response => {
     const seccion = getInput(input, "seccion");
     if (typeof seccion !== "string" || !FEEDBACK_SECCIONES.includes(seccion)) {
@@ -189,8 +318,7 @@ export const validateFeedback = (input: ContractInput): FeedbackValues | Respons
         if (typeof rawSub !== "string" || rawSub.length > FEEDBACK_SUBSECCION_MAX) {
             return errFeedbackInvalid("Invalid subseccion");
         }
-        const m = rawSub.match(/^(.+): (\S+)$/);
-        if (m === null || !FEEDBACK_SUBAREAS[seccion].includes(m[1]) || !FEEDBACK_ACCIONES.includes(m[2])) {
+        if (!isCurrentSubseccion(seccion, rawSub) && !isLegacySubseccion(seccion, rawSub)) {
             return errFeedbackInvalid("Invalid subseccion");
         }
         subseccion = rawSub;

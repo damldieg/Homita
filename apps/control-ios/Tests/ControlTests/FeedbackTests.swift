@@ -3,48 +3,101 @@ import XCTest
 
 /// Catálogo, validación, mapeo del request, repositorio (`POST feedback`) y store del formulario.
 final class FeedbackTests: XCTestCase {
-    // MARK: - Catálogo
+    // MARK: - Catálogo (contra el fixture compartido con la Edge)
 
-    func testCatalogHasFiveSectionsWithExpectedAreas() {
-        let sections = FeedbackCatalog.sections
-        XCTAssertEqual(sections.map(\.name), ["Inicio", "Tareas", "Calendario", "Hogar", "Ajustes"])
-        XCTAssertEqual(sections.map { $0.areas.count }, [3, 2, 3, 4, 3])
-        XCTAssertEqual(FeedbackCatalog.section(named: "Hogar")?.areas.map(\.name),
-                       ["miembros", "invitaciones", "administradores", "permisos"])
+    private struct FixtureCatalog: Decodable {
+        struct Screen: Decodable, Equatable { let nombre: String; let acciones: [String] }
+        struct Section: Decodable, Equatable { let nombre: String; let pantallas: [Screen] }
+        let secciones: [Section]
     }
 
-    func testOnlyDaySummaryIsViewOnly() {
-        for section in FeedbackCatalog.sections {
-            for area in section.areas {
-                if area.name == "resumen del día" {
-                    XCTAssertEqual(area.actions, [.ver])
-                } else {
-                    XCTAssertEqual(area.actions, [.ver, .crear, .editar, .eliminar], "\(section.name)/\(area.name)")
+    private func loadFixture(file: StaticString = #filePath) throws -> FixtureCatalog {
+        var url = URL(fileURLWithPath: "\(file)")
+        for _ in 0..<5 { url.deleteLastPathComponent() } // FeedbackTests.swift, ControlTests, Tests, control-ios, apps
+        url.appendPathComponent("supabase/functions/api/tests/fixtures/feedback_catalog.json")
+        guard let data = try? Data(contentsOf: url) else {
+            XCTFail("No existe el fixture del catálogo: \(url.path)")
+            throw CocoaError(.fileReadNoSuchFile)
+        }
+        return try JSONDecoder().decode(FixtureCatalog.self, from: data)
+    }
+
+    func testCatalogEqualsSharedFixture() throws {
+        let fixture = try loadFixture()
+        let mapped = FeedbackCatalog.sections.map { section in
+            FixtureCatalog.Section(nombre: section.name, pantallas: section.screens.map {
+                FixtureCatalog.Screen(nombre: $0.name, acciones: $0.actions)
+            })
+        }
+        XCTAssertFalse(fixture.secciones.isEmpty)
+        XCTAssertEqual(mapped, fixture.secciones)
+    }
+
+    func testCatalogInvariants() {
+        let sections = FeedbackCatalog.sections
+        XCTAssertEqual(Set(sections.map(\.name)).count, sections.count)
+        for section in sections {
+            XCTAssertFalse(section.screens.isEmpty, section.name)
+            XCTAssertEqual(Set(section.screens.map(\.name)).count, section.screens.count, section.name)
+            for screen in section.screens {
+                XCTAssertFalse(screen.actions.isEmpty, screen.name)
+                XCTAssertEqual(Set(screen.actions).count, screen.actions.count, screen.name)
+                for name in [section.name, screen.name] + screen.actions {
+                    XCTAssertFalse(name.contains(": "), name)
+                    XCTAssertEqual(name, name.trimmingCharacters(in: .whitespaces))
+                    XCTAssertFalse(name.isEmpty)
+                }
+                for action in screen.actions {
+                    let pair = "\(screen.name): \(action)"
+                    XCTAssertLessThanOrEqual(pair.utf16.count, FeedbackDraft.subseccionMaxLength, pair)
                 }
             }
         }
+    }
+
+    func testCatalogHasAccessAndGeneralSections() {
+        XCTAssertNotNil(FeedbackCatalog.section(named: "Acceso"))
+        let general = FeedbackCatalog.section(named: "General / otro")
+        XCTAssertEqual(general?.screens.map(\.name), ["Otro", "Banner sin conexión", "Animación de arranque"])
+        XCTAssertTrue(general?.screens.allSatisfy { $0.actions == ["General"] } ?? false)
     }
 
     // MARK: - Borrador
 
     private func validDraft() -> FeedbackDraft {
         let section = FeedbackCatalog.section(named: "Inicio")!
-        return FeedbackDraft(section: section, areaName: "eventos de hoy", action: .ver, kind: .bug, text: "  Falla  ")
+        return FeedbackDraft(section: section, screenName: "Tareas pendientes", action: "Ver más", kind: .bug, text: "  Falla  ")
     }
 
-    func testDraftSubseccionJoinsAreaAndAction() {
-        XCTAssertEqual(validDraft().subseccion, "eventos de hoy: ver")
+    func testDraftSubseccionJoinsScreenAndAction() {
+        XCTAssertEqual(validDraft().subseccion, "Tareas pendientes: Ver más")
     }
 
-    func testDraftSubseccionRejectsActionOutsideArea() {
+    func testDraftSubseccionWithSpacedActionAndPath() {
+        let section = FeedbackCatalog.section(named: "Tareas")!
+        let draft = FeedbackDraft(section: section, screenName: "Detalle de lista › Editar tarea",
+                                  action: "Guardar", kind: .bug, text: "x")
+        XCTAssertEqual(draft.subseccion, "Detalle de lista › Editar tarea: Guardar")
+        XCTAssertTrue(draft.isValid)
+    }
+
+    func testDraftSubseccionRejectsActionOutsideScreen() {
         var draft = validDraft()
-        draft.areaName = "resumen del día"
-        draft.action = .editar
+        draft.screenName = "Inicio"
+        draft.action = "Eliminar tarea"
         XCTAssertNil(draft.subseccion)
         XCTAssertFalse(draft.isValid)
     }
 
-    func testDraftRequiresTextKindSectionAreaAndAction() {
+    func testDraftInvalidWhenSubseccionExceedsLimit() {
+        let long = String(repeating: "a", count: FeedbackDraft.subseccionMaxLength)
+        let section = FeedbackSection("S", screens: [FeedbackScreen(long, actions: ["Ver"])])
+        let draft = FeedbackDraft(section: section, screenName: long, action: "Ver", kind: .bug, text: "x")
+        XCTAssertNotNil(draft.subseccion)
+        XCTAssertFalse(draft.isValid)
+    }
+
+    func testDraftRequiresTextKindSectionScreenAndAction() {
         XCTAssertTrue(validDraft().isValid)
         var d = validDraft(); d.text = "   \n "
         XCTAssertFalse(d.isValid)
@@ -52,7 +105,7 @@ final class FeedbackTests: XCTestCase {
         XCTAssertFalse(d.isValid)
         d = validDraft(); d.section = nil
         XCTAssertFalse(d.isValid)
-        d = validDraft(); d.areaName = nil
+        d = validDraft(); d.screenName = nil
         XCTAssertFalse(d.isValid)
         d = validDraft(); d.action = nil
         XCTAssertFalse(d.isValid)
@@ -88,7 +141,7 @@ final class FeedbackTests: XCTestCase {
 
     func testDraftRequestMapping() {
         XCTAssertEqual(validDraft().request,
-                       FeedbackRequest(seccion: "Inicio", subseccion: "eventos de hoy: ver", tipo: "bug", texto: "Falla"))
+                       FeedbackRequest(seccion: "Inicio", subseccion: "Tareas pendientes: Ver más", tipo: "bug", texto: "Falla"))
     }
 
     // MARK: - Request
@@ -104,7 +157,7 @@ final class FeedbackTests: XCTestCase {
         XCTAssertNil(sent.value(forHTTPHeaderField: "X-Home-Id"))
         XCTAssertEqual(
             String(data: try XCTUnwrap(sent.capturedBody), encoding: .utf8),
-            #"{"seccion":"Inicio","subseccion":"eventos de hoy: ver","texto":"Falla","tipo":"bug"}"#
+            #"{"seccion":"Inicio","subseccion":"Tareas pendientes: Ver más","texto":"Falla","tipo":"bug"}"#
         )
     }
 
@@ -132,36 +185,66 @@ final class FeedbackTests: XCTestCase {
 
     private func filledStore(send: @escaping (FeedbackRequest) async throws -> Void = { _ in }) -> FeedbackStore {
         let store = FeedbackStore(send: send)
-        store.selectSection(FeedbackCatalog.section(named: "Tareas")!)
-        store.selectArea(FeedbackCatalog.section(named: "Tareas")!.areas[0])
-        store.selectAction(.crear)
+        let section = FeedbackCatalog.section(named: "Tareas")!
+        store.selectSection(section)
+        store.selectScreen(section.screen(named: "Listas")!)
+        store.selectAction("Nueva lista")
         store.selectKind(.mejora)
         store.text = "Quiero ordenar listas"
         return store
     }
 
-    func testChangingSectionResetsAreaAndAction() {
+    func testChangingSectionResetsScreenAndAction() {
         let store = filledStore()
-        XCTAssertEqual(store.draft.areaName, "listas")
-        store.selectSection(FeedbackCatalog.section(named: "Hogar")!)
-        XCTAssertNil(store.draft.areaName)
+        XCTAssertEqual(store.draft.screenName, "Listas")
+        let hogar = FeedbackCatalog.section(named: "Hogar")!
+        store.selectSection(hogar)
+        XCTAssertNil(store.draft.screenName)
         XCTAssertNil(store.draft.action)
-        XCTAssertEqual(store.areas.map(\.name), ["miembros", "invitaciones", "administradores", "permisos"])
+        XCTAssertEqual(store.screens, hogar.screens)
         XCTAssertTrue(store.actions.isEmpty)
         // Mismo valor: no reinicia.
-        store.selectArea(store.areas[0]); store.selectAction(.ver)
-        store.selectSection(FeedbackCatalog.section(named: "Hogar")!)
-        XCTAssertEqual(store.draft.action, .ver)
+        store.selectScreen(store.screens[0]); store.selectAction(store.screens[0].actions[0])
+        let chosen = store.draft.action
+        store.selectSection(hogar)
+        XCTAssertEqual(store.draft.action, chosen)
+        XCTAssertNotNil(chosen)
     }
 
-    func testDaySummaryOffersOnlyViewAndPreselectsIt() {
+    func testChangingScreenResetsActionAndActionsFollowScreen() {
+        let store = filledStore()
+        XCTAssertEqual(store.draft.action, "Nueva lista")
+        let tareas = FeedbackCatalog.section(named: "Tareas")!.screen(named: "Tareas")!
+        store.selectScreen(tareas)
+        XCTAssertNil(store.draft.action)
+        XCTAssertEqual(store.actions, tareas.actions)
+        store.selectAction("Nueva lista") // de otra pantalla: se ignora
+        XCTAssertNil(store.draft.action)
+    }
+
+    func testSingleActionScreenAutoSelects() {
         let store = FeedbackStore(send: { _ in })
-        store.selectSection(FeedbackCatalog.section(named: "Inicio")!)
-        store.selectArea(store.areas[0])
-        XCTAssertEqual(store.actions, [.ver])
-        XCTAssertEqual(store.draft.action, .ver)
-        store.selectAction(.editar)
-        XCTAssertEqual(store.draft.action, .ver)
+        store.selectSection(FeedbackCatalog.section(named: "General / otro")!)
+        store.selectScreen(store.screens[0])
+        XCTAssertEqual(store.actions, ["General"])
+        XCTAssertEqual(store.draft.action, "General")
+    }
+
+    func testAccessAndGeneralSectionsAreSendable() async {
+        for (sectionName, screenName) in [("Acceso", "No tienes ningún hogar"), ("General / otro", "Otro")] {
+            var received: FeedbackRequest?
+            let store = FeedbackStore(send: { received = $0 })
+            let section = FeedbackCatalog.section(named: sectionName)!
+            store.selectSection(section)
+            store.selectScreen(section.screen(named: screenName)!)
+            store.selectAction(store.actions[0])
+            store.selectKind(.bug)
+            store.text = "Algo"
+            let ok = await store.submit()
+            XCTAssertTrue(ok, sectionName)
+            XCTAssertEqual(received?.seccion, sectionName)
+            XCTAssertEqual(received?.subseccion, "\(screenName): \(store.actions[0])")
+        }
     }
 
     func testCanSubmitNeedsTextKindAndNetwork() {
@@ -189,7 +272,7 @@ final class FeedbackTests: XCTestCase {
         XCTAssertTrue(store.didSend)
         XCTAssertFalse(store.isWorking)
         XCTAssertNil(store.errorMessage)
-        XCTAssertEqual(received, FeedbackRequest(seccion: "Tareas", subseccion: "listas: crear", tipo: "mejora",
+        XCTAssertEqual(received, FeedbackRequest(seccion: "Tareas", subseccion: "Listas: Nueva lista", tipo: "mejora",
                                                  texto: "Quiero ordenar listas"))
     }
 
@@ -220,7 +303,7 @@ final class FeedbackTests: XCTestCase {
         XCTAssertNotNil(store.errorMessage)
         XCTAssertEqual(store.text, "Quiero ordenar listas")
         XCTAssertEqual(store.draft.kind, .mejora)
-        XCTAssertEqual(store.draft.areaName, "listas")
+        XCTAssertEqual(store.draft.screenName, "Listas")
     }
 
     func testSecondSubmitIgnoredWhileWorking() async {
