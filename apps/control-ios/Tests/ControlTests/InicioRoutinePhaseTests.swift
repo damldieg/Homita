@@ -3,6 +3,7 @@ import XCTest
 
 /// Estados de «Rutinas de hoy» en Inicio (E1-04): finalizada, en curso, aviso y más tarde.
 /// Hora fija 19:30 UTC; ventana de 60 min desde el inicio.
+@MainActor
 final class InicioRoutinePhaseTests: XCTestCase {
     private let utc = TimeZone(identifier: "UTC")!
 

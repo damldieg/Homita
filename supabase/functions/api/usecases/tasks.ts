@@ -5,7 +5,7 @@ import {
     errTaskOrderNegative, errTaskOrderRequired, errTaskUpdateRequired, rpcError, rpcPass,
 } from "../_shared/errors.ts";
 import { hasTaskListAccess, rpc } from "../_shared/supabase.ts";
-import { personIdsOf } from "../_shared/validate.ts";
+import { clientRequestIdOf, personIdsOf } from "../_shared/validate.ts";
 
 // GET /task (TaskIndex.php): task_list_id de body+query con precedencia del body
 // (ControllerAbstract.php:31) — si llega → check estricto de pertenencia (TaskListUser::check →
@@ -55,10 +55,15 @@ export const handleTaskCreate = async (req: Request, token: string): Promise<Res
     const taskListId = inputInt(input, "task_list_id");
     const title = inputString(input, "title");
     if (contractEmpty(taskListId) || contractEmpty(title)) return errTaskCreateRequired();
+    // client_request_id opcional (0035): idempotencia del alta; el replay responde también 201.
+    const clientRequestId = clientRequestIdOf(input);
+    if (clientRequestId instanceof Response) return clientRequestId;
     // person_ids opcional (tareas con personas, 0025): null = sin asignar.
     const personIds = await personIdsOf(input, token);
     if (personIds instanceof Response) return personIds;
-    return rpcPass(await rpc("create_task", { p_task_list_id: taskListId, p_title: title, p_person_ids: personIds }, token), 201);
+    const args: Record<string, unknown> = { p_task_list_id: taskListId, p_title: title, p_person_ids: personIds };
+    if (clientRequestId !== undefined) args.p_client_request_id = clientRequestId;
+    return rpcPass(await rpc("create_task", args, token), 201);
 };
 
 // PATCH /task/update (TaskUpdate.php): update + reorderByList

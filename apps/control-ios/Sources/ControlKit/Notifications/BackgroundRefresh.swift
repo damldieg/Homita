@@ -55,11 +55,18 @@ enum BackgroundRefresh {
             // Si la app ya está abierta, `HomitaSync.shared` tiene sus servicios; si el sistema la
             // lanzó solo para esto, se crean unos propios con la sesión del Keychain.
             let sync = HomitaSync.shared
-            if !sync.isAttached {
-                let services = AppServices.makeBackground()
+            let services: AppServices
+            if let attached = sync.attachedServices {
+                services = attached
+            } else {
+                services = AppServices.makeBackground()
                 await services.homeContext.load(using: services.homes)
                 sync.attach(services)
             }
+            // Cola offline del hogar activo antes de leer (D-024, R9). Si el sistema expira la
+            // tarea, el replayer para entre ops y la cola restante se conserva.
+            await services.replayOutbox()
+            guard !Task.isCancelled else { return }
             await sync.refresh(force: true, allowPrompt: false)
             task.setTaskCompleted(success: true)
         }

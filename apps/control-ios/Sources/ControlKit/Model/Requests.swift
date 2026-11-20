@@ -306,13 +306,17 @@ public struct CreateTaskListRequest: Encodable, Equatable {
     public let sort: String?
     public let widget: Bool?
     public let dashboard: Bool?
+    /// Clave de idempotencia (UUID, 0035): el mismo valor reenviado devuelve la lista ya creada.
+    /// nil = no se envía (comportamiento previo).
+    public let client_request_id: String?
 
-    public init(name: String, color: String?, sort: String?, widget: Bool?, dashboard: Bool?) {
+    public init(name: String, color: String?, sort: String?, widget: Bool?, dashboard: Bool?, client_request_id: String? = nil) {
         self.name = name
         self.color = color
         self.sort = sort
         self.widget = widget
         self.dashboard = dashboard
+        self.client_request_id = client_request_id
     }
 }
 
@@ -374,11 +378,15 @@ public struct CreateTaskRequest: Encodable, Equatable {
     public let title: String
     /// Personas asignadas (0025). nil = no enviar; [] = ninguna.
     public let person_ids: [Int]?
+    /// Clave de idempotencia (UUID, 0035): el mismo valor reenviado devuelve la tarea ya creada.
+    /// nil = no se envía (comportamiento previo).
+    public let client_request_id: String?
 
-    public init(task_list_id: Int, title: String, person_ids: [Int]? = nil) {
+    public init(task_list_id: Int, title: String, person_ids: [Int]? = nil, client_request_id: String? = nil) {
         self.task_list_id = task_list_id
         self.title = title
         self.person_ids = person_ids
+        self.client_request_id = client_request_id
     }
 }
 

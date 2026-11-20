@@ -29,12 +29,14 @@ public struct InicioView: View {
     @State private var showPastEvents = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    public init(services: AppServices, onOpen: @escaping (InicioDestination) -> Void = { _ in }) {
+    /// `outbox`: cola offline del hogar activo (D-024); nil = solo en línea.
+    public init(services: AppServices, outbox: OutboxStore? = nil, onOpen: @escaping (InicioDestination) -> Void = { _ in }) {
         self.services = services
         self.onOpen = onOpen
         _store = State(initialValue: InicioStore(
             events: services.events, tasks: services.tasks,
-            routines: services.routines, taskLists: services.taskLists
+            routines: services.routines, taskLists: services.taskLists,
+            outbox: outbox
         ))
         _eventStore = State(initialValue: EventStore(repo: services.events))
         _calendarStore = State(initialValue: CalendarStore(repo: services.calendars))
@@ -56,6 +58,14 @@ public struct InicioView: View {
             .homitaHiddenNavigationBar()
             .refreshable { await store.load() }
             .task { await store.load() }
+            .onChange(of: store.outbox?.generation) {
+                // Cola sincronizada (ack): la lista mostrada pasa a su ID real y se recargan las tareas.
+                if let id = taskPageId, let outbox = store.outbox { taskPageId = outbox.resolve(id) }
+                Task {
+                    await store.loadTaskLists()
+                    await store.loadTasks()
+                }
+            }
             .task { await handleDeepLink(DeepLinkCenter.shared.pending) }
             .onChange(of: DeepLinkCenter.shared.pending) { _, link in
                 Task { await handleDeepLink(link) }
@@ -274,6 +284,9 @@ public struct InicioView: View {
                         AssignedPersonsLine(persons: task.persons)
                     }
                     Spacer()
+                    if store.pendingTaskIds.contains(task.id) {
+                        PendingSyncIcon()
+                    }
                 }
             }
             HStack {

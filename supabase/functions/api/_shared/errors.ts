@@ -40,6 +40,8 @@ const RPC_STATUS: Record<string, number> = {
     "Invalid end date": 400,
     "End date cannot be before start date": 400,
     "Routine events cannot have an end date": 400,
+    // 0035 (ios-offline-outbox-tareas): clave de idempotencia reutilizada con otro tipo de alta
+    "Invalid client_request_id": 400,
 };
 
 // Router::error de PHP: InvalidArgumentException → 400; el resto → 500 con el mensaje
@@ -171,6 +173,8 @@ export const errTaskUpdateRequired = (): Response => error("Task ID and title ar
 export const errTaskCompleteRequired = (): Response => error("Task ID and completed are required", 400);
 export const errTaskOrderRequired = (): Response => error("id and position are required", 400);
 export const errTaskOrderNegative = (): Response => error("position must be zero or positive", 400);
+// 0035: client_request_id opcional de los creates de tarea y lista (UUID); mismo mensaje que la RPC
+export const errClientRequestIdInvalid = (): Response => error("Invalid client_request_id", 400);
 
 // feedback (POST /feedback, change control-ios-feedback): ruta nueva sin equivalente PHP.
 export const errFeedbackInvalid = (message: string): Response => error(message, 400);

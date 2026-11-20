@@ -10,12 +10,17 @@ public enum InicioSectionState: Equatable, Sendable {
 
 /// Estado de Inicio (versión mínima): eventos de hoy, tareas pendientes y rutinas de hoy.
 /// Solo usa `event`, `task` y `routine` (nada de `/home/*`). Las rutinas se calculan en cliente.
+///
+/// Offline (D-024): con `outbox`, `tasks` y `taskLists` llevan el overlay de la cola (mismo patrón
+/// que `TasksStore`) y el alta y el completar pasan por `TaskWriteCoordinator`.
+@MainActor
 @Observable
-public final class InicioStore: WriteFailureReporting {
+public final class InicioStore: MainActorWriteFailureReporting {
     public private(set) var events: [EventEntry] = []
-    public private(set) var tasks: [TaskEntry] = []
     public private(set) var routines: [RoutineEntry] = []
-    public private(set) var taskLists: [TaskListEntry] = []
+    /// Última foto del servidor; lo que ve la UI es `tasks`/`taskLists` (con el overlay).
+    private var serverTasks: [TaskEntry] = []
+    private var serverTaskLists: [TaskListEntry] = []
     public private(set) var eventsState: InicioSectionState = .idle
     public private(set) var tasksState: InicioSectionState = .idle
     public private(set) var routinesState: InicioSectionState = .idle
@@ -29,14 +34,50 @@ public final class InicioStore: WriteFailureReporting {
     private let routinesRepo: RoutineRepository
     private let taskListsRepo: TaskListRepository
     private let clock: () -> LocalClock
+    /// Cola offline del hogar (nil = sin offline, comportamiento previo).
+    @ObservationIgnored public let outbox: OutboxStore?
+    @ObservationIgnored private let coordinator: TaskWriteCoordinator?
 
     public init(events: EventRepository, tasks: TaskRepository, routines: RoutineRepository,
-                taskLists: TaskListRepository, clock: @escaping () -> LocalClock = { LocalClock() }) {
+                taskLists: TaskListRepository, clock: @escaping () -> LocalClock = { LocalClock() },
+                outbox: OutboxStore? = nil, isOnline: @escaping @MainActor () -> Bool = { !DataFreshness.shared.isOffline }) {
         self.eventsRepo = events
         self.tasksRepo = tasks
         self.routinesRepo = routines
         self.taskListsRepo = taskLists
         self.clock = clock
+        self.outbox = outbox
+        self.coordinator = outbox.map { TaskWriteCoordinator(outbox: $0, tasks: tasks, taskLists: taskLists, isOnline: isOnline) }
+    }
+
+    // MARK: - Overlay
+
+    private var overlay: OverlayResult {
+        guard let outbox else {
+            return OverlayResult(tasks: serverTasks, lists: serverTaskLists, pendingTaskIds: [], pendingListIds: [])
+        }
+        return PendingOverlay.apply(ops: outbox.ops, idMap: outbox.idMap, tasks: serverTasks, lists: serverTaskLists)
+    }
+
+    public var tasks: [TaskEntry] { overlay.tasks }
+    public var taskLists: [TaskListEntry] { overlay.lists }
+    /// Tareas aún no sincronizadas (icono «Pendiente de sincronizar»).
+    public var pendingTaskIds: Set<Int> { overlay.pendingTaskIds }
+
+    /// Referencia para un ID de la UI (temporal o real).
+    public func ref(for id: Int) -> Ref {
+        outbox?.ref(for: id) ?? Ref(id: id)
+    }
+
+    /// Carga con guard de `generation` (como `TasksStore`): si hubo un ack en vuelo, se vuelve a pedir.
+    private func fetchFresh<T>(_ fetch: () async throws -> T) async throws -> T {
+        var retries = 0
+        while true {
+            let generation = outbox?.generation
+            let result = try await fetch()
+            guard let outbox, outbox.generation != generation, retries < TasksStore.staleReloadRetries else { return result }
+            retries += 1
+        }
     }
 
     /// Eventos de hoy ordenados por hora.
@@ -182,7 +223,7 @@ public final class InicioStore: WriteFailureReporting {
     public func loadTasks() async {
         tasksState = .loading
         do {
-            tasks = try await tasksRepo.index(taskListId: nil)
+            serverTasks = try await fetchFresh { try await tasksRepo.index(taskListId: nil) }
             tasksState = .loaded
         } catch {
             tasksState = .failed(message(error))
@@ -202,16 +243,27 @@ public final class InicioStore: WriteFailureReporting {
 
     /// Completa/reabre una tarea (misma llamada que `TasksStore.toggleComplete`) y recarga tareas.
     public func toggleComplete(_ task: TaskEntry) async {
-        await performWrite { store in
-            _ = try await store.tasksRepo.complete(CompleteTaskRequest(id: task.id, completed: !task.isCompleted))
+        guard let coordinator else {
+            await performWrite { store in
+                _ = try await store.tasksRepo.complete(CompleteTaskRequest(id: task.id, completed: !task.isCompleted))
+            }
+            await loadTasks()
+            return
         }
-        await loadTasks()
+        let op = coordinator.makeOp(.completeTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id), completed: !task.isCompleted))
+        var queued = false
+        await performWrite { store in
+            guard let coordinator = store.coordinator else { return }
+            queued = try await coordinator.perform(op) == .queued
+        }
+        // En la cola ya se ve por el overlay: no hace falta recargar.
+        if !queued { await loadTasks() }
     }
 
     /// Listas para el acceso rápido «+ Tarea» (se cargan al pulsar).
     public func loadTaskLists() async {
         do {
-            taskLists = try await taskListsRepo.index()
+            serverTaskLists = try await fetchFresh { try await taskListsRepo.index() }
         } catch {
             errorMessage = message(error)
         }
@@ -222,11 +274,17 @@ public final class InicioStore: WriteFailureReporting {
     public func createTask(title: String, listId: Int) async -> Bool {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
-        let ok = await performWrite { store in
-            _ = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed))
-            await store.loadTasks()
+        guard let coordinator, let outbox else {
+            return await performWrite { store in
+                _ = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed))
+                await store.loadTasks()
+            }
         }
-        return ok
+        let op = coordinator.makeOp(.createTask(local: outbox.makeLocalId(), listRef: ref(for: listId), title: trimmed, personIds: nil))
+        return await performWrite { store in
+            guard let coordinator = store.coordinator else { return }
+            if case .sent = try await coordinator.perform(op) { await store.loadTasks() }
+        }
     }
 
     private func message(_ error: Error) -> String {

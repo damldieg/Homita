@@ -113,6 +113,7 @@ app; el refresco queda para una fase posterior):
 | `migrations/0032_feedback_schema.sql` | DDL `if not exists` de `public.backlog` y `public.feedback` (RLS + política «insertar mi feedback») para local/CI; no-op en prod, sin trigger. Precede a `0033`/`0034`, que se aplican sobre estas tablas. Ver «Feedback» |
 | `migrations/0033_feedback_trello.sql` | Change `feedback-trello-gate` (D-021, D-023), aditiva: `backlog.trello_card_id`/`trello_card_url` + índice único parcial, `feedback.procesando_desde` (reserva) y RPC `homita_feedback_finalize` (escritura final atómica, upsert del voto con `coalesce(votos, 1) + 1`, solo `service_role`). Se aplica en local, CI y prod (guard defensivo si faltan las tablas). Reversa: `scripts/supabase/rollback/rollback_0033.sql` (pierde los vínculos con Trello) |
 | `migrations/0034_feedback_trigger_secret.sql` | Change `feedback-trello-gate` (D-021, D-023): reemplaza el trigger de `0031` por `homita_feedback_notify` → `homita_feedback_dispatch` (SECURITY DEFINER, EXECUTE revocado a `anon`/`authenticated`/`service_role`), que lee de Vault la URL (`feedback_webhook_url`) y el secreto y encola `net.http_post` con cabecera `x-feedback-secret` y solo el id. El trigger existe en todos los entornos pero es inerte sin URL ni secreto en Vault (local/CI). Reversa: `scripts/supabase/rollback/rollback_0034.sql` (restaura `0031` solo si `feedback_webhook_url` de Vault es exactamente la URL de prod de P5; si falta o tiene otro valor no crea trigger; orden en «Rollback»: con la pausa de Vault hecha, tras redesplegar la antigua; sin pausa, ANTES del redeploy, con la función nueva desplegada. Nunca redeploy de la antigua con 0034 aplicado y el secreto cargado) |
+| `migrations/0035_client_request_idempotency.sql` | Change `ios-offline-outbox-tareas` (D-024): tabla `client_request` y firma nueva de `create_task`/`create_task_list`. Ver «Idempotencia de creates (0035)». Reversa: `scripts/supabase/rollback/rollback_0035.sql` |
 
 ## Edge Function `functions/api/`
 
@@ -441,6 +442,43 @@ existentes; solo añade la clave `end_date` a las respuestas de evento.
 - **Fuera de alcance:** las vistas por día (Agenda/Inicio de iOS, vista semanal y puntos del mes
   del dashboard) siguen mostrando el evento solo en su día de inicio; la app iOS muestra el rango
   («10 nov → 20 nov») en la fila del evento y en el editor.
+
+## Idempotencia de creates (0035, D-024)
+
+Change `ios-offline-outbox-tareas`. La cola offline de Control iOS reintenta los creates de tarea y de
+lista; para que un reintento (por ejemplo tras una respuesta perdida) no duplique el recurso, el
+cliente envía un `client_request_id` (UUID) y el servidor lo deduplica.
+
+- **Tabla `client_request`:** `(app_user_id, client_request_id uuid, kind, resource_id, created_at)`,
+  PK `(app_user_id, client_request_id)`. `kind` es `task` o `task_list`. La clave es por usuario, no por
+  hogar. RLS activada sin policies y sin grants a `anon`/`authenticated`: solo la tocan las RPC
+  `SECURITY DEFINER`. Sin limpieza en la fase 1 (volumen bajo; purga de filas de más de 30 días
+  pendiente).
+- **Firmas nuevas:** `create_task(bigint, text, jsonb, uuid)` y
+  `create_task_list(text, text, text, boolean, boolean, uuid)`, con `p_client_request_id uuid default null`
+  al final. La migración hace `drop` de la firma anterior en la misma transacción para no dejar dos
+  overloads (PostgREST daría error de ambigüedad y se romperían todos los altas, también desde
+  Android). Las llamadas existentes siguen valiendo gracias al default.
+- **Semántica con clave no nula** (siempre después de las guardas del alta original): clave ya usada
+  con el mismo `kind` devuelve el recurso con el mismo JSON y la Edge responde 201 igual que el alta,
+  sin insertar; recurso ya borrado o no visible, `Not Found`; clave usada con otro `kind`,
+  `Invalid client_request_id` (400). Sin clave el comportamiento es idéntico al anterior (Android, Edge
+  antigua).
+- **Rollback:** `scripts/supabase/rollback/rollback_0035.sql` borra las firmas nuevas, restaura las
+  anteriores (`create_task` de 0029, `create_task_list` de 0020) y borra `client_request`. Se pierden
+  solo las claves de idempotencia; los recursos creados se conservan, y tras el rollback un create
+  reintentado podría duplicar. Revertir antes la Edge y después la BD. La fila `0035` de
+  `supabase_migrations.schema_migrations` no se borra.
+- **Orden de despliegue (el merge aplica la migración en prod):** primero la BD (merge, que aplica
+  0035) y verificar; después `supabase functions deploy api`. Si la Edge nueva va antes que 0035, los
+  creates con `client_request_id` fallan por función inexistente. El cliente iOS nuevo es compatible con
+  la Edge y la BD antiguas (la Edge antigua ignora la clave, sin idempotencia). Pre-check, `pg_dump` y
+  verificación en `supabase/DEPLOY_0035.md`.
+- **Tests:**
+  - Edge (sin BD ni red, `fetch` falso): el `deno test` necesita `--allow-env` porque el test fija
+    `SUPABASE_URL` y las claves con `Deno.env.set`:
+    `deno test --no-prompt --allow-env supabase/functions/api/tests/client_request_test.ts`
+  - BD: `scripts/supabase/tests/client_request_check.sql` contra el stack local.
 
 ## Feedback (`POST /feedback`, change control-ios-feedback)
 

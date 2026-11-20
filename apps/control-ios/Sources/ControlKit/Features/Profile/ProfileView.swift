@@ -17,6 +17,8 @@ public struct ProfileView: View {
     @State private var errorMessage: String?
     @State private var isWorking = false
     @State private var showSignOutConfirm = false
+    /// Cambios offline sin sincronizar al pedir cerrar sesión (se perderían, D-024).
+    @State private var signOutPendingCount = 0
     @State private var showNotifications = false
     @AppStorage(AppearancePreference.storageKey) private var appearance = AppearancePreference.system.rawValue
     @Environment(\.colorScheme) private var colorScheme
@@ -33,6 +35,15 @@ public struct ProfileView: View {
             get: { (AppearancePreference(rawValue: appearance) ?? .system).resolvedIsDark(systemDark: colorScheme == .dark) },
             set: { appearance = ($0 ? AppearancePreference.dark : AppearancePreference.light).rawValue }
         )
+    }
+
+    /// Confirmación de cierre de sesión; con cambios pendientes avisa de que se perderán (T29).
+    static func signOutMessage(pendingCount: Int) -> String {
+        switch pendingCount {
+        case 0: return "¿Cerrar sesión en este iPhone?"
+        case 1: return "Tienes 1 cambio sin sincronizar; se perderá. ¿Cerrar sesión en este iPhone?"
+        default: return "Tienes \(pendingCount) cambios sin sincronizar; se perderán. ¿Cerrar sesión en este iPhone?"
+        }
     }
 
     /// Versión corta del bundle (`CFBundleShortVersionString`); «—» si no se puede leer.
@@ -64,6 +75,7 @@ public struct ProfileView: View {
                             .accessibilityIdentifier("ajustes.modo-oscuro")
                     }
                     HomitaButton(title: "Cerrar sesión", kind: .secondary) {
+                        signOutPendingCount = services.session.session.map { OutboxRegistry.shared.pendingCount(userId: $0.id) } ?? 0
                         showSignOutConfirm = true
                     }
                     .accessibilityIdentifier("ajustes.cerrar-sesion")
@@ -85,7 +97,7 @@ public struct ProfileView: View {
             // `homita://ajustes-notificaciones` (widgets desactivados, permiso denegado…).
             .task { openNotificationsIfRequested(DeepLinkCenter.shared.pending) }
             .onChange(of: DeepLinkCenter.shared.pending) { _, link in openNotificationsIfRequested(link) }
-            .homitaConfirm("¿Cerrar sesión en este iPhone?", isPresented: $showSignOutConfirm, confirmTitle: "Cerrar sesión") {
+            .homitaConfirm(Self.signOutMessage(pendingCount: signOutPendingCount), isPresented: $showSignOutConfirm, confirmTitle: "Cerrar sesión") {
                 services.signOut()
             }
             .overlay {

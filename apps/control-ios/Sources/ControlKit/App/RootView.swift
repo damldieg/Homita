@@ -59,6 +59,8 @@ public struct RootView: View {
                 }
             }
             .task(id: session.session?.id) {
+                // Al entrar otra cuenta, fuera las colas offline del usuario anterior (D-024).
+                if let userId = session.session?.id { OutboxRegistry.shared.retainOnly(userId: userId) }
                 await services.homeContext.load(using: services.homes)
             }
             Color.clear
@@ -80,7 +82,11 @@ public struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
-                Task { await HomitaSync.shared.refresh() }
+                Task {
+                    // Primer plano: primero la cola offline del hogar activo, luego avisos y widgets.
+                    await services.replayOutbox()
+                    await HomitaSync.shared.refresh()
+                }
             case .background:
                 #if os(iOS)
                 BackgroundRefresh.schedule()
@@ -109,9 +115,11 @@ struct MainTabView: View {
         // 1.15c: al cambiar de hogar las pestañas se reconstruyen (stores y datos del hogar anterior fuera).
         // Cambiar de hogar o pulsar «Reintentar» (E0-06) recrea las pestañas y recarga sus datos.
         let homeKey = (services.homeContext.activeHomeId ?? "") + "#\(DataFreshness.shared.reloadToken)"
+        // Cola offline del hogar activo (D-024): la comparten Inicio, Tareas y el banner.
+        let outbox = services.activeOutbox
         TabView(selection: $selectedTab) {
             HomeGate(services: services, state: state) {
-                InicioView(services: services) { destination in
+                InicioView(services: services, outbox: outbox) { destination in
                     switch destination {
                     case .tasks: taskListRequest = nil; selectedTab = 1
                     case .taskList(let id): taskListRequest = id; selectedTab = 1
@@ -125,7 +133,7 @@ struct MainTabView: View {
             .tabItem { Label("Inicio", systemImage: "house") }
             .tag(0)
             HomeGate(services: services, state: state) {
-                TasksRootView(services: services, listRequest: $taskListRequest)
+                TasksRootView(services: services, outbox: outbox, listRequest: $taskListRequest)
             }
             .id(homeKey)
             .tabItem { Label("Tareas", systemImage: "checklist") }
@@ -150,10 +158,29 @@ struct MainTabView: View {
         }
         .tint(Palette.accent)
         .safeAreaInset(edge: .top) {
-            HomitaOfflineBanner(freshness: DataFreshness.shared)
+            HomitaOfflineBanner(freshness: DataFreshness.shared, pendingCount: outbox?.pendingCount ?? 0) {
+                Task { await services.replayOutbox() }
+            }
+        }
+        // Avisos de cambios descartados al sincronizar (4xx o «ya no existe»).
+        .writeFailureToast(noticeBinding(outbox))
+        .onChange(of: DataFreshness.shared.isOffline) { _, offline in
+            // Red recuperada: se reproduce la cola del hogar activo.
+            if !offline { Task { await services.replayOutbox() } }
         }
         .onChange(of: deepLinks.pending) { _, link in handle(link) }
         .task { handle(deepLinks.pending) }
+    }
+
+    /// El primer aviso de descarte de la cola como toast sin «Reintentar»; al cerrarlo se olvida.
+    private func noticeBinding(_ outbox: OutboxStore?) -> Binding<WriteFailure?> {
+        Binding(
+            get: { outbox?.notices.first.map { WriteFailure(message: $0.message) } },
+            set: { value in
+                guard value == nil, let outbox, let notice = outbox.notices.first else { return }
+                outbox.dismissNotice(notice.id)
+            }
+        )
     }
 
     /// Lleva a la pestaña del enlace. «Nueva tarea/evento» y «Ajustes › Notificaciones» los termina
