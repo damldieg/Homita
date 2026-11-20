@@ -72,6 +72,34 @@ Límites (sin cuenta de pago ni servidor de push):
 - Sesiones de rutina (solo lectura): lista plana «Próximas sesiones» (10 siguientes) en la pestaña de Rutinas.
 - Feedback: tarjeta «Enviar feedback» al final de Ajustes. Formulario en pantalla aparte: sección y sub-área/acción dependientes (catálogo fijo en `Features/Feedback/FeedbackCatalog.swift`; la acción va dentro de `subseccion`, p. ej. `eventos de hoy: ver`), tipo bug/mejora (radio sin valor por defecto) y texto libre (1..2000). Envía `POST /feedback` (ver `supabase/README.md`, «Feedback»); sin conexión el envío queda bloqueado, sin cola. Requiere desplegar la ruta en la Edge de prod (paso con confirmación del usuario).
 
+## Offline fase 1 (tareas y listas)
+
+Change `ios-offline-outbox-tareas` (D-024). Las escrituras de tareas y listas son online-first: se
+envían al servidor y, si no hay conexión, caen a una cola persistente en disco (por usuario y hogar)
+que se reproduce al volver la red. La pantalla muestra el cambio al instante (estado optimista) y un
+banner indica cuántos cambios están pendientes.
+
+**Sin conexión se puede:**
+
+- Crear, editar, completar/descompletar y borrar tareas.
+- Crear, editar y borrar listas.
+- Las listas y tareas creadas offline reciben un ID temporal; al sincronizar se sustituye por el real.
+- Los creates llevan un `client_request_id` para que un reintento no duplique el recurso (requiere
+  la migración 0035 y la Edge nueva; ver `supabase/README.md`).
+
+**Limitaciones:**
+
+- Una lista creada offline va al hogar predeterminado, igual que en línea (la cola reproduce solo el
+  hogar activo).
+- Un error 5xx persistente del servidor bloquea la cola: no hay descarte automático en esta fase y se
+  ve en el banner. Los errores 4xx descartan la operación y se avisa.
+- Los widgets y `HomitaSync` no muestran cambios pendientes: enseñan lo último confirmado por el
+  servidor.
+- Tras sincronizar, la fila puede tardar en reaparecer o mostrar un instante el estado previo hasta
+  la siguiente recarga correcta.
+- Reordenar tareas requiere conexión.
+- Al cerrar sesión se borran los cambios pendientes (se pide confirmación si los hay).
+
 ## Límites de v1 (lo que NO hace)
 
 - **Avisos solo locales:** el iPhone avisa con notificaciones locales (ver «Notificaciones, widgets y pantalla de bloqueo»); no hay push remoto (APNs).
