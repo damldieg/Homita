@@ -143,7 +143,6 @@ export const buildGateRequest = (row: FeedbackRow, cards: TrelloCard[], model: s
         body: {
             model,
             max_tokens: 512,
-            temperature: 0,
             system: SYSTEM_PROMPT,
             tools: TOOLS,
             tool_choice: { type: "any", disable_parallel_tool_use: true },
@@ -160,9 +159,18 @@ const oneLine = (s: string, max = MAX_TITLE): string =>
 /** Título a una línea, ≤ 120. */
 export const sanitizeTitle = (s: string): string => oneLine(s, MAX_TITLE);
 
+/** `http <status>` y, si la API devolvió `error.type`/`error.message` (strings), `: tipo: mensaje` en una línea, ≤ 200. */
+const httpDetail = (status: number, res: unknown): string => {
+    const err = (res as { error?: unknown } | null)?.error;
+    const e = (err && typeof err === "object") ? err as { type?: unknown; message?: unknown } : null;
+    if (!e || typeof e.type !== "string" || typeof e.message !== "string") return `http ${status}`;
+    const detalle = truncate(`${e.type}: ${e.message}`.replace(/\s+/g, " ").trim(), 200);
+    return `http ${status}: ${detalle}`;
+};
+
 /** Valida la respuesta del modelo. Lanza GateError si no es exactamente una decisión válida. */
 export const parseDecision = (status: number, res: unknown, sentIds: Set<string>): Decision => {
-    if (status < 200 || status > 299) throw new GateError(`http ${status}`);
+    if (status < 200 || status > 299) throw new GateError(httpDetail(status, res));
     const content = (res as { content?: unknown })?.content;
     if (!Array.isArray(content)) throw new GateError("sin content");
     const uses = content.filter((b) => b && typeof b === "object" && (b as { type?: unknown }).type === "tool_use");
