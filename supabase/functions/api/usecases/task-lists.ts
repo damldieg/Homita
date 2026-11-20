@@ -7,6 +7,7 @@ import {
 } from "../_shared/errors.ts";
 import { rpc, selectRows } from "../_shared/supabase.ts";
 import { currentHome } from "../_shared/home.ts";
+import { clientRequestIdOf } from "../_shared/validate.ts";
 
 const SORTS = ["updated_at", "title", "custom"];
 const TL_COLS = "id,name,color,token,sort,created_at,updated_at,home_id";
@@ -44,13 +45,18 @@ export const handleTaskListCreate = async (req: Request, token: string): Promise
     const dashboard = inputBool(input, "dashboard", true);
     if (contractEmpty(name)) return errTaskListCreateRequired();
     if (!SORTS.includes(sort as string)) return errTaskListSort();
-    return rpcPass(await rpc("create_task_list", {
+    // client_request_id opcional (0035): idempotencia del alta; el replay responde también 201.
+    const clientRequestId = clientRequestIdOf(input);
+    if (clientRequestId instanceof Response) return clientRequestId;
+    const args: Record<string, unknown> = {
         p_name: name,
         p_color: contractEmpty(color) ? "#6923E2" : color,
         p_sort: sort,
         p_widget: widget,
         p_dashboard: dashboard,
-    }, token), 201);
+    };
+    if (clientRequestId !== undefined) args.p_client_request_id = clientRequestId;
+    return rpcPass(await rpc("create_task_list", args, token), 201);
 };
 
 // PATCH /task-list/update (TaskListUpdate.php): name/color/sort compartidos → owner (403 si

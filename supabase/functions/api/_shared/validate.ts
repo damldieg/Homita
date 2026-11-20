@@ -2,7 +2,7 @@
 // personIdsOf, que consulta get_persons para la visibilidad (Person::validateIds).
 import { getInput, type ContractInput } from "./contract.ts";
 import {
-    errAlarmInvalid, errEventEndDate, errFeedbackInvalid, errEventEndDateRange, errPersonIdsIds, errPersonIdsList, errPersonInvalid,
+    errAlarmInvalid, errClientRequestIdInvalid, errEventEndDate, errFeedbackInvalid, errEventEndDateRange, errPersonIdsIds, errPersonIdsList, errPersonInvalid,
     errRoutineActive, errRoutineDate, errRoutineDateRange, errRoutineDaysRange, errRoutineDaysRequired,
     errRoutineFrequency, errRoutineInterval, errRoutineTime, errRoutineTitleRequired,
 } from "./errors.ts";
@@ -11,6 +11,18 @@ import { rpc } from "./supabase.ts";
 const FREQUENCIES = ["daily", "weekly", "monthly"];
 const TIME_RE = /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// client_request_id opcional de task/create y task-list/create (0035, D-024): ausente o null →
+// undefined (la clave p_client_request_id no se envía a la RPC: Android y la BD sin 0035 siguen
+// igual); presente → string UUID o 400 'Invalid client_request_id' sin llamar a la RPC.
+export const clientRequestIdOf = (input: ContractInput): string | undefined | Response => {
+    const v = getInput(input, "client_request_id");
+    if (v === null) return undefined;
+    if (typeof v !== "string" || !UUID_RE.test(v)) return errClientRequestIdInvalid();
+    return v.toLowerCase();
+};
 
 const isList = (v: unknown): v is unknown[] => Array.isArray(v) && v.every((_, i) => i in v);
 

@@ -10,6 +10,7 @@
 #   3. `scripts/demo.sh up`: db reset (migraciones) + `functions serve api` + seed. Es el único reset.
 #   4. Deno: `deno check` y `deno test` de procesar-feedback (mocks, sin red ni permisos).
 #   5. SQL (invitaciones_check, home_checks_compat, acl_can_edit_check, permisos_matriz_check,
+#      client_request_check C1-C9 (0035),
 #      feedback_trello_check B1-B8 (0033) y feedback_trigger_check F1-F12 (0031/0034); trigger inerte en
 #      local: sin feedback_webhook_url en Vault no se encola ninguna petición),
 #      contract_check.py y cross_tenant_check.py.
@@ -142,6 +143,10 @@ run "SQL permisos_matriz_check" sql-permisos-matriz sql "$HERE/scripts/supabase/
 m_pat=("ok M1([^0-9a-z]|\$)" "ok M1b([^0-9a-z]|\$)" "ok M8b([^0-9a-z]|\$)"); for i in $(seq 2 27); do m_pat+=("ok M$i([^0-9a-z]|\$)"); done
 expect_log "SQL permisos_matriz_check" sql-permisos-matriz "${m_pat[@]}"
 
+run "SQL client_request_check" sql-client-request sql "$HERE/scripts/supabase/tests/client_request_check.sql"
+c_pat=(); for i in $(seq 1 9); do c_pat+=("ok C$i([^0-9a-z]|\$)"); done
+expect_log "SQL client_request_check" sql-client-request "${c_pat[@]}"
+
 # Checks de feedback: psql corre dentro del contenedor y no ve el host, así que se expanden los marcadores
 # `-- @MIGRATION:<fichero>@` (supabase/migrations/<fichero>) y `-- @ROLLBACK:<fichero>@`
 # (scripts/supabase/rollback/<fichero>) y el resultado va por stdin. Un marcador desconocido o un
@@ -190,4 +195,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (deno check/test procesar-feedback, SQL incl. feedback B1-B8 y F1-F12, contract_check 502/502, cross_tenant ${expected}/${expected})"
+echo "ci.sh: todo ok (deno check/test procesar-feedback, SQL incl. client_request C1-C9 y feedback B1-B8 y F1-F12, contract_check 502/502, cross_tenant ${expected}/${expected})"
