@@ -51,15 +51,15 @@ public struct ReplaySummary: Equatable, Sendable {
     public var stop: Stop = .drained
 }
 
-/// Reproduce la cola de un hogar en orden FIFO (D-024). Vuelo único por cola: una segunda llamada
-/// mientras hay otra en curso espera a la misma pasada. Para en el primer error de red o 5xx (la op
+/// Reproduce la cola de un hogar en orden FIFO (D-024). Vuelo único por cola: la pasada en curso se
+/// guarda en la propia `OutboxStore` (no en el replayer), así que una segunda llamada mientras hay otra
+/// en curso espera a la misma pasada aunque venga de otro replayer (UI y `BackgroundRefresh`, R1-02). Para en el primer error de red o 5xx (la op
 /// y el resto se conservan, Q11) y en una sesión caducada (se conserva todo, R1); los 4xx descartan
 /// la op con sus dependientes y dejan un aviso. Se cancela de forma cooperativa entre ops.
 @MainActor
 public final class OutboxReplayer {
     private let sender: OutboxSender
     private let isOnline: @MainActor () -> Bool
-    private var running: [ObjectIdentifier: Task<ReplaySummary, Never>] = [:]
 
     public init(tasks: TaskRepository, taskLists: TaskListRepository,
                 isOnline: @escaping @MainActor () -> Bool = { !DataFreshness.shared.isOffline }) {
@@ -96,23 +96,23 @@ public final class OutboxReplayer {
         }
     }
 
-    /// Reproduce la cola. Si ya hay una pasada en curso para esta cola, espera a esa.
+    /// Reproduce la cola. Si ya hay una pasada en curso para esta cola (de este u otro replayer),
+    /// espera a esa.
     @discardableResult
     public func replay(_ outbox: OutboxStore) async -> ReplaySummary {
-        let key = ObjectIdentifier(outbox)
         let task: Task<ReplaySummary, Never>
-        if let current = running[key] {
+        if let current = outbox.replayTask {
             task = current
         } else {
             task = Task { await self.drain(outbox) }
-            running[key] = task
+            outbox.replayTask = task
         }
         let summary = await withTaskCancellationHandler {
             await task.value
         } onCancel: {
             task.cancel()
         }
-        if running[key] == task { running[key] = nil }
+        if outbox.replayTask == task { outbox.replayTask = nil }
         return summary
     }
 

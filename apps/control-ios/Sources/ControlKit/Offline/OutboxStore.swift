@@ -41,6 +41,9 @@ public final class OutboxStore {
     public private(set) var inFlightId: UUID?
 
     @ObservationIgnored public let fileURL: URL
+    /// Pasada del replayer en curso sobre esta cola. Vive aquí y no en `OutboxReplayer` para que el
+    /// vuelo único valga entre replayers distintos sobre la misma store (R1-02).
+    @ObservationIgnored var replayTask: Task<ReplaySummary, Never>?
 
     /// Forma persistida.
     struct Snapshot: Codable {

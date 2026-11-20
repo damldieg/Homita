@@ -112,6 +112,37 @@ final class OutboxReplayerTests: XCTestCase {
         XCTAssertEqual(results[0], results[1])
     }
 
+    /// R1-02: la UI y `BackgroundRefresh` tienen replayers distintos sobre la misma `OutboxStore`. El
+    /// vuelo único es por store: cada op sale una vez y en orden, también la encolada durante el vuelo.
+    func testTwoReplayersOnSameStoreSendEachOpOnceInOrder() async {
+        let overrides = [
+            "task/update": StubURLProtocol.Stub(json: ContractFixtures.task, delay: 0.1),
+            "task/complete": StubURLProtocol.Stub(json: ContractFixtures.task, delay: 0.1)
+        ]
+        let first = makeReplayer(overrides)
+        let client = makeTestClient()
+        let second = OutboxReplayer(tasks: TaskRepository(client: client), taskLists: TaskListRepository(client: client), isOnline: { true })
+        let outbox = makeOutbox([
+            .updateTask(ref: .remote(9), listRef: .remote(2), title: "A", personIds: nil),
+            .completeTask(ref: .remote(7), listRef: .remote(2), completed: true)
+        ])
+
+        let pass1 = Task { await first.replay(outbox) }
+        while outbox.inFlightId == nil { await Task.yield() }
+        // Llega durante el vuelo de «A»: va al final, no se funde con la op en vuelo.
+        outbox.enqueue(PendingOp(homeId: "2", kind: .updateTask(ref: .remote(9), listRef: .remote(2), title: "B", personIds: nil)))
+        let pass2 = Task { await second.replay(outbox) }
+        let results = await [pass1.value, pass2.value]
+
+        XCTAssertEqual(routes, ["task/update", "task/complete", "task/update"], "cada op se envía una sola vez")
+        let titles = StubURLProtocol.requests.filter { Self.route($0) == "task/update" }.map { body($0)["title"] as? String }
+        XCTAssertEqual(titles, ["A", "B"], "el último cambio del usuario llega el último")
+        XCTAssertEqual(results[0], results[1], "el segundo replayer espera a la misma pasada")
+        XCTAssertEqual(results[0], ReplaySummary(acked: 3, discarded: 0, stop: .drained))
+        XCTAssertTrue(outbox.isEmpty)
+        XCTAssertNil(outbox.replayTask)
+    }
+
     func testOfflineDoesNotSend() async {
         let replayer = makeReplayer(isOnline: { false })
         let outbox = makeOutbox([.completeTask(ref: .remote(7), listRef: .remote(2), completed: true)])

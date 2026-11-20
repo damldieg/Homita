@@ -25,6 +25,16 @@ final class TaskListEditorFieldsTests: XCTestCase {
         XCTAssertTrue(TaskListEditorFields.ownerFieldsEnabled(isEditing: true, isLocalList: true, isOnline: false, isOwner: nil))
     }
 
+    /// R1-03: «Eliminar lista» sin red solo para el propietario (o una lista creada offline).
+    func testDeleteEnabled() {
+        XCTAssertTrue(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: true, isOwner: false), "con red decide el servidor")
+        XCTAssertTrue(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: true, isOwner: nil))
+        XCTAssertTrue(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: false, isOwner: true))
+        XCTAssertFalse(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: false, isOwner: false), "no propietario sin red")
+        XCTAssertFalse(TaskListEditorFields.deleteEnabled(isLocalList: false, isOnline: false, isOwner: nil), "miembros desconocidos sin red")
+        XCTAssertTrue(TaskListEditorFields.deleteEnabled(isLocalList: true, isOnline: false, isOwner: nil), "lista creada offline")
+    }
+
     func testSignOutMessage() {
         XCTAssertEqual(ProfileView.signOutMessage(pendingCount: 0), "¿Cerrar sesión en este iPhone?")
         XCTAssertEqual(ProfileView.signOutMessage(pendingCount: 1),

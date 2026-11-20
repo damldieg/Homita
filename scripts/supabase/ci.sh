@@ -14,6 +14,9 @@
 #      feedback_trello_check B1-B8 (0033) y feedback_trigger_check F1-F12 (0031/0034); trigger inerte en
 #      local: sin feedback_webhook_url en Vault no se encola ninguna petición),
 #      contract_check.py y cross_tenant_check.py.
+#   6. Ida y vuelta 0035 → rollback_0035.sql → 0035: client_request_rollback_check RB1-RB4, después
+#      home_checks_compat, acl_can_edit_check, permisos_matriz_check y contract_check sobre el esquema
+#      revertido, y client_request_reapply_check RA1-RA2 más client_request_check C1-C9 otra vez.
 #      Se ejecutan todas aunque una falle; el exit final es != 0 si alguna falló.
 #
 # Nunca usa ~/.homita/supabase.env ni secretos: las claves son las del stack local
@@ -188,6 +191,32 @@ expected="$(sed -n 's/^EXPECTED_CASES = \([0-9]*\).*/\1/p' "$HERE/scripts/supaba
 [ -n "$expected" ] || FAILED+=("cross_tenant_check.py (sin EXPECTED_CASES)")
 expect_log "cross_tenant_check.py" cross-tenant "^${expected}/${expected} casos ok"
 
+# Ida y vuelta 0035 → rollback_0035.sql → 0035 (R1-01): el rollback se confirma de verdad, se repasan los
+# checks que tocan create_task/create_task_list sobre el esquema revertido y se vuelve a aplicar 0035
+# con C1-C9 otra vez. Si el rollback falla no se sigue (los checks no dirían nada del esquema revertido).
+run "SQL client_request_rollback_check" sql-rb0035 sql_expanded "$HERE/scripts/supabase/tests/client_request_rollback_check.sql"
+rb_ok=1
+for i in 1 2 3 4; do grep -Eq "ok RB$i([^0-9]|\$)" "$OUT/sql-rb0035.log" || rb_ok=0; done
+expect_log "SQL client_request_rollback_check" sql-rb0035 'ok RB1([^0-9]|$)' 'ok RB2([^0-9]|$)' 'ok RB3([^0-9]|$)' 'ok RB4([^0-9]|$)'
+if [ "$rb_ok" = 1 ]; then
+    sleep 1 # notify pgrst del rollback: PostgREST recarga el esquema antes de contract_check
+    run "SQL home_checks_compat (tras rollback_0035)" sql-rb0035-compat sql "$HERE/scripts/supabase/tests/home_checks_compat.sql"
+    expect_log "SQL home_checks_compat (tras rollback_0035)" sql-rb0035-compat "${v_pat[@]}"
+    run "SQL acl_can_edit_check (tras rollback_0035)" sql-rb0035-acl sql "$HERE/scripts/supabase/tests/acl_can_edit_check.sql"
+    expect_log "SQL acl_can_edit_check (tras rollback_0035)" sql-rb0035-acl "${k_pat[@]}"
+    run "SQL permisos_matriz_check (tras rollback_0035)" sql-rb0035-matriz sql "$HERE/scripts/supabase/tests/permisos_matriz_check.sql"
+    expect_log "SQL permisos_matriz_check (tras rollback_0035)" sql-rb0035-matriz "${m_pat[@]}"
+    run "contract_check.py (tras rollback_0035)" sql-rb0035-contract python3 "$HERE/scripts/supabase/contract_check.py"
+    expect_log "contract_check.py (tras rollback_0035)" sql-rb0035-contract '^502/502 casos ok'
+
+    run "SQL client_request_reapply_check" sql-ra0035 sql_expanded "$HERE/scripts/supabase/tests/client_request_reapply_check.sql"
+    expect_log "SQL client_request_reapply_check" sql-ra0035 'ok RA1([^0-9]|$)' 'ok RA2([^0-9]|$)'
+    run "SQL client_request_check (tras reaplicar 0035)" sql-ra0035-cr sql "$HERE/scripts/supabase/tests/client_request_check.sql"
+    expect_log "SQL client_request_check (tras reaplicar 0035)" sql-ra0035-cr "${c_pat[@]}"
+else
+    FAILED+=("ida y vuelta 0035 (rollback_0035 no quedó en verde; no se reaplica 0035: la BD local queda a medias, repetir ci.sh)")
+fi
+
 if [ "${#FAILED[@]}" -gt 0 ]; then
     echo
     echo "FALLARON ${#FAILED[@]} paso(s):"
@@ -195,4 +224,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (deno check/test procesar-feedback, SQL incl. client_request C1-C9 y feedback B1-B8 y F1-F12, contract_check 502/502, cross_tenant ${expected}/${expected})"
+echo "ci.sh: todo ok (deno check/test procesar-feedback, SQL incl. client_request C1-C9 y feedback B1-B8 y F1-F12, contract_check 502/502, cross_tenant ${expected}/${expected}; ida y vuelta 0035 → rollback → 0035 con RB1-RB4, RA1-RA2 y C1-C9)"
