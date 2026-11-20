@@ -70,7 +70,7 @@ Límites (sin cuenta de pago ni servidor de push):
 - Rutinas: daily / weekly (cada N semanas, días ISO) / monthly (cada N meses), inicio/fin, activa/pausa, personas. Sesiones individuales solo lectura.
 - Personas: CRUD; las compartidas, solo lectura.
 - Sesiones de rutina (solo lectura): lista plana «Próximas sesiones» (10 siguientes) en la pestaña de Rutinas.
-- Feedback: tarjeta «Enviar feedback» al final de Ajustes. Formulario en pantalla aparte: sección y sub-área/acción dependientes (catálogo fijo en `Features/Feedback/FeedbackCatalog.swift`; la acción va dentro de `subseccion`, p. ej. `eventos de hoy: ver`), tipo bug/mejora (radio sin valor por defecto) y texto libre (1..2000). Envía `POST /feedback` (ver `supabase/README.md`, «Feedback»); sin conexión el envío queda bloqueado, sin cola. Requiere desplegar la ruta en la Edge de prod (paso con confirmación del usuario).
+- Feedback: tarjeta «Enviar feedback» al final de Ajustes. Formulario en pantalla aparte: sección, pantalla y acción dependientes (catálogo fijo sección › pantalla › acción en `Features/Feedback/FeedbackCatalog.swift`, igual al fixture compartido `supabase/functions/api/tests/fixtures/feedback_catalog.json` que comprueba `FeedbackTests`; el valor enviado es el nombre visible y la acción va dentro de `subseccion`, p. ej. `Tareas pendientes: Ver más`), tipo bug/mejora (radio sin valor por defecto) y texto libre (1..2000). Envía `POST /feedback` (ver `supabase/README.md`, «Feedback»); sin conexión el envío queda bloqueado, sin cola. Requiere desplegar la ruta en la Edge de prod (paso con confirmación del usuario).
 
 ## Límites de v1 (lo que NO hace)
 

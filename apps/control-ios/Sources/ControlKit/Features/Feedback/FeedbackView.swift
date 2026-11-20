@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Formulario de feedback (bug o mejora) desde Ajustes: sección, sub-área y acción dependientes,
+/// Formulario de feedback (bug o mejora) desde Ajustes: sección, pantalla y acción dependientes,
 /// tipo (radio, sin valor por defecto) y texto libre. Sin conexión el envío queda bloqueado.
 struct FeedbackView: View {
     @State private var store: FeedbackStore
@@ -25,16 +25,16 @@ struct FeedbackView: View {
                     }
                 }
                 if store.draft.section != nil {
-                    selectorRow(title: "Sub-área", value: store.draft.areaName, identifier: "feedback.subarea") {
-                        ForEach(store.areas, id: \.self) { area in
-                            Button(area.name.capitalizedFirst) { store.selectArea(area) }
+                    selectorRow(title: "Pantalla", value: store.draft.screenName, identifier: "feedback.pantalla") {
+                        ForEach(store.screens, id: \.self) { screen in
+                            Button(screen.name) { store.selectScreen(screen) }
                         }
                     }
                 }
-                if store.draft.area != nil {
-                    selectorRow(title: "Acción", value: store.draft.action?.title, identifier: "feedback.accion") {
+                if store.draft.screen != nil {
+                    selectorRow(title: "Acción", value: store.draft.action, identifier: "feedback.accion") {
                         ForEach(store.actions, id: \.self) { action in
-                            Button(action.title) { store.selectAction(action) }
+                            Button(action) { store.selectAction(action) }
                         }
                     }
                 }
@@ -83,7 +83,7 @@ struct FeedbackView: View {
                 items()
             } label: {
                 HStack(spacing: 4) {
-                    Text(value?.capitalizedFirst ?? "Elegir")
+                    Text(value ?? "Elegir")
                     Image(systemName: "chevron.up.chevron.down").font(.caption2)
                 }
                 .font(HomitaFont.inter(15, weight: .medium, relativeTo: .subheadline))
@@ -92,9 +92,4 @@ struct FeedbackView: View {
             .accessibilityIdentifier(identifier)
         }
     }
-}
-
-private extension String {
-    /// Primera letra en mayúscula (las sub-áreas del catálogo van en minúscula).
-    var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
 }

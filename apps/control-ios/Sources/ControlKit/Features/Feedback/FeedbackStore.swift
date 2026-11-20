@@ -22,33 +22,34 @@ public final class FeedbackStore {
 
     public var sections: [FeedbackSection] { FeedbackCatalog.sections }
 
-    /// Sub-áreas de la sección elegida (vacío sin sección).
-    public var areas: [FeedbackArea] { draft.section?.areas ?? [] }
+    /// Pantallas de la sección elegida (vacío sin sección).
+    public var screens: [FeedbackScreen] { draft.section?.screens ?? [] }
 
-    /// Acciones de la sub-área elegida (vacío sin sub-área).
-    public var actions: [FeedbackAction] { draft.area?.actions ?? [] }
+    /// Acciones de la pantalla elegida (vacío sin pantalla).
+    public var actions: [String] { draft.screen?.actions ?? [] }
 
     public var text: String {
         get { draft.text }
         set { draft.text = FeedbackDraft.clamped(newValue) }
     }
 
-    /// Cambiar de sección reinicia sub-área y acción.
+    /// Cambiar de sección reinicia pantalla y acción.
     public func selectSection(_ section: FeedbackSection) {
         guard draft.section != section else { return }
         draft.section = section
-        draft.areaName = nil
+        draft.screenName = nil
         draft.action = nil
     }
 
-    /// Cambiar de sub-área reinicia la acción; si la sub-área solo admite una, se elige sola.
-    public func selectArea(_ area: FeedbackArea) {
-        guard draft.areaName != area.name else { return }
-        draft.areaName = area.name
-        draft.action = area.actions.count == 1 ? area.actions[0] : nil
+    /// Cambiar de pantalla reinicia la acción; si la pantalla solo admite una, se elige sola.
+    public func selectScreen(_ screen: FeedbackScreen) {
+        guard draft.screenName != screen.name else { return }
+        draft.screenName = screen.name
+        draft.action = screen.actions.count == 1 ? screen.actions[0] : nil
     }
 
-    public func selectAction(_ action: FeedbackAction) {
+    /// Ignora acciones que no son de la pantalla elegida.
+    public func selectAction(_ action: String) {
         guard actions.contains(action) else { return }
         draft.action = action
     }

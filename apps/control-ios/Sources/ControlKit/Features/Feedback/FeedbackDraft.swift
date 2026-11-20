@@ -22,16 +22,19 @@ public struct FeedbackDraft: Equatable, Sendable {
     /// (`FEEDBACK_TEXTO_MAX`, `String.length` de JS); un emoji cuenta 2 en ambos lados.
     public static let maxLength = 2000
 
+    /// Largo máximo de `subseccion` en UTF-16 code units (`FEEDBACK_SUBSECCION_MAX` de la Edge).
+    public static let subseccionMaxLength = 100
+
     public var section: FeedbackSection?
-    public var areaName: String?
-    public var action: FeedbackAction?
+    public var screenName: String?
+    public var action: String?
     public var kind: FeedbackKind?
     public var text: String
 
-    public init(section: FeedbackSection? = nil, areaName: String? = nil, action: FeedbackAction? = nil,
+    public init(section: FeedbackSection? = nil, screenName: String? = nil, action: String? = nil,
                 kind: FeedbackKind? = nil, text: String = "") {
         self.section = section
-        self.areaName = areaName
+        self.screenName = screenName
         self.action = action
         self.kind = kind
         self.text = text
@@ -57,21 +60,22 @@ public struct FeedbackDraft: Equatable, Sendable {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    public var area: FeedbackArea? {
-        guard let section, let areaName else { return nil }
-        return section.area(named: areaName)
+    public var screen: FeedbackScreen? {
+        guard let section, let screenName else { return nil }
+        return section.screen(named: screenName)
     }
 
-    /// `"<sub-área>: <acción>"` (D2); `nil` si falta alguna de las dos.
+    /// `"<pantalla>: <acción>"` (D2); `nil` si falta alguna de las dos o la acción no es de la pantalla.
     public var subseccion: String? {
-        guard let area, let action, area.actions.contains(action) else { return nil }
-        return "\(area.name): \(action.rawValue)"
+        guard let screen, let action, screen.actions.contains(action) else { return nil }
+        return "\(screen.name): \(action)"
     }
 
-    /// Texto no vacío (tras recortar), sección, sub-área y acción elegidas y tipo elegido.
+    /// Texto no vacío (tras recortar), sección, pantalla y acción elegidas (subseccion <= 100) y tipo elegido.
     public var isValid: Bool {
-        !trimmedText.isEmpty && Self.length(of: trimmedText) <= Self.maxLength
-            && section != nil && subseccion != nil && kind != nil
+        guard let subseccion else { return false }
+        return !trimmedText.isEmpty && Self.length(of: trimmedText) <= Self.maxLength
+            && section != nil && subseccion.utf16.count <= Self.subseccionMaxLength && kind != nil
     }
 
     public var request: FeedbackRequest? {

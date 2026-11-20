@@ -448,9 +448,24 @@ Ruta **aditiva** (D-008): fuera de las 43 rutas legacy y de `EXPECTED_CASES`. La
 desde Ajustes («Enviar feedback») para reportar un bug o proponer una mejora.
 
 - **Request:** `POST /feedback` con Bearer (cualquier miembro autenticado; sin `X-Home-Id`) y body JSON
-  `{"seccion","subseccion","tipo","texto"}`. `seccion` ∈ Inicio, Tareas, Calendario, Hogar, Ajustes;
-  `tipo` ∈ `bug`, `mejora`; `texto` 1..2000 caracteres tras recortar; `subseccion` opcional con formato
-  `"<sub-área>: <acción>"` (acción ∈ ver, crear, editar, eliminar; máx. 100). El cliente no envía `user_id`.
+  `{"seccion","subseccion","tipo","texto"}`. `seccion` ∈ Inicio, Tareas, Calendario, Hogar, Ajustes, Acceso,
+  General / otro; `tipo` ∈ `bug`, `mejora`; `texto` 1..2000 caracteres tras recortar; `subseccion` opcional con
+  formato `"<pantalla>: <acción>"` (máx. 100 unidades UTF-16). El cliente no envía `user_id`.
+- **Catálogo (change feedback-selectores-arquitectura):** sección › pantalla › acción, en
+  `FEEDBACK_CATALOG` (`_shared/validate.ts`). El valor enviado es el nombre visible en la app (con
+  mayúsculas). La Edge parte `subseccion` por el **último** `": "` y exige que la pantalla sea de la sección y
+  la acción de esa pantalla (admite espacios, `/` y paréntesis: `Lectura`, `Edición`); por eso ningún nombre contiene
+  `": "`. Una pantalla alcanzable desde varios sitios lleva el camino desde la raíz de la sección con ` › `
+  (`Detalle de lista › Editar tarea`). Alta y edición son pantallas separadas (`Nueva tarea` / `Editar tarea`) y la acción de guardar usa el texto del botón en cada modo; lo que no tiene texto visible (gestos, iconos, pantallas sin título) lleva un nombre descriptivo convencional. «Acceso» agrupa las pantallas fuera de las pestañas y «General /
+  otro» las pantallas sin acciones propias (acción única `General`).
+- **Compat transitoria (catálogo 2026-11-19):** la Edge acepta además los pares viejos (sub-área en minúscula de
+  la sección + `ver|crear|editar|eliminar`; `resumen del día` solo `ver`) para apps instaladas. Se retira en un
+  cambio posterior. Registros viejos de `feedback`/`backlog` no se tocan.
+- **Fixture y sincronía:** `functions/api/tests/fixtures/feedback_catalog.json` es la referencia única. El
+  catálogo de la Edge y `FeedbackCatalog.swift` se mantienen a mano y sus tests comparan igualdad exacta contra el
+  fixture (`deno test --no-prompt --allow-env functions/api/tests/feedback_test.ts` y
+  `swift test --filter FeedbackTests` en `apps/control-ios`). Al cambiar la app: editar fixture, Edge y
+  cliente en el mismo cambio; desplegar la Edge antes de distribuir la app.
 - **Respuesta:** `201 {"ok":true}`. Errores: `400` validación (`{"error":"Invalid tipo"}`…), `401` sin
   token, `403 {"error":"Feedback not allowed"}` si la RLS rechaza. *Desviación del plan:* no devuelve el `id`, porque la tabla solo
   tiene política de INSERT (como en prod) y `RETURNING` exige SELECT; el insert va con `return=minimal`.
