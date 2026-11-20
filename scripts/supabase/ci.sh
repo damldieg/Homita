@@ -10,7 +10,8 @@
 #   3. `scripts/demo.sh up`: db reset (migraciones) + `functions serve api` + seed. Es el único reset.
 #   4. Deno: `deno check` y `deno test` de procesar-feedback (mocks, sin red ni permisos).
 #   5. SQL (invitaciones_check, home_checks_compat, acl_can_edit_check, permisos_matriz_check,
-#      feedback_trello_check B1-B8, feedback_trigger_check F1-F11),
+#      feedback_trello_check B1-B8 (0033) y feedback_trigger_check F1-F12 (0031/0034); trigger inerte en
+#      local: sin feedback_webhook_url en Vault no se encola ninguna petición),
 #      contract_check.py y cross_tenant_check.py.
 #      Se ejecutan todas aunque una falle; el exit final es != 0 si alguna falló.
 #
@@ -170,7 +171,7 @@ b_pat=(); for i in $(seq 1 8); do b_pat+=("ok B$i([^0-9a-z]|\$)"); done
 expect_log "SQL feedback_trello_check" sql-feedback-trello "${b_pat[@]}"
 
 run "SQL feedback_trigger_check" sql-feedback-trigger sql_expanded "$HERE/scripts/supabase/tests/feedback_trigger_check.sql"
-f_pat=(); for i in $(seq 1 11); do f_pat+=("ok F$i([^0-9a-z]|\$)"); done
+f_pat=(); for i in $(seq 1 12); do f_pat+=("ok F$i([^0-9a-z]|\$)"); done
 expect_log "SQL feedback_trigger_check" sql-feedback-trigger "${f_pat[@]}"
 
 run "contract_check.py" contract python3 "$HERE/scripts/supabase/contract_check.py"
@@ -189,4 +190,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (deno check/test procesar-feedback, SQL incl. feedback B1-B8 y F1-F11, contract_check 502/502, cross_tenant ${expected}/${expected})"
+echo "ci.sh: todo ok (deno check/test procesar-feedback, SQL incl. feedback B1-B8 y F1-F12, contract_check 502/502, cross_tenant ${expected}/${expected})"

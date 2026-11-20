@@ -417,7 +417,7 @@ enabled = true
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
 
-# Edge Function procesar-feedback (la dispara el trigger de 0033 en prod).
+# Edge Function procesar-feedback (la dispara el trigger de 0034 en prod; inerte en local sin URL en Vault).
 # verify_jwt = false como en prod: la auth es el secreto compartido x-feedback-secret
 # (FEEDBACK_WEBHOOK_SECRET / Vault feedback_webhook_secret); deploy con --no-verify-jwt. Ver supabase/README.md.
 [functions.procesar-feedback]

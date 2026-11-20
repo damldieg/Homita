@@ -1,4 +1,4 @@
-// procesar-feedback — Edge Function que dispara el trigger de feedback (0033: homita_feedback_notify →
+// procesar-feedback — Edge Function que dispara el trigger de feedback (0034: homita_feedback_notify →
 // homita_feedback_dispatch). Solo cableado: la lógica está en handler.ts (change feedback-trello-gate).
 // Se despliega con --no-verify-jwt: la auth es el secreto compartido x-feedback-secret.
 import { createClient } from "npm:@supabase/supabase-js@2";

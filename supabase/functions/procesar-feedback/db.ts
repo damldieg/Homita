@@ -1,7 +1,7 @@
 // db.ts — Acceso a BD de procesar-feedback (change feedback-trello-gate). La interfaz `FeedbackDb` la usa
 // handler.ts (los tests la sustituyen por un falso); el adaptador supabase-js no tiene lógica: cada
 // método es una sola llamada y comprueba `error`. La lógica de la escritura final vive en la RPC
-// homita_feedback_finalize (0032), probada en B5–B7.
+// homita_feedback_finalize (0033), probada en B5–B7.
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import type { FeedbackRow } from "./gate.ts";
