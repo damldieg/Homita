@@ -3,6 +3,7 @@ import XCTest
 
 /// Fallos de escritura (E0-05, c): toast con «Reintentar» en vez de la alerta «Aviso/OK». Las
 /// lecturas siguen en `errorMessage`; las escrituras van a `writeFailure` con la acción para repetirla.
+@MainActor
 final class WriteFailureTests: XCTestCase {
     private func route(_ request: URLRequest) -> String {
         let path = request.url?.path ?? ""

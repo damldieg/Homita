@@ -1,6 +1,7 @@
 import XCTest
 @testable import ControlKit
 
+@MainActor
 final class InicioStoreTests: XCTestCase {
     private let utc = TimeZone(identifier: "UTC")!
 

@@ -2,6 +2,7 @@ import XCTest
 @testable import ControlKit
 
 /// `RoutineStore.routineSections` / `status(for:in:)` y marcas diarias de `InicioStore` (lógica pura, sin UI).
+@MainActor
 final class RoutineSectionsTests: XCTestCase {
     private let utc = TimeZone(identifier: "UTC")!
 

@@ -32,10 +32,16 @@ public struct TaskGroup: Equatable, Identifiable {
 /// Estado de la pestaña Tareas: listas + tareas (paridad con `TaskViewModel`/`TaskListViewModel`).
 /// Reordenar solo se permite en listas con `sort == "custom"` (como Android) y el aviso de título
 /// duplicado es de cliente (mismo trim/case-insensitive por lista).
+///
+/// Offline (D-024): con `outbox`, `tasks` y `taskLists` son la última foto del servidor más la cola
+/// pendiente (overlay calculado: una recarga nunca pisa lo pendiente) y las escrituras pasan por
+/// `TaskWriteCoordinator` (online-first, caída a la cola). Sin `outbox`, el comportamiento de siempre.
+@MainActor
 @Observable
-public final class TasksStore: WriteFailureReporting {
-    public private(set) var taskLists: [TaskListEntry] = []
-    public private(set) var tasks: [TaskEntry] = []
+public final class TasksStore: MainActorWriteFailureReporting {
+    /// Última foto del servidor; lo que ve la UI es `taskLists`/`tasks` (con el overlay).
+    private var serverLists: [TaskListEntry] = []
+    private var serverTasks: [TaskEntry] = []
     public private(set) var members: [MemberEntry] = []
     /// Personas invitables a una tarea (selector del editor, 0025).
     public private(set) var persons: [PersonEntry] = []
@@ -55,25 +61,83 @@ public final class TasksStore: WriteFailureReporting {
     private let taskListsRepo: TaskListRepository
     private let tasksRepo: TaskRepository
     private let personsRepo: PersonRepository?
+    /// Cola offline del hogar (nil = sin offline, comportamiento previo).
+    @ObservationIgnored public let outbox: OutboxStore?
+    @ObservationIgnored private let coordinator: TaskWriteCoordinator?
+    @ObservationIgnored private let isOnline: @MainActor () -> Bool
 
-    public init(taskLists: TaskListRepository, tasks: TaskRepository, persons: PersonRepository? = nil) {
+    /// Reintentos de una carga cuyo resultado quedó viejo por un ack en vuelo (guard de `generation`).
+    static let staleReloadRetries = 2
+
+    public init(taskLists: TaskListRepository, tasks: TaskRepository, persons: PersonRepository? = nil,
+                outbox: OutboxStore? = nil, isOnline: @escaping @MainActor () -> Bool = { !DataFreshness.shared.isOffline }) {
         self.personsRepo = persons
         self.taskListsRepo = taskLists
         self.tasksRepo = tasks
+        self.outbox = outbox
+        self.isOnline = isOnline
+        self.coordinator = outbox.map { TaskWriteCoordinator(outbox: $0, tasks: tasks, taskLists: taskLists, isOnline: isOnline) }
+    }
+
+    // MARK: - Overlay
+
+    /// Servidor + cola. Con filtro de lista, solo las tareas de esa lista (también las pendientes).
+    private var overlay: OverlayResult {
+        guard let outbox else {
+            return OverlayResult(tasks: serverTasks, lists: serverLists, pendingTaskIds: [], pendingListIds: [])
+        }
+        let result = PendingOverlay.apply(ops: outbox.ops, idMap: outbox.idMap, tasks: serverTasks, lists: serverLists)
+        guard let listFilterId else { return result }
+        let filter = resolve(listFilterId)
+        return OverlayResult(
+            tasks: result.tasks.filter { $0.task_list_id == filter }, lists: result.lists,
+            pendingTaskIds: result.pendingTaskIds, pendingListIds: result.pendingListIds
+        )
+    }
+
+    public var taskLists: [TaskListEntry] { overlay.lists }
+    public var tasks: [TaskEntry] { overlay.tasks }
+    /// Filas aún no sincronizadas (icono «Pendiente de sincronizar»).
+    public var pendingTaskIds: Set<Int> { overlay.pendingTaskIds }
+    public var pendingListIds: Set<Int> { overlay.pendingListIds }
+
+    /// ID real de un temporal ya confirmado; el mismo ID si es remoto o aún no se resolvió.
+    public func resolve(_ id: Int) -> Int {
+        outbox?.resolve(id) ?? id
+    }
+
+    /// Referencia para un ID de la UI (temporal o real).
+    public func ref(for id: Int) -> Ref {
+        outbox?.ref(for: id) ?? Ref(id: id)
+    }
+
+    /// Carga con guard de `generation`: si hubo un ack mientras estaba en vuelo, el resultado puede
+    /// ser previo al replay y se vuelve a pedir (máximo `staleReloadRetries` veces).
+    private func fetchFresh<T>(_ fetch: () async throws -> T) async throws -> T {
+        var retries = 0
+        while true {
+            let generation = outbox?.generation
+            let result = try await fetch()
+            guard let outbox, outbox.generation != generation, retries < Self.staleReloadRetries else { return result }
+            retries += 1
+        }
     }
 
     public var pendingTasks: [TaskEntry] { tasks.filter { !$0.isCompleted } }
     public var completedTasks: [TaskEntry] { tasks.filter { $0.isCompleted } }
     public var taskGroups: [TaskGroup] { TaskGroup.group(tasks: tasks, lists: taskLists) }
     public var activeSort: String { taskLists.first { $0.id == listFilterId }?.sort ?? "updated_at" }
-    /// Reordenar (onMove) solo con orden personalizado y lista activa.
-    public var canReorder: Bool { listFilterId != nil && activeSort == "custom" }
+    /// Reordenar (onMove) solo con orden personalizado y lista activa, con red y sin cambios
+    /// pendientes (el reorden no se encola, Q9 y R8).
+    public var canReorder: Bool {
+        listFilterId != nil && activeSort == "custom" && isOnline() && (outbox?.isEmpty ?? true)
+    }
 
     public func loadLists() async {
         isLoading = true
         defer { isLoading = false; hasLoadedLists = true }
         do {
-            taskLists = try await taskListsRepo.index()
+            serverLists = try await fetchFresh { try await taskListsRepo.index() }
         } catch {
             report(error)
         }
@@ -82,10 +146,36 @@ public final class TasksStore: WriteFailureReporting {
     public func loadTasks() async {
         isLoading = true
         defer { isLoading = false; hasLoadedTasks = true }
+        // Tras el ack de un create de lista, el filtro pasa del ID temporal al real.
+        if let listFilterId { self.listFilterId = resolve(listFilterId) }
+        // Una lista local aún no existe en el servidor: solo cuenta el overlay.
+        if let listFilterId, listFilterId < 0 {
+            serverTasks = []
+            return
+        }
         do {
-            tasks = try await tasksRepo.index(taskListId: listFilterId)
+            let filter = listFilterId
+            serverTasks = try await fetchFresh { try await tasksRepo.index(taskListId: filter) }
         } catch {
             report(error)
+        }
+    }
+
+    /// Envía o encola la op (offline) y recarga solo si se envió. Sin cola, `legacy` es la escritura
+    /// de siempre. La op se crea fuera del cierre: el reintento reusa el mismo `client_request_id`.
+    @discardableResult
+    private func write(_ kind: PendingOp.Kind?, reload: @escaping @MainActor (TasksStore) async -> Void,
+                       legacy: @escaping @MainActor (TasksStore) async throws -> Void) async -> Bool {
+        guard let coordinator, let kind else {
+            return await performWrite { store in
+                try await legacy(store)
+                await reload(store)
+            }
+        }
+        let op = coordinator.makeOp(kind)
+        return await performWrite { store in
+            guard let coordinator = store.coordinator else { return }
+            if case .sent = try await coordinator.perform(op) { await reload(store) }
         }
     }
 
@@ -104,32 +194,36 @@ public final class TasksStore: WriteFailureReporting {
     public func createTask(title: String, listId: Int, personIds: [Int]? = nil) async -> Bool {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
+        // Cuenta también las filas pendientes del overlay (Q10).
+        let list = resolve(listId)
         let duplicate = tasks.contains {
-            $0.task_list_id == listId && $0.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == trimmed.lowercased()
+            $0.task_list_id == list && $0.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == trimmed.lowercased()
         }
         guard !duplicate else {
             rejectWrite("Ya existe una tarea con ese título en la lista")
             return false
         }
-        return await performWrite { store in
+        let kind = outbox.map {
+            PendingOp.Kind.createTask(local: $0.makeLocalId(), listRef: ref(for: listId), title: trimmed, personIds: personIds)
+        }
+        return await write(kind, reload: { await $0.loadTasks() }) { store in
             _ = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed, person_ids: personIds))
-            await store.loadTasks()
         }
     }
 
     /// Devuelve si se guardó.
     @discardableResult
     public func updateTask(_ task: TaskEntry, title: String, personIds: [Int]? = nil) async -> Bool {
-        await performWrite { store in
+        let kind = PendingOp.Kind.updateTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id), title: title, personIds: personIds)
+        return await write(kind, reload: { await $0.loadTasks() }) { store in
             _ = try await store.tasksRepo.update(UpdateTaskRequest(id: task.id, title: title, person_ids: personIds))
-            await store.loadTasks()
         }
     }
 
     public func toggleComplete(_ task: TaskEntry) async {
-        await performWrite { store in
+        let kind = PendingOp.Kind.completeTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id), completed: !task.isCompleted)
+        await write(kind, reload: { await $0.loadTasks() }) { store in
             _ = try await store.tasksRepo.complete(CompleteTaskRequest(id: task.id, completed: !task.isCompleted))
-            await store.loadTasks()
         }
     }
 
@@ -146,27 +240,51 @@ public final class TasksStore: WriteFailureReporting {
 
     /// Borra todas las tareas completadas de una lista en paralelo, espera a todas y recarga una vez.
     /// Solo desaparecen las que el servidor confirma; las que fallen siguen en la lista y se avisa.
+    /// Offline (o con cambios pendientes) encola un delete por tarea: las creadas offline se anulan
+    /// con su create; con red, un fallo de red también se encola en vez de avisar.
     public func deleteCompleted(listId: Int) async {
-        let completed = tasks.filter { $0.task_list_id == listId && $0.isCompleted }
+        let list = resolve(listId)
+        let completed = tasks.filter { $0.task_list_id == list && $0.isCompleted }
         guard !completed.isEmpty, !isDeletingCompleted else { return }
         isDeletingCompleted = true
         defer { isDeletingCompleted = false }
 
+        let deleteKind: (TaskEntry) -> PendingOp.Kind = { [unowned self] task in
+            .deleteTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id))
+        }
+        if let outbox, !outbox.isEmpty || !isOnline() || completed.contains(where: { ref(for: $0.id).isLocal }) {
+            for task in completed {
+                outbox.enqueue(PendingOp(homeId: outbox.homeId, kind: deleteKind(task)))
+            }
+            return
+        }
+
         let repo = tasksRepo
         var failed = 0
-        await withTaskGroup(of: Bool.self) { group in
+        var offline: [TaskEntry] = []
+        await withTaskGroup(of: (TaskEntry, Error?).self) { group in
             for task in completed {
                 group.addTask {
                     do {
                         _ = try await repo.delete(id: task.id)
-                        return true
+                        return (task, nil)
                     } catch {
-                        return false
+                        return (task, error)
                     }
                 }
             }
-            for await ok in group where !ok {
-                failed += 1
+            for await (task, error) in group {
+                guard let error else { continue }
+                if outbox != nil, case APIError.network? = error as? APIError {
+                    offline.append(task)
+                } else {
+                    failed += 1
+                }
+            }
+        }
+        if let outbox {
+            for task in offline {
+                outbox.enqueue(PendingOp(homeId: outbox.homeId, kind: deleteKind(task)))
             }
         }
         await loadTasks()
@@ -176,9 +294,9 @@ public final class TasksStore: WriteFailureReporting {
     }
 
     public func deleteTask(_ task: TaskEntry) async {
-        await performWrite { store in
+        let kind = PendingOp.Kind.deleteTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id))
+        await write(kind, reload: { await $0.loadTasks() }) { store in
             _ = try await store.tasksRepo.delete(id: task.id)
-            await store.loadTasks()
         }
     }
 
@@ -187,7 +305,13 @@ public final class TasksStore: WriteFailureReporting {
     /// Alta/edición de lista (nombre, orden, color, flags). Devuelve si hubo éxito.
     @discardableResult
     public func saveList(name: String, color: String, sort: String, widget: Bool, dashboard: Bool, editing: TaskListEntry?) async -> Bool {
-        await performWrite { store in
+        let kind: PendingOp.Kind? = outbox.map { outbox in
+            if let editing {
+                return .updateList(ref: ref(for: editing.id), name: name, color: color, sort: sort, widget: widget, dashboard: dashboard)
+            }
+            return .createList(local: outbox.makeLocalId(), name: name, color: color, sort: sort, widget: widget, dashboard: dashboard)
+        }
+        return await write(kind, reload: { await $0.loadLists() }) { store in
             if let editing {
                 _ = try await store.taskListsRepo.update(UpdateTaskListRequest(
                     id: editing.id, name: name, color: color, sort: sort, widget: widget, dashboard: dashboard
@@ -197,22 +321,40 @@ public final class TasksStore: WriteFailureReporting {
                     name: name, color: color, sort: sort, widget: widget, dashboard: dashboard
                 ))
             }
-            await store.loadLists()
         }
     }
 
     public func deleteList(_ list: TaskListEntry) async {
+        guard let coordinator else {
+            await performWrite { store in
+                _ = try await store.taskListsRepo.delete(id: list.id)
+                if store.listFilterId == list.id { store.listFilterId = nil }
+                await store.loadLists()
+                await store.loadTasks()
+            }
+            return
+        }
+        let op = coordinator.makeOp(.deleteList(ref: ref(for: list.id)))
         await performWrite { store in
-            _ = try await store.taskListsRepo.delete(id: list.id)
-            if store.listFilterId == list.id { store.listFilterId = nil }
-            await store.loadLists()
-            await store.loadTasks()
+            guard let coordinator = store.coordinator else { return }
+            let outcome = try await coordinator.perform(op)
+            if let filter = store.listFilterId, store.resolve(filter) == store.resolve(list.id) { store.listFilterId = nil }
+            if case .sent = outcome {
+                await store.loadLists()
+                await store.loadTasks()
+            }
         }
     }
 
     // MARK: - Invitaciones
 
     public func loadMembers(listId: Int) async {
+        // Una lista creada offline aún no tiene miembros en el servidor.
+        let listId = resolve(listId)
+        guard listId > 0 else {
+            members = []
+            return
+        }
         do {
             members = try await taskListsRepo.users(taskListId: listId)
         } catch {

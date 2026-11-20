@@ -50,3 +50,30 @@ extension WriteFailureReporting {
         writeFailure = WriteFailure(message: message)
     }
 }
+
+/// Igual que `WriteFailureReporting` para los stores `@MainActor` (Tareas e Inicio, que leen la
+/// cola offline, D-024): la escritura y el fallo se quedan en el hilo principal.
+@MainActor
+public protocol MainActorWriteFailureReporting: AnyObject {
+    var writeFailure: WriteFailure? { get set }
+}
+
+extension MainActorWriteFailureReporting {
+    /// Mismo contrato que `WriteFailureReporting.performWrite` (el reintento no retiene el store).
+    @discardableResult
+    func performWrite(_ write: @escaping @MainActor (Self) async throws -> Void) async -> Bool {
+        do {
+            try await write(self)
+            return true
+        } catch {
+            writeFailure = WriteFailure(error: error) { [weak self] in
+                await self?.performWrite(write) ?? false
+            }
+            return false
+        }
+    }
+
+    func rejectWrite(_ message: String) {
+        writeFailure = WriteFailure(message: message)
+    }
+}
