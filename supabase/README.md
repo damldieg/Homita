@@ -255,6 +255,15 @@ se carga antes del merge (P5, D-023):
    webhook es legible en la cola hasta el envío). Si `service_role` no tiene los privilegios de arriba,
    o si las columnas difieren de `0032_feedback_schema.sql` (A1), tampoco: se ajusta el plan antes.
 
+   **Aceptación escrita (2026-11-20, resultado del pre-check P2 en prod):**
+   - `net.http_request_queue` es legible por `anon`/`authenticated` (PUBLIC con todos los
+     privilegios y USAGE en el schema `net`), pero `net` **no** está en «Exposed schemas» (solo
+     `graph_public` y `public`), así que la API REST no llega a la cola. Riesgo aceptado por el
+     usuario; el secreto sigue siendo rotable (ver rotación).
+   - En prod `backlog.votos` es `NOT NULL default 1` y `created_at` admite nulos en ambas tablas,
+     distinto de `0032_feedback_schema.sql`. Diferencia benigna aceptada por el usuario: la RPC usa
+     `coalesce(votos, 1) + 1` y no depende de `created_at`.
+
    **Privilegios de Vault (R2-01, R2-02):**
    ```sql
    select p.oid::regprocedure, has_function_privilege(current_user, p.oid, 'execute')
