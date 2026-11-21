@@ -44,6 +44,16 @@ class Store(context: Context) {
         get() = prefs.getFloat("brightness", -1f).takeIf { it > 0f }
         set(value) = prefs.edit { putFloat("brightness", value ?: -1f) }
 
+    /** Orden de la pantalla de tareas (0037): Lista por defecto, el de siempre. */
+    var taskSort: TaskSort
+        get() = TaskSort.from(prefs.getString("task_sort", null))
+        set(value) = prefs.edit { putString("task_sort", value.name) }
+
+    /** Filtro por prioridad de la pantalla de tareas (0037): null = todas, por defecto. */
+    var taskFilter: TaskPriority?
+        get() = prefs.getString("task_filter", null)?.let { raw -> TaskPriority.entries.firstOrNull { it.raw == raw } }
+        set(value) = prefs.edit { if (value == null) remove("task_filter") else putString("task_filter", value.raw) }
+
     /** Última hora válida (epoch ms), para ReferenceClock. */
     var lastValidTime: Long
         get() = prefs.getLong("last_valid_time", 0L)
