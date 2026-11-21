@@ -50,7 +50,7 @@ public enum PendingOverlay {
                 pendingLists.remove(id)
                 pendingTasks.subtract(removed)
 
-            case .createTask(let local, let listRef, let title, _):
+            case .createTask(let local, let listRef, let title, _, let priority):
                 let id = Ref.local(local).displayId(with: idMap)
                 let listId = listRef.displayId(with: idMap)
                 pendingTasks.insert(id)
@@ -58,14 +58,15 @@ public enum PendingOverlay {
                 let list = lists.first { $0.id == listId }
                 tasks.append(TaskEntry(
                     id: id, task_list_id: listId, title: title, completed_at: nil, created_at: PHPDateTime.format(op.createdAt),
-                    updated_at: nil, order: nil, task_list_color: list?.color, task_list_name: list?.name, persons: nil
+                    updated_at: nil, order: nil, task_list_color: list?.color, task_list_name: list?.name, persons: nil,
+                    priority: priority ?? TaskPriority.media.rawValue
                 ))
                 adjustCount(listId: listId, by: 1)
 
-            case .updateTask(let ref, _, let title, _):
+            case .updateTask(let ref, _, let title, _, let priority):
                 let id = ref.displayId(with: idMap)
                 guard let index = tasks.firstIndex(where: { $0.id == id }) else { continue }
-                tasks[index] = tasks[index].overlay(title: title)
+                tasks[index] = tasks[index].overlay(title: title, priority: priority)
                 pendingTasks.insert(id)
 
             case .completeTask(let ref, _, let completed):
@@ -104,11 +105,12 @@ public enum PendingOverlay {
 // MARK: - Copias con cambios (memberwise `internal`)
 
 extension TaskEntry {
-    func overlay(title: String? = nil, completedAt: String?? = nil, listName: String? = nil, listColor: String? = nil) -> TaskEntry {
+    func overlay(title: String? = nil, completedAt: String?? = nil, listName: String? = nil, listColor: String? = nil, priority: String? = nil) -> TaskEntry {
         TaskEntry(
             id: id, task_list_id: task_list_id, title: title ?? self.title,
             completed_at: completedAt ?? completed_at, created_at: created_at, updated_at: updated_at, order: order,
-            task_list_color: listColor ?? task_list_color, task_list_name: listName ?? task_list_name, persons: persons
+            task_list_color: listColor ?? task_list_color, task_list_name: listName ?? task_list_name, persons: persons,
+            priority: priority ?? self.priority
         )
     }
 }
