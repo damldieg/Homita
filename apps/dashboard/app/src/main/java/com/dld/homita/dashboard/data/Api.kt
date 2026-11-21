@@ -13,7 +13,7 @@ import retrofit2.http.Query
 import retrofit2.http.Url
 import java.util.concurrent.TimeUnit
 
-/** Planify (solo lectura: autenticación y listados del dashboard) y Open-Meteo. */
+/** Homita (solo lectura: autenticación y listados del dashboard) y Open-Meteo. */
 interface Api {
     @POST("user/auth")
     suspend fun auth(@Body request: AuthRequest): Response<UserResponse>

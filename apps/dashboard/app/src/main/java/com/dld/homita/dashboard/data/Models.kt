@@ -4,7 +4,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-// --- Planify (solo lo que lee el dashboard) ---
+// --- Homita (solo lo que lee el dashboard) ---
 
 data class AuthRequest(val email: String, val password: String)
 
