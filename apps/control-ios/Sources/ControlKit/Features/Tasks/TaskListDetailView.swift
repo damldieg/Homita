@@ -200,8 +200,8 @@ struct TaskListDetailView: View {
                                    isOwner: AccessRoster.callerIsOwner(session.session?.id, in: store.members),
                                    onSetAccess: { userId, level in
                                        Task { await store.setAccess(listId: task.task_list_id, userId: userId, level: level) }
-                                   })) { title, _, personIds in
-                    await store.updateTask(task, title: title, personIds: personIds)
+                                   })) { title, _, personIds, priority in
+                    await store.updateTask(task, title: title, personIds: personIds, priority: priority)
                 } onDelete: {
                     Task { await store.deleteTask(task) }
                 }
