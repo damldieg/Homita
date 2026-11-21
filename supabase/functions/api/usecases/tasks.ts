@@ -5,11 +5,14 @@ import {
     errTaskOrderNegative, errTaskOrderRequired, errTaskUpdateRequired, rpcError, rpcPass,
 } from "../_shared/errors.ts";
 import { hasTaskListAccess, rpc } from "../_shared/supabase.ts";
-import { clientRequestIdOf, personIdsOf } from "../_shared/validate.ts";
+import { clientRequestIdOf, personIdsOf, priorityOf } from "../_shared/validate.ts";
 
 // GET /task (TaskIndex.php): task_list_id de body+query con precedencia del body
 // (ControllerAbstract.php:31) — si llega → check estricto de pertenencia (TaskListUser::check →
 // "Not Found") + filtro. `q` se ignora como en PHP (no hay filtro de búsqueda) — T3.
+// 0037 (D-026): `priority` opcional filtra (inválida → 400) y `sort=priority` ordena alta > media >
+// baja (desempate por order e id); otro `sort` se ignora. Sin ellos el payload RPC es el de siempre
+// (la Edge funciona sobre la BD sin 0037). Kito (asistente, ver_tareas) llama aquí sin ninguno.
 export const handleTask = async (req: Request, token: string): Promise<Response> => {
     const input = await contractInput(req); // body + $_GET con body primero: contractInput
 
@@ -21,12 +24,17 @@ export const handleTask = async (req: Request, token: string): Promise<Response>
     }
 
     // Task.php:79-81: getFilterInt — intval del valor truthy; 0 = sin filtro (como get_tasks)
+    const priority = priorityOf(input);
+    if (priority instanceof Response) return priority;
     const rawList = getInput(input, "task_list_id");
-    const res = await rpc("get_tasks", {
+    const args: Record<string, unknown> = {
         p_dashboard: contractBoolOf(input, "dashboard"),
         p_task_list_id: contractEmpty(rawList) ? null : contractIntval(rawList),
         p_widget: contractBoolOf(input, "widget"),
-    }, token);
+    };
+    if (priority !== undefined) args.p_priority = priority;
+    if (getInput(input, "sort") === "priority") args.p_sort = "priority";
+    const res = await rpc("get_tasks", args, token);
     if (!res.ok) return rpcError(await res.json().catch(() => null));
     return new Response(await res.text(), { headers: { "Content-Type": "application/json" } });
 };
@@ -58,11 +66,15 @@ export const handleTaskCreate = async (req: Request, token: string): Promise<Res
     // client_request_id opcional (0035): idempotencia del alta; el replay responde también 201.
     const clientRequestId = clientRequestIdOf(input);
     if (clientRequestId instanceof Response) return clientRequestId;
+    // priority opcional (0037): ausente → la RPC guarda 'media'.
+    const priority = priorityOf(input);
+    if (priority instanceof Response) return priority;
     // person_ids opcional (tareas con personas, 0025): null = sin asignar.
     const personIds = await personIdsOf(input, token);
     if (personIds instanceof Response) return personIds;
     const args: Record<string, unknown> = { p_task_list_id: taskListId, p_title: title, p_person_ids: personIds };
     if (clientRequestId !== undefined) args.p_client_request_id = clientRequestId;
+    if (priority !== undefined) args.p_priority = priority;
     return rpcPass(await rpc("create_task", args, token), 201);
 };
 
@@ -72,10 +84,15 @@ export const handleTaskUpdate = async (req: Request, token: string): Promise<Res
     const id = inputInt(input, "id");
     const title = inputString(input, "title");
     if (contractEmpty(id) || contractEmpty(title)) return errTaskUpdateRequired();
+    // priority opcional (0037): ausente → se conserva la guardada.
+    const priority = priorityOf(input);
+    if (priority instanceof Response) return priority;
     // Sin person_ids no se tocan las personas; con array se sincronizan (0025).
     const personIds = await personIdsOf(input, token);
     if (personIds instanceof Response) return personIds;
-    return rpcPass(await rpc("update_task", { p_id: id, p_title: title, p_person_ids: personIds }, token));
+    const args: Record<string, unknown> = { p_id: id, p_title: title, p_person_ids: personIds };
+    if (priority !== undefined) args.p_priority = priority;
+    return rpcPass(await rpc("update_task", args, token));
 };
 
 // PATCH /task/complete (TaskComplete.php): completed bool requerido (getInputBool sin default)
