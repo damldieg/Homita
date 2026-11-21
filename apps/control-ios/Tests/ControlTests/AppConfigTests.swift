@@ -10,7 +10,7 @@ final class AppConfigTests: XCTestCase {
         anonKey: String = "anon-key-test"
     ) -> [String: String] {
         [
-            AppConfig.planifyBaseURLKey: base,
+            AppConfig.homitaBaseURLKey: base,
             AppConfig.supabaseURLKey: supabase,
             AppConfig.supabaseAnonKeyKey: anonKey
         ]
@@ -18,19 +18,19 @@ final class AppConfigTests: XCTestCase {
 
     func testValidHTTPSConfig() throws {
         let config = try AppConfig(values: values())
-        XCTAssertEqual(config.planifyBaseURL.absoluteString, "https://proj.supabase.co/functions/v1/api")
+        XCTAssertEqual(config.homitaBaseURL.absoluteString, "https://proj.supabase.co/functions/v1/api")
         XCTAssertEqual(config.supabaseURL.absoluteString, "https://proj.supabase.co")
         XCTAssertEqual(config.supabaseAnonKey, "anon-key-test")
     }
 
     func testLoopbackHTTPAllowedForLocalDebug() throws {
         let config = try AppConfig(values: values(base: "http://127.0.0.1:54321/functions/v1/api", supabase: "http://127.0.0.1:54321"))
-        XCTAssertEqual(config.planifyBaseURL.host, "127.0.0.1")
+        XCTAssertEqual(config.homitaBaseURL.host, "127.0.0.1")
     }
 
     func testMissingKeysFail() {
         XCTAssertThrowsError(try AppConfig(values: [:])) { error in
-            XCTAssertEqual(error as? AppConfig.ConfigError, .missing(AppConfig.planifyBaseURLKey))
+            XCTAssertEqual(error as? AppConfig.ConfigError, .missing(AppConfig.homitaBaseURLKey))
         }
         XCTAssertThrowsError(try AppConfig(values: values(anonKey: "  "))) { error in
             XCTAssertEqual(error as? AppConfig.ConfigError, .missing(AppConfig.supabaseAnonKeyKey))
@@ -43,7 +43,7 @@ final class AppConfigTests: XCTestCase {
     func testPlaceholdersFail() {
         // Lo que deja Config.xcconfig.example sin regenerar.
         XCTAssertThrowsError(try AppConfig(values: values(base: "https://<ref>.supabase.co/functions/v1/api"))) { error in
-            XCTAssertEqual(error as? AppConfig.ConfigError, .placeholder(AppConfig.planifyBaseURLKey))
+            XCTAssertEqual(error as? AppConfig.ConfigError, .placeholder(AppConfig.homitaBaseURLKey))
         }
         XCTAssertThrowsError(try AppConfig(values: values(anonKey: "<anon key>"))) { error in
             XCTAssertEqual(error as? AppConfig.ConfigError, .placeholder(AppConfig.supabaseAnonKeyKey))
@@ -52,7 +52,7 @@ final class AppConfigTests: XCTestCase {
 
     func testNonLoopbackHTTPFails() {
         XCTAssertThrowsError(try AppConfig(values: values(base: "http://10.0.2.2:3000/functions/v1/api"))) { error in
-            XCTAssertEqual(error as? AppConfig.ConfigError, .insecureURL(AppConfig.planifyBaseURLKey))
+            XCTAssertEqual(error as? AppConfig.ConfigError, .insecureURL(AppConfig.homitaBaseURLKey))
         }
     }
 

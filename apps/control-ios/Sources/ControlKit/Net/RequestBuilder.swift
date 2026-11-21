@@ -7,7 +7,7 @@ public enum HTTPMethod: String, Sendable {
     case delete = "DELETE"
 }
 
-/// Petición al contrato: `path` relativo a `PLANIFY_BASE_URL` (sin slash inicial), filtros de
+/// Petición al contrato: `path` relativo a `HOMITA_BASE_URL` (sin slash inicial), filtros de
 /// lectura SIEMPRE en `query` (GET nunca lleva body: el runtime de Edge lo descarta), y body
 /// JSON opcional para POST/PATCH/DELETE (en DELETE también va body, como PHP).
 public struct APIRequest: Equatable, Sendable {

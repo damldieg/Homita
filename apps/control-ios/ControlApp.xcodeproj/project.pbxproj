@@ -466,7 +466,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ControlApp/Info.plist;
-				INFOPLIST_KEY_PlanifyBaseURL = "$(PLANIFY_BASE_URL)";
+				INFOPLIST_KEY_HomitaBaseURL = "$(HOMITA_BASE_URL)";
 				INFOPLIST_KEY_SupabaseAnonKey = "$(SUPABASE_ANON_KEY)";
 				INFOPLIST_KEY_SupabaseURL = "$(SUPABASE_URL)";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -497,7 +497,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ControlApp/Info.plist;
-				INFOPLIST_KEY_PlanifyBaseURL = "$(PLANIFY_BASE_URL)";
+				INFOPLIST_KEY_HomitaBaseURL = "$(HOMITA_BASE_URL)";
 				INFOPLIST_KEY_SupabaseAnonKey = "$(SUPABASE_ANON_KEY)";
 				INFOPLIST_KEY_SupabaseURL = "$(SUPABASE_URL)";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

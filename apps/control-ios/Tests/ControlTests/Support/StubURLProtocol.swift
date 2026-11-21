@@ -141,7 +141,7 @@ func makeTestConfig(
     anonKey: String = "anon-key-test"
 ) throws -> AppConfig {
     try AppConfig(values: [
-        AppConfig.planifyBaseURLKey: base,
+        AppConfig.homitaBaseURLKey: base,
         AppConfig.supabaseURLKey: supabase,
         AppConfig.supabaseAnonKeyKey: anonKey
     ])

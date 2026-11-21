@@ -8,8 +8,8 @@
   Nota: INFOPLIST_KEY_* solo acepta claves conocidas por Xcode, por eso van aquí.
 -->
 <dict>
-	<key>PlanifyBaseURL</key>
-	<string>$(PLANIFY_BASE_URL)</string>
+	<key>HomitaBaseURL</key>
+	<string>$(HOMITA_BASE_URL)</string>
 	<key>SupabaseURL</key>
 	<string>$(SUPABASE_URL)</string>
 	<key>SupabaseAnonKey</key>

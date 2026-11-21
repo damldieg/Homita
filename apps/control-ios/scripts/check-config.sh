@@ -4,7 +4,7 @@
 # Elige el xcconfig según la configuración de build que Xcode pasa en $CONFIGURATION:
 #   Debug   → Config.local.xcconfig  (debe apuntar a 127.0.0.1 o localhost)
 #   Release → Config.prod.xcconfig   (debe ser https y NO apuntar a local)
-# Exige PLANIFY_BASE_URL, SUPABASE_URL y SUPABASE_ANON_KEY reales (sin placeholders ni vacíos).
+# Exige HOMITA_BASE_URL, SUPABASE_URL y SUPABASE_ANON_KEY reales (sin placeholders ni vacíos).
 # Úsalo como Run Script del target de la app.
 set -euo pipefail
 
@@ -32,7 +32,7 @@ if grep -q '<' "$CONF"; then
     exit 1
 fi
 
-for key in PLANIFY_BASE_URL SUPABASE_URL SUPABASE_ANON_KEY; do
+for key in HOMITA_BASE_URL SUPABASE_URL SUPABASE_ANON_KEY; do
     value="$(sed -n "s/^${key}[[:space:]]*=[[:space:]]*//p" "$CONF" | tr -d '[:space:]')"
     if [ -z "$value" ]; then
         echo "error: $key vacío en $NAME ($HINT)" >&2
@@ -40,8 +40,8 @@ for key in PLANIFY_BASE_URL SUPABASE_URL SUPABASE_ANON_KEY; do
     fi
 done
 
-# Misma guarda para las dos URLs: PLANIFY_BASE_URL y SUPABASE_URL no pueden apuntar a hosts distintos del entorno.
-for key in PLANIFY_BASE_URL SUPABASE_URL; do
+# Misma guarda para las dos URLs: HOMITA_BASE_URL y SUPABASE_URL no pueden apuntar a hosts distintos del entorno.
+for key in HOMITA_BASE_URL SUPABASE_URL; do
     url="$(sed -n "s/^${key}[[:space:]]*=[[:space:]]*//p" "$CONF" | tr -d '[:space:]')"
     case "$ENV_KIND" in
         local)

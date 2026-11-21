@@ -30,7 +30,7 @@ public struct AppServices {
         let kitoHistory = KitoHistoryStore(directory: KitoHistoryStore.defaultDirectory())
         self.kitoHistory = kitoHistory
         let client = APIClient(
-            baseURL: config.planifyBaseURL,
+            baseURL: config.homitaBaseURL,
             session: http,
             tokenProvider: { [weak session] in session?.accessToken },
             homeIdProvider: { [weak homeContext] in homeContext?.activeHomeId }
@@ -52,7 +52,7 @@ public struct AppServices {
         self.auth = auth
         // Kito usa la base de funciones y la misma sesión, refresco y hogar que `api`.
         let kitoClient = APIClient(
-            baseURL: KitoAPI.functionsBaseURL(fromAPIBaseURL: config.planifyBaseURL),
+            baseURL: KitoAPI.functionsBaseURL(fromAPIBaseURL: config.homitaBaseURL),
             session: http,
             tokenProvider: { [weak session] in session?.accessToken },
             homeIdProvider: { [weak homeContext] in homeContext?.activeHomeId }
