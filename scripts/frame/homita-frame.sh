@@ -1,20 +1,20 @@
 #!/system/bin/sh
-# Se ejecuta como root en cada arranque (planify-frame.rc). Instalado por scripts/install.sh.
+# Se ejecuta como root en cada arranque (homita-frame.rc). Instalado por scripts/install.sh.
 # Cortafuegos de salida por UID: solo el dashboard sale a Internet; el resto del sistema solo a la red local,
 # DNS y NTP. La única conexión entrante admitida es ADB (5555) desde el PC de desarrollo (ADB_FROM, mejor con IP
 # reservada en el router); ADB pide igualmente la clave autorizada. Por USB, ADB funciona siempre.
 
-# ADB_FROM viene de scripts/config.local: install.sh lo deja en planify-frame.conf. Vacío, no se abre el 5555.
+# ADB_FROM viene de scripts/config.local: install.sh lo deja en homita-frame.conf. Vacío, no se abre el 5555.
 ADB_FROM=
-[ -f /system/etc/planify-frame.conf ] && . /system/etc/planify-frame.conf
+[ -f /system/etc/homita-frame.conf ] && . /system/etc/homita-frame.conf
 
 # Sin suspensión del kernel: el marco siempre está enchufado y en esta placa suspender sale mal. El acelerómetro
 # (mir3da) hace fallar la suspensión, el táctil (gslX680) se queda sin responder hasta recargar su módulo y el
 # servicio de suspensión de Android (build eng con ubsan) aborta, con lo que system_server se reinicia al despertar.
 # Con este wakelock del kernel la pantalla se sigue apagando, pero el sistema no suspende.
-echo planify-frame > /sys/power/wake_lock
+echo homita-frame > /sys/power/wake_lock
 
-DASH_UID=$(stat -c %u /data/data/com.lito.planify.dashboard 2>/dev/null)
+DASH_UID=$(stat -c %u /data/data/com.dld.homita.dashboard 2>/dev/null)
 
 for T in iptables ip6tables; do
     for C in FRAME_OUT FRAME_IN; do $T -N $C 2>/dev/null; $T -F $C; done
