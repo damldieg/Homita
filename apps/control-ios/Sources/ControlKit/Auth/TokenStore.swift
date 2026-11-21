@@ -19,7 +19,7 @@ public enum TokenStoreError: Error, Equatable {
 public final class KeychainTokenStore: TokenStore {
     public let service: String
 
-    public init(service: String = "com.lito.planify.control.ios") {
+    public init(service: String = "com.dld.homita.control.ios") {
         self.service = service
     }
 

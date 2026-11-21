@@ -10,7 +10,7 @@ import UIKit
 /// termine el arranque, por eso no puede esperar a `RootView`.
 public enum HomitaPlatform {
     /// Identificador de la tarea (también en `BGTaskSchedulerPermittedIdentifiers` del Info.plist).
-    public static let refreshTaskId = "com.lito.planify.control.ios.refresh"
+    public static let refreshTaskId = "com.dld.homita.control.ios.refresh"
 
     @MainActor
     public static func didLaunch() {

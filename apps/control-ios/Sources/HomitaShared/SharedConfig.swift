@@ -5,17 +5,17 @@ import Foundation
 public enum HomitaShared {
     /// App Group del equipo (firma gratuita incluida). Debe coincidir con los `.entitlements` de la
     /// app y de la extensión (`apps/control-ios/Entitlements`).
-    public static let appGroupId = "group.com.lito.planify.control.ios"
+    public static let appGroupId = "group.com.dld.homita.control.ios"
 
     /// Esquema de los enlaces profundos (`homita://nueva-tarea`).
     public static let urlScheme = "homita"
 
     /// Identificadores de los widgets (`kind`), para recargar solo los nuestros.
-    public static let routinesWidgetKind = "com.lito.planify.control.ios.widget.routines"
-    public static let quickActionsWidgetKind = "com.lito.planify.control.ios.widget.quick"
-    public static let newTaskWidgetKind = "com.lito.planify.control.ios.widget.new-task"
-    public static let newEventWidgetKind = "com.lito.planify.control.ios.widget.new-event"
-    public static let newRoutineWidgetKind = "com.lito.planify.control.ios.widget.new-routine"
+    public static let routinesWidgetKind = "com.dld.homita.control.ios.widget.routines"
+    public static let quickActionsWidgetKind = "com.dld.homita.control.ios.widget.quick"
+    public static let newTaskWidgetKind = "com.dld.homita.control.ios.widget.new-task"
+    public static let newEventWidgetKind = "com.dld.homita.control.ios.widget.new-event"
+    public static let newRoutineWidgetKind = "com.dld.homita.control.ios.widget.new-routine"
 
     /// Ventana «en curso» de una rutina y antelación del aviso (misma regla que `RoutineStatus`).
     public static let routineWindow: TimeInterval = 3600

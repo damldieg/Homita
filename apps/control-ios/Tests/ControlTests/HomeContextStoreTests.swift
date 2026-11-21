@@ -372,7 +372,7 @@ final class HomeActivePersistenceTests: XCTestCase {
     }
 
     func testSelectionSurvivesRelaunchRealKeychain() async throws {
-        let tokens = KeychainTokenStore(service: "com.lito.planify.control.ios.tests.\(UUID().uuidString)")
+        let tokens = KeychainTokenStore(service: "com.dld.homita.control.ios.tests.\(UUID().uuidString)")
         defer { try? tokens.remove("active_home_id") }
         do { try tokens.set("probe", forKey: "active_home_id") } catch {
             throw XCTSkip("Keychain no disponible en este host de tests: \(error)")
