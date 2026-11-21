@@ -1,5 +1,5 @@
 #!/bin/bash
-# check-config.sh — fail-fast (equivalente de `checkPlanifyBaseUrl` del dashboard).
+# check-config.sh — fail-fast (equivalente de `checkHomitaBaseUrl` del dashboard).
 #
 # Elige el xcconfig según la configuración de build que Xcode pasa en $CONFIGURATION:
 #   Debug   → Config.local.xcconfig  (debe apuntar a 127.0.0.1 o localhost)
