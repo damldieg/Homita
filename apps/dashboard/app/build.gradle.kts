@@ -5,7 +5,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// URL del backend de Planify para cada instalación, sin dejarla en el código. Se busca, por este orden, en
+// URL del backend de Homita para cada instalación, sin dejarla en el código. Se busca, por este orden, en
 // apps/dashboard/planify.properties (ver planify.properties.example), en -Pplanify.baseUrl=… y en la variable de entorno
 // PLANIFY_BASE_URL. La release no se compila sin ella; la debug apunta por defecto al backend local del emulador.
 val planify = Properties().apply {
