@@ -275,11 +275,12 @@ public final class TasksStore: MainActorWriteFailureReporting {
         }
     }
 
-    /// Devuelve si se guardó. `priority` solo se envía si cambió respecto a `task` (no pisa el
-    /// cambio de otro usuario cuando solo se edita el título).
+    /// Devuelve si se guardó. `priority` solo se envía si cambió respecto a la que muestra el editor
+    /// (`task.priorityValue`; sin clave en caché = media): no pisa el cambio de otro usuario cuando
+    /// solo se edita el título.
     @discardableResult
     public func updateTask(_ task: TaskEntry, title: String, personIds: [Int]? = nil, priority: TaskPriority? = nil) async -> Bool {
-        let changed = priority.flatMap { $0 == task.priorityValue && task.priority != nil ? nil : $0.rawValue }
+        let changed = priority.flatMap { $0 == task.priorityValue ? nil : $0.rawValue }
         let kind = PendingOp.Kind.updateTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id), title: title,
                                              personIds: personIds, priority: changed)
         return await write(kind, reload: { await $0.loadTasks() }) { store in
