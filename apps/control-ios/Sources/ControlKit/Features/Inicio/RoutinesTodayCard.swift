@@ -7,6 +7,8 @@ struct RoutinesTodayCard: View {
     let store: InicioStore
     let dateText: String
     let onOpenAll: () -> Void
+    /// Abre la serie de la rutina tocada (editor).
+    let onOpen: (RoutineEntry) -> Void
 
     @State private var showDone = true
 
@@ -153,9 +155,9 @@ struct RoutinesTodayCard: View {
             VStack(spacing: Spacing.s2) {
                 ForEach(active) { routine in
                     if isCompact {
-                        compactRow(routine)
+                        openable(routine) { compactRow(routine) }
                     } else {
-                        activeRow(routine)
+                        openable(routine) { activeRow(routine) }
                     }
                 }
             }
@@ -246,7 +248,7 @@ struct RoutinesTodayCard: View {
         if !later.isEmpty {
             VStack(spacing: Spacing.s2) {
                 ForEach(Array(later.enumerated()), id: \.element.id) { index, routine in
-                    laterRow(routine, isNext: index == 0 && routine.hasFixedTime)
+                    openable(routine) { laterRow(routine, isNext: index == 0 && routine.hasFixedTime) }
                 }
             }
         }
@@ -302,7 +304,7 @@ struct RoutinesTodayCard: View {
             .buttonStyle(.plain)
             .accessibilityValue(showDone ? "Desplegado" : "Plegado")
             if showDone {
-                ForEach(done) { routine in doneRow(routine) }
+                ForEach(done) { routine in openable(routine) { doneRow(routine) } }
             }
         }
     }
@@ -332,6 +334,15 @@ struct RoutinesTodayCard: View {
     }
 
     // MARK: - Piezas
+
+    /// Envuelve una fila para que al tocarla se abra la rutina.
+    private func openable<Row: View>(_ routine: RoutineEntry, @ViewBuilder _ row: () -> Row) -> some View {
+        Button { onOpen(routine) } label: {
+            row().contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(.isButton)
+    }
 
     private func kicker(_ text: String, tint: Color, pulse: Bool) -> some View {
         HStack(spacing: Spacing.s2) {
