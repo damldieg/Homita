@@ -120,7 +120,7 @@ app() {
     local apk="$HERE/apps/dashboard/app/build/outputs/apk/debug/app-debug.apk"
     if [ $build = 1 ]; then
         step "Compilando la debug"
-        (cd "$HERE/apps/dashboard" && ./gradlew -q assembleDebug -Pplanify.debugBaseUrl="$BASE_URL")
+        (cd "$HERE/apps/dashboard" && ./gradlew -q assembleDebug -Phomita.debugBaseUrl="$BASE_URL")
     fi
     step "Instalando"
     adb install -r "$apk" >/dev/null

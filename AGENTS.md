@@ -10,7 +10,7 @@ Homita dashboard for a photo frame device: Android app (Kotlin + Jetpack Compose
 - **Dashboard** (`apps/dashboard/`): Kotlin 2.4.21 + Jetpack Compose (BOM `2026.09.00`, Material3, Lottie `6.7.1`), Gradle wrapper 9.8.1, AGP 9.4.1, JDK 17, `minSdk 29` / `targetSdk 37` / `compileSdk 37`. Package/app id `com.dld.homita.dashboard`. Retrofit `3.0.0` + converter-gson, JUnit `4.13.2`. No native libs.
 - **API** (backend único: la Edge Function `supabase/functions/api`, ver `supabase/`): contrato PHP-compat (D-008), 43 rutas; migraciones en `supabase/migrations/`.
 - **Scripts** (`scripts/`): bash (`#!/bin/bash`, `set -euo pipefail`) and Python 3 stdlib (`scripts/meteocons.py`, `scripts/demo/seed.py`). No web/Node project, no Makefile.
-- Release build requires `planify.baseUrl` via `apps/dashboard/planify.properties`, `-Pplanify.baseUrl=…` or `PLANIFY_BASE_URL`; task `checkPlanifyBaseUrl` fails `preReleaseBuild` if absent. Debug defaults to `http://10.0.2.2:54321/functions/v1/api/` (local Edge).
+- Release build requires `homita.baseUrl` via `apps/dashboard/homita.properties`, `-Phomita.baseUrl=…` or `HOMITA_BASE_URL`; task `checkHomitaBaseUrl` fails `preReleaseBuild` if absent. Debug defaults to `http://10.0.2.2:54321/functions/v1/api/` (local Edge).
 - Prereqs (README): JDK 17+, Android SDK (compileSdk 37), `adb`, `sha256sum`/`gzip`; `mtools`/`dosfstools` only for boot logo; npm + Python 3 only for icon regen; Supabase CLI + Docker for the local Edge (demo).
 
 ### Commands
@@ -20,7 +20,7 @@ Gradle commands run from `apps/dashboard/` (or `apps/control/` for the manager a
 ```sh
 cd apps/dashboard
 ./gradlew :app:assembleDebug          # build (debug)
-./gradlew :app:assembleRelease        # build (release; needs planify.baseUrl)
+./gradlew :app:assembleRelease        # build (release; needs homita.baseUrl)
 ./gradlew :app:testDebugUnitTest      # test (JUnit4 unit tests)
 ./gradlew :app:lintDebug              # lint (AGP defaults; no lint.xml)
 ```

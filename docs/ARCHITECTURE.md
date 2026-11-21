@@ -76,8 +76,8 @@ avdmanager create avd -n Frame_API_29 -k "system-images;android-29;default;x86" 
 emulator -avd Frame_API_29
 ```
 
-- La build **debug** usa la Edge local (`planify.debugBaseUrl`, por defecto `http://10.0.2.2:54321/functions/v1/api/`: `scripts/demo.sh up` la sirve con `supabase functions serve`).
-- La **release** usa `planify.baseUrl` de `apps/dashboard/planify.properties` (ver `planify.properties.example`); sin ella no compila. Desde el corte de producción (2026-11-08) la release apunta a la Edge Function alojada de Supabase (`https://<ref>.supabase.co/functions/v1/api`), el único backend del proyecto. El JWT de Supabase caduca a los 7 días y el dashboard no refresca la sesión: cada semana hay que volver a entrar (re-login semanal).
+- La build **debug** usa la Edge local (`homita.debugBaseUrl`, por defecto `http://10.0.2.2:54321/functions/v1/api/`: `scripts/demo.sh up` la sirve con `supabase functions serve`).
+- La **release** usa `homita.baseUrl` de `apps/dashboard/homita.properties` (ver `homita.properties.example`); sin ella no compila. Desde el corte de producción (2026-11-08) la release apunta a la Edge Function alojada de Supabase (`https://<ref>.supabase.co/functions/v1/api`), el único backend del proyecto. El JWT de Supabase caduca a los 7 días y el dashboard no refresca la sesión: cada semana hay que volver a entrar (re-login semanal).
 - Pruebas: `./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleRelease` (en `apps/dashboard/`).
 
 **Entorno de demo** (`scripts/demo.sh`), para probar sin datos reales y hacer las capturas del README:

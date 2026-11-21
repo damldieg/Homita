@@ -8,7 +8,7 @@ HOMITA_FUNDATIONS.md
 docs/PRODUCTS
 # Copia del repositorio de wesbos como referencia (tiene su propio git)
 docs/photo-frame-dashboard/
-apps/dashboard/planify.properties*
+apps/dashboard/homita.properties*
 scripts/config.local
 
 # Basura de Finder en macOS

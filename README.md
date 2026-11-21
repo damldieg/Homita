@@ -114,7 +114,7 @@ y Docker.
 Para probar sin datos reales, `scripts/demo.sh up` sirve la Edge local (`.demo/` guarda su estado y
 git lo ignora) con una familia ficticia de hoy: personas, calendarios, eventos, rutinas y listas de
 tareas (`scripts/demo/seed.py`). La debug del marco apunta por defecto a la Edge local vista desde el
-emulador, `http://10.0.2.2:54321/functions/v1/api/` (`planify.debugBaseUrl`).
+emulador, `http://10.0.2.2:54321/functions/v1/api/` (`homita.debugBaseUrl`).
 
 **Demo en un paso:** `scripts/demo.sh app` — reset de la BD local, Edge local servida con los datos
 ficticios, emulador con las medidas del marco, la hora del PC, la debug compilada e instalada, y la
@@ -249,13 +249,13 @@ La app de este repositorio (`apps/dashboard/`) es un dashboard nativo en Kotlin 
 
 ```sh
 . ~/.homita/supabase.env
-printf 'planify.baseUrl=https://%s.supabase.co/functions/v1/api\n' "$SUPABASE_PROJECT_REF" \
-  > apps/dashboard/planify.properties
-#   planify.baseUrl=https://<ref>.supabase.co/functions/v1/api   URL de la API (obligatoria para la
+printf 'homita.baseUrl=https://%s.supabase.co/functions/v1/api\n' "$SUPABASE_PROJECT_REF" \
+  > apps/dashboard/homita.properties
+#   homita.baseUrl=https://<ref>.supabase.co/functions/v1/api   URL de la API (obligatoria para la
 #   release). Producción usa la Edge Function de Supabase desde el corte (2026-11-08); el valor se deriva
 #   de ~/.homita/supabase.env (entorno de producción; la demo local NO lo usa — genera su propio
 #   .demo/functions.env) y no se commitea nunca (git ignora el fichero). Para tu propia versión basta
-#   la URL de tu backend (ver planify.properties.example)
+#   la URL de tu backend (ver homita.properties.example)
 
 cp scripts/config.example scripts/config.local
 #   ADB_FROM=<ip-de-tu-pc>                     única IP que podrá usar ADB por Wi-Fi (vacía: solo USB)
@@ -263,7 +263,7 @@ cp scripts/config.example scripts/config.local
 #   FRAME_NTP=pool.ntp.org                     opcional
 ```
 
-Los dos ficheros están en `.gitignore`. La URL también se puede pasar con `-Pplanify.baseUrl=…` o la variable `PLANIFY_BASE_URL`, y la release no compila sin ella. La versión debug apunta a la Edge local vista desde el emulador (`planify.debugBaseUrl`, por defecto `http://10.0.2.2:54321/functions/v1/api/`).
+Los dos ficheros están en `.gitignore`. La URL también se puede pasar con `-Phomita.baseUrl=…` o la variable `HOMITA_BASE_URL`, y la release no compila sin ella. La versión debug apunta a la Edge local vista desde el emulador (`homita.debugBaseUrl`, por defecto `http://10.0.2.2:54321/functions/v1/api/`).
 
 Antes de tocar el marco, pruébala en un emulador con sus medidas (API 29, 1920×1200, 320 dpi, 1 GB): ver [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#desarrollo).
 
@@ -377,7 +377,7 @@ Muchos marcos parecidos usan el mismo SoC A133 o placas Rockchip, pero cambian e
 ## Estructura
 
 ```
-apps/dashboard/         app Android del marco (Kotlin, Jetpack Compose, minSdk 29); planify.properties.example
+apps/dashboard/         app Android del marco (Kotlin, Jetpack Compose, minSdk 29); homita.properties.example
 apps/control/           app Android gestora (Homita): calendarios, eventos, rutinas, personas y tareas; README, design/ y docs/
 supabase/                 backend único: Edge Function api, migraciones, config del stack local y README
 scripts/install.sh      fases 2 y 4 a 8; se configura con scripts/config.local (config.example)
