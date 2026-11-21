@@ -18,11 +18,12 @@ struct OutboxSender {
             return id
         }
         switch op.kind {
-        case .createTask(_, let listRef, let title, let personIds):
-            let request = CreateTaskRequest(task_list_id: try id(listRef), title: title, person_ids: personIds, client_request_id: op.clientRequestId)
+        case .createTask(_, let listRef, let title, let personIds, let priority):
+            let request = CreateTaskRequest(task_list_id: try id(listRef), title: title, person_ids: personIds,
+                                            client_request_id: op.clientRequestId, priority: priority)
             return try await tasks.create(request).id
-        case .updateTask(let ref, _, let title, let personIds):
-            _ = try await tasks.update(UpdateTaskRequest(id: try id(ref), title: title, person_ids: personIds))
+        case .updateTask(let ref, _, let title, let personIds, let priority):
+            _ = try await tasks.update(UpdateTaskRequest(id: try id(ref), title: title, person_ids: personIds, priority: priority))
         case .completeTask(let ref, _, let completed):
             _ = try await tasks.complete(CompleteTaskRequest(id: try id(ref), completed: completed))
         case .deleteTask(let ref, _):
