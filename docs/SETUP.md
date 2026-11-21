@@ -169,7 +169,7 @@ apps/control-ios/scripts/gen-config.sh local          # Config.local.xcconfig de
 cd apps/control-ios && swift build && swift test       # compilar y testar el paquete ControlKit
 ```
 
-La app se instala en el iPhone con firma gratuita (Apple ID personal) vía **AltStore** o **Sideloadly** (caduca a los 7 días; requiere el Modo Desarrollador del iPhone). El detalle —proyecto Xcode que referencia `ControlKit`, bundle `com.lito.planify.control.ios`, iOS 17.0— está en [apps/control-ios/README.md](../apps/control-ios/README.md).
+La app se instala en el iPhone con firma gratuita (Apple ID personal) vía **AltStore** o **Sideloadly** (caduca a los 7 días; requiere el Modo Desarrollador del iPhone). El detalle —proyecto Xcode que referencia `ControlKit`, bundle `com.dld.homita.control.ios`, iOS 17.0— está en [apps/control-ios/README.md](../apps/control-ios/README.md).
 
 ## Qué se tomó del proyecto de wesbos ([`photo-frame-dashboard`](https://github.com/wesbos/photo-frame-dashboard))
 

@@ -1,6 +1,6 @@
-# Planify Control iOS (`apps/control-ios`)
+# Homita Control iOS (`apps/control-ios`)
 
-App gestora de Planify para iPhone (v1). Swift 5 + SwiftUI, iOS 17+, sin dependencias de terceros. La lógica y la UI viven en el paquete SPM **`ControlKit`** (`Sources/ControlKit`; tests en `Tests/ControlTests`); el `.xcodeproj` de la app se crea una vez en Xcode (ver «Instalar en el iPhone»). Consume la misma Edge Function que el dashboard y la app Android (`https://<ref>.supabase.co/functions/v1/api`, contrato PHP-compat de 43 rutas; ver [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md)).
+App gestora de Homita para iPhone (v1). Swift 5 + SwiftUI, iOS 17+, sin dependencias de terceros. La lógica y la UI viven en el paquete SPM **`ControlKit`** (`Sources/ControlKit`; tests en `Tests/ControlTests`); el `.xcodeproj` de la app se crea una vez en Xcode (ver «Instalar en el iPhone»). Consume la misma Edge Function que el dashboard y la app Android (`https://<ref>.supabase.co/functions/v1/api`, contrato PHP-compat de 43 rutas; ver [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md)).
 
 ## Configuración
 
@@ -11,7 +11,7 @@ apps/control-ios/scripts/gen-config.sh prod    # escribe Config.prod.xcconfig (p
 apps/control-ios/scripts/gen-config.sh local   # escribe Config.local.xcconfig (requiere `supabase start`)
 ```
 
-`scripts/check-config.sh` va como Run Script del target (antes de compilar) y elige el xcconfig según `CONFIGURATION` (Debug → `Config.local.xcconfig`, Release → `Config.prod.xcconfig`) y falla el build si falta, tiene placeholders o el host no encaja con la configuración — equivalente de `checkPlanifyBaseUrl` del dashboard. Si cambias `~/.homita/supabase.env`, vuelve a ejecutar `gen-config.sh`.
+`scripts/check-config.sh` va como Run Script del target (antes de compilar) y elige el xcconfig según `CONFIGURATION` (Debug → `Config.local.xcconfig`, Release → `Config.prod.xcconfig`) y falla el build si falta, tiene placeholders o el host no encaja con la configuración — equivalente de `checkHomitaBaseUrl` del dashboard. Si cambias `~/.homita/supabase.env`, vuelve a ejecutar `gen-config.sh`.
 
 ## Compilar y testar
 
@@ -41,8 +41,17 @@ Firma gratuita con tu Apple ID (equipo «Personal Team») vía **AltStore** o **
 2. Añadir el paquete local `apps/control-ios` (File › Add Package Dependencies › Add Local…) y enlazar el producto **`ControlKit`** al target.
 3. Cablear el entry point: el `@main` de la app debe crear `RootView()` de ControlKit (`WindowGroup { RootView() }`; ver `Sources/ControlKit/App/RootView.swift`).
 4. Signing & Capabilities › Team: tu Apple ID (Personal Team).
-5. Bundle Identifier: `com.lito.planify.control.ios`; Deployment Target: **iOS 17.0**.
+5. Bundle Identifier: `com.dld.homita.control.ios`; Deployment Target: **iOS 17.0**.
 6. Activar el **Modo Desarrollador** en el iPhone (Ajustes › Privacidad y seguridad) e instalar el build con AltStore o Sideloadly.
+
+## Reinstalar
+
+El bundle id, el App Group y los widgets cambiaron de `com.lito.planify.control.ios` a `com.dld.homita.control.ios`. iOS trata la app nueva como otra distinta, sin datos de la anterior:
+
+1. Borra del iPhone la app vieja (`com.lito.planify.control.ios`).
+2. Instala la nueva con AltStore o Sideloadly.
+3. Vuelve a iniciar sesión (el Keychain no se migra).
+4. Vuelve a añadir los widgets en la pantalla de inicio y de bloqueo (su `kind` cambió).
 
 ## Notificaciones, widgets y pantalla de bloqueo
 
@@ -51,7 +60,7 @@ Todo se enciende o apaga en **Ajustes › Notificaciones** (`NotificationSetting
 - **Avisos locales** (`UNUserNotificationCenter`, sin servidor): evento o rutina con alarma → aviso «minutos antes» (0 = a la hora; sin alarma no avisa). Las rutinas solo avisan a la persona asignada con su cuenta (requiere migración 0028); los eventos, a todo el hogar. Como en Calendario: suena, sale como banner y **queda en el panel de notificaciones** (reprogramar no borra los ya entregados). Opcional: resumen diario de tareas pendientes a la hora elegida. `NotificationPlanner` (puro, con tests) decide qué programar: eventos de los próximos 7 días y rutinas por su regla; iOS admite 64 pendientes, se programan 60. Tocar un aviso abre su pestaña.
 - **Widgets** (extensión `HomitaWidgets`): *Rutinas de hoy* (pequeño, mediano, grande, rectangular e inline de pantalla de bloqueo; cambia de fase sola en cada hora de inicio/fin) y *Accesos rápidos* (mediano: **+ Tarea**, **+ Evento**, **+ Rutina**), más un widget por acción (*Nueva tarea*, *Nuevo evento*, *Nueva rutina*; pequeño y de bloqueo). Abren la app con `homita://nueva-tarea`, `nuevo-evento`, `nueva-rutina`; Inicio y Calendario › Rutinas abren el formulario directamente (un widget no admite escribir texto).
 - **Live Activity de rutinas** (pantalla de bloqueo y Dynamic Island): la rutina en curso o la próxima (≤ 60 min) con cuenta atrás y barra de tiempo del sistema. **Solo sale para la persona asignada a la rutina** con su cuenta iniciada: se compara `home_member.app_user_id` de cada persona (campo `app_user_id` de `GET person`, migración 0028) con la cuenta de la sesión; rutina sin asignar o cuenta sin persona vinculada = no hay Live Activity.
-- **Datos compartidos:** la app escribe un `HomitaSnapshot` JSON (solo títulos, horas y colores, sin secretos) en el App Group `group.com.lito.planify.control.ios` (`Entitlements/*.entitlements`); la extensión solo enlaza `HomitaShared` (módulo sin dependencias del paquete).
+- **Datos compartidos:** la app escribe un `HomitaSnapshot` JSON (solo títulos, horas y colores, sin secretos) en el App Group `group.com.dld.homita.control.ios` (`Entitlements/*.entitlements`); la extensión solo enlaza `HomitaShared` (módulo sin dependencias del paquete).
 - **Cuándo se actualiza** (`HomitaSync`): al abrir la app, al volver a primer plano, al cambiar de hogar o de toggle y en segundo plano (`BGAppRefreshTask`, lo decide iOS). Cerrar sesión borra avisos, snapshot y Live Activity.
 
 Límites (sin cuenta de pago ni servidor de push):
