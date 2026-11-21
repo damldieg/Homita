@@ -14,6 +14,9 @@ public struct AppServices {
     public let homes: HomeRepository
     public let feedback: FeedbackRepository
     public let homeContext: HomeContextStore
+    /// Kito (asistente): cliente de la Edge `asistente` e historial local por usuario y hogar.
+    public let kitoAPI: KitoAPI
+    public let kitoHistory: KitoHistoryStore
     /// Reproduce la cola offline del hogar activo (D-024); uno por app, vuelo único por cola.
     public let outboxReplayer: OutboxReplayer
 
@@ -24,6 +27,8 @@ public struct AppServices {
         self.session = session
         let homeContext = HomeContextStore(store: tokenStore)
         self.homeContext = homeContext
+        let kitoHistory = KitoHistoryStore(directory: KitoHistoryStore.defaultDirectory())
+        self.kitoHistory = kitoHistory
         let client = APIClient(
             baseURL: config.planifyBaseURL,
             session: http,
@@ -37,6 +42,7 @@ public struct AppServices {
                 homeContext?.clear()
                 ReadCache.shared.clear()
                 DataFreshness.shared.markFresh()
+                if let uid = session?.session?.id { kitoHistory.clear(userId: uid) }
                 session?.signOut()
                 await HomitaSync.shared.reset()
             }
@@ -44,6 +50,16 @@ public struct AppServices {
         let auth = AuthService(client: client, session: session, config: config, http: http)
         client.refresher = auth
         self.auth = auth
+        // Kito usa la base de funciones y la misma sesión, refresco y hogar que `api`.
+        let kitoClient = APIClient(
+            baseURL: KitoAPI.functionsBaseURL(fromAPIBaseURL: config.planifyBaseURL),
+            session: http,
+            tokenProvider: { [weak session] in session?.accessToken },
+            homeIdProvider: { [weak homeContext] in homeContext?.activeHomeId }
+        )
+        kitoClient.refresher = auth
+        kitoClient.onSessionExpired = client.onSessionExpired
+        self.kitoAPI = KitoAPI(client: kitoClient)
         calendars = CalendarRepository(client: client)
         events = EventRepository(client: client)
         routines = RoutineRepository(client: client)
@@ -83,6 +99,7 @@ public struct AppServices {
             // Avisos, datos de widgets y Live Activity del usuario anterior fuera.
             await HomitaSync.shared.reset()
         }
+        if let uid = session.session?.id { kitoHistory.clear(userId: uid) }
         session.signOut()
     }
 
