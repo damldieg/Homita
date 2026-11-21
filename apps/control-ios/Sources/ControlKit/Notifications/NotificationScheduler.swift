@@ -7,12 +7,29 @@ public enum NotificationPermission: Equatable, Sendable {
     case notDetermined, denied, allowed
 }
 
+/// Parte mínima de `UNUserNotificationCenter` que usa el scheduler (permite probarlo con un centro falso).
+public protocol NotificationCenterProtocol {
+    func add(_ request: UNNotificationRequest) async throws
+    func pendingNotificationRequests() async -> [UNNotificationRequest]
+    func removePendingNotificationRequests(withIdentifiers identifiers: [String])
+    func removeAllDeliveredNotifications()
+}
+
+extension UNUserNotificationCenter: NotificationCenterProtocol {}
+
 /// Envoltorio de `UNUserNotificationCenter`: pide permiso, sustituye los avisos pendientes por los
 /// nuevos y los borra al cerrar sesión. Solo toca las notificaciones propias (`homita.*`).
 public struct NotificationScheduler {
     static let idPrefix = "homita."
 
-    public init() {}
+    private let injected: NotificationCenterProtocol?
+
+    /// Centro de notificaciones; por defecto el del sistema (`UNUserNotificationCenter.current()`).
+    public init(center: NotificationCenterProtocol? = nil) {
+        self.injected = center
+    }
+
+    private var center: NotificationCenterProtocol { injected ?? UNUserNotificationCenter.current() }
 
     public func permission() async -> NotificationPermission {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
@@ -33,7 +50,7 @@ public struct NotificationScheduler {
     /// Sustituye los avisos **pendientes** propios por `planned`. Los ya entregados se dejan en el
     /// panel de notificaciones, como hace Calendario: no se tocan en cada sincronización.
     public func replaceAll(with planned: [PlannedNotification], timeZone: TimeZone = .current) async {
-        let center = UNUserNotificationCenter.current()
+        let center = self.center
         await removePending()
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
@@ -54,7 +71,7 @@ public struct NotificationScheduler {
 
     /// Borra los avisos pendientes propios (los entregados siguen en el panel).
     public func removePending() async {
-        let center = UNUserNotificationCenter.current()
+        let center = self.center
         let pending = await center.pendingNotificationRequests()
         center.removePendingNotificationRequests(
             withIdentifiers: pending.map(\.identifier).filter { $0.hasPrefix(Self.idPrefix) }
@@ -64,7 +81,31 @@ public struct NotificationScheduler {
     /// Borra pendientes y entregados (cierre de sesión: nada del usuario anterior en el panel).
     public func removeAll() async {
         await removePending()
-        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        center.removeAllDeliveredNotifications()
+    }
+
+    /// Programa (o sustituye) el resumen diario: un único aviso recurrente a `hour:minute` hora local.
+    /// Mismo identificador = sustituye; nunca quedan dos. No fija zona en los componentes: sigue la del sistema.
+    public func scheduleDailySummary(_ summary: DailySummary, hour: Int, minute: Int) async {
+        let center = self.center
+        center.removePendingNotificationRequests(withIdentifiers: [DailySummaryPlanner.identifier])
+        let content = UNMutableNotificationContent()
+        content.title = summary.title
+        content.body = summary.body
+        content.sound = .default
+        content.interruptionLevel = .active
+        content.threadIdentifier = DailySummaryPlanner.identifier
+        content.userInfo = [NotificationRouter.linkKey: summary.link.url.absoluteString]
+        var parts = DateComponents()
+        parts.hour = min(max(hour, 0), 23)
+        parts.minute = min(max(minute, 0), 59)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: true)
+        try? await center.add(UNNotificationRequest(identifier: DailySummaryPlanner.identifier, content: content, trigger: trigger))
+    }
+
+    /// Borra el resumen diario pendiente (si lo hay).
+    public func removeDailySummary() async {
+        center.removePendingNotificationRequests(withIdentifiers: [DailySummaryPlanner.identifier])
     }
 }
 
