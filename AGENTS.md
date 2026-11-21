@@ -2,15 +2,15 @@
 
 ## Project
 
-Planify dashboard for a photo frame device: Android app (Kotlin + Jetpack Compose) plus bash/Python tooling. Docs, comments and commit messages are Spanish; code identifiers are English.
+Homita dashboard for a photo frame device: Android app (Kotlin + Jetpack Compose) plus bash/Python tooling. Docs, comments and commit messages are Spanish; code identifiers are English.
 
 ### Stack
 
-- **Apps** (`apps/`): dos proyectos Gradle independientes: `apps/dashboard` (este dashboard) y `apps/control` (app gestora, Planify-APP).
-- **Dashboard** (`apps/dashboard/`): Kotlin 2.4.21 + Jetpack Compose (BOM `2026.09.00`, Material3, Lottie `6.7.1`), Gradle wrapper 9.8.1, AGP 9.4.1, JDK 17, `minSdk 29` / `targetSdk 37` / `compileSdk 37`. Package/app id `com.lito.planify.dashboard`. Retrofit `3.0.0` + converter-gson, JUnit `4.13.2`. No native libs.
+- **Apps** (`apps/`): dos proyectos Gradle independientes: `apps/dashboard` (este dashboard) y `apps/control` (app gestora, Homita).
+- **Dashboard** (`apps/dashboard/`): Kotlin 2.4.21 + Jetpack Compose (BOM `2026.09.00`, Material3, Lottie `6.7.1`), Gradle wrapper 9.8.1, AGP 9.4.1, JDK 17, `minSdk 29` / `targetSdk 37` / `compileSdk 37`. Package/app id `com.dld.homita.dashboard`. Retrofit `3.0.0` + converter-gson, JUnit `4.13.2`. No native libs.
 - **API** (backend único: la Edge Function `supabase/functions/api`, ver `supabase/`): contrato PHP-compat (D-008), 43 rutas; migraciones en `supabase/migrations/`.
 - **Scripts** (`scripts/`): bash (`#!/bin/bash`, `set -euo pipefail`) and Python 3 stdlib (`scripts/meteocons.py`, `scripts/demo/seed.py`). No web/Node project, no Makefile.
-- Release build requires `planify.baseUrl` via `apps/dashboard/planify.properties`, `-Pplanify.baseUrl=…` or `PLANIFY_BASE_URL`; task `checkPlanifyBaseUrl` fails `preReleaseBuild` if absent. Debug defaults to `http://10.0.2.2:54321/functions/v1/api/` (local Edge).
+- Release build requires `homita.baseUrl` via `apps/dashboard/homita.properties`, `-Phomita.baseUrl=…` or `HOMITA_BASE_URL`; task `checkHomitaBaseUrl` fails `preReleaseBuild` if absent. Debug defaults to `http://10.0.2.2:54321/functions/v1/api/` (local Edge).
 - Prereqs (README): JDK 17+, Android SDK (compileSdk 37), `adb`, `sha256sum`/`gzip`; `mtools`/`dosfstools` only for boot logo; npm + Python 3 only for icon regen; Supabase CLI + Docker for the local Edge (demo).
 
 ### Commands
@@ -20,7 +20,7 @@ Gradle commands run from `apps/dashboard/` (or `apps/control/` for the manager a
 ```sh
 cd apps/dashboard
 ./gradlew :app:assembleDebug          # build (debug)
-./gradlew :app:assembleRelease        # build (release; needs planify.baseUrl)
+./gradlew :app:assembleRelease        # build (release; needs homita.baseUrl)
 ./gradlew :app:testDebugUnitTest      # test (JUnit4 unit tests)
 ./gradlew :app:lintDebug              # lint (AGP defaults; no lint.xml)
 ```
@@ -38,7 +38,7 @@ scripts/frame/backup.sh               # eMMC backup
 
 ```
 apps/dashboard/           Gradle project (build.gradle.kts, settings.gradle.kts, gradlew, app/)
-  app/src/main/java/com/lito/planify/dashboard/
+  app/src/main/java/com/dld/homita/dashboard/
     MainActivity.kt, DashboardViewModel.kt
     data/                 Api.kt, Models.kt, Store.kt, ReferenceClock.kt, HttpError.kt, WifiStatus.kt
     data/cache/           DiskCache.kt, CachedResource.kt
@@ -49,10 +49,10 @@ apps/dashboard/           Gradle project (build.gradle.kts, settings.gradle.kts,
   app/src/main/res/       raw/ (meteocon Lottie JSON), drawable/, font/ (Geist), values/, xml/
   app/src/test/java/…     JUnit4 unit tests: DiskCacheTest, CachedResourceTest, ReferenceClockTest,
                           CalendarRepositoryTest, ForecastTest, ScreenScheduleTest
-apps/control/             app gestora (Planify-APP): Gradle project (app/), design/, docs/, README.md
+apps/control/             app gestora (Homita): Gradle project (app/), design/, docs/, README.md
 supabase/                 backend único: Edge Function api (supabase/functions/api), migrations/, config.toml, README.md
 scripts/                  install.sh, demo.sh, meteocons.py, config.example
-  frame/                  backup.sh, planify-frame.sh, planify-frame.rc
+  frame/                  backup.sh, homita-frame.sh, homita-frame.rc
   boot/                   boot.html, make.sh, install.sh, out/
   demo/                   seed.py, seed_supabase.py
 docs/                     FRAME.md, SETUP.md, ARCHITECTURE.md, ANDROID.md, README.md, inventory/, images/

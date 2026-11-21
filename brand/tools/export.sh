@@ -45,7 +45,7 @@ for app in control dashboard; do
     png android-foreground.svg 432 432 "$RES/drawable-xxxhdpi/ic_launcher_foreground.png"
 done
 # Pantalla de login del marco (se pinta a 144 dp; 288 px = nítido a 2x)
-png icon-sage-rounded.svg 288 288 "$ROOT/apps/dashboard/app/src/main/res/drawable-nodpi/planify_icon.png"
+png icon-sage-rounded.svg 288 288 "$ROOT/apps/dashboard/app/src/main/res/drawable-nodpi/homita_icon.png"
 
 # README y docs
 mkdir -p "$ROOT/docs/images"; cp "$SRC/lockup-horizontal-light.svg" "$ROOT/docs/images/homita-logo.svg"

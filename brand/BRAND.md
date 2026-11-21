@@ -36,7 +36,7 @@
 | Primer plano adaptativo Android 108–432 px | `android-foreground` (escala 0.62, zona segura) | `apps/{control,dashboard}/app/src/main/res/drawable-*dpi/ic_launcher_foreground.png` |
 | Fondo adaptativo | — | `ic_launcher_background` = `#FF4F7A63` |
 | Icono temático Android 13+ | foreground | `<monochrome>` en los `ic_launcher*.xml` |
-| Login del marco | `icon-sage-rounded` 288 px | `apps/dashboard/.../drawable-nodpi/planify_icon.png` |
+| Login del marco | `icon-sage-rounded` 288 px | `apps/dashboard/.../drawable-nodpi/homita_icon.png` |
 | Arranque del marco | `scripts/boot/boot.html` | `scripts/boot/out/*` (`scripts/boot/make.sh`) |
 | README | `lockup-horizontal-light` | `docs/images/homita-logo.svg` |
 | Tiendas / redes | — | `brand/exports/` |
@@ -48,4 +48,4 @@
 4. Probar un dispositivo Android 13+ con iconos temáticos.
 
 ## Fuera de alcance (decisión pendiente)
-La paleta de la interfaz sigue siendo la antigua (acento rojo en iOS `Palette`, ciruela en control Android, violeta en `AccentColor`). Migrarla a salvia/terracota es opcional y no se ha tocado. Los ids de paquete `com.lito.planify` y el nombre del recurso `planify_icon` se mantienen para no romper código.
+La paleta de la interfaz sigue siendo la antigua (acento rojo en iOS `Palette`, ciruela en control Android, violeta en `AccentColor`). Migrarla a salvia/terracota es opcional y no se ha tocado. El id de paquete es `com.dld.homita.dashboard` y el recurso del icono se llama `homita_icon`.

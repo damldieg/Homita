@@ -29,7 +29,7 @@ URL="http://127.0.0.1:54321/functions/v1/api"    # sin barra final: $URL/user/au
 BASE_URL="${DEMO_BASE_URL:-http://10.0.2.2:54321/functions/v1/api/}"  # con barra final (Retrofit)
 EMAIL=demo@homita.example
 PASSWORD=demo1234
-PKG=com.lito.planify.dashboard
+PKG=com.dld.homita.dashboard
 export ANDROID_SERIAL="emulator-$EMULATOR_PORT"
 
 step() { echo "==> $*"; }
@@ -120,7 +120,7 @@ app() {
     local apk="$HERE/apps/dashboard/app/build/outputs/apk/debug/app-debug.apk"
     if [ $build = 1 ]; then
         step "Compilando la debug"
-        (cd "$HERE/apps/dashboard" && ./gradlew -q assembleDebug -Pplanify.debugBaseUrl="$BASE_URL")
+        (cd "$HERE/apps/dashboard" && ./gradlew -q assembleDebug -Phomita.debugBaseUrl="$BASE_URL")
     fi
     step "Instalando"
     adb install -r "$apk" >/dev/null

@@ -28,7 +28,7 @@ mkdir -p "$SAVE"
 # --- Logo del bootloader ---
 SECTORS=$(( $(sh blockdev --getsize64 "$PART") / 512 ))
 adb exec-out "dd if=$PART bs=1M 2>/dev/null" > "$TMP/current.img"
-[ "$(stat -c %s "$TMP/current.img")" -eq $((SECTORS * 512)) ] || { echo "Lectura incompleta de $PART"; exit 1; }
+[ "$(wc -c < "$TMP/current.img" | tr -d " ")" -eq $((SECTORS * 512)) ] || { echo "Lectura incompleta de $PART"; exit 1; }
 [ -f "$SAVE/bootloader-partition.img" ] || cp "$TMP/current.img" "$SAVE/bootloader-partition.img"
 
 cp "$TMP/current.img" "$TMP/new.img"

@@ -5,26 +5,26 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// URL del backend de Planify para cada instalación, sin dejarla en el código. Se busca, por este orden, en
-// apps/dashboard/planify.properties (ver planify.properties.example), en -Pplanify.baseUrl=… y en la variable de entorno
-// PLANIFY_BASE_URL. La release no se compila sin ella; la debug apunta por defecto al backend local del emulador.
-val planify = Properties().apply {
-    rootProject.file("planify.properties").takeIf { it.isFile }?.reader()?.use { load(it) }
+// URL del backend de Homita para cada instalación, sin dejarla en el código. Se busca, por este orden, en
+// apps/dashboard/homita.properties (ver homita.properties.example), en -Phomita.baseUrl=… y en la variable de entorno
+// HOMITA_BASE_URL. La release no se compila sin ella; la debug apunta por defecto al backend local del emulador.
+val homita = Properties().apply {
+    rootProject.file("homita.properties").takeIf { it.isFile }?.reader()?.use { load(it) }
 }
-fun planifySetting(name: String, env: String): String? =
-    (planify.getProperty(name) ?: providers.gradleProperty(name).orNull ?: providers.environmentVariable(env).orNull)
+fun homitaSetting(name: String, env: String): String? =
+    (homita.getProperty(name) ?: providers.gradleProperty(name).orNull ?: providers.environmentVariable(env).orNull)
         ?.trim()?.takeIf { it.isNotEmpty() }?.let { if (it.endsWith("/")) it else "$it/" }
 
-val releaseBaseUrl = planifySetting("planify.baseUrl", "PLANIFY_BASE_URL")
-val debugBaseUrl = planifySetting("planify.debugBaseUrl", "PLANIFY_DEBUG_BASE_URL") ?: "http://10.0.2.2:54321/functions/v1/api/"
+val releaseBaseUrl = homitaSetting("homita.baseUrl", "HOMITA_BASE_URL")
+val debugBaseUrl = homitaSetting("homita.debugBaseUrl", "HOMITA_DEBUG_BASE_URL") ?: "http://10.0.2.2:54321/functions/v1/api/"
 fun cleartext(url: String?) = (url?.startsWith("http://") == true).toString()
 
 android {
-    namespace = "com.lito.planify.dashboard"
+    namespace = "com.dld.homita.dashboard"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.lito.planify.dashboard"
+        applicationId = "com.dld.homita.dashboard"
         minSdk = 29 // XORO CPF 10PF: Android 10
         targetSdk = 37
         versionCode = 1
@@ -63,16 +63,16 @@ android {
 }
 
 // Sin URL, la release se para antes de compilar nada (la debug y los tests no la necesitan)
-val checkPlanifyBaseUrl = tasks.register("checkPlanifyBaseUrl") {
+val checkHomitaBaseUrl = tasks.register("checkHomitaBaseUrl") {
     val url = releaseBaseUrl
     doLast {
         if (url == null) throw GradleException(
-            "Falta la URL del backend: copia apps/dashboard/planify.properties.example a apps/dashboard/planify.properties " +
-                "y rellena planify.baseUrl (o usa -Pplanify.baseUrl=… o PLANIFY_BASE_URL)."
+            "Falta la URL del backend: copia apps/dashboard/homita.properties.example a apps/dashboard/homita.properties " +
+                "y rellena homita.baseUrl (o usa -Phomita.baseUrl=… o HOMITA_BASE_URL)."
         )
     }
 }
-tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(checkPlanifyBaseUrl) }
+tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(checkHomitaBaseUrl) }
 
 dependencies {
     implementation("androidx.core:core-ktx:1.19.1")

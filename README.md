@@ -80,7 +80,7 @@ Fuera de horario, o al pulsar la luna de la barra lateral, la pantalla no se apa
 <img src="docs/images/night.png" alt="Reloj nocturno" />
 
 ### Inicio de sesión
-Con la cuenta de Planify. Sin Internet, en su lugar aparece "Esperando conexión a Internet…" con un botón a los ajustes de Wi-Fi.
+Con la cuenta de Homita. Sin Internet, en su lugar aparece "Esperando conexión a Internet…" con un botón a los ajustes de Wi-Fi.
 
 <img src="docs/images/login.png" alt="Inicio de sesión" />
 
@@ -101,7 +101,7 @@ Instalarla en el marco y convertirlo en quiosco: [docs/SETUP.md](docs/SETUP.md).
 
 ## La gestora (control)
 
-`apps/control/` es la app Android donde se crean y editan calendarios, eventos, rutinas, personas y tareas con la misma cuenta que usa el marco. Es [Planify-APP](apps/control/README.md) importado al monorepo: funciones, capturas y build están en [su README](apps/control/README.md), y allí se marca qué calendarios y listas se ven en el dashboard (interruptor «Mostrar en el dashboard»).
+`apps/control/` es la app Android donde se crean y editan calendarios, eventos, rutinas, personas y tareas con la misma cuenta que usa el marco. Es [Homita](apps/control/README.md) importado al monorepo: funciones, capturas y build están en [su README](apps/control/README.md), y allí se marca qué calendarios y listas se ven en el dashboard (interruptor «Mostrar en el dashboard»).
 
 ## La API
 
@@ -114,7 +114,7 @@ y Docker.
 Para probar sin datos reales, `scripts/demo.sh up` sirve la Edge local (`.demo/` guarda su estado y
 git lo ignora) con una familia ficticia de hoy: personas, calendarios, eventos, rutinas y listas de
 tareas (`scripts/demo/seed.py`). La debug del marco apunta por defecto a la Edge local vista desde el
-emulador, `http://10.0.2.2:54321/functions/v1/api/` (`planify.debugBaseUrl`).
+emulador, `http://10.0.2.2:54321/functions/v1/api/` (`homita.debugBaseUrl`).
 
 **Demo en un paso:** `scripts/demo.sh app` — reset de la BD local, Edge local servida con los datos
 ficticios, emulador con las medidas del marco, la hora del PC, la debug compilada e instalada, y la
@@ -208,7 +208,7 @@ La ficha completa, con todas las particiones y el software de fábrica, está en
 **Además:**
 - Un cable **USB-C de datos** (no solo carga).
 - Una red Wi-Fi de **2,4 GHz con WPA2** (el chip no soporta WPA3 ni 5 GHz). Mejor una red de invitados.
-- Si usas esta app tal cual: la Edge Function de Supabase desplegada (lo que usa la producción) y una cuenta creada con la [Planify-APP](apps/control/).
+- Si usas esta app tal cual: la Edge Function de Supabase desplegada (lo que usa la producción) y una cuenta creada con la [Homita](apps/control/).
 
 ---
 
@@ -231,9 +231,9 @@ La ficha completa, con todas las particiones y el software de fábrica, está en
 
 ### Fase 3: decide qué app vas a instalar
 
-La app de este repositorio (`apps/dashboard/`) es un dashboard nativo en Kotlin y Jetpack Compose, de solo lectura, que habla con la API de Planify (la Edge Function `https://<ref>.supabase.co/functions/v1/api` de Supabase, el único backend desde el corte del 2026-11-08) y con Open-Meteo. Tienes tres caminos:
+La app de este repositorio (`apps/dashboard/`) es un dashboard nativo en Kotlin y Jetpack Compose, de solo lectura, que habla con la API de Homita (la Edge Function `https://<ref>.supabase.co/functions/v1/api` de Supabase, el único backend desde el corte del 2026-11-08) y con Open-Meteo. Tienes tres caminos:
 
-1. **Usarla con Planify** (lo más rápido): despliega la [Edge Function de Supabase](supabase/), crea tu cuenta con [Planify-APP](apps/control/) y marca en la APP qué calendarios y listas se ven (interruptor «Mostrar en el dashboard»).
+1. **Usarla con Homita** (lo más rápido): despliega la [Edge Function de Supabase](supabase/), crea tu cuenta con [Homita](apps/control/) y marca en la APP qué calendarios y listas se ven (interruptor «Mostrar en el dashboard»).
 2. **Usarla con otra fuente de datos:** la app solo necesita esto del backend, así que basta con reimplementarlo (o cambiar `data/Api.kt` y los repositorios de `data/repository/`):
 
    | Petición | Respuesta |
@@ -249,13 +249,13 @@ La app de este repositorio (`apps/dashboard/`) es un dashboard nativo en Kotlin 
 
 ```sh
 . ~/.homita/supabase.env
-printf 'planify.baseUrl=https://%s.supabase.co/functions/v1/api\n' "$SUPABASE_PROJECT_REF" \
-  > apps/dashboard/planify.properties
-#   planify.baseUrl=https://<ref>.supabase.co/functions/v1/api   URL de la API (obligatoria para la
+printf 'homita.baseUrl=https://%s.supabase.co/functions/v1/api\n' "$SUPABASE_PROJECT_REF" \
+  > apps/dashboard/homita.properties
+#   homita.baseUrl=https://<ref>.supabase.co/functions/v1/api   URL de la API (obligatoria para la
 #   release). Producción usa la Edge Function de Supabase desde el corte (2026-11-08); el valor se deriva
 #   de ~/.homita/supabase.env (entorno de producción; la demo local NO lo usa — genera su propio
 #   .demo/functions.env) y no se commitea nunca (git ignora el fichero). Para tu propia versión basta
-#   la URL de tu backend (ver planify.properties.example)
+#   la URL de tu backend (ver homita.properties.example)
 
 cp scripts/config.example scripts/config.local
 #   ADB_FROM=<ip-de-tu-pc>                     única IP que podrá usar ADB por Wi-Fi (vacía: solo USB)
@@ -263,7 +263,7 @@ cp scripts/config.example scripts/config.local
 #   FRAME_NTP=pool.ntp.org                     opcional
 ```
 
-Los dos ficheros están en `.gitignore`. La URL también se puede pasar con `-Pplanify.baseUrl=…` o la variable `PLANIFY_BASE_URL`, y la release no compila sin ella. La versión debug apunta a la Edge local vista desde el emulador (`planify.debugBaseUrl`, por defecto `http://10.0.2.2:54321/functions/v1/api/`).
+Los dos ficheros están en `.gitignore`. La URL también se puede pasar con `-Phomita.baseUrl=…` o la variable `HOMITA_BASE_URL`, y la release no compila sin ella. La versión debug apunta a la Edge local vista desde el emulador (`homita.debugBaseUrl`, por defecto `http://10.0.2.2:54321/functions/v1/api/`).
 
 Antes de tocar el marco, pruébala en un emulador con sus medidas (API 29, 1920×1200, 320 dpi, 1 GB): ver [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#desarrollo).
 
@@ -282,7 +282,7 @@ scripts/install.sh --build        # la primera vez, por USB
 ### Fase 6: aísla el marco
 
 - **Objetivo:** que solo el dashboard salga a Internet.
-- **Cómo:** `install.sh` copia `scripts/frame/planify-frame.sh` y su `.rc` a `/system` (necesita `adb remount`). En cada arranque montan un **cortafuegos por UID**: el UID del dashboard sale a Internet y el resto del sistema solo a la red local, DNS y NTP. No admite conexiones entrantes salvo ADB desde `ADB_FROM`. Además, `su` pasa a `root:shell 4750`: ADB sigue siendo root, pero las apps ya no.
+- **Cómo:** `install.sh` copia `scripts/frame/homita-frame.sh` y su `.rc` a `/system` (necesita `adb remount`). En cada arranque montan un **cortafuegos por UID**: el UID del dashboard sale a Internet y el resto del sistema solo a la red local, DNS y NTP. No admite conexiones entrantes salvo ADB desde `ADB_FROM`. Además, `su` pasa a `root:shell 4750`: ADB sigue siendo root, pero las apps ya no.
 - **Verificación:** `adb shell iptables -S FRAME_OUT` y `adb shell iptables -S FRAME_IN`.
 
 ### Fase 7: actualizaciones por Wi-Fi
@@ -297,14 +297,14 @@ scripts/install.sh --build        # la primera vez, por USB
 
 ### Fase 8: arranque y energía
 
-- **Arranque personalizado** (`scripts/boot/install.sh`): sustituye el logo del bootloader y la animación de arranque por los de Planify. La partición FAT del bootloader **declara 128 MB pero mide 32 MB**, y justo detrás va `env`, así que nunca se monta en el marco: se edita una copia en el PC, se comprueba que ningún clúster cae fuera y se escribe verificando el hash. `--restore` vuelve a los de fábrica.
+- **Arranque personalizado** (`scripts/boot/install.sh`): sustituye el logo del bootloader y la animación de arranque por los de Homita. La partición FAT del bootloader **declara 128 MB pero mide 32 MB**, y justo detrás va `env`, así que nunca se monta en el marco: se edita una copia en el PC, se comprueba que ningún clúster cae fuera y se escribe verificando el hash. `--restore` vuelve a los de fábrica.
 - **Horario de pantalla:** fuera de horario, por defecto, la pantalla se queda con un **reloj nocturno** (hora, fecha y tiempo sobre negro, con la retroiluminación al mínimo); tocarlo enseña el dashboard 5 minutos. Si se desactiva en Ajustes, la pantalla se apaga de verdad con `lockNow()` y se enciende con una alarma exacta; el táctil no la despierta (el botón de encendido sí) y, encendida fuera de horario, se vuelve a apagar a los 5 minutos.
 - **Sin suspensión del kernel:** el script de arranque deja un wakelock del kernel (`/sys/power/wake_lock`), porque en esta placa la suspensión está rota (ver [lo que aprendimos](#lo-que-aprendimos)).
 
 ### Fase 9: primer uso
 
 1. **Wi-Fi:** "Ir a Ajustes" en la pantalla de inicio de sesión. Si el router está en modo mixto WPA2/WPA3, añade la red a mano como WPA/WPA2-Personal ([docs/SETUP.md, Primer uso](docs/SETUP.md#primer-uso)).
-2. **Inicia sesión** con la cuenta de Planify.
+2. **Inicia sesión** con la cuenta de Homita.
 3. **Ajustes del dashboard:** ubicación del tiempo, horario de pantalla y brillo.
 
 ### Fase 10: verificación final
@@ -313,7 +313,7 @@ scripts/install.sh --build        # la primera vez, por USB
 - [ ] `iptables -S FRAME_OUT` rechaza la salida de otros UIDs, y ADB por Wi-Fi solo funciona desde tu IP.
 - [ ] Sin red, el dashboard sigue mostrando los últimos datos y dice "Sin conexión".
 - [ ] El horario apaga y enciende la pantalla, y tras una noche el táctil responde.
-- [ ] Tras una hora: `dumpsys meminfo com.lito.planify.dashboard` (unos 175 MB) y la temperatura (`/sys/class/thermal/thermal_zone*/temp`, unos 60 °C).
+- [ ] Tras una hora: `dumpsys meminfo com.dld.homita.dashboard` (unos 175 MB) y la temperatura (`/sys/class/thermal/thermal_zone*/temp`, unos 60 °C).
 
 ---
 
@@ -377,12 +377,12 @@ Muchos marcos parecidos usan el mismo SoC A133 o placas Rockchip, pero cambian e
 ## Estructura
 
 ```
-apps/dashboard/         app Android del marco (Kotlin, Jetpack Compose, minSdk 29); planify.properties.example
-apps/control/           app Android gestora (Planify-APP): calendarios, eventos, rutinas, personas y tareas; README, design/ y docs/
+apps/dashboard/         app Android del marco (Kotlin, Jetpack Compose, minSdk 29); homita.properties.example
+apps/control/           app Android gestora (Homita): calendarios, eventos, rutinas, personas y tareas; README, design/ y docs/
 supabase/                 backend único: Edge Function api, migraciones, config del stack local y README
 scripts/install.sh      fases 2 y 4 a 8; se configura con scripts/config.local (config.example)
 scripts/demo.sh         entorno de demo: Edge local con datos ficticios (demo/seed.py), emulador y app debug
-scripts/frame/          backup.sh (eMMC), planify-frame.sh y .rc (cortafuegos y wakelock al arrancar)
+scripts/frame/          backup.sh (eMMC), homita-frame.sh y .rc (cortafuegos y wakelock al arrancar)
 scripts/boot/           logo del bootloader y animación de arranque (boot.html → make.sh → install.sh)
 scripts/meteocons.py    iconos del tiempo para la app
 docs/                   FRAME, SETUP, ARCHITECTURE, ANDROID, README, inventory/ e images/
