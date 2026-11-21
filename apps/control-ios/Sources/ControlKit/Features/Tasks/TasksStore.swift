@@ -29,6 +29,41 @@ public struct TaskGroup: Equatable, Identifiable {
     }
 }
 
+/// Orden de la vista de tareas (0037, por dispositivo, A10). `.list` es el de siempre (servidor:
+/// pendientes primero, luego `order`); `.priority` ordena alta > media > baja dentro de pendientes y
+/// de completadas, con desempate por el orden de la lista.
+public enum TaskSortMode: String, CaseIterable, Identifiable, Sendable {
+    case list
+    case priority
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+        case .list: return "Lista"
+        case .priority: return "Prioridad"
+        }
+    }
+}
+
+/// Orden y filtro por prioridad en cliente (0037). Se aplican sobre las tareas con el overlay ya
+/// aplicado, así también entran las pendientes offline. Función pura.
+public enum TaskPriorityOrdering {
+    /// Filtra por `filter` (nil = todas) y, con `.priority`, ordena por (completada, rango, posición
+    /// original): la posición original es el orden del servidor (`order`, `id`) más las pendientes
+    /// locales al final, igual que en el orden de lista.
+    public static func apply(_ tasks: [TaskEntry], sort: TaskSortMode, filter: TaskPriority?) -> [TaskEntry] {
+        let filtered = filter.map { wanted in tasks.filter { $0.priorityValue == wanted } } ?? tasks
+        guard sort == .priority else { return filtered }
+        return filtered.enumerated().sorted { lhs, rhs in
+            let l = lhs.element, r = rhs.element
+            if l.isCompleted != r.isCompleted { return !l.isCompleted }
+            if l.priorityValue.rank != r.priorityValue.rank { return l.priorityValue.rank < r.priorityValue.rank }
+            return lhs.offset < rhs.offset
+        }.map(\.element)
+    }
+}
+
 /// Estado de la pestaña Tareas: listas + tareas (paridad con `TaskViewModel`/`TaskListViewModel`).
 /// Reordenar solo se permite en listas con `sort == "custom"` (como Android) y el aviso de título
 /// duplicado es de cliente (mismo trim/case-insensitive por lista).
@@ -57,6 +92,24 @@ public final class TasksStore: MainActorWriteFailureReporting {
     public var writeFailure: WriteFailure?
     /// Filtro global por lista (nil = todas); dentro de una lista el filtro es la propia lista.
     public var listFilterId: Int?
+    /// Orden de la vista (0037): `.list` por defecto (el de siempre). Se guarda en UserDefaults.
+    public var sortMode: TaskSortMode = .list {
+        didSet { defaults.set(sortMode.rawValue, forKey: Self.sortModeKey) }
+    }
+    /// Filtro por prioridad (0037): nil = todas (por defecto). Se guarda en UserDefaults.
+    public var priorityFilter: TaskPriority? {
+        didSet {
+            if let priorityFilter {
+                defaults.set(priorityFilter.rawValue, forKey: Self.priorityFilterKey)
+            } else {
+                defaults.removeObject(forKey: Self.priorityFilterKey)
+            }
+        }
+    }
+
+    static let sortModeKey = "tasks.sortMode"
+    static let priorityFilterKey = "tasks.priorityFilter"
+    @ObservationIgnored private let defaults: UserDefaults
 
     private let taskListsRepo: TaskListRepository
     private let tasksRepo: TaskRepository
@@ -70,7 +123,11 @@ public final class TasksStore: MainActorWriteFailureReporting {
     static let staleReloadRetries = 2
 
     public init(taskLists: TaskListRepository, tasks: TaskRepository, persons: PersonRepository? = nil,
-                outbox: OutboxStore? = nil, isOnline: @escaping @MainActor () -> Bool = { !DataFreshness.shared.isOffline }) {
+                outbox: OutboxStore? = nil, isOnline: @escaping @MainActor () -> Bool = { !DataFreshness.shared.isOffline },
+                defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        self.sortMode = defaults.string(forKey: Self.sortModeKey).flatMap(TaskSortMode.init(rawValue:)) ?? .list
+        self.priorityFilter = defaults.string(forKey: Self.priorityFilterKey).flatMap(TaskPriority.init(rawValue:))
         self.personsRepo = persons
         self.taskListsRepo = taskLists
         self.tasksRepo = tasks
@@ -123,14 +180,19 @@ public final class TasksStore: MainActorWriteFailureReporting {
         }
     }
 
-    public var pendingTasks: [TaskEntry] { tasks.filter { !$0.isCompleted } }
-    public var completedTasks: [TaskEntry] { tasks.filter { $0.isCompleted } }
-    public var taskGroups: [TaskGroup] { TaskGroup.group(tasks: tasks, lists: taskLists) }
+    /// Tareas que muestra la vista: overlay + filtro y orden por prioridad (0037).
+    public var visibleTasks: [TaskEntry] { TaskPriorityOrdering.apply(tasks, sort: sortMode, filter: priorityFilter) }
+    public var pendingTasks: [TaskEntry] { visibleTasks.filter { !$0.isCompleted } }
+    public var completedTasks: [TaskEntry] { visibleTasks.filter { $0.isCompleted } }
+    public var taskGroups: [TaskGroup] { TaskGroup.group(tasks: visibleTasks, lists: taskLists) }
     public var activeSort: String { taskLists.first { $0.id == listFilterId }?.sort ?? "updated_at" }
+    /// ¿Hay orden o filtro por prioridad activo? (la vista lo muestra en la toolbar)
+    public var hasPriorityView: Bool { sortMode != .list || priorityFilter != nil }
     /// Reordenar (onMove) solo con orden personalizado y lista activa, con red y sin cambios
-    /// pendientes (el reorden no se encola, Q9 y R8).
+    /// pendientes (el reorden no se encola, Q9 y R8), y sin orden ni filtro por prioridad (0037: la
+    /// posición en pantalla no sería la de la lista).
     public var canReorder: Bool {
-        listFilterId != nil && activeSort == "custom" && isOnline() && (outbox?.isEmpty ?? true)
+        listFilterId != nil && activeSort == "custom" && isOnline() && (outbox?.isEmpty ?? true) && !hasPriorityView
     }
 
     public func loadLists() async {
@@ -191,7 +253,7 @@ public final class TasksStore: MainActorWriteFailureReporting {
 
     /// Devuelve si se creó (el editor solo se cierra entonces y conserva lo escrito si no).
     @discardableResult
-    public func createTask(title: String, listId: Int, personIds: [Int]? = nil) async -> Bool {
+    public func createTask(title: String, listId: Int, personIds: [Int]? = nil, priority: TaskPriority? = nil) async -> Bool {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
         // Cuenta también las filas pendientes del overlay (Q10).
@@ -204,19 +266,24 @@ public final class TasksStore: MainActorWriteFailureReporting {
             return false
         }
         let kind = outbox.map {
-            PendingOp.Kind.createTask(local: $0.makeLocalId(), listRef: ref(for: listId), title: trimmed, personIds: personIds)
+            PendingOp.Kind.createTask(local: $0.makeLocalId(), listRef: ref(for: listId), title: trimmed, personIds: personIds,
+                                      priority: priority?.rawValue)
         }
         return await write(kind, reload: { await $0.loadTasks() }) { store in
-            _ = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed, person_ids: personIds))
+            _ = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed, person_ids: personIds,
+                                                                   priority: priority?.rawValue))
         }
     }
 
-    /// Devuelve si se guardó.
+    /// Devuelve si se guardó. `priority` solo se envía si cambió respecto a `task` (no pisa el
+    /// cambio de otro usuario cuando solo se edita el título).
     @discardableResult
-    public func updateTask(_ task: TaskEntry, title: String, personIds: [Int]? = nil) async -> Bool {
-        let kind = PendingOp.Kind.updateTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id), title: title, personIds: personIds)
+    public func updateTask(_ task: TaskEntry, title: String, personIds: [Int]? = nil, priority: TaskPriority? = nil) async -> Bool {
+        let changed = priority.flatMap { $0 == task.priorityValue && task.priority != nil ? nil : $0.rawValue }
+        let kind = PendingOp.Kind.updateTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id), title: title,
+                                             personIds: personIds, priority: changed)
         return await write(kind, reload: { await $0.loadTasks() }) { store in
-            _ = try await store.tasksRepo.update(UpdateTaskRequest(id: task.id, title: title, person_ids: personIds))
+            _ = try await store.tasksRepo.update(UpdateTaskRequest(id: task.id, title: title, person_ids: personIds, priority: changed))
         }
     }
 
