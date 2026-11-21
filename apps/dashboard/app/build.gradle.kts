@@ -20,11 +20,11 @@ val debugBaseUrl = planifySetting("planify.debugBaseUrl", "PLANIFY_DEBUG_BASE_UR
 fun cleartext(url: String?) = (url?.startsWith("http://") == true).toString()
 
 android {
-    namespace = "com.lito.planify.dashboard"
+    namespace = "com.dld.homita.dashboard"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.lito.planify.dashboard"
+        applicationId = "com.dld.homita.dashboard"
         minSdk = 29 // XORO CPF 10PF: Android 10
         targetSdk = 37
         versionCode = 1
