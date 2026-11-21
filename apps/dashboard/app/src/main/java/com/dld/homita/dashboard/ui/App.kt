@@ -88,7 +88,8 @@ fun DashboardApp(
     onLoadWeek: (LocalDate) -> Unit,
     onSync: () -> Unit,
     settings: SettingsCallbacks,
-    onPeek: () -> Unit
+    onPeek: () -> Unit,
+    taskView: TaskViewCallbacks
 ) {
     var intro by remember { mutableStateOf<IntroStyle?>(if (state.token == null) IntroStyle.First else IntroStyle.Returning) }
     var hadToken by remember { mutableStateOf(state.token != null) }
@@ -99,7 +100,7 @@ fun DashboardApp(
         hadToken = has
     }
     Box(Modifier.fillMaxSize()) {
-        DashboardContent(state, actions, onLogin, onLoadWeek, onSync, settings, onPeek)
+        DashboardContent(state, actions, onLogin, onLoadWeek, onSync, settings, onPeek, taskView)
         intro?.let { BrandIntro(it) { intro = null } }
     }
 }
@@ -112,7 +113,8 @@ private fun DashboardContent(
     onLoadWeek: (LocalDate) -> Unit,
     onSync: () -> Unit,
     settings: SettingsCallbacks,
-    onPeek: () -> Unit
+    onPeek: () -> Unit,
+    taskView: TaskViewCallbacks
 ) {
     var page by remember { mutableStateOf(Page.Today) }
     var lastTouch by remember { mutableLongStateOf(0L) }
@@ -157,7 +159,7 @@ private fun DashboardContent(
                     Page.Today -> TodayScreen(state, lastTouch)
                     Page.Calendar -> CalendarScreen(state, onLoadWeek)
                     Page.Weather -> WeatherScreen(state)
-                    Page.Tasks -> TasksScreen(state)
+                    Page.Tasks -> TasksScreen(state, taskView)
                     Page.Settings -> SettingsScreen(state, actions, settings)
                 }
             }
