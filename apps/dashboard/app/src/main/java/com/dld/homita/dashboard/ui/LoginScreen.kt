@@ -72,7 +72,7 @@ fun LoginScreen(state: UiState, onLogin: (String, String) -> Unit, onWifi: () ->
         Column(Modifier.width(760.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
             if (!keyboardOpen) {
                 Image(
-                    painterResource(R.drawable.planify_icon),
+                    painterResource(R.drawable.homita_icon),
                     contentDescription = "Homita",
                     modifier = Modifier.size(144.dp).align(Alignment.CenterHorizontally).padding(bottom = 8.dp)
                 )
