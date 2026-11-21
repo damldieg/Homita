@@ -14,7 +14,7 @@ scripts/config.local
 # Basura de Finder en macOS
 .DS_Store
 
-# apps/control (Planify-APP), proyecto Gradle en la raíz; el resto lo ignora su .gitignore
+# apps/control (Homita), proyecto Gradle en la raíz; el resto lo ignora su .gitignore
 apps/control/.gradle/
 apps/control/build/
 apps/control/app/build/

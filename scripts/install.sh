@@ -109,8 +109,6 @@ sh locksettings set-disabled true >/dev/null 2>&1 || true
 
 step "Script de arranque: cortafuegos y su"
 if adb remount 2>&1 | grep -qi "remount succeeded"; then
-    # Limpia el servicio antiguo (planify-frame): si quedara, arrancaría con un UID vacío y sin cortafuegos
-    sh rm -f /system/etc/planify-frame.sh /system/etc/init/planify-frame.rc /system/etc/planify-frame.conf
     adb push "$HERE/scripts/frame/homita-frame.sh" /system/etc/homita-frame.sh >/dev/null
     adb push "$HERE/scripts/frame/homita-frame.rc" /system/etc/init/homita-frame.rc >/dev/null
     # Lo que cambia en cada instalación lo lee el script de arranque de aquí

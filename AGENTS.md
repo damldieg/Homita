@@ -6,7 +6,7 @@ Homita dashboard for a photo frame device: Android app (Kotlin + Jetpack Compose
 
 ### Stack
 
-- **Apps** (`apps/`): dos proyectos Gradle independientes: `apps/dashboard` (este dashboard) y `apps/control` (app gestora, Planify-APP).
+- **Apps** (`apps/`): dos proyectos Gradle independientes: `apps/dashboard` (este dashboard) y `apps/control` (app gestora, Homita).
 - **Dashboard** (`apps/dashboard/`): Kotlin 2.4.21 + Jetpack Compose (BOM `2026.09.00`, Material3, Lottie `6.7.1`), Gradle wrapper 9.8.1, AGP 9.4.1, JDK 17, `minSdk 29` / `targetSdk 37` / `compileSdk 37`. Package/app id `com.dld.homita.dashboard`. Retrofit `3.0.0` + converter-gson, JUnit `4.13.2`. No native libs.
 - **API** (backend único: la Edge Function `supabase/functions/api`, ver `supabase/`): contrato PHP-compat (D-008), 43 rutas; migraciones en `supabase/migrations/`.
 - **Scripts** (`scripts/`): bash (`#!/bin/bash`, `set -euo pipefail`) and Python 3 stdlib (`scripts/meteocons.py`, `scripts/demo/seed.py`). No web/Node project, no Makefile.
@@ -49,7 +49,7 @@ apps/dashboard/           Gradle project (build.gradle.kts, settings.gradle.kts,
   app/src/main/res/       raw/ (meteocon Lottie JSON), drawable/, font/ (Geist), values/, xml/
   app/src/test/java/…     JUnit4 unit tests: DiskCacheTest, CachedResourceTest, ReferenceClockTest,
                           CalendarRepositoryTest, ForecastTest, ScreenScheduleTest
-apps/control/             app gestora (Planify-APP): Gradle project (app/), design/, docs/, README.md
+apps/control/             app gestora (Homita): Gradle project (app/), design/, docs/, README.md
 supabase/                 backend único: Edge Function api (supabase/functions/api), migrations/, config.toml, README.md
 scripts/                  install.sh, demo.sh, meteocons.py, config.example
   frame/                  backup.sh, homita-frame.sh, homita-frame.rc

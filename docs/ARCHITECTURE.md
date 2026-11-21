@@ -45,7 +45,7 @@ Las tarjetas llevan una cabecera común (`CardHeader`): icono en un cuadro tinta
 ## Estructura
 
 ```
-apps/dashboard/            proyecto Gradle (mismas versiones que Planify-APP)
+apps/dashboard/            proyecto Gradle (mismas versiones que Homita)
   app/src/main/java/com/dld/homita/dashboard/
     MainActivity.kt          launcher, inmersivo, Density(1f), quiosco y brillo
     DashboardViewModel.kt    estado, refrescos, login, ubicación, horario

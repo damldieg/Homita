@@ -101,7 +101,7 @@ Instalarla en el marco y convertirlo en quiosco: [docs/SETUP.md](docs/SETUP.md).
 
 ## La gestora (control)
 
-`apps/control/` es la app Android donde se crean y editan calendarios, eventos, rutinas, personas y tareas con la misma cuenta que usa el marco. Es [Planify-APP](apps/control/README.md) importado al monorepo: funciones, capturas y build están en [su README](apps/control/README.md), y allí se marca qué calendarios y listas se ven en el dashboard (interruptor «Mostrar en el dashboard»).
+`apps/control/` es la app Android donde se crean y editan calendarios, eventos, rutinas, personas y tareas con la misma cuenta que usa el marco. Es [Homita](apps/control/README.md) importado al monorepo: funciones, capturas y build están en [su README](apps/control/README.md), y allí se marca qué calendarios y listas se ven en el dashboard (interruptor «Mostrar en el dashboard»).
 
 ## La API
 
@@ -208,7 +208,7 @@ La ficha completa, con todas las particiones y el software de fábrica, está en
 **Además:**
 - Un cable **USB-C de datos** (no solo carga).
 - Una red Wi-Fi de **2,4 GHz con WPA2** (el chip no soporta WPA3 ni 5 GHz). Mejor una red de invitados.
-- Si usas esta app tal cual: la Edge Function de Supabase desplegada (lo que usa la producción) y una cuenta creada con la [Planify-APP](apps/control/).
+- Si usas esta app tal cual: la Edge Function de Supabase desplegada (lo que usa la producción) y una cuenta creada con la [Homita](apps/control/).
 
 ---
 
@@ -233,7 +233,7 @@ La ficha completa, con todas las particiones y el software de fábrica, está en
 
 La app de este repositorio (`apps/dashboard/`) es un dashboard nativo en Kotlin y Jetpack Compose, de solo lectura, que habla con la API de Homita (la Edge Function `https://<ref>.supabase.co/functions/v1/api` de Supabase, el único backend desde el corte del 2026-11-08) y con Open-Meteo. Tienes tres caminos:
 
-1. **Usarla con Homita** (lo más rápido): despliega la [Edge Function de Supabase](supabase/), crea tu cuenta con [Planify-APP](apps/control/) y marca en la APP qué calendarios y listas se ven (interruptor «Mostrar en el dashboard»).
+1. **Usarla con Homita** (lo más rápido): despliega la [Edge Function de Supabase](supabase/), crea tu cuenta con [Homita](apps/control/) y marca en la APP qué calendarios y listas se ven (interruptor «Mostrar en el dashboard»).
 2. **Usarla con otra fuente de datos:** la app solo necesita esto del backend, así que basta con reimplementarlo (o cambiar `data/Api.kt` y los repositorios de `data/repository/`):
 
    | Petición | Respuesta |
@@ -378,7 +378,7 @@ Muchos marcos parecidos usan el mismo SoC A133 o placas Rockchip, pero cambian e
 
 ```
 apps/dashboard/         app Android del marco (Kotlin, Jetpack Compose, minSdk 29); planify.properties.example
-apps/control/           app Android gestora (Planify-APP): calendarios, eventos, rutinas, personas y tareas; README, design/ y docs/
+apps/control/           app Android gestora (Homita): calendarios, eventos, rutinas, personas y tareas; README, design/ y docs/
 supabase/                 backend único: Edge Function api, migraciones, config del stack local y README
 scripts/install.sh      fases 2 y 4 a 8; se configura con scripts/config.local (config.example)
 scripts/demo.sh         entorno de demo: Edge local con datos ficticios (demo/seed.py), emulador y app debug
