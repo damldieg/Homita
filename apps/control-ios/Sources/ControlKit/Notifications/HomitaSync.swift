@@ -140,6 +140,10 @@ public final class HomitaSync {
                     preferences: prefs, now: now, timeZone: timeZone, myPersonIds: myPersonIds
                 )
                 await scheduler.replaceAll(with: planned, timeZone: timeZone)
+                // `replaceAll` ya borró el resumen diario; se vuelve a programar solo si procede.
+                if prefs.dailySummary {
+                    await applyDailySummary(prefs, now: now, timeZone: timeZone)
+                }
             }
         } else {
             await scheduler.removePending()
@@ -160,6 +164,27 @@ public final class HomitaSync {
         // 3. Live Activity.
         await LiveActivityController.sync(snapshot: snapshot, preferences: prefs, now: now)
         scheduleBoundaryResync(snapshot: snapshot, preferences: prefs, now: now)
+    }
+
+    /// Calcula el resumen del día del próximo disparo (hoy si aún no llegó la hora; si no, mañana) y lo
+    /// programa. Sin elementos no se programa nada (se omite).
+    private func applyDailySummary(_ prefs: NotificationPreferences, now: Date, timeZone: TimeZone) async {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let today = calendar.startOfDay(for: now)
+        var day = today
+        if let fire = calendar.date(
+            bySettingHour: prefs.dailySummaryHour, minute: prefs.dailySummaryMinute, second: 0, of: today
+        ), fire <= now, let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) {
+            day = tomorrow
+        }
+        guard let summary = DailySummaryPlanner.summary(
+            events: events, tasks: tasks, myPersonIds: myPersonIds, day: day, timeZone: timeZone
+        ) else {
+            await scheduler.removeDailySummary()
+            return
+        }
+        await scheduler.scheduleDailySummary(summary, hour: prefs.dailySummaryHour, minute: prefs.dailySummaryMinute)
     }
 
     /// Con la app abierta, reaplica la Live Activity justo cuando cambia la fase de una rutina.

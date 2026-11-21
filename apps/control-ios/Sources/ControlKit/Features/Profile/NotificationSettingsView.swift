@@ -59,6 +59,13 @@ struct NotificationSettingsView: View {
                 HomitaDatePicker(title: "Hora del resumen", selection: digestTime, components: .hourAndMinute)
                     .accessibilityIdentifier("notificaciones.hora-resumen")
             }
+            HomitaToggle(title: "Resumen diario", isOn: binding(\.dailySummary))
+                .accessibilityIdentifier("notificaciones.resumen-diario")
+            if preferences.dailySummary {
+                HomitaDatePicker(title: "Hora del resumen diario", selection: dailySummaryTime, components: .hourAndMinute)
+                    .accessibilityIdentifier("notificaciones.hora-resumen-diario")
+                HomitaFootnote(text: "Tus tareas pendientes y tus eventos de hoy; se omite si no hay nada. El texto se actualiza al abrir Homita.")
+            }
             HomitaFootnote(text: "Los avisos de eventos y rutinas usan la alarma de cada uno («Sin aviso» no notifica).")
         }
         .modifier(CardStyle())
@@ -108,6 +115,22 @@ struct NotificationSettingsView: View {
                 let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
                 preferences.taskDigestHour = parts.hour ?? 9
                 preferences.taskDigestMinute = parts.minute ?? 0
+                commit()
+            }
+        )
+    }
+
+    private var dailySummaryTime: Binding<Date> {
+        Binding(
+            get: {
+                Calendar.current.date(
+                    bySettingHour: preferences.dailySummaryHour, minute: preferences.dailySummaryMinute, second: 0, of: Date()
+                ) ?? Date()
+            },
+            set: { date in
+                let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
+                preferences.dailySummaryHour = parts.hour ?? 8
+                preferences.dailySummaryMinute = parts.minute ?? 0
                 commit()
             }
         )
