@@ -162,6 +162,8 @@ export const errTaskListIdRequired = (): Response => error("Task list ID is requ
 export const errTaskListCreateRequired = (): Response => error("Name is required", 400);
 export const errTaskListSort = (): Response => error("Sort must be updated_at, title or custom", 400);
 export const errTaskListUpdateRequired = (): Response => error("Task list ID, name, color and sort are required", 400);
+// lista-prioritaria-inicio: PATCH /task-list/order (ruta nueva sin equivalente PHP).
+export const errTaskListOrderRequired = (): Response => error("Task list IDs are required", 400);
 export const errTaskListUserIdRequired = (): Response => error("task_list_id is required", 400);
 export const errTaskListUserCreateRequired = (): Response => error("Task list ID and email are required", 400);
 export const errTaskListUserDeleteRequired = (): Response => error("task_list_id and user_id are required", 400);

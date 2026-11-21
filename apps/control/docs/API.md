@@ -189,7 +189,7 @@ When an endpoint returns an object or a list of objects, they map to the followi
 ### `GET /task-list`
 - **Auth Required**: Yes
 - **Input**: None
-- **Output**: Array of `TaskList` objects.
+- **Output**: Array of `TaskList` objects, ordered by `position` (nulls last), then `name`, then `id`. Each item carries `position` (int, or `null` if the list was never ordered; migration `0040`). Clients that ignore unknown keys are unaffected.
 
 ### `GET /task-list/detail`
 - **Auth Required**: Yes
@@ -206,6 +206,15 @@ When an endpoint returns an object or a list of objects, they map to the followi
   - `widget` (boolean, optional)
   - `dashboard` (boolean, optional: show it on the wall dashboard, default true)
 - **Output**: `TaskList` object.
+
+### `PATCH /task-list/order`
+Additive route (not one of the original 43). Needs migration `0040` and the matching Edge deploy.
+- **Auth Required**: Yes (no `X-Home-Id`; the home comes from the lists)
+- **Input**:
+  - `ids` (array of ints: every list to order, no duplicates, all from the same home, in the desired order)
+- **Output**: `[{"id": 3, "position": 1}, …]` (the applied positions, 1..n).
+- **Errors**: `400 {"error": "Task list IDs are required"}` (missing, empty, duplicated or non-integer ids); `403 {"error": "Not Allowed"}` (viewer without `can_edit`, or member without `tasklist.manage`); `500 {"error": "Not Found"}` (unknown id, another home or tenant, no access to the list).
+- Atomic: if one list is refused, none changes. It does not touch `updated_at`.
 
 ### `PATCH /task-list/update`
 - **Auth Required**: Yes

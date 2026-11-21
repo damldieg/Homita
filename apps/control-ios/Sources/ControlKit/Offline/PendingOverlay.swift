@@ -122,7 +122,7 @@ extension TaskListEntry {
             created_at: created_at, updated_at: updated_at,
             widget: widget.map(FlexBool.init) ?? self.widget, dashboard: dashboard.map(FlexBool.init) ?? self.dashboard,
             pending_task_count: pendingCount.map(FlexInt.init) ?? pending_task_count, can_edit: can_edit,
-            home_id: home_id
+            home_id: home_id, position: position
         )
     }
 }
