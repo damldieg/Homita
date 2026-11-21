@@ -113,7 +113,7 @@ app; el refresco queda para una fase posterior):
 | `migrations/0032_feedback_schema.sql` | DDL `if not exists` de `public.backlog` y `public.feedback` (RLS + política «insertar mi feedback») para local/CI; no-op en prod, sin trigger. Precede a `0033`/`0034`, que se aplican sobre estas tablas. Ver «Feedback» |
 | `migrations/0033_feedback_trello.sql` | Change `feedback-trello-gate` (D-021, D-023), aditiva: `backlog.trello_card_id`/`trello_card_url` + índice único parcial, `feedback.procesando_desde` (reserva) y RPC `homita_feedback_finalize` (escritura final atómica, upsert del voto con `coalesce(votos, 1) + 1`, solo `service_role`). Se aplica en local, CI y prod (guard defensivo si faltan las tablas). Reversa: `scripts/supabase/rollback/rollback_0033.sql` (pierde los vínculos con Trello) |
 | `migrations/0034_feedback_trigger_secret.sql` | Change `feedback-trello-gate` (D-021, D-023): reemplaza el trigger de `0031` por `homita_feedback_notify` → `homita_feedback_dispatch` (SECURITY DEFINER, EXECUTE revocado a `anon`/`authenticated`/`service_role`), que lee de Vault la URL (`feedback_webhook_url`) y el secreto y encola `net.http_post` con cabecera `x-feedback-secret` y solo el id. El trigger existe en todos los entornos pero es inerte sin URL ni secreto en Vault (local/CI). Reversa: `scripts/supabase/rollback/rollback_0034.sql` (restaura `0031` solo si `feedback_webhook_url` de Vault es exactamente la URL de prod de P5; si falta o tiene otro valor no crea trigger; orden en «Rollback»: con la pausa de Vault hecha, tras redesplegar la antigua; sin pausa, ANTES del redeploy, con la función nueva desplegada. Nunca redeploy de la antigua con 0034 aplicado y el secreto cargado) |
-| `migrations/0035_client_request_idempotency.sql` | Change `ios-offline-outbox-tareas` (D-024): tabla `client_request` y firma nueva de `create_task`/`create_task_list`. Ver «Idempotencia de creates (0035)». Reversa: `scripts/supabase/rollback/rollback_0035.sql` |
+| `migrations/0035_client_request_idempotency.sql` | Change `ios-offline-outbox-tareas` (D-024): tabla `client_request` y firma nueva de `create_task`/`create_task_list`. Ver «Idempotencia de creates (0035)». Reversa: `scripts/supabase/rollback/rollback_0035.sql`, **solo sin 0037**: revertir antes 0037 (`rollback_0037.sql`, orden LIFO). Con 0037 aplicada dejaría dos sobrecargas de `create_task` y `POST /task/create` daría 500; una guarda al inicio aborta el script en ese caso. Lo mismo vale para `rollback_0029.sql` (solo sin 0035 ni 0037) |
 | `migrations/0037_task_priority.sql` | Change `prioridad-tarea` (D-026): columna `task.priority` (`alta`/`media`/`baja`, default `media`), `priority` en las respuestas de tarea, filtro y orden opcionales en `get_tasks` y `p_priority` en `create_task`/`update_task`. Ver «Prioridad de tarea (0037)». Reversa: `scripts/supabase/rollback/rollback_0037.sql` (**pierde las prioridades**) |
 
 ## Edge Function `functions/api/`
@@ -501,9 +501,15 @@ Change `prioridad-tarea`. Extensión aditiva de D-008 en `task`: cada tarea tien
 - **Firmas:** `get_tasks(boolean, bigint, boolean, text, text)`, `create_task(bigint, text, jsonb, uuid, text)`
   y `update_task(bigint, text, jsonb, text)`, con drop de las anteriores (un solo objeto por RPC, sin
   ambigüedad en PostgREST). Las llamadas existentes por nombre o posición siguen resolviendo.
-- **Despliegue:** la Edge solo manda `p_priority`/`p_sort` si el cliente los envía, así que la Edge nueva
-  funciona sobre la BD sin 0037 y la Edge antigua sobre la BD con 0037 (todo sale en `media`). Orden
-  recomendado: merge (aplica 0037) y verificación SELECT-only; después `supabase functions deploy api`.
+- **Despliegue:** la Edge solo manda `p_priority`/`p_sort` si el cliente los envía. La Edge antigua
+  funciona sobre la BD con 0037 (ignora `priority` y todo sale en `media`). La Edge nueva sobre la BD
+  sin 0037 solo funciona con clientes que no envían `priority` (el marco y Planify-APP). La app iOS de
+  este change **siempre** manda `priority` al crear (el editor arranca en `media` y la cola offline la
+  guarda), así que con ella instalada la Edge nueva **requiere 0037**: sin la columna, PostgREST no
+  encuentra `create_task` con `p_priority` y todas las altas desde iOS fallan, también las encoladas.
+  Orden obligatorio: merge (aplica 0037) y verificación SELECT-only; después
+  `supabase functions deploy api`; después la release de los clientes. Nunca la Edge nueva antes que
+  0037, y en un rollback, siempre la Edge anterior antes que `rollback_0037` (ver «Rollback»).
 - **Kito (`asistente`):** la skill `consulta` (`ver_tareas`) reutiliza `handleTask` de
   `api/usecases/tasks.ts` sin `priority` ni `sort`: su llamada a la RPC no cambia y su salida gana la
   clave `priority`. Kito se despliega aparte y empaqueta su propia copia de `api/usecases`; no hace
@@ -617,6 +623,10 @@ stack Supabase local y efímero en `ubuntu-latest` y corre `scripts/supabase/ci.
    (`ok RB1..RB4`, los mismos checks, `ok RA1..RA2` y `C1..C9`); al final `task_priority_reapply_check.sql`
    (`ok PA1..PA3`), `P1..P10`, `C1..C9` y `contract_check.py` completo otra vez. La de 0035 va dentro
    porque `rollback_0035` borra `create_task(bigint, text, jsonb, uuid)`, que con 0037 ya no existe.
+   Antes del paso 5, `task_priority_rollback_guard_check.sql` (`ok G0..G3`) comprueba con 0037 aplicada
+   que las guardas de `rollback_0035` y `rollback_0029` abortan sin tocar nada y que las llamadas por
+   nombre de la Edge a `create_task`/`update_task` resuelven sin ambigüedad; el `contract_check.py` del
+   paso 5 lo confirma por la Edge (`POST /task/create` 201, `PATCH /task/update` 200).
 
 Se ejecutan todas las suites aunque una falle y el job falla si falla cualquiera; ante fallo se
 suben `.demo/ci/` (logs, `serve.log`, `supabase status`). Versiones fijadas: Supabase CLI 3.1.0,

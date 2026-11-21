@@ -15,6 +15,7 @@
 #      task_priority_check P1-P10 (0037),
 #      feedback_trello_check B1-B8 (0033) y feedback_trigger_check F1-F12 (0031/0034); trigger inerte en
 #      local: sin feedback_webhook_url en Vault no se encola ninguna petición),
+#      task_priority_rollback_guard_check G0-G3 (guardas LIFO de rollback_0035/0029 con 0037 aplicada),
 #      contract_check.py (502 + prioridad) y cross_tenant_check.py.
 #   6. Ida y vuelta anidada 0037 → rollback_0037 → (0035 → rollback_0035 → 0035) → 0037:
 #      a. task_priority_rollback_check PR1-PR4; sobre el esquema sin 0037: home_checks_compat,
@@ -207,6 +208,13 @@ run "SQL feedback_trigger_check" sql-feedback-trigger sql_expanded "$HERE/script
 f_pat=(); for i in $(seq 1 12); do f_pat+=("ok F$i([^0-9a-z]|\$)"); done
 expect_log "SQL feedback_trigger_check" sql-feedback-trigger "${f_pat[@]}"
 
+# Guardas LIFO (R1-02): con 0037 aplicada, rollback_0035 y rollback_0029 abortan sin tocar nada y
+# las llamadas por nombre de la Edge a create_task/update_task siguen resolviendo. contract_check, justo
+# después, confirma por la Edge que POST /task/create (201) y PATCH /task/update (200) no dan 500.
+run "SQL task_priority_rollback_guard_check" sql-rbguard sql_expanded "$HERE/scripts/supabase/tests/task_priority_rollback_guard_check.sql"
+expect_log "SQL task_priority_rollback_guard_check" sql-rbguard 'ok G0([^0-9]|$)' 'ok G1([^0-9]|$)' 'ok G2([^0-9]|$)' 'ok G3([^0-9]|$)' 'ok G-clean' \
+    'rollback_0035: 0037 está aplicada' 'rollback_0029: 0037 está aplicada'
+
 # contract_check: 502 casos del contrato previo + 30 de prioridad (0037: CASES_PRIORITY); en modo
 # CONTRACT_SCHEMA=pre-0037 (BD revertida por rollback_0037) sin el bloque de prioridad, 502.
 CONTRACT_PY="$HERE/scripts/supabase/contract_check.py"
@@ -289,4 +297,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10 y feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta anidada 0037 → rollback → (0035 → rollback → 0035) → 0037 con PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, RA1-RA2, PA1-PA3, P1-P10 y C1-C9)"
+echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10, guardas de rollback G0-G3 y feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta anidada 0037 → rollback → (0035 → rollback → 0035) → 0037 con PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, RA1-RA2, PA1-PA3, P1-P10 y C1-C9)"

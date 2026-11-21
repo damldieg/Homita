@@ -188,12 +188,15 @@ public final class TasksStore: MainActorWriteFailureReporting {
     public var activeSort: String { taskLists.first { $0.id == listFilterId }?.sort ?? "updated_at" }
     /// ¿Hay orden o filtro por prioridad activo? (la vista lo muestra en la toolbar)
     public var hasPriorityView: Bool { sortMode != .list || priorityFilter != nil }
-    /// Reordenar (onMove) solo con orden personalizado y lista activa, con red y sin cambios
-    /// pendientes (el reorden no se encola, Q9 y R8), y sin orden ni filtro por prioridad (0037: la
-    /// posición en pantalla no sería la de la lista).
-    public var canReorder: Bool {
-        listFilterId != nil && activeSort == "custom" && isOnline() && (outbox?.isEmpty ?? true) && !hasPriorityView
+    /// Condición base para reordenar (onMove): orden personalizado y lista activa, con red y sin
+    /// cambios pendientes (el reorden no se encola, Q9 y R8). La usa el detalle de lista, que muestra
+    /// siempre el orden de la lista y no aplica el orden ni el filtro por prioridad (R1-01).
+    public var canReorderList: Bool {
+        listFilterId != nil && activeSort == "custom" && isOnline() && (outbox?.isEmpty ?? true)
     }
+    /// Reordenar en la pestaña Tareas: la base y, además, sin orden ni filtro por prioridad (0037:
+    /// la posición en pantalla no sería la de la lista).
+    public var canReorder: Bool { canReorderList && !hasPriorityView }
 
     public func loadLists() async {
         isLoading = true

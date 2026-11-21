@@ -230,6 +230,22 @@ final class TaskPriorityStoreTests: XCTestCase {
         XCTAssertFalse(store.canReorder)
     }
 
+    /// R1-01: el detalle de lista muestra el orden de la lista y no aplica la vista por prioridad,
+    /// así que «Reordenar» sigue disponible aunque haya un orden o filtro global por prioridad.
+    func testListDetailKeepsReorderWithPriorityView() async {
+        let network = Network()
+        let (store, _) = await makeStore(network: network)
+        store.listFilterId = 2
+        store.sortMode = .priority
+        XCTAssertFalse(store.canReorder, "la pestaña Tareas bloquea el reorden")
+        XCTAssertTrue(store.canReorderList, "el detalle de lista mantiene «Reordenar» con orden por prioridad")
+        store.sortMode = .list
+        store.priorityFilter = .alta
+        XCTAssertTrue(store.canReorderList, "el detalle de lista mantiene «Reordenar» con filtro por prioridad")
+        network.online = false
+        XCTAssertFalse(store.canReorderList, "sin red no se reordena ni en el detalle")
+    }
+
     func testReplaySendsQueuedPriority() async {
         StubURLProtocol.reset { request in ContractFixtures.response(for: request) }
         let client = makeTestClient()
