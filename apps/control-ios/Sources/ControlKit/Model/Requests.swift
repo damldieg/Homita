@@ -381,12 +381,15 @@ public struct CreateTaskRequest: Encodable, Equatable {
     /// Clave de idempotencia (UUID, 0035): el mismo valor reenviado devuelve la tarea ya creada.
     /// nil = no se envía (comportamiento previo).
     public let client_request_id: String?
+    /// Prioridad `alta`/`media`/`baja` (0037). nil = no se envía (el servidor guarda `media`).
+    public let priority: String?
 
-    public init(task_list_id: Int, title: String, person_ids: [Int]? = nil, client_request_id: String? = nil) {
+    public init(task_list_id: Int, title: String, person_ids: [Int]? = nil, client_request_id: String? = nil, priority: String? = nil) {
         self.task_list_id = task_list_id
         self.title = title
         self.person_ids = person_ids
         self.client_request_id = client_request_id
+        self.priority = priority
     }
 }
 
@@ -395,11 +398,14 @@ public struct UpdateTaskRequest: Encodable, Equatable {
     public let title: String
     /// Personas asignadas (0025). nil = no tocar las actuales; [] = quitar todas.
     public let person_ids: [Int]?
+    /// Prioridad `alta`/`media`/`baja` (0037). nil = no se envía (el servidor conserva la actual).
+    public let priority: String?
 
-    public init(id: Int, title: String, person_ids: [Int]? = nil) {
+    public init(id: Int, title: String, person_ids: [Int]? = nil, priority: String? = nil) {
         self.id = id
         self.title = title
         self.person_ids = person_ids
+        self.priority = priority
     }
 }
 
