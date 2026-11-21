@@ -113,6 +113,7 @@ app; el refresco queda para una fase posterior):
 | `migrations/0032_feedback_schema.sql` | DDL `if not exists` de `public.backlog` y `public.feedback` (RLS + política «insertar mi feedback») para local/CI; no-op en prod, sin trigger. Precede a `0033`/`0034`, que se aplican sobre estas tablas. Ver «Feedback» |
 | `migrations/0033_feedback_trello.sql` | Change `feedback-trello-gate` (D-021, D-023), aditiva: `backlog.trello_card_id`/`trello_card_url` + índice único parcial, `feedback.procesando_desde` (reserva) y RPC `homita_feedback_finalize` (escritura final atómica, upsert del voto con `coalesce(votos, 1) + 1`, solo `service_role`). Se aplica en local, CI y prod (guard defensivo si faltan las tablas). Reversa: `scripts/supabase/rollback/rollback_0033.sql` (pierde los vínculos con Trello) |
 | `migrations/0034_feedback_trigger_secret.sql` | Change `feedback-trello-gate` (D-021, D-023): reemplaza el trigger de `0031` por `homita_feedback_notify` → `homita_feedback_dispatch` (SECURITY DEFINER, EXECUTE revocado a `anon`/`authenticated`/`service_role`), que lee de Vault la URL (`feedback_webhook_url`) y el secreto y encola `net.http_post` con cabecera `x-feedback-secret` y solo el id. El trigger existe en todos los entornos pero es inerte sin URL ni secreto en Vault (local/CI). Reversa: `scripts/supabase/rollback/rollback_0034.sql` (restaura `0031` solo si `feedback_webhook_url` de Vault es exactamente la URL de prod de P5; si falta o tiene otro valor no crea trigger; orden en «Rollback»: con la pausa de Vault hecha, tras redesplegar la antigua; sin pausa, ANTES del redeploy, con la función nueva desplegada. Nunca redeploy de la antigua con 0034 aplicado y el secreto cargado) |
+| `migrations/0040_task_list_position.sql` | Change `lista-prioritaria-inicio`: `task_list.position integer null` (check `> 0`, global por hogar), backfill por hogar (`created_at, id`), `get_task_lists` con la clave aditiva `position` y orden `position` asc nulls last, `name`, `id`, y RPC `reorder_task_lists(bigint[])`. Ver «Orden de listas (0040)». Reversa: `scripts/supabase/rollback/rollback_0040.sql` (se pierde el orden elegido) |
 | `migrations/0035_client_request_idempotency.sql` | Change `ios-offline-outbox-tareas` (D-024): tabla `client_request` y firma nueva de `create_task`/`create_task_list`. Ver «Idempotencia de creates (0035)». Reversa: `scripts/supabase/rollback/rollback_0035.sql` |
 
 ## Edge Function `functions/api/`
@@ -443,6 +444,36 @@ existentes; solo añade la clave `end_date` a las respuestas de evento.
   del dashboard) siguen mostrando el evento solo en su día de inicio; la app iOS muestra el rango
   («10 nov → 20 nov») en la fila del evento y en el editor.
 
+## Orden de listas (0040)
+
+Change `lista-prioritaria-inicio`. Las listas de tareas tienen un orden persistente por hogar que usa Inicio
+(la lista con `position` menor va primero).
+
+- **Columna:** `task_list.position integer null` con check `position is null or position > 0`. Es global por
+  hogar (no por usuario). Nullable a propósito: `create_task_list` no cambia y las listas nuevas nacen sin
+  posición y salen al final hasta que alguien reordene. El backfill de la migración numera 1..n por hogar
+  según `created_at, id`.
+- **`GET /task-list`:** cada elemento lleva la clave aditiva `position` (int o `null`) y la lista viene
+  ordenada por `position` (nulls last), `name` y `id`. El resto del shape no cambia; `GET /task-list/detail` y
+  las respuestas de create/update tampoco.
+- **`PATCH /task-list/order`** (ruta **aditiva**, D-008: fuera de las 43 rutas legacy; sin `X-Home-Id`, D-012):
+  body `{"ids": [3, 1, 2]}` = ids en el orden deseado (lista completa, sin duplicados); respuesta 200
+  `[{"id": 3, "position": 1}, …]`. Atómica (RPC `reorder_task_lists`): exige, para cada lista, ACL propia,
+  permiso de edición (owner o `can_edit`) y `tasklist.manage`, como `update_task_list`; si una falla no cambia
+  ninguna. No cambia `updated_at`. Errores: `ids` ausente, vacío, con duplicados o no enteros → 400
+  `Task list IDs are required`; viewer sin `can_edit` o sin `tasklist.manage` → 403 `Not Allowed`; id inexistente,
+  de otro hogar, sin ACL o de otro tenant → 500 `Not Found`. Las listas del hogar que el usuario no ve conservan su
+  `position` (pueden empatar con las visibles; desempata `name, id`).
+- **Despliegue:** el merge aplica 0040 en prod (D-022) y después se despliega la Edge (ruta nueva). Con la Edge
+  nueva y sin la RPC, `PATCH /task-list/order` daría 500; `GET /task-list` sigue funcionando.
+- **Rollback:** orden Edge anterior → export SELECT-only de `(id, home_id, position)` → `rollback_0040.sql`
+  (borra `reorder_task_lists` y la columna y restaura el cuerpo de `get_task_lists` de 0029; idempotente; la fila
+  `0040` de `schema_migrations` no se borra).
+- **Pruebas:** `task_list_position_check.sql` (`ok TP1..TP8`), ida y vuelta en `ci.sh`
+  (`task_list_position_rollback_check.sql` `ok TR1..TR3` y `task_list_position_reapply_check.sql` `ok TA1..TA2`),
+  test Deno `functions/api/tests/task_list_order_test.ts`, 17 casos en `contract_check.py` (`CASES_POSITION`) y
+  7 en `cross_tenant_check.py`.
+
 ## Idempotencia de creates (0035, D-024)
 
 Change `ios-offline-outbox-tareas`. La cola offline de Control iOS reintenta los creates de tarea y de
@@ -532,7 +563,7 @@ con las desviaciones documentadas fijadas como valor esperado (`401` vs `500` de
 owner-only `403`, `refresh_token`, TypeError de `calendar/create` sin color). Borra los restos `CC-%`
 de ejecuciones anteriores (`reset_leftovers`, service_role local), así que es repetible sin
 re-sembrar. El guard de `--fn` rechaza hosts no locales: jamás debe tocar el proyecto alojado.
-Exit 0 = 43/43 rutas cubiertas sin regresión; si no, lista las rutas con regresión.
+Exit 0 = 43/43 rutas legacy cubiertas sin regresión (más la ruta aditiva `PATCH /task-list/order`, 0040, cuyos casos suman al total); si no, lista las rutas con regresión.
 
 ```sh
 scripts/demo.sh up                          # Edge local servida + seed.py (ver «Flujo demo local»)
@@ -542,7 +573,7 @@ python3 scripts/supabase/contract_check.py  # o --fn URL o SUPABASE_FUNCTIONS_UR
 Complementos sin oráculo: `scripts/supabase/tests/expected_shape_check.py`
 (forma esperada: `refresh_token`, `config` con flag `ALLOW_REGISTRATION`, Gemini 400, alta de
 usuarios; se ejecuta una vez por configuración de flag) y `scripts/supabase/tests/cross_tenant_check.py`
-(aislamiento entre tenants: 266 casos —`EXPECTED_CASES` en el script—, ids ajenos → `500 Not Found`, RPC directas
+(aislamiento entre tenants: 273 casos —`EXPECTED_CASES` en el script—, ids ajenos → `500 Not Found`, RPC directas
 `/rest/v1/rpc/*` con JWT ajeno sin fugas, owner vs viewer). Fixture:
 `scripts/supabase/fixture_two_families.py` (RLS).
 
@@ -563,9 +594,16 @@ stack Supabase local y efímero en `ubuntu-latest` y corre `scripts/supabase/ci.
    últimos reciben las migraciones y los rollbacks expandidos desde los marcadores
    `-- @MIGRATION:<fichero>@` / `-- @ROLLBACK:<fichero>@`; F10 usa un stub de `net.http_post` porque el
    stack local no instala `pg_net` (si estuviera, mira la cola real).
-5. `contract_check.py` completo (`502/502`; `CONTRACT_ONLY` se anula).
-6. `cross_tenant_check.py` (`266/266`; sale 1 si hay un fallo o si el número de casos no es
+   Además `task_list_position_check.sql` (`ok TP1..TP8`, 0040) y el test Deno de `PATCH /task-list/order`
+   (`api/tests/task_list_order_test.ts`, con `--allow-env`).
+5. `contract_check.py` completo (`519/519`: 502 + 17 de la ruta aditiva `PATCH /task-list/order`; sigue siendo
+   43/43 rutas legacy; `CONTRACT_ONLY` se anula).
+6. `cross_tenant_check.py` (`273/273`; sale 1 si hay un fallo o si el número de casos no es
    `EXPECTED_CASES`).
+
+7. Ida y vuelta 0035 y 0040 (en serie): `rollback_0035.sql` / `rollback_0040.sql`, checks sobre el esquema
+   revertido (tras `rollback_0040`, `contract_check.py` con `CONTRACT_POSITION=0` = `502/502` sin `position`) y
+   reaplicación con `RA1..RA2` / `TA1..TA2` y los checks de la migración otra vez.
 
 Se ejecutan todas las suites aunque una falle y el job falla si falla cualquiera; ante fallo se
 suben `.demo/ci/` (logs, `serve.log`, `supabase status`). Versiones fijadas: Supabase CLI 3.1.0,

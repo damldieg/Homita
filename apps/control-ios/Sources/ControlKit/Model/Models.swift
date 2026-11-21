@@ -167,11 +167,15 @@ public struct TaskListEntry: Codable, Equatable {
     public let pending_task_count: FlexInt?
     /// Permiso de edición del usuario actual (owner o `can_edit`, 0029); `nil` → se asume edición.
     public let can_edit: FlexBool?
+    /// Orden de la lista en el hogar (0040, lista prioritaria de Inicio); `nil` = nunca ordenada (va al final)
+    /// o servidor anterior sin la clave. `var … = nil` para no romper los inits memberwise existentes.
+    public var position: FlexInt? = nil
 
     public var showsInWidget: Bool { widget?.value ?? true }
     public var showsInDashboard: Bool { dashboard?.value ?? true }
     public var pendingTaskCount: Int { pending_task_count?.value ?? 0 }
     public var canEdit: Bool { can_edit?.value ?? true }
+    public var positionValue: Int? { position?.value }
 }
 
 /// `GET task` → `{id,task_list_id,title,completed_at,created_at,updated_at,order,

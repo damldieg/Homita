@@ -19,6 +19,16 @@ final class PendingOverlayTests: XCTestCase {
         )
     }
 
+    /// R1-01: el overlay offline conserva `position` (orden de la lista prioritaria de Inicio).
+    func testOverlayKeepsListPosition() {
+        var ordered = list
+        ordered.position = FlexInt(3)
+        let updated = apply([.updateList(ref: .remote(2), name: "Súper", color: "#000000", sort: "title", widget: true, dashboard: true)], lists: [ordered])
+        XCTAssertEqual(updated.lists.first?.positionValue, 3)
+        let counted = apply([.createTask(local: -1, listRef: .remote(2), title: "Pan", personIds: nil)], lists: [ordered])
+        XCTAssertEqual(counted.lists.first?.positionValue, 3)
+    }
+
     func testEmptyQueueIsServerAsIs() {
         let result = apply([])
         XCTAssertEqual(result.tasks, [milk])
