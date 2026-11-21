@@ -36,7 +36,8 @@ public enum RequestBuilder {
 
     /// Regla de envío de `X-Home-Id`: ruta autenticada bajo `home/` y fuera de las excluidas.
     static func sendsHomeHeader(for apiRequest: APIRequest) -> Bool {
-        !apiRequest.isPublic
+        if apiRequest.path == "asistente" { return !apiRequest.isPublic } // Kito opera siempre sobre el hogar activo
+        return !apiRequest.isPublic
             && apiRequest.path.hasPrefix("home/")
             && !homeHeaderExcludedPaths.contains(apiRequest.path)
     }

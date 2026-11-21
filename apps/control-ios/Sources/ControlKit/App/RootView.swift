@@ -108,7 +108,22 @@ struct MainTabView: View {
     @State private var selectedTab = 0 // 0 Inicio, 1 Tareas, 2 Calendario, 3 Hogar, 4 Perfil
     @State private var taskListRequest: Int? // lista pedida desde Inicio
     @State private var calendarSegment = 0 // 0 Eventos, 1 Rutinas, 2 Calendarios
+    @State private var kito: KitoStore? // chat de Kito del usuario y hogar activos (nil sin hogar)
+    @State private var showingKito = false
     private let deepLinks = DeepLinkCenter.shared
+
+    /// Cambia al cambiar de usuario u hogar: el chat de Kito se recrea con su historial.
+    private var kitoKey: String {
+        "\(services.session.session?.id ?? 0)#\(services.homeContext.activeHomeId ?? "")"
+    }
+
+    private func makeKito() {
+        guard let userId = services.session.session?.id, let homeId = services.homeContext.activeHomeId else {
+            kito = nil
+            return
+        }
+        kito = KitoStore(api: services.kitoAPI, historyStore: services.kitoHistory, userId: userId, homeId: homeId)
+    }
 
     var body: some View {
         let state = services.homeContext.state
@@ -162,6 +177,18 @@ struct MainTabView: View {
                 Task { await services.replayOutbox() }
             }
         }
+        // Kito: botón flotante en todas las pestañas menos Ajustes (4); abre el chat en una hoja.
+        .overlay(alignment: .bottomTrailing) {
+            if selectedTab != 4, kito != nil {
+                KitoButton { showingKito = true }
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 84)
+            }
+        }
+        .sheet(isPresented: $showingKito) {
+            if let kito { KitoChatView(store: kito) }
+        }
+        .task(id: kitoKey) { makeKito() }
         // Avisos de cambios descartados al sincronizar (4xx o «ya no existe»).
         .writeFailureToast(noticeBinding(outbox))
         .onChange(of: DataFreshness.shared.isOffline) { _, offline in
