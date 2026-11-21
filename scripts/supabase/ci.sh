@@ -129,6 +129,13 @@ run "deno check procesar-feedback" deno-check env NO_COLOR=1 deno check "$FEEDBA
 run "deno test procesar-feedback" deno-test env NO_COLOR=1 deno test --no-prompt "$FEEDBACK_FN/tests/"
 expect_log "deno test procesar-feedback" deno-test '^ok \| [0-9]+ passed \| 0 failed'
 
+# Edge Function asistente (Kito, fase 1): núcleo, handler y skill consulta con fetch y casos de uso falsos.
+# --allow-env: la skill consulta importa los casos de uso de `api`, que leen el entorno al cargar.
+ASIST_FN="$HERE/supabase/functions/asistente"
+run "deno check asistente" deno-check-asistente env NO_COLOR=1 deno check "$ASIST_FN/index.ts"
+run "deno test asistente" deno-test-asistente env NO_COLOR=1 deno test --no-prompt --allow-env "$ASIST_FN/tests/"
+expect_log "deno test asistente" deno-test-asistente '^ok \| [0-9]+ passed \| 0 failed'
+
 run "SQL invitaciones_check" sql-invitaciones sql "$HERE/scripts/supabase/tests/invitaciones_check.sql"
 n_pat=(); for i in $(seq 1 22); do n_pat+=("ok N$i([^0-9]|\$)"); done
 expect_log "SQL invitaciones_check" sql-invitaciones "${n_pat[@]}"
