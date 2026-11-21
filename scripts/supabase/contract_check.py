@@ -52,6 +52,13 @@ segundo lado con el que comparar. Este script fija el comportamiento documentado
   nunca se imprimen.
 * `SUPABASE_SERVICE_ROLE_KEY` (reset de restos CC-%, R1-01): del entorno, de `.demo/functions.env`
   o de `supabase status -o env`; toda fuente con indicios de producción (`supabase.co`) se rechaza.
+* Bloque prioridad (0037, change prioridad-tarea, D-026; `CASES_PRIORITY`): `TASK_ITEM` lleva
+  `priority`; `scenario_task_priority` fija create sin/con prioridad y las inválidas (400 `Invalid
+  priority` sin fila), update con valor/sin clave/inválida, `GET /task` con filtro, filtro inválido,
+  `sort=priority` y el orden por defecto intacto, detail y el replay idempotente; el viewer sin
+  `can_edit` recibe 403 con prioridad. `CONTRACT_SCHEMA=pre-0037` (BD revertida por rollback_0037)
+  quita la clave y el bloque: prueba que la Edge nueva no manda parámetros nuevos si el cliente no
+  los envía (502 casos).
 * `PSQL` (membresía del bloque viewer): comando psql completo contra la BD local; para el stack
   local `docker exec`: `PSQL="docker exec -i supabase_db_homita-api psql -U postgres -d postgres"`.
 
@@ -211,7 +218,15 @@ CASES_VALUES = 14 + 5
 # 0030 (event-end-date): 23 en scenario_event_end_date + 2 del viewer (create/update con end_date → 403)
 # + 4 de RN-4 y fecha inválida en update (R1-03)
 CASES_END_DATE = 23 + 2 + 4
-EXPECTED_CASES = CASES_BASE + CASES_110 + CASES_115 + CASES_VALUES + CASES_END_DATE  # 351 + 34 + 69 + 19 + 29 = 502
+# 0037 (prioridad-tarea): 28 en scenario_task_priority + 2 del viewer (create/update con priority → 403).
+# CONTRACT_SCHEMA=pre-0037 (BD revertida por rollback_0037): sin la clave ni el bloque → 502.
+CONTRACT_SCHEMA = os.environ.get("CONTRACT_SCHEMA", "")
+if CONTRACT_SCHEMA not in ("", "pre-0037"):
+    sys.exit(f"CONTRACT_SCHEMA desconocido: {CONTRACT_SCHEMA!r} (vacío o pre-0037)")
+PRIORITY = CONTRACT_SCHEMA != "pre-0037"
+CASES_PRIORITY = (28 + 2) if PRIORITY else 0
+EXPECTED_CASES = (CASES_BASE + CASES_110 + CASES_115 + CASES_VALUES + CASES_END_DATE
+                  + CASES_PRIORITY)  # 351 + 34 + 69 + 19 + 29 = 502 (+ 30 con 0037 = 532)
 
 
 def record(route, name, ok, detail=""):
@@ -285,6 +300,8 @@ EVENT_DETAIL = {"id": "<id>", "calendar_id": "<id>", "title": "<str>", "date_at"
 TASK_ITEM = {"id": "<id>", "task_list_id": "<id>", "title": "<str>", "completed_at": "<ts?>",
              "created_at": "<ts>", "updated_at": "<ts>", "order": "<int>",
              "task_list_color": "<str>", "task_list_name": "<str>", "persons": [PERSON_REF]}
+if PRIORITY:
+    TASK_ITEM["priority"] = "<str>"  # 0037 (D-026, aditivo): alta|media|baja
 TL_ITEM = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>", "sort": "<str>",
            "created_at": "<ts>", "updated_at": "<ts>", "widget": "<01>", "dashboard": "<01>",
            "pending_task_count": "<int>", "home_id": "<id>",
@@ -341,6 +358,7 @@ ERR_NOT_FOUND = '{"error":"Not Found"}'
 ERR_END_RANGE = '{"error":"End date cannot be before start date"}'
 ERR_END_INVALID = '{"error":"Invalid end date"}'
 ERR_END_ROUTINE = '{"error":"Routine events cannot have an end date"}'
+ERR_INVALID_PRIORITY = '{"error":"Invalid priority"}'
 ERR_ALARM = '{"error":"Alarm must be nonnegative minutes or null"}'
 ERR_NAME_REQUIRED = '{"error":"Name is required"}'
 ERR_INVALID_TZ = '{"error":"Invalid timezone"}'
@@ -1202,6 +1220,98 @@ def scenario_task_list():
           isinstance(b, list) and all(x.get("id") != lid for x in b))
 
 
+def scenario_task_priority():
+    """0037 (prioridad-tarea, D-026): 28 casos. El viewer (403) va en el bloque viewer."""
+    rank = {"alta": 1, "media": 2, "baja": 3}
+    b = check("POST /task-list/create", "priority: lista CC-Prioridad",
+              request("POST", "/task-list/create", {"name": "CC-Prioridad", "color": "#222222", "sort": "custom"}, tok),
+              201, TL_DETAIL)
+    lid = b.get("id") if isinstance(b, dict) else None
+
+    def create(title, **extra):
+        return request("POST", "/task/create", dict({"task_list_id": lid, "title": title}, **extra), tok)
+
+    def detail(tid):
+        b = parse(request("GET", f"/task/detail?id={tid}", None, tok)[1])
+        return b if isinstance(b, dict) else {}
+
+    def list_tasks(query=""):
+        res = request("GET", f"/task?task_list_id={lid}{query}", None, tok)
+        return res, parse(res[1]) if res[0] == 200 else []
+
+    # create: sin prioridad → media; con alta/baja → ese valor
+    b = check("POST /task/create", "priority: create sin prioridad → 201", create("CC-P-Media"), 201, TASK_ITEM)
+    t_media = b.get("id") if isinstance(b, dict) else None
+    value("POST /task/create", "priority: create sin prioridad → media",
+          isinstance(b, dict) and b.get("priority") == "media", repr(b)[:300])
+    b = check("POST /task/create", "priority: create alta → 201", create("CC-P-Alta", priority="alta"), 201, TASK_ITEM)
+    t_alta = b.get("id") if isinstance(b, dict) else None
+    value("POST /task/create", "priority: create alta → alta", isinstance(b, dict) and b.get("priority") == "alta", repr(b)[:300])
+    b = check("POST /task/create", "priority: create baja → 201", create("CC-P-Baja", priority="baja"), 201, TASK_ITEM)
+    t_baja = b.get("id") if isinstance(b, dict) else None
+    # inválidas → 400 sin fila nueva
+    before = len(list_tasks()[1])
+    for label, bad in (("urgente", "urgente"), ("vacía", ""), ("número", 1), ("ALTA", "ALTA")):
+        check("POST /task/create", f"priority: create {label} → 400 Invalid priority",
+              create("CC-P-Mala", priority=bad), 400, ERR_INVALID_PRIORITY)
+    after = list_tasks()[1]
+    value("POST /task/create", "priority: create inválida no crea filas",
+          len(after) == before and not any(x.get("title") == "CC-P-Mala" for x in after), f"{before} → {len(after)}")
+
+    # update: con valor persiste; sin la clave conserva; inválida → 400 y la fila no cambia
+    check("PATCH /task/update", "priority: update media → baja (200)",
+          request("PATCH", "/task/update", {"id": t_media, "title": "CC-P-Media", "priority": "baja"}, tok), 200, TASK_ITEM)
+    value("PATCH /task/update", "priority: update persiste baja (detail)", detail(t_media).get("priority") == "baja")
+    check("PATCH /task/update", "priority: update sin la clave (200)",
+          request("PATCH", "/task/update", {"id": t_alta, "title": "CC-P-Alta 2"}, tok), 200, TASK_ITEM)
+    value("PATCH /task/update", "priority: update sin la clave conserva alta", detail(t_alta).get("priority") == "alta")
+    snap = detail(t_baja)
+    check("PATCH /task/update", "priority: update inválida → 400 Invalid priority",
+          request("PATCH", "/task/update", {"id": t_baja, "title": "CC-P-Cambiada", "priority": "urgente"}, tok),
+          400, ERR_INVALID_PRIORITY)
+    value("PATCH /task/update", "priority: update inválida deja la fila intacta", detail(t_baja) == snap,
+          repr(detail(t_baja))[:300])
+    # Deja media en t_media para el orden (alta, media, baja + una completada alta).
+    request("PATCH", "/task/update", {"id": t_media, "title": "CC-P-Media", "priority": "media"}, tok)
+    done = parse(create("CC-P-Hecha", priority="alta")[1])
+    request("PATCH", "/task/complete", {"id": done.get("id") if isinstance(done, dict) else None, "completed": True}, tok)
+
+    # GET /task: filtro, filtro inválido, sort=priority y orden por defecto intacto
+    res, rows = list_tasks("&priority=alta")
+    check("GET /task", "priority: GET /task?priority=alta (200)", res, 200, [TASK_ITEM])
+    value("GET /task", "priority: el filtro alta solo trae alta",
+          bool(rows) and all(x.get("priority") == "alta" for x in rows), repr(rows)[:300])
+    check("GET /task", "priority: GET /task?priority=x → 400 Invalid priority",
+          request("GET", f"/task?task_list_id={lid}&priority=x", None, tok), 400, ERR_INVALID_PRIORITY)
+    res, rows = list_tasks("&sort=priority")
+    check("GET /task", "priority: GET /task?sort=priority (200)", res, 200, [TASK_ITEM])
+    want = sorted(rows, key=lambda x: (x.get("completed_at") is not None, rank.get(x.get("priority"), 9),
+                                       x.get("order"), x.get("id")))
+    value("GET /task", "priority: sort=priority → pendientes alta>media>baja, completadas al final",
+          len(rows) == 4 and rows == want and [x.get("priority") for x in rows[:3]] == ["alta", "media", "baja"]
+          and rows[-1].get("completed_at") is not None, repr([(x.get("id"), x.get("priority")) for x in rows]))
+    _, rows = list_tasks()
+    want = sorted(rows, key=lambda x: (x.get("completed_at") is not None, x.get("order"), x.get("id")))
+    value("GET /task", "priority: sin sort el orden es el de siempre (completadas al final, order, id)",
+          len(rows) == 4 and rows == want, repr([(x.get("id"), x.get("order")) for x in rows]))
+
+    # detail
+    b = check("GET /task/detail", "priority: GET /task/detail (200)",
+              request("GET", f"/task/detail?id={t_alta}", None, tok), 200, TASK_ITEM)
+    value("GET /task/detail", "priority: detail devuelve alta", isinstance(b, dict) and b.get("priority") == "alta")
+
+    # Replay idempotente (0035): el reenvío ignora la prioridad nueva.
+    key = "5a5a5a5a-1b1b-4c4c-8d8d-0e0e0e0e0e0e"
+    b1 = check("POST /task/create", "priority: create con client_request_id y alta (201)",
+               create("CC-P-Replay", priority="alta", client_request_id=key), 201, TASK_ITEM)
+    b2 = check("POST /task/create", "priority: replay con baja (201)",
+               create("CC-P-Replay", priority="baja", client_request_id=key), 201, TASK_ITEM)
+    value("POST /task/create", "priority: el replay devuelve la tarea original con alta",
+          isinstance(b1, dict) and isinstance(b2, dict) and b1.get("id") == b2.get("id") and b2.get("priority") == "alta",
+          f"{b1!r} / {b2!r}"[:300])
+    request("DELETE", "/task-list/delete", {"id": lid}, tok)
+
+
 def scenario_routine():
     start = (monday - datetime.timedelta(days=7)).isoformat()
     b = check("POST /routine/create", "escenario routine/create",
@@ -1519,6 +1629,8 @@ scenario_profile()
 scenario_person()
 scenario_calendar()
 scenario_task_list()
+if PRIORITY:
+    scenario_task_priority()
 scenario_routine()
 scenario_event()
 scenario_home()
@@ -1661,6 +1773,16 @@ check("PATCH /event/update", "viewer PATCH /event/update con end_date (403)",
       request("PATCH", f"/event/update?timezone={tz}", {
           "id": vev.get("id") if isinstance(vev, dict) else None, "title": "CC-ViewerEv",
           "date_at": "2026-11-10 09:00:00", "end_date": "2026-11-20"}, vtok), 403, ERR_NOT_ALLOWED)
+
+# 0037: el viewer sin can_edit no crea ni edita tareas con prioridad → 403 Not Allowed
+if PRIORITY:
+    check("POST /task/create", "viewer POST /task/create con priority (403)",
+          request("POST", "/task/create", {"task_list_id": vlist, "title": "CC-ViewerT", "priority": "alta"}, vtok),
+          403, ERR_NOT_ALLOWED)
+    vt = parse(request("POST", "/task/create", {"task_list_id": vlist, "title": "CC-ViewerT"}, tok)[1])
+    check("PATCH /task/update", "viewer PATCH /task/update con priority (403)",
+          request("PATCH", "/task/update", {"id": vt.get("id") if isinstance(vt, dict) else None, "title": "CC-ViewerT",
+                                            "priority": "baja"}, vtok), 403, ERR_NOT_ALLOWED)
 
 # Misma matriz con task-list: retirada de miembros
 check("DELETE /task-list/user", "viewer DELETE /task-list/user saca al owner (403, desviación documentada)",
@@ -2822,7 +2944,8 @@ if len(results) != EXPECTED_CASES:
           f"M/C2 de 1.6 + 6 del bloque de permisos por kind de 1.7 + 40 del bloque matriz §3.4.1 "
           f"de 1.8 + 39 del bloque 1.9 de configuración de permisos (3+8+15+7+6) + 34 del bloque "
           f"1.10 de contratos home (15+15+4) + 69 del bloque 1.15 de invitaciones "
-          f"(3+8+19+7+19+11+2) + 19 de valores de can_edit (14) y app_user_id (5))")
+          f"(3+8+19+7+19+11+2) + 19 de valores de can_edit (14) y app_user_id (5) + 29 de end_date"
+          f" + {CASES_PRIORITY} de prioridad (0037; CONTRACT_SCHEMA={CONTRACT_SCHEMA or 'actual'}))")
 fb_fails = fb_results.count(False)
 print(f"{len(fb_results) - fb_fails}/{len(fb_results)} casos feedback ok (esperados {FEEDBACK_EXPECTED})"
       f" · {len([r for r in FEEDBACK_ROUTES if r in covered_fb])}/{len(FEEDBACK_ROUTES)} ruta feedback")
