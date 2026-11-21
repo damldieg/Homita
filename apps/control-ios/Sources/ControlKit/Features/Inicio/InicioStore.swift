@@ -106,12 +106,21 @@ public final class InicioStore: MainActorWriteFailureReporting {
         public let tasks: [TaskEntry]
     }
 
-    /// Pendientes agrupadas por lista (orden de `TodaySummary.pendingTasks`, sin límite global;
-    /// cada página muestra las primeras `cardTaskLimit`).
+    /// Pendientes agrupadas por lista (sin límite global; cada página muestra las primeras `cardTaskLimit`).
+    /// Las páginas van por `position` de la lista en `taskLists` (0040: lista prioritaria primero); las listas
+    /// sin posición (o aún no cargadas en `taskLists`) van al final y empatan por el orden de
+    /// `TodaySummary.pendingTasks`. Las tareas dentro de cada página no cambian.
     public var pendingTaskPages: [TaskPage] {
         let all = TodaySummary.pendingTasks(tasks, limit: tasks.count)
-        var order: [Int] = []
-        for task in all where !order.contains(task.task_list_id) { order.append(task.task_list_id) }
+        var firstSeen: [Int] = []
+        for task in all where !firstSeen.contains(task.task_list_id) { firstSeen.append(task.task_list_id) }
+        let positions = Dictionary(taskLists.compactMap { list in list.positionValue.map { (list.id, $0) } },
+                                   uniquingKeysWith: { first, _ in first })
+        let order = firstSeen.enumerated().sorted { lhs, rhs in
+            let l = positions[lhs.element] ?? Int.max
+            let r = positions[rhs.element] ?? Int.max
+            return l != r ? l < r : lhs.offset < rhs.offset
+        }.map(\.element)
         return order.map { listId in
             let items = all.filter { $0.task_list_id == listId }
             let first = items[0]
@@ -222,10 +231,15 @@ public final class InicioStore: MainActorWriteFailureReporting {
 
     public func loadTasks() async {
         tasksState = .loading
+        // Las listas (para el orden de las páginas por `position`) son best-effort: si fallan, las tareas
+        // siguen cargando y no se toca ni `tasksState` ni `errorMessage`.
+        async let listsLoad: [TaskListEntry]? = try? await fetchFresh { try await taskListsRepo.index() }
         do {
             serverTasks = try await fetchFresh { try await tasksRepo.index(taskListId: nil) }
+            if let lists = await listsLoad { serverTaskLists = lists }
             tasksState = .loaded
         } catch {
+            _ = await listsLoad
             tasksState = .failed(message(error))
         }
     }

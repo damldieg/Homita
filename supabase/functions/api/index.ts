@@ -51,7 +51,7 @@ import {
 } from "./usecases/events.ts";
 import {
     handleTaskListCreate, handleTaskListDelete, handleTaskListDetail, handleTaskListIndex,
-    handleTaskListUpdate, handleTaskListUserAccess, handleTaskListUserCreate, handleTaskListUserDelete, handleTaskListUserIndex,
+    handleTaskListOrder, handleTaskListUpdate, handleTaskListUserAccess, handleTaskListUserCreate, handleTaskListUserDelete, handleTaskListUserIndex,
 } from "./usecases/task-lists.ts";
 import {
     handleTask, handleTaskComplete, handleTaskCreate, handleTaskDelete, handleTaskDetail,
@@ -110,6 +110,8 @@ const ROUTES: Record<string, { auth: boolean; home?: boolean; homeContext?: bool
     "GET /task-list": { auth: true, handler: (req, t) => handleTaskListIndex(req, t) },
     "GET /task-list/detail": { auth: true, handler: (req, t) => handleTaskListDetail(req, t) },
     "POST /task-list/create": { auth: true, handler: (req, t) => handleTaskListCreate(req, t) },
+    // lista-prioritaria-inicio: ruta aditiva (D-008) para ordenar las listas; sin X-Home-Id (D-012).
+    "PATCH /task-list/order": { auth: true, handler: (req, t) => handleTaskListOrder(req, t) },
     "PATCH /task-list/update": { auth: true, handler: (req, t) => handleTaskListUpdate(req, t) },
     "DELETE /task-list/delete": { auth: true, handler: (req, t) => handleTaskListDelete(req, t) },
     "GET /task-list/user": { auth: true, handler: (req, t) => handleTaskListUserIndex(req, t) },

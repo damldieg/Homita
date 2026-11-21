@@ -1,7 +1,7 @@
 // task-list + task-list/user (TaskList*.php). Matriz §3 owner/viewer en las RPC (0006/0008).
-import { inputBool, inputEmail, inputInt, inputString, json, contractEmpty, contractInput, fmt } from "../_shared/contract.ts";
+import { getInput, inputBool, inputEmail, inputInt, inputString, json, contractEmpty, contractInput, fmt } from "../_shared/contract.ts";
 import {
-    errNotFound500, errTaskListCreateRequired, errTaskListIdRequired, errTaskListSort,
+    errNotFound500, errTaskListCreateRequired, errTaskListIdRequired, errTaskListOrderRequired, errTaskListSort,
     errTaskListUpdateRequired, errTaskListUserCreateRequired, errTaskListUserDeleteRequired,
     errTaskListUserIdRequired, errTaskListUserAccessRequired, rpcPass,
 } from "../_shared/errors.ts";
@@ -121,4 +121,18 @@ export const handleTaskListUserAccess = async (req: Request, token: string): Pro
     if (contractEmpty(taskListId) || contractEmpty(userId) || canEdit === null) return errTaskListUserAccessRequired();
     return rpcPass(await rpc("set_task_list_user_access",
         { p_task_list_id: taskListId, p_user_id: userId, p_can_edit: canEdit }, token));
+};
+
+// PATCH /task-list/order (lista-prioritaria-inicio, ruta nueva): `ids` = lista completa en el orden
+// deseado. Validación local (array no vacío de enteros > 0, sin duplicados → 400); permisos y
+// existencia en la RPC (403 'Not Allowed' / 500 'Not Found'); la operación es atómica.
+export const handleTaskListOrder = async (req: Request, token: string): Promise<Response> => {
+    const input = await contractInput(req);
+    const ids = getInput(input, "ids");
+    if (!Array.isArray(ids) || ids.length === 0
+        || !ids.every((v) => typeof v === "number" && Number.isSafeInteger(v) && v > 0)
+        || new Set(ids).size !== ids.length) {
+        return errTaskListOrderRequired();
+    }
+    return rpcPass(await rpc("reorder_task_lists", { p_ids: ids }, token));
 };

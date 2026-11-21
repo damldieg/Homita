@@ -8,9 +8,10 @@
 #   1. Stack local (`supabase start`, sin studio/imgproxy/vector/logflare/mailpit) si no está levantado.
 #   2. Guardas: API_URL local y la BD es `supabase/postgres:17.*`.
 #   3. `scripts/demo.sh up`: db reset (migraciones) + `functions serve api` + seed. Es el único reset.
-#   4. Deno: `deno check` y `deno test` de procesar-feedback (mocks, sin red ni permisos).
+#   4. Deno: `deno check` y `deno test` de procesar-feedback (mocks, sin red ni permisos) y el test de
+#      PATCH /task-list/order de `api` (0040, con --allow-env).
 #   5. SQL (invitaciones_check, home_checks_compat, acl_can_edit_check, permisos_matriz_check,
-#      client_request_check C1-C9 (0035),
+#      client_request_check C1-C9 (0035), task_list_position_check TP1-TP8 (0040),
 #      feedback_trello_check B1-B8 (0033) y feedback_trigger_check F1-F12 (0031/0034); trigger inerte en
 #      local: sin feedback_webhook_url en Vault no se encola ninguna petición),
 #      contract_check.py y cross_tenant_check.py.
@@ -18,6 +19,10 @@
 #      home_checks_compat, acl_can_edit_check, permisos_matriz_check y contract_check sobre el esquema
 #      revertido, y client_request_reapply_check RA1-RA2 más client_request_check C1-C9 otra vez.
 #      Se ejecutan todas aunque una falle; el exit final es != 0 si alguna falló.
+#   7. Ida y vuelta 0040 → rollback_0040.sql → 0040, en serie tras la de 0035 (0035 y 0040 no comparten
+#      funciones): task_list_position_rollback_check TR1-TR3, después home_checks_compat, acl_can_edit_check,
+#      permisos_matriz_check y contract_check (CONTRACT_POSITION=0: 502/502, sin `position`) sobre el esquema
+#      revertido, y task_list_position_reapply_check TA1-TA2 más task_list_position_check TP1-TP8 otra vez.
 #
 # Nunca usa ~/.homita/supabase.env ni secretos: las claves son las del stack local
 # (`supabase status -o env`). psql va por `docker exec` (socket Unix dentro del contenedor), que es
@@ -35,7 +40,7 @@ EXCLUDE=studio,imgproxy,vector,logflare,mailpit
 # Entorno heredado que podría apuntar a otra BD o alterar la ejecución: fuera.
 unset PGHOST PGHOSTADDR PGSERVICE PGSERVICEFILE PGPASSFILE PGOPTIONS PGSYSCONFDIR PGPORT PGUSER \
     PGPASSWORD PGDATABASE DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY \
-    SUPABASE_FUNCTIONS_URL CONTRACT_ONLY XT_ONLY PSQL
+    SUPABASE_FUNCTIONS_URL CONTRACT_ONLY CONTRACT_POSITION XT_ONLY PSQL
 
 step() { echo "==> $*"; }
 fail() { echo "ci.sh: $*" >&2; exit 1; }
@@ -136,6 +141,11 @@ run "deno check asistente" deno-check-asistente env NO_COLOR=1 deno check "$ASIS
 run "deno test asistente" deno-test-asistente env NO_COLOR=1 deno test --no-prompt --allow-env "$ASIST_FN/tests/"
 expect_log "deno test asistente" deno-test-asistente '^ok \| [0-9]+ passed \| 0 failed'
 
+# Test de PATCH /task-list/order (0040): fetch falso, solo validación local y paso de errores de la RPC.
+API_FN="$HERE/supabase/functions/api"
+run "deno test api task-list/order" deno-test-api-order env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/task_list_order_test.ts"
+expect_log "deno test api task-list/order" deno-test-api-order '^ok \| [0-9]+ passed \| 0 failed'
+
 run "SQL invitaciones_check" sql-invitaciones sql "$HERE/scripts/supabase/tests/invitaciones_check.sql"
 n_pat=(); for i in $(seq 1 22); do n_pat+=("ok N$i([^0-9]|\$)"); done
 expect_log "SQL invitaciones_check" sql-invitaciones "${n_pat[@]}"
@@ -156,6 +166,10 @@ expect_log "SQL permisos_matriz_check" sql-permisos-matriz "${m_pat[@]}"
 run "SQL client_request_check" sql-client-request sql "$HERE/scripts/supabase/tests/client_request_check.sql"
 c_pat=(); for i in $(seq 1 9); do c_pat+=("ok C$i([^0-9a-z]|\$)"); done
 expect_log "SQL client_request_check" sql-client-request "${c_pat[@]}"
+
+run "SQL task_list_position_check" sql-task-list-position sql "$HERE/scripts/supabase/tests/task_list_position_check.sql"
+tp_pat=(); for i in $(seq 1 8); do tp_pat+=("ok TP$i([^0-9a-z]|\$)"); done
+expect_log "SQL task_list_position_check" sql-task-list-position "${tp_pat[@]}"
 
 run "SQL assistant_usage_check" sql-assistant-usage sql "$HERE/scripts/supabase/tests/assistant_usage_check.sql"
 u_pat=(); for i in $(seq 1 7); do u_pat+=("ok U$i([^0-9a-z]|\$)"); done
@@ -194,7 +208,7 @@ f_pat=(); for i in $(seq 1 12); do f_pat+=("ok F$i([^0-9a-z]|\$)"); done
 expect_log "SQL feedback_trigger_check" sql-feedback-trigger "${f_pat[@]}"
 
 run "contract_check.py" contract python3 "$HERE/scripts/supabase/contract_check.py"
-expect_log "contract_check.py" contract '^502/502 casos ok'
+expect_log "contract_check.py" contract '^519/519 casos ok'
 
 run "cross_tenant_check.py" cross-tenant python3 "$HERE/scripts/supabase/tests/cross_tenant_check.py"
 # N/N con N == EXPECTED_CASES (el propio script sale 1 si difiere; aquí se exige además el formato).
@@ -218,7 +232,7 @@ if [ "$rb_ok" = 1 ]; then
     run "SQL permisos_matriz_check (tras rollback_0035)" sql-rb0035-matriz sql "$HERE/scripts/supabase/tests/permisos_matriz_check.sql"
     expect_log "SQL permisos_matriz_check (tras rollback_0035)" sql-rb0035-matriz "${m_pat[@]}"
     run "contract_check.py (tras rollback_0035)" sql-rb0035-contract python3 "$HERE/scripts/supabase/contract_check.py"
-    expect_log "contract_check.py (tras rollback_0035)" sql-rb0035-contract '^502/502 casos ok'
+    expect_log "contract_check.py (tras rollback_0035)" sql-rb0035-contract '^519/519 casos ok'
 
     run "SQL client_request_reapply_check" sql-ra0035 sql_expanded "$HERE/scripts/supabase/tests/client_request_reapply_check.sql"
     expect_log "SQL client_request_reapply_check" sql-ra0035 'ok RA1([^0-9]|$)' 'ok RA2([^0-9]|$)'
@@ -228,6 +242,31 @@ else
     FAILED+=("ida y vuelta 0035 (rollback_0035 no quedó en verde; no se reaplica 0035: la BD local queda a medias, repetir ci.sh)")
 fi
 
+# Ida y vuelta 0040 → rollback_0040.sql → 0040 (lista-prioritaria-inicio): igual que la de 0035, pero sobre el
+# esquema revertido contract_check corre con CONTRACT_POSITION=0 (sin `position` ni escenario de orden: 502).
+# Si el rollback falla no se sigue (la BD local queda a medias: repetir ci.sh).
+run "SQL task_list_position_rollback_check" sql-rb0040 sql_expanded "$HERE/scripts/supabase/tests/task_list_position_rollback_check.sql"
+expect_log "SQL task_list_position_rollback_check" sql-rb0040 'ok TR1([^0-9]|$)' 'ok TR2([^0-9]|$)' 'ok TR3([^0-9]|$)'
+if grep -Eq 'ok TR1([^0-9]|$)' "$OUT/sql-rb0040.log" && grep -Eq 'ok TR2([^0-9]|$)' "$OUT/sql-rb0040.log" \
+    && grep -Eq 'ok TR3([^0-9]|$)' "$OUT/sql-rb0040.log"; then
+    sleep 1 # notify pgrst del rollback: PostgREST recarga el esquema antes de contract_check
+    run "SQL home_checks_compat (tras rollback_0040)" sql-rb0040-compat sql "$HERE/scripts/supabase/tests/home_checks_compat.sql"
+    expect_log "SQL home_checks_compat (tras rollback_0040)" sql-rb0040-compat "${v_pat[@]}"
+    run "SQL acl_can_edit_check (tras rollback_0040)" sql-rb0040-acl sql "$HERE/scripts/supabase/tests/acl_can_edit_check.sql"
+    expect_log "SQL acl_can_edit_check (tras rollback_0040)" sql-rb0040-acl "${k_pat[@]}"
+    run "SQL permisos_matriz_check (tras rollback_0040)" sql-rb0040-matriz sql "$HERE/scripts/supabase/tests/permisos_matriz_check.sql"
+    expect_log "SQL permisos_matriz_check (tras rollback_0040)" sql-rb0040-matriz "${m_pat[@]}"
+    run "contract_check.py (tras rollback_0040)" sql-rb0040-contract env CONTRACT_POSITION=0 python3 "$HERE/scripts/supabase/contract_check.py"
+    expect_log "contract_check.py (tras rollback_0040)" sql-rb0040-contract '^502/502 casos ok'
+
+    run "SQL task_list_position_reapply_check" sql-ra0040 sql_expanded "$HERE/scripts/supabase/tests/task_list_position_reapply_check.sql"
+    expect_log "SQL task_list_position_reapply_check" sql-ra0040 'ok TA1([^0-9]|$)' 'ok TA2([^0-9]|$)'
+    run "SQL task_list_position_check (tras reaplicar 0040)" sql-ra0040-tp sql "$HERE/scripts/supabase/tests/task_list_position_check.sql"
+    expect_log "SQL task_list_position_check (tras reaplicar 0040)" sql-ra0040-tp "${tp_pat[@]}"
+else
+    FAILED+=("ida y vuelta 0040 (rollback_0040 no quedó en verde; no se reaplica 0040: la BD local queda a medias, repetir ci.sh)")
+fi
+
 if [ "${#FAILED[@]}" -gt 0 ]; then
     echo
     echo "FALLARON ${#FAILED[@]} paso(s):"
@@ -235,4 +274,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (deno check/test procesar-feedback, SQL incl. client_request C1-C9 y feedback B1-B8 y F1-F12, contract_check 502/502, cross_tenant ${expected}/${expected}; ida y vuelta 0035 → rollback → 0035 con RB1-RB4, RA1-RA2 y C1-C9)"
+echo "ci.sh: todo ok (deno check/test procesar-feedback, SQL incl. client_request C1-C9 y feedback B1-B8 y F1-F12, contract_check 519/519, task_list_position TP1-TP8, cross_tenant ${expected}/${expected}; ida y vuelta 0035 → rollback → 0035 con RB1-RB4, RA1-RA2 y C1-C9; ida y vuelta 0040 con TR1-TR3, contract 502/502 sin position, TA1-TA2 y TP1-TP8)"

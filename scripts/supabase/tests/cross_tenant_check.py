@@ -283,7 +283,7 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 266
+EXPECTED_CASES = 273  # 266 + 7 de PATCH /task-list/order (0040)
 A12_ITERS = int(os.environ.get("A12_ITERS", "20"))
 # F1_ITERS: carreras de solape real por bloque F1/F2 (R1-06; el solape expone el 40P01 de 0020)
 F1_ITERS = int(os.environ.get("F1_ITERS", "10"))
@@ -380,6 +380,7 @@ for name, method, path, body in [
     ("B PATCH /task-list/update de A → Not Found", "PATCH", "/task-list/update",
      {"id": lst, "name": "XT-Lista B", "color": "#222222", "sort": "title"}),
     ("B DELETE /task-list/delete de A → Not Found", "DELETE", "/task-list/delete", {"id": lst}),
+    ("B PATCH /task-list/order de A → Not Found (0040)", "PATCH", "/task-list/order", {"ids": [lst]}),
     ("B POST /task-list/user invita en lista de A → Not Found", "POST", "/task-list/user",
      {"task_list_id": lst, "email": A_EMAIL}),
     ("B DELETE /task-list/user saca a A → Not Found", "DELETE", "/task-list/user",
@@ -646,6 +647,14 @@ cu = rpc_direct("get_calendar_users", {"p_calendar_id": cal}, b_tok)
 emails = sorted(m.get("email") for m in parse(cu[1])) if cu[0] == 200 else None
 check("B rpc get_calendar_users del compartido → A y B (paridad PHP, no fuga)",
       emails == sorted([A_EMAIL, B_EMAIL]), repr(cu)[:200])
+check("B PATCH /task-list/order de A no escribió position (0040)",
+      psql(f"select coalesce(position::text, 'null') from task_list where id = {lst}") == "null")
+expect_err("B viewer sin can_edit rpc reorder_task_lists → Not Allowed (0040, RPC directa)",
+           rpc_direct("reorder_task_lists", {"p_ids": [lst]}, b_tok), "Not Allowed")
+expect("viewer sin can_edit PATCH /task-list/order → 403 Not Allowed (0040)",
+       edge("PATCH", "/task-list/order", {"ids": [lst]}, b_tok), NOT_ALLOWED)
+check("viewer sin can_edit no escribió position (0040)",
+      psql(f"select coalesce(position::text, 'null') from task_list where id = {lst}") == "null")
 expect("viewer PATCH /task-list/update cambia name → 403",
        edge("PATCH", "/task-list/update", {"id": lst, "name": "XT-Lista B", "color": "#222222",
                                            "sort": "title"}, b_tok), NOT_ALLOWED)
@@ -664,6 +673,12 @@ check("viewer con can_edit POST /task/create en la lista compartida → 200 (A8:
       edge("POST", "/task/create", {"task_list_id": lst, "title": "XT-Tarea B"}, b_tok)[0] in (200, 201))
 check("viewer GET /task-list/detail del compartido → 200",
       edge("GET", f"/task-list/detail?id={lst}", None, b_tok)[0] == 200)
+# 0040: con can_edit pero sin tasklist.manage (B conserva el snapshot legacy de 17 permisos) reordenar sigue
+# siendo 403 y no escribe nada.
+expect("viewer con can_edit pero sin tasklist.manage PATCH /task-list/order → 403 Not Allowed (0040)",
+       edge("PATCH", "/task-list/order", {"ids": [lst]}, b_tok), NOT_ALLOWED)
+check("viewer con can_edit sin tasklist.manage no escribió position (0040)",
+      psql(f"select coalesce(position::text, 'null') from task_list where id = {lst}") == "null")
 
 # ── Fase 2b (1.4, plan §7.2 X1–X15): rutas /home/* y contexto X-Home-Id ──
 # A crea un hogar propio extra (XT-Otro, POST /home/create) que B no debe ver: para B es
