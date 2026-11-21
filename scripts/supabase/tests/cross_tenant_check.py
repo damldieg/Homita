@@ -283,7 +283,7 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 266
+EXPECTED_CASES = 269  # 266 + 3 de prioridad (0037)
 A12_ITERS = int(os.environ.get("A12_ITERS", "20"))
 # F1_ITERS: carreras de solape real por bloque F1/F2 (R1-06; el solape expone el 40P01 de 0020)
 F1_ITERS = int(os.environ.get("F1_ITERS", "10"))
@@ -411,6 +411,19 @@ for name, method, path, body in [
     ("B DELETE /event/delete de A → Not Found", "DELETE", f"/event/delete?timezone={TZ}", {"id": evt}),
 ]:
     expect(name, edge(method, path, body, b_tok), NOT_FOUND)
+
+# ── Fase 1: prioridad (0037, prioridad-tarea): con priority válida B sigue sin tocar ni ver lo de A ──
+for name, method, path, body in [
+    ("B PATCH /task/update de A con priority → Not Found (0037)", "PATCH", "/task/update",
+     {"id": tsk, "title": "XT-Tarea B", "priority": "alta"}),
+    ("B POST /task/create en lista de A con priority → Not Found (0037)", "POST", "/task/create",
+     {"task_list_id": lst, "title": "XT-Intruso", "priority": "alta"}),
+]:
+    expect(name, edge(method, path, body, b_tok), NOT_FOUND)
+res = edge("GET", "/task?priority=media", None, b_tok)
+rows = parse(res[1]) if res[0] == 200 else None
+check("B GET /task?priority=media no incluye la tarea de A (0037)",
+      isinstance(rows, list) and all(isinstance(r, dict) and r.get("id") != tsk for r in rows), f"obtenido {res!r}"[:300])
 
 # ── Fase 1: RPC directas PostgREST con JWT de B — 0 filas de A ──
 for name, rpc_name in [
