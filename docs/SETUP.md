@@ -1,10 +1,10 @@
-# Preparar el XORO CPF 10PF como dashboard de Planify
+# Preparar el XORO CPF 10PF como dashboard de Homita
 
 **Android 10 de fábrica, aislado y en modo quiosco, con el dashboard nativo como launcher y Device Owner.** En [ANDROID.md](ANDROID.md) se explica por qué no se actualiza Android.
 
 Principios:
 - **Reversible:** se desactivan apps en vez de borrarlas, y la imagen de fábrica se guarda entera antes de tocar nada.
-- **Aislado:** el marco solo habla con el backend de Planify y con Open-Meteo (más DNS, NTP y la red local). Nada más sale a Internet.
+- **Aislado:** el marco solo habla con el backend de Homita y con Open-Meteo (más DNS, NTP y la red local). Nada más sale a Internet.
 - **Mínimo:** una sola app (el dashboard), sin Uhale ni apps de fábrica, y `su` fuera del alcance de las apps.
 
 ## Instalación
@@ -47,8 +47,8 @@ ANDROID_SERIAL=<ip-del-marco>:5555 scripts/install.sh --build --no-backup
    - copia también la GPT de respaldo y las particiones de hardware `boot0`/`boot1`;
    - compara el SHA-256 de cada pieza con el dispositivo y guarda todo en `backups/<serie>/`, que está en `.gitignore`.
    - Guarda además una copia fuera del repositorio.
-3. **Compila e instala** la release (`com.lito.planify.dashboard`), que apunta a la `planify.baseUrl` de `apps/dashboard/planify.properties`. Sin ella, la release no compila.
-4. **Device Owner:** `dpm set-device-owner com.lito.planify.dashboard/.admin.AdminReceiver`. Android solo lo permite si no hay cuentas en el dispositivo, y el script lo comprueba. A partir de ahí la propia app, en cada arranque:
+3. **Compila e instala** la release (`com.dld.homita.dashboard`), que apunta a la `planify.baseUrl` de `apps/dashboard/planify.properties`. Sin ella, la release no compila.
+4. **Device Owner:** `dpm set-device-owner com.dld.homita.dashboard/.admin.AdminReceiver`. Android solo lo permite si no hay cuentas en el dispositivo, y el script lo comprueba. A partir de ahí la propia app, en cada arranque:
    - activa el **lock task** sin botones de inicio ni recientes (solo se permite Ajustes de Android, para el Wi-Fi), pero con el **menú de apagado**: una pulsación larga del botón de encendido muestra Apagar / Reiniciar. Es la forma limpia de apagar; mantenerlo pulsado ~10 s corta la corriente de golpe. (`input keyevent --longpress KEYCODE_POWER` por ADB no sirve para probarlo: en este Android lanza una excepción en `GlobalActions`.)
    - desactiva el keyguard y la barra de estado;
    - mantiene la pantalla encendida con alimentación;
@@ -64,13 +64,13 @@ ANDROID_SERIAL=<ip-del-marco>:5555 scripts/install.sh --build --no-backup
    - sin sonidos, sin animaciones y sin escaneos Wi-Fi/BLE en segundo plano;
    - localización y Bluetooth apagados;
    - sin pantalla de bloqueo, rotación fija y sin el aviso de "pantalla completa".
-7. **Script de arranque**, si `adb remount` funciona: copia `scripts/frame/planify-frame.sh` a `/system/etc` y `planify-frame.rc` a `/system/etc/init`. En cada arranque aplica:
-   - **cortafuegos por UID:** solo el dashboard sale a Internet; el resto de apps solo pueden usar la red local, DNS y NTP; la única conexión entrante admitida es ADB (5555) desde el PC de desarrollo (`ADB_FROM` de `scripts/config.local`, que `install.sh` deja en `/system/etc/planify-frame.conf`);
-   - **sin suspensión del kernel** (wakelock `planify-frame` en `/sys/power/wake_lock`): ver [Horario de pantalla](#horario-de-pantalla);
+7. **Script de arranque**, si `adb remount` funciona: copia `scripts/frame/homita-frame.sh` a `/system/etc` y `homita-frame.rc` a `/system/etc/init`. En cada arranque aplica:
+   - **cortafuegos por UID:** solo el dashboard sale a Internet; el resto de apps solo pueden usar la red local, DNS y NTP; la única conexión entrante admitida es ADB (5555) desde el PC de desarrollo (`ADB_FROM` de `scripts/config.local`, que `install.sh` deja en `/system/etc/homita-frame.conf`);
+   - **sin suspensión del kernel** (wakelock `homita-frame` en `/sys/power/wake_lock`): ver [Horario de pantalla](#horario-de-pantalla);
    - vuelve a desactivar Uhale si alguien lo reactiva.
    - Además deja `su` como `root:shell 4750`: ADB sigue siendo root, pero las apps ya no pueden serlo.
 8. **ADB por Wi-Fi**, solo si hay `ADB_FROM`: `persist.adb.tcp.port=5555` y reinicio de `adbd` (solo la primera vez). Ver [Actualizar por Wi-Fi](#actualizar-por-wi-fi).
-9. **Arranque personalizado** (`scripts/boot/install.sh`): sustituye el logo de XORO y la animación de Uhale por los de Planify. Ver [Arranque personalizado](#arranque-personalizado).
+9. **Arranque personalizado** (`scripts/boot/install.sh`): sustituye el logo de XORO y la animación de Uhale por los de Homita. Ver [Arranque personalizado](#arranque-personalizado).
 10. **Arranca el dashboard.** Falta conectar el Wi-Fi con "Ir a Ajustes" en la pantalla de espera del login (**solo 2,4 GHz**; mejor una red de invitados).
 
 Lo que no se toca: la densidad del sistema (la app se diseña en píxeles nativos), Ajustes de Android, el teclado, WebView y los proveedores del sistema.
@@ -80,14 +80,14 @@ Lo que no se toca: la densidad del sistema (la app se diseña en píxeles nativo
 1. **Wi-Fi:** el chip (Realtek RTL8189FS, driver `8189fs`) **no soporta WPA3**. Con un router en modo mixto WPA2/WPA3, Android 10 guarda la red como WPA3 (SAE) y el driver rechaza la asociación al instante ("Association request to the driver failed" en `logcat`). Para evitarlo, añade la red a mano (Añadir red → Seguridad **WPA/WPA2-Personal**) o pon el router en WPA2. Si ya está guardada como SAE, se corrige en `/data/misc/wifi/WifiConfigStore.xml` con el framework parado (`stop`): `ConfigKey` `"red"SAE` → `"red"WPA_PSK`, `AllowedKeyMgmt` `num="2">0001` → `num="1">02` y `RequirePMF` → `false`; después, `start`. La contraseña ya está en `PreSharedKey`.
 
    Hasta que haya red y NTP, el reloj del marco marca la fecha de fábrica y el dashboard muestra "Sincronizando hora…" (no se fía de ninguna hora anterior a su compilación).
-2. **Inicia sesión** con la cuenta de Planify. El dashboard solo lee: eventos, rutinas y tareas de los calendarios y listas marcados en la app (interruptor «Mostrar en el dashboard» de cada calendario y lista).
+2. **Inicia sesión** con la cuenta de Homita. El dashboard solo lee: eventos, rutinas y tareas de los calendarios y listas marcados en la app (interruptor «Mostrar en el dashboard» de cada calendario y lista).
 3. **Ajustes del dashboard:**
    - ubicación del tiempo (búsqueda en Open-Meteo);
    - horario de pantalla para lunes–viernes y sábado–domingo;
    - brillo: un deslizador y, a su derecha, «A» para el brillo automático del sistema (con él, el deslizador queda desactivado);
    - Conexión: la red Wi-Fi conectada, con su señal en dBm, una barra de calidad y la IP (se actualiza cada 5 s). El driver del marco no le pasa la señal a Android (RSSI -127) y, con la localización apagada, Android oculta el nombre de la red: los dos se leen de `/proc/net/rtl8189fs/wlan0/` (`rx_signal` y `ap_info`). Debajo, en otra caja, los botones (además de Cerrar sesión):
      - **Wi-Fi** y **Ajustes de Android** (Ajustes es la única app permitida dentro del modo quiosco). Como el marco no tiene barra de navegación, mientras Ajustes está abierto hay un botón flotante redondo con el icono de inicio, abajo a la derecha, que vuelve al dashboard. También vuelve solo tras 1 minuto sin tocar la pantalla (la superposición se entera de cada toque con `FLAG_WATCH_OUTSIDE_TOUCH`). `install.sh` le da el permiso con `appops set … SYSTEM_ALERT_WINDOW allow`.
-     - **Apagar o reiniciar:** abre el menú de apagado nativo de Android. Ninguna app, ni siendo Device Owner, puede apagar el dispositivo, pero un servicio de accesibilidad (`PowerMenuService`, que no escucha eventos ni lee ventanas) sí puede abrir ese menú con `GLOBAL_ACTION_POWER_DIALOG`. `install.sh` lo activa con `settings put secure enabled_accessibility_services`. Tras reiniciar, Android no lo vuelve a enlazar aunque siga en la lista, así que `planify-frame.sh` la vacía y la vuelve a escribir en cada arranque.
+     - **Apagar o reiniciar:** abre el menú de apagado nativo de Android. Ninguna app, ni siendo Device Owner, puede apagar el dispositivo, pero un servicio de accesibilidad (`PowerMenuService`, que no escucha eventos ni lee ventanas) sí puede abrir ese menú con `GLOBAL_ACTION_POWER_DIALOG`. `install.sh` lo activa con `settings put secure enabled_accessibility_services`. Tras reiniciar, Android no lo vuelve a enlazar aunque siga en la lista, así que `homita-frame.sh` la vacía y la vuelve a escribir en cada arranque.
 
 ## Actualizar por Wi-Fi
 
@@ -120,7 +120,7 @@ Tras la primera instalación por USB, `adbd` escucha también en TCP 5555. Todos
 
 ## Arranque personalizado
 
-El arranque tiene dos fases, y las dos llevan ahora la misma composición (icono y nombre de Planify sobre el crema del dashboard), así que el paso de una a otra no se nota:
+El arranque tiene dos fases, y las dos llevan ahora la misma composición (icono y nombre de Homita sobre el crema del dashboard), así que el paso de una a otra no se nota:
 
 1. **Logo del bootloader:** `bootlogo.bmp` en la partición FAT `bootloader` (`mmcblk0p1`). Es un BMP de 24 bits de **1200×1920 en vertical**, porque así escanea el panel (`fb0` es 1200×1920 y `disp_reserve` mide justo 1200×1920×4). La imagen se ve en horizontal girando el BMP 90° a la izquierda.
 2. **Animación de Android:** `/system/media/bootanimation.zip`. Es un recuadro de 640×520 centrado sobre el fondo `#F7EEE2` (`desc.txt`: `p 0 0 part0 #F7EEE2`) con tres puntos que se encienden en bucle hasta que arranca el dashboard.
@@ -144,7 +144,7 @@ El dashboard no tiene opciones de mantenimiento: todo se hace por ADB, que en es
   ```sh
   adb shell rm /data/system/device_owner_2.xml /data/system/device_policies.xml
   adb reboot
-  adb uninstall com.lito.planify.dashboard
+  adb uninstall com.dld.homita.dashboard
   ```
 - **Volver a Uhale:**
   ```sh
@@ -154,7 +154,7 @@ El dashboard no tiene opciones de mantenimiento: todo se hace por ADB, que en es
 - **Quitar el script de arranque:**
   ```sh
   adb remount
-  adb shell rm /system/etc/planify-frame.sh /system/etc/init/planify-frame.rc
+  adb shell rm /system/etc/homita-frame.sh /system/etc/init/homita-frame.rc
   adb shell chmod 6755 /system/xbin/su
   ```
 - **Restaurar la eMMC entera** (último recurso): `mmcblk0-head.img` de la copia contiene todas las particiones salvo `/data`; los desplazamientos están en `partitions.txt`. Se escribe desde ADB root (`dd`), o desde fastboot/FEL si Android no arranca. Ver la escalera de recuperación en [FRAME.md](FRAME.md#escalera-de-recuperación).

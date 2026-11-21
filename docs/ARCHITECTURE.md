@@ -6,7 +6,7 @@ Cómo está hecha la app del marco: pantallas, datos, estructura y desarrollo. P
 
 La barra lateral izquierda tiene arriba, solo con iconos, Hoy, Calendario, Tiempo, Tareas, **sincronizar** (vuelve a pedir el contenido de Hoy, las semanas del calendario ya cargadas y el tiempo; el icono gira mientras dura), Ajustes y apagar la pantalla. Abajo del todo, la hora (horas y minutos en dos líneas, con "Sin conexión" debajo si falla la red o la sincronización). Tras 2 minutos sin tocar, vuelve a Hoy.
 
-Sin sesión iniciada se muestra el login (icono de Planify y formulario, centrados). Si no hay Internet, en su lugar aparece "Esperando conexión a Internet…" con "Ir a Ajustes" (ajustes de Wi-Fi), y el formulario aparece solo cuando llega la red.
+Sin sesión iniciada se muestra el login (icono de Homita y formulario, centrados). Si no hay Internet, en su lugar aparece "Esperando conexión a Internet…" con "Ir a Ajustes" (ajustes de Wi-Fi), y el formulario aparece solo cuando llega la red.
 
 - **Hoy:** rejilla de 3 columnas en dos filas (55 % y 45 % del alto).
   - Arriba, en 1/3, la hora y la fecha centradas y lo **siguiente**, sea evento o rutina (tarjeta del color de su calendario: sus personas y, a la derecha, lo que falta en una píldora, como en la lista de próximos eventos; debajo, el título y el día y la hora). Solo si es de hoy o de mañana: si es más tarde, no hay tarjeta y el evento sale en la lista como los demás. Si es un evento, no se repite en la lista de próximos eventos; una rutina sigue también en la suya. En 2/3, la **tarjeta del tiempo**: icono, temperatura y estado; lluvia del día, humedad y viento como iconos con su valor (Meteocons estáticos); la curva hora a hora del día de hoy, de 00 a 23 h (la hora actual marcada con una banda translúcida, amarilla de día y gris de noche; la temperatura de todas las horas, pequeña y sin «°») con barras de lluvia solo donde llueve (el alto es la cantidad y el relleno, la probabilidad; ver más abajo); debajo, el icono del tiempo de cada hora y, abajo del todo, la hora; y, separados por una línea, los días en columnas, que se deslizan para ver la semana siguiente (vuelven a la primera a los 2 minutos). Al tocar un día, la cabecera y la curva pasan a ese día; tocarlo otra vez, o tocar hoy, vuelve a hoy (y vuelve solo a los 2 minutos). Deslizar sobre la curva pasa al día anterior o al siguiente: la curva es un pager de días que sigue al dedo (los días de abajo pasan a la página del día).
@@ -39,17 +39,17 @@ Las tarjetas llevan una cabecera común (`CardHeader`): icono en un cuadro tinta
   - con la pantalla apagada no se refresca. Lo último se guarda en caché: sin red se sigue mostrando y la barra lateral dice "Sin conexión".
 - **Hora:** el RTC del marco no la conserva. Hasta que NTP la corrige, cualquier hora anterior a la compilación de la app se trata como falsa ("Sincronizando hora…").
 - **Quiosco** con Device Owner: lock task, HOME persistente, sin keyguard ni barra de estado. El horario apaga la pantalla (`lockNow`, como pulsar el botón de encendido: el marco sigue encendido y conectado) y la enciende con una alarma. "Apagar" en la barra lateral hace lo mismo al momento.
-- **Autenticación:** email y contraseña de Planify. El dashboard solo hace peticiones de lectura.
+- **Autenticación:** email y contraseña de Homita. El dashboard solo hace peticiones de lectura.
 - **Diseño:** fondo crema, tarjetas blancas sin borde y el color solo en calendarios, listas y personas, con las fuentes Geist y Geist Mono (OFL, `licenses/Geist-OFL.txt`).
 
 ## Estructura
 
 ```
 apps/dashboard/            proyecto Gradle (mismas versiones que Planify-APP)
-  app/src/main/java/com/lito/planify/dashboard/
+  app/src/main/java/com/dld/homita/dashboard/
     MainActivity.kt          launcher, inmersivo, Density(1f), quiosco y brillo
     DashboardViewModel.kt    estado, refrescos, login, ubicación, horario
-    data/                    Api (Planify + Open-Meteo), modelos, Store (sesión y ajustes), ReferenceClock
+    data/                    Api (Homita + Open-Meteo), modelos, Store (sesión y ajustes), ReferenceClock
     data/cache/              DiskCache y CachedResource (copia en disco, stale-if-error)
     data/repository/         ContentRepository, WeatherRepository, CalendarRepository
     admin/Kiosk.kt           Device Owner: lock task, HOME, lockNow, salir y quitar
@@ -85,7 +85,7 @@ emulator -avd Frame_API_29
 - `scripts/demo.sh app [--no-build]` deja el emulador listo en un paso: reset de la BD local y Edge servida con datos ficticios (`scripts/demo/seed.py`: personas, 2 calendarios, eventos alrededor de hoy, rutinas y listas de tareas; las fechas son relativas al día, así que se vuelve a crear cada día), arranca el AVD si no lo está, le pone la hora del PC, compila e instala la debug y entra con la cuenta de demo (escribe la sesión en las preferencias de la app, sin teclear).
 - La demo es solo local (stack de Supabase + Docker, ver [supabase/README.md, Flujo demo local](../supabase/README.md#flujo-demo-local)): `up` resetea la BD local y sirve la Edge, `down` para el serve (la BD queda intacta) y `supabase stop` es decisión del usuario. Jamás usa `~/.homita/supabase.env` (producción).
 
-Para probar el quiosco en el emulador basta con `adb shell dpm set-device-owner com.lito.planify.dashboard/.admin.AdminReceiver` en un AVD sin cuentas.
+Para probar el quiosco en el emulador basta con `adb shell dpm set-device-owner com.dld.homita.dashboard/.admin.AdminReceiver` en un AVD sin cuentas.
 
 ## Contrato del backend (control-api)
 
