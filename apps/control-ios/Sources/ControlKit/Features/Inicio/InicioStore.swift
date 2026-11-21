@@ -260,6 +260,23 @@ public final class InicioStore: MainActorWriteFailureReporting {
         if !queued { await loadTasks() }
     }
 
+    /// Edita título y personas de una tarea (mismo patrón que `TasksStore.updateTask`).
+    /// Devuelve si se guardó (en cola cuenta como guardado).
+    @discardableResult
+    public func updateTask(_ task: TaskEntry, title: String, personIds: [Int]? = nil) async -> Bool {
+        guard let coordinator else {
+            return await performWrite { store in
+                _ = try await store.tasksRepo.update(UpdateTaskRequest(id: task.id, title: title, person_ids: personIds))
+                await store.loadTasks()
+            }
+        }
+        let op = coordinator.makeOp(.updateTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id), title: title, personIds: personIds))
+        return await performWrite { store in
+            guard let coordinator = store.coordinator else { return }
+            if case .sent = try await coordinator.perform(op) { await store.loadTasks() }
+        }
+    }
+
     /// Listas para el acceso rápido «+ Tarea» (se cargan al pulsar).
     public func loadTaskLists() async {
         do {

@@ -19,6 +19,11 @@ public struct InicioView: View {
     @State private var eventStore: EventStore
     @State private var calendarStore: CalendarStore
     @State private var personStore: PersonStore
+    @State private var routineStore: RoutineStore
+    /// Ítem abierto en la hoja de edición (una sola hoja para evento, tarea y rutina).
+    @State private var openedItem: InicioItem?
+    /// Tipo del último ítem abierto (decide qué sección recargar al cerrar la hoja).
+    @State private var lastOpenedKind: InicioItem.Kind?
     @State private var showTaskEditor = false
     @State private var showEventEditor = false
     /// Lista mostrada en la tarjeta de tareas (`nil` = la primera).
@@ -41,6 +46,7 @@ public struct InicioView: View {
         _eventStore = State(initialValue: EventStore(repo: services.events))
         _calendarStore = State(initialValue: CalendarStore(repo: services.calendars))
         _personStore = State(initialValue: PersonStore(repo: services.persons))
+        _routineStore = State(initialValue: RoutineStore(repo: services.routines, events: services.events))
     }
 
     public var body: some View {
@@ -85,6 +91,46 @@ public struct InicioView: View {
                     EventDetailView(store: eventStore, calendars: calendarStore, persons: personStore, event: nil)
                 }
             }
+            .sheet(item: $openedItem, onDismiss: { Task { await reloadAfterItem() } }) { item in
+                NavigationStack {
+                    switch item {
+                    case .event(let event):
+                        EventDetailView(store: eventStore, calendars: calendarStore, persons: personStore, event: event)
+                    case .task(let task):
+                        TaskEditorView(taskLists: store.taskLists, persons: personStore.persons, task: task,
+                                       writeFailure: $store.writeFailure) { title, _, personIds in
+                            await store.updateTask(task, title: title, personIds: personIds)
+                        }
+                    case .routine(let routine):
+                        RoutineEditorView(store: routineStore, calendars: calendarStore, persons: personStore, routine: routine)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Abrir un ítem
+
+    /// Carga lo que necesitan los editores y abre la hoja del ítem tocado.
+    private func openItem(_ item: InicioItem) async {
+        switch item {
+        case .event, .routine:
+            await calendarStore.load()
+            await personStore.load()
+        case .task:
+            await personStore.load()
+        }
+        lastOpenedKind = item.kind
+        openedItem = item
+    }
+
+    /// Al cerrar la hoja se recarga la sección del ítem editado.
+    private func reloadAfterItem() async {
+        switch lastOpenedKind {
+        case .event: await store.loadEvents()
+        case .task: await store.loadTasks()
+        case .routine: await store.loadRoutines()
+        case nil: break
         }
     }
 
@@ -187,6 +233,14 @@ public struct InicioView: View {
     }
 
     private func eventRow(_ event: EventEntry) -> some View {
+        Button { Task { await openItem(.event(event)) } } label: {
+            eventRowContent(event).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private func eventRowContent(_ event: EventEntry) -> some View {
         HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 2)
                 .fill(Color(hex: event.calendar_color ?? Palette.fallbackItem))
@@ -277,16 +331,23 @@ public struct InicioView: View {
                     HomitaCheckbox(isOn: task.isCompleted, tintHex: Palette.onlineHex) {
                         Task { await store.toggleComplete(task) }
                     }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(task.title)
-                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
-                            .foregroundStyle(Palette.ink)
-                        AssignedPersonsLine(persons: task.persons)
+                    Button { Task { await openItem(.task(task)) } } label: {
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(task.title)
+                                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
+                                    .foregroundStyle(Palette.ink)
+                                AssignedPersonsLine(persons: task.persons)
+                            }
+                            Spacer()
+                            if store.pendingTaskIds.contains(task.id) {
+                                PendingSyncIcon()
+                            }
+                        }
+                        .contentShape(Rectangle())
                     }
-                    Spacer()
-                    if store.pendingTaskIds.contains(task.id) {
-                        PendingSyncIcon()
-                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(.isButton)
                 }
             }
             HStack {
@@ -331,7 +392,8 @@ public struct InicioView: View {
     }
 
     private var routinesCard: some View {
-        RoutinesTodayCard(store: store, dateText: dateText) { onOpen(.routines) }
+        RoutinesTodayCard(store: store, dateText: dateText, onOpenAll: { onOpen(.routines) },
+                          onOpen: { routine in Task { await openItem(.routine(routine)) } })
     }
 
     // MARK: - Piezas
