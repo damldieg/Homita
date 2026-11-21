@@ -288,16 +288,17 @@ public final class InicioStore: MainActorWriteFailureReporting {
 
     /// Alta rápida de tarea desde Inicio. Devuelve si se creó (el editor solo se cierra entonces).
     @discardableResult
-    public func createTask(title: String, listId: Int) async -> Bool {
+    public func createTask(title: String, listId: Int, priority: TaskPriority? = nil) async -> Bool {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
         guard let coordinator, let outbox else {
             return await performWrite { store in
-                _ = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed))
+                _ = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed, priority: priority?.rawValue))
                 await store.loadTasks()
             }
         }
-        let op = coordinator.makeOp(.createTask(local: outbox.makeLocalId(), listRef: ref(for: listId), title: trimmed, personIds: nil))
+        let op = coordinator.makeOp(.createTask(local: outbox.makeLocalId(), listRef: ref(for: listId), title: trimmed, personIds: nil,
+                                                priority: priority?.rawValue))
         return await performWrite { store in
             guard let coordinator = store.coordinator else { return }
             if case .sent = try await coordinator.perform(op) { await store.loadTasks() }
