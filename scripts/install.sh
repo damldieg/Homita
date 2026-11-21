@@ -18,7 +18,7 @@ ENV_ADB_FROM="${ADB_FROM-}" ENV_FRAME_TIMEZONE="${FRAME_TIMEZONE-}" ENV_FRAME_NT
 ADB_FROM="${ENV_ADB_FROM:-${ADB_FROM:-}}"
 FRAME_TIMEZONE="${ENV_FRAME_TIMEZONE:-${FRAME_TIMEZONE:-$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)}}"
 FRAME_NTP="${ENV_FRAME_NTP:-${FRAME_NTP:-pool.ntp.org}}"
-PKG=com.lito.planify.dashboard
+PKG=com.dld.homita.dashboard
 APK="$HERE/apps/dashboard/app/build/outputs/apk/release/app-release.apk"
 BUILD=0
 BACKUP=1
@@ -109,15 +109,17 @@ sh locksettings set-disabled true >/dev/null 2>&1 || true
 
 step "Script de arranque: cortafuegos y su"
 if adb remount 2>&1 | grep -qi "remount succeeded"; then
-    adb push "$HERE/scripts/frame/planify-frame.sh" /system/etc/planify-frame.sh >/dev/null
-    adb push "$HERE/scripts/frame/planify-frame.rc" /system/etc/init/planify-frame.rc >/dev/null
+    # Limpia el servicio antiguo (planify-frame): si quedara, arrancaría con un UID vacío y sin cortafuegos
+    sh rm -f /system/etc/planify-frame.sh /system/etc/init/planify-frame.rc /system/etc/planify-frame.conf
+    adb push "$HERE/scripts/frame/homita-frame.sh" /system/etc/homita-frame.sh >/dev/null
+    adb push "$HERE/scripts/frame/homita-frame.rc" /system/etc/init/homita-frame.rc >/dev/null
     # Lo que cambia en cada instalación lo lee el script de arranque de aquí
-    printf 'ADB_FROM=%s\n' "$ADB_FROM" | adb shell 'cat > /system/etc/planify-frame.conf'
-    sh chmod 644 /system/etc/planify-frame.sh /system/etc/init/planify-frame.rc /system/etc/planify-frame.conf
+    printf 'ADB_FROM=%s\n' "$ADB_FROM" | adb shell 'cat > /system/etc/homita-frame.conf'
+    sh chmod 644 /system/etc/homita-frame.sh /system/etc/init/homita-frame.rc /system/etc/homita-frame.conf
     # su sigue disponible para adb (root) pero no para las apps
     sh chown root:shell /system/xbin/su
     sh chmod 4750 /system/xbin/su
-    sh sh /system/etc/planify-frame.sh
+    sh sh /system/etc/homita-frame.sh
     echo "Instalado. Reglas activas: $(sh iptables -S FRAME_OUT | wc -l)"
 else
     echo "AVISO: adb remount no funciona en este build; el cortafuegos no se ha instalado."
