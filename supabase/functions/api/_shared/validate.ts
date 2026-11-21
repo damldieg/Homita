@@ -2,7 +2,7 @@
 // personIdsOf, que consulta get_persons para la visibilidad (Person::validateIds).
 import { getInput, type ContractInput } from "./contract.ts";
 import {
-    errAlarmInvalid, errClientRequestIdInvalid, errEventEndDate, errFeedbackInvalid, errEventEndDateRange, errPersonIdsIds, errPersonIdsList, errPersonInvalid,
+    errAlarmInvalid, errClientRequestIdInvalid, errEventEndDate, errInvalidPriority, errFeedbackInvalid, errEventEndDateRange, errPersonIdsIds, errPersonIdsList, errPersonInvalid,
     errRoutineActive, errRoutineDate, errRoutineDateRange, errRoutineDaysRange, errRoutineDaysRequired,
     errRoutineFrequency, errRoutineInterval, errRoutineTime, errRoutineTitleRequired,
 } from "./errors.ts";
@@ -22,6 +22,20 @@ export const clientRequestIdOf = (input: ContractInput): string | undefined | Re
     if (v === null) return undefined;
     if (typeof v !== "string" || !UUID_RE.test(v)) return errClientRequestIdInvalid();
     return v.toLowerCase();
+};
+
+export const PRIORITIES = ["alta", "media", "baja"] as const;
+export type Priority = typeof PRIORITIES[number];
+
+// priority opcional de task (0037, D-026): clave ausente o null → undefined (no se envía
+// p_priority a la RPC: create guarda 'media', update conserva, y la BD sin 0037 sigue igual);
+// 'alta'|'media'|'baja' exacto (sensible a mayúsculas) → ese valor; cualquier otra cosa
+// ('', números, 'ALTA', …) → 400 'Invalid priority' sin llamar a la RPC.
+export const priorityOf = (input: ContractInput): Priority | undefined | Response => {
+    const v = getInput(input, "priority");
+    if (v === null) return undefined;
+    if (typeof v !== "string" || !(PRIORITIES as readonly string[]).includes(v)) return errInvalidPriority();
+    return v as Priority;
 };
 
 const isList = (v: unknown): v is unknown[] => Array.isArray(v) && v.every((_, i) => i in v);
