@@ -49,12 +49,11 @@ struct CalendarEventsView: View {
         .writeFailureToast($eventStore.writeFailure)
         // Al volver del detalle (guardar, eliminar o atrás) se recarga el rango visible.
         .onChange(of: selectedEvent?.id) { _, id in
-            if id == nil { Task { await calendarStore.load(); await eventStore.load() } }
+            if id == nil { Task { await calendarStore.load() } }
         }
         .task {
+            // «En curso» (D-020) se calcula en el store de agenda para el día elegido.
             if !calendarStore.hasLoaded { await calendarStore.load() }
-            // «En curso» (D-020) sale de la lista de Próximos del store de eventos.
-            await eventStore.load()
         }
     }
 
@@ -188,7 +187,7 @@ struct CalendarEventsView: View {
     private func dayCell(_ day: Date) -> some View {
         let calendar = grid.calendar
         let isSelected = calendar.isDate(day, inSameDayAs: calendarStore.anchor)
-        let dayEvents = calendarStore.events(on: day)
+        let dayEvents = calendarStore.dayEvents(on: day)
         let colors = Self.uniqueColors(dayEvents)
         let number = calendar.component(.day, from: day)
 
@@ -217,32 +216,34 @@ struct CalendarEventsView: View {
 
     // MARK: - En curso
 
-    /// Eventos de varios días cuyo rango contiene hoy (D-020). Sin sección si no hay ninguno.
+    /// Eventos de varios días cuyo rango contiene el día elegido (D-020). Sin sección si no hay ninguno.
     @ViewBuilder
     private var ongoingSection: some View {
-        if !eventStore.ongoing.isEmpty {
+        let ongoing = calendarStore.ongoing(on: calendarStore.anchor)
+        if !ongoing.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                HomitaSectionHeader(title: "En curso", count: eventStore.ongoing.count, systemImage: "calendar.badge.clock")
-                ForEach(eventStore.ongoing, id: \.id) { event in
+                HomitaSectionHeader(title: "En curso", count: ongoing.count, systemImage: "calendar.badge.clock")
+                ForEach(ongoing, id: \.id) { event in
                     CalendarEventRow(event: event) { selectedEvent = event }
                 }
             }
             .accessibilityElement(children: .contain)
-            .accessibilityLabel("En curso, \(eventStore.ongoing.count) \(eventStore.ongoing.count == 1 ? "evento" : "eventos")")
+            .accessibilityLabel("En curso, \(ongoing.count) \(ongoing.count == 1 ? "evento" : "eventos")")
         }
     }
 
     // MARK: - Lista del día seleccionado
 
     private var dayList: some View {
-        let items = calendarStore.events(on: calendarStore.anchor)
+        let items = calendarStore.listEvents(on: calendarStore.anchor)
+        let hasOngoing = !calendarStore.ongoing(on: calendarStore.anchor).isEmpty
         return VStack(alignment: .leading, spacing: 10) {
             HomitaSectionHeader(
                 title: dayTitle,
                 count: items.count,
                 systemImage: "calendar"
             )
-            if items.isEmpty {
+            if items.isEmpty && !hasOngoing {
                 HomitaFootnote(text: "Sin eventos este día.")
                 HomitaButton(title: "Nuevo evento", kind: .secondary) { showCreate = true }
             } else {

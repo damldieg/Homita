@@ -49,6 +49,30 @@ public final class CalendarAgendaStore {
             .sorted { $0.date_at < $1.date_at }
     }
 
+    /// Eventos de varios días «en curso» el día dado (D-020): `inicio <= día <= fin`, ordenados por inicio.
+    /// Compara textos `yyyy-MM-dd` (día en la zona del dispositivo); no convierte instantes.
+    public func ongoing(on day: Date) -> [EventEntry] {
+        let today = dayString(day)
+        return events
+            .filter { $0.isOngoing(today: today) }
+            .sorted { $0.date_at < $1.date_at }
+    }
+
+    /// Eventos que empiezan el día dado y no están ya en «En curso» (sin duplicados).
+    public func listEvents(on day: Date) -> [EventEntry] {
+        let ongoingIds = Set(ongoing(on: day).map(\.id))
+        return events(on: day).filter { !ongoingIds.contains($0.id) }
+    }
+
+    /// Todo lo que se muestra un día: en curso + lista del día. Para puntos de color y accesibilidad.
+    public func dayEvents(on day: Date) -> [EventEntry] {
+        ongoing(on: day) + listEvents(on: day)
+    }
+
+    private func dayString(_ day: Date) -> String {
+        LocalClock(now: day, timeZone: grid.timeZone).todayString
+    }
+
     public func load() async {
         generation &+= 1
         let token = generation
