@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "PlanifyDashboard"
+rootProject.name = "Homita"
 include(":app")
