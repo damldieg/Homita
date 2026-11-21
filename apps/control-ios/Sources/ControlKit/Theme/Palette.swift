@@ -67,6 +67,8 @@ enum Palette {
 
     static let accentHex = "#B04A27"   // terracota profunda: 5,4:1 sobre blanco (la D9663B de marca queda para ilustración)
     static let sageHex = "#4F7A63"
+    /// Rojo de acción destructiva (mismo valor que `err`).
+    static let errHex = "#B3261E"
     /// Color de completado (casilla de tarea). Token `--now`.
     static let onlineHex = "#3F7D4E"
     /// Color por defecto de calendarios, listas y rutinas sin color del servidor.
@@ -74,6 +76,7 @@ enum Palette {
     static let darkEquivalents: [String: String] = [
         accentHex: "#F09A74",
         sageHex: "#8CC3A5",
+        errHex: "#FF8A80",
         "#FFFFFF": "#1B1713",
         inkHex: "#F4ECE0",
         inkSoftHex: "#BFB3A4",

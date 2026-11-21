@@ -74,7 +74,7 @@ public struct ProfileView: View {
                         HomitaToggle(title: "Modo oscuro", isOn: darkModeBinding)
                             .accessibilityIdentifier("ajustes.modo-oscuro")
                     }
-                    HomitaButton(title: "Cerrar sesión", kind: .secondary) {
+                    HomitaButton(title: "Cerrar sesión", kind: .destructiveOutline) {
                         signOutPendingCount = services.session.session.map { OutboxRegistry.shared.pendingCount(userId: $0.id) } ?? 0
                         showSignOutConfirm = true
                     }
