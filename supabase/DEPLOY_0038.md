@@ -6,8 +6,13 @@ No usar `~/.homita/supabase.env` en pruebas locales (es prod).
 
 **El merge a `master` aplica `0038` en prod automáticamente** (D-022). La Edge **no cambia** con este
 change: no hay `supabase functions deploy`. La 0038 solo sustituye el cuerpo de
-`create_task(bigint, text, jsonb, uuid, text)` (`create or replace`, misma firma de 0037), sin DDL de
-tablas ni backfill.
+`create_task(bigint, text, jsonb, uuid, text)` (`create or replace`, misma firma de 0037) y el de
+`get_persons(boolean)` (`create or replace`, misma firma y grants de 0017; el JSON añade `home_id`,
+aditivo), sin DDL de tablas ni backfill.
+
+`GET /person` pasa a incluir `home_id` en cada persona. Los clientes existentes (dashboard, Control
+Android, builds viejos de iOS) ignoran claves desconocidas; Control iOS la usa para deduplicar el
+selector por hogar y cuenta y la decodifica como opcional.
 
 Efecto visible: un `POST /task/create` con `person_ids` de una persona sin cuenta o sin acceso a la
 lista pasa a 400 `{"error":"Invalid person"}`. Hoy solo lo envía Control iOS. Los builds viejos de iOS
@@ -16,6 +21,12 @@ reconstruir la app justo antes o después del merge.
 
 ## Orden
 
+0. **Orden de merge respecto de la PR #81:** esta PR (0038) se mergea **antes** que la #81
+   (`dc/lista-prioritaria-inicio`, `0040_task_list_position.sql`). Si la 0040 llegara antes a prod, la
+   0038 quedaría por debajo de la última migración remota y el auto-apply podría rechazarla o saltarla.
+   Si se invierte el orden, renumerar antes la migración. La segunda PR en entrar debe rebasar sobre
+   `master` y sumar sus casos en `ci.sh`, `cross_tenant_check.py` (`EXPECTED_CASES`) y
+   `supabase/README.md`.
 1. Confirmar que **0037 está aplicada en prod** (no basta con que esté en `master`) y el pre-check
    SELECT-only (A).
 2. `pg_dump --schema-only` de la función (B).
@@ -117,10 +128,13 @@ Con un usuario de prueba (no con datos reales de otro usuario), en una lista suy
 ## Rollback
 
 Solo BD (la Edge no cambia): `scripts/supabase/rollback/rollback_0038.sql`, con confirmación del
-usuario. Es idempotente, no toca datos y restaura el `create_task` de 0037 con los mismos grants. Aborta
+usuario. Es idempotente, no toca datos y restaura el `create_task` de 0037 y el `get_persons` de 0028
+(sin `home_id`) con los mismos grants. Aborta
 si no existe `create_task(bigint,text,jsonb,uuid,text)`. La fila `0038` de
 `supabase_migrations.schema_migrations` no se borra.
 
-**Orden LIFO obligatorio:** `rollback_0038` → `rollback_0037` → `rollback_0035`. Ejecutar
-`rollback_0037.sql` con la 0038 aplicada no da error, pero quita la guarda de 0038 en silencio (además
-de la prioridad): revertir siempre antes la 0038.
+**Orden LIFO obligatorio:** `rollback_0038` → `rollback_0037` → `rollback_0035`. `rollback_0037.sql`
+tiene una guarda al principio: si `create_task` contiene el marcador `0038:` (la 0038 está aplicada),
+aborta la transacción con `rollback_0037: 0038 está aplicada; revertir antes 0038 (rollback_0038.sql,
+orden LIFO)` y no cambia nada. Revertir siempre antes la 0038. Si la firma de 5 argumentos ya no existe,
+la guarda no salta y el script sigue siendo idempotente.
