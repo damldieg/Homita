@@ -23,7 +23,8 @@
 #         (502/502: la Edge nueva sin parámetros nuevos funciona sobre la BD revertida).
 #      b. Dentro, la ida y vuelta 0035 de siempre (rollback_0035 borra create_task(…,uuid), que con
 #         0037 aplicada ya no existe; por eso va anidada): client_request_rollback_check RB1-RB4, los
-#         mismos checks y contract_check (pre-0037) sobre el esquema revertido, y
+#         mismos checks y contract_check (pre-0037) sobre el esquema revertido,
+#         event_end_date_rollback_guard_check E0-E2 (guarda LIFO de rollback_0029 con 0030 aplicada), y
 #         client_request_reapply_check RA1-RA2 más client_request_check C1-C9 otra vez.
 #      c. task_priority_reapply_check PA1-PA3 y, sobre 0037 reaplicada, task_priority_check P1-P10,
 #         client_request_check C1-C9 y contract_check completo otra vez.
@@ -265,6 +266,12 @@ if [ "$pr_ok" = 1 ]; then
         run "contract_check.py (pre-0037, tras rollback_0035)" sql-rb0035-contract env CONTRACT_SCHEMA=pre-0037 python3 "$CONTRACT_PY"
         expect_log "contract_check.py (pre-0037, tras rollback_0035)" sql-rb0035-contract "^${contract_pre}/${contract_pre} casos ok"
 
+        # Guarda LIFO de rollback_0029 con 0030 aplicada (R2-02): aquí 0037 y 0035 están revertidas,
+        # así que la guarda que salta es la de 0030; el esquema no cambia.
+        run "SQL event_end_date_rollback_guard_check" sql-rbguard0030 sql_expanded "$HERE/scripts/supabase/tests/event_end_date_rollback_guard_check.sql"
+        expect_log "SQL event_end_date_rollback_guard_check" sql-rbguard0030 'ok E0([^0-9]|$)' 'ok E1([^0-9]|$)' 'ok E2([^0-9]|$)' \
+            'rollback_0029: 0030 está aplicada'
+
         run "SQL client_request_reapply_check" sql-ra0035 sql_expanded "$HERE/scripts/supabase/tests/client_request_reapply_check.sql"
         expect_log "SQL client_request_reapply_check" sql-ra0035 'ok RA1([^0-9]|$)' 'ok RA2([^0-9]|$)'
         run "SQL client_request_check (tras reaplicar 0035)" sql-ra0035-cr sql "$HERE/scripts/supabase/tests/client_request_check.sql"
@@ -297,4 +304,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10, guardas de rollback G0-G3 y feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta anidada 0037 → rollback → (0035 → rollback → 0035) → 0037 con PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, RA1-RA2, PA1-PA3, P1-P10 y C1-C9)"
+echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10, guardas de rollback G0-G3 y feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta anidada 0037 → rollback → (0035 → rollback → 0035) → 0037 con PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, guarda 0030 E0-E2, RA1-RA2, PA1-PA3, P1-P10 y C1-C9)"

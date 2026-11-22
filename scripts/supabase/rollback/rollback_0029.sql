@@ -6,10 +6,13 @@
 -- Datos: se pierden los permisos de edición dados con 0029 (vuelven a ser 'viewer'); las filas
 -- agregadas por set_*_user_access quedan como 'viewer' (no se borran).
 -- supabase_migrations.schema_migrations: la fila '0029' no se borra aquí.
--- SOLO SIN 0035 NI 0037 (orden LIFO): con cualquiera de las dos aplicada, create_task (y update_task con
+-- SOLO SIN 0030 NI POSTERIORES (orden LIFO): con 0035 o 0037 aplicada, create_task (y update_task con
 -- 0037) tienen otra firma, el CREATE OR REPLACE de 3 argumentos dejaría dos sobrecargas y la Edge no
--- podría desambiguar (POST /task/create y PATCH /task/update → 500). Revertir antes 0037 y 0035. La
--- guarda del principio aborta la transacción si alguna sigue aplicada (R1-02 de prioridad-tarea).
+-- podría desambiguar (POST /task/create y PATCH /task/update → 500). Con 0030 aplicada pasa lo mismo
+-- con create_event (6 argumentos, p_end_date) y update_event (8, p_end_date/p_end_date_set): el CREATE
+-- OR REPLACE de las firmas de 0029 (5 y 6 argumentos) no las sustituye y POST /event/create y
+-- PATCH /event/update quedarían ambiguos. Revertir antes 0037, 0035 y 0030 (rollback_0030.sql). La
+-- guarda del principio aborta la transacción si alguna sigue aplicada (R1-02 y R2-02 de prioridad-tarea).
 
 begin;
 
@@ -25,6 +28,12 @@ begin
        or exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace
                    and proname in ('create_task', 'create_task_list') and 'p_client_request_id' = any(proargnames)) then
         raise exception 'rollback_0029: 0035 está aplicada; revertir antes 0035 (rollback_0035.sql, orden LIFO)';
+    end if;
+    if exists (select 1 from information_schema.columns
+               where table_schema = 'public' and table_name = 'event' and column_name = 'end_date')
+       or exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace
+                   and proname in ('create_event', 'update_event') and 'p_end_date' = any(proargnames)) then
+        raise exception 'rollback_0029: 0030 está aplicada; revertir antes 0030 (rollback_0030.sql, orden LIFO)';
     end if;
 end $$;
 

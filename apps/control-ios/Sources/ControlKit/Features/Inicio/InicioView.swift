@@ -98,8 +98,8 @@ public struct InicioView: View {
                         EventDetailView(store: eventStore, calendars: calendarStore, persons: personStore, event: event)
                     case .task(let task):
                         TaskEditorView(taskLists: store.taskLists, persons: personStore.persons, task: task,
-                                       writeFailure: $store.writeFailure) { title, _, personIds in
-                            await store.updateTask(task, title: title, personIds: personIds)
+                                       writeFailure: $store.writeFailure) { title, _, personIds, priority in
+                            await store.updateTask(task, title: title, personIds: personIds, priority: priority)
                         }
                     case .routine(let routine):
                         RoutineEditorView(store: routineStore, calendars: calendarStore, persons: personStore, routine: routine)

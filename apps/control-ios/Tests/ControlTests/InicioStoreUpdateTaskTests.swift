@@ -103,4 +103,46 @@ final class InicioStoreUpdateTaskTests: XCTestCase {
         XCTAssertEqual(store.tasks.first { $0.id < 0 }?.title, "Pan integral")
         XCTAssertTrue(store.pendingTaskIds.contains(pan.id))
     }
+
+    /// R2-01: la prioridad editada desde Inicio se envía solo si cambió (la tarea del fixture es `media`).
+    func testOnlinePriorityIsSentOnlyWhenChanged() async throws {
+        let store = makeStore(outbox: nil)
+        await store.loadTasks()
+        let leche = try XCTUnwrap(store.tasks.first { $0.id == 7 })
+        XCTAssertEqual(leche.priorityValue, .media)
+
+        let saved1 = await store.updateTask(leche, title: "Leche", personIds: nil, priority: .media)
+        XCTAssertTrue(saved1)
+        var writes = StubURLProtocol.requests.filter { $0.httpMethod != "GET" }
+        XCTAssertEqual(writes.count, 1)
+        var body = try XCTUnwrap(writes[0].capturedBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] })
+        XCTAssertNil(body["priority"], "prioridad sin cambiar → no se envía")
+
+        installStub()
+        let saved2 = await store.updateTask(leche, title: "Leche", personIds: nil, priority: .alta)
+        XCTAssertTrue(saved2)
+        writes = StubURLProtocol.requests.filter { $0.httpMethod != "GET" }
+        XCTAssertEqual(writes.count, 1)
+        XCTAssertEqual(Self.route(writes[0]), "task/update")
+        body = try XCTUnwrap(writes[0].capturedBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] })
+        XCTAssertEqual(body["priority"] as? String, "alta", "prioridad cambiada → se envía")
+        XCTAssertNil(store.writeFailure)
+    }
+
+    func testOfflinePriorityChangeIsQueued() async throws {
+        let network = Network()
+        let outbox = OutboxStore(userId: 1, homeId: "2", directory: directory)
+        let store = makeStore(outbox: outbox, network: network)
+        await store.loadTasks()
+        await store.loadTaskLists()
+        installStub()
+        network.online = false
+        let leche = try XCTUnwrap(store.tasks.first { $0.id == 7 })
+
+        let saved3 = await store.updateTask(leche, title: "Leche", personIds: nil, priority: .baja)
+        XCTAssertTrue(saved3)
+        XCTAssertEqual(outbox.ops.map(\.kind), [.updateTask(ref: .remote(7), listRef: .remote(2), title: "Leche", personIds: nil, priority: "baja")])
+        XCTAssertEqual(store.tasks.first { $0.id == 7 }?.priorityValue, .baja, "el overlay muestra la prioridad en cola")
+        XCTAssertTrue(StubURLProtocol.requests.isEmpty)
+    }
 }
