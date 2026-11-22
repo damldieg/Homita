@@ -237,8 +237,11 @@ begin
     if (select count(*) || ':' || md5(string_agg(tablename || '.' || policyname || ':' || cmd || ':'
                || coalesce(qual, '') || ':' || coalesce(with_check, ''), ',' order by tablename, policyname))
         from pg_policies where schemaname = 'public'
-          and tablename <> 'feedback') -- 0032 (control-ios-feedback) añade su propia política
-        <> '15:922730919bcc294d24da4f6ccfc165f3' then
+          and tablename <> 'feedback' -- 0032 (control-ios-feedback) añade su propia política
+          -- 0039 (ocultar-completadas-3-dias) redefine task.task_select con el predicado de ocultas;
+          -- la cubre task_hidden_check H12. Baseline de las otras 14 (15 de 0021 menos task_select).
+          and not (tablename = 'task' and policyname = 'task_select'))
+        <> '14:c764e6599a8597cd82cdd6aa6a52cc00' then
         raise exception 'invitaciones N4: pg_policies global ≠ baseline 0021';
     end if;
     for r in select rol, priv from unnest(array['anon', 'authenticated']) rol,

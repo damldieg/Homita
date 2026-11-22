@@ -23,6 +23,12 @@ ACL en la lista compartida → 201 con la persona; XT-AL2 la misma persona en un
 400 `Invalid person` sin tarea; XT-AL3 persona sin cuenta → 400; XT-AL4 lo mismo con
 `client_request_id` → 400 y el reenvío con la misma clave sin la persona → 201 y una sola tarea.
 
+Ocultas (0039, ocultar-completadas-3-dias, D-025): A completa `tsk_h` (XT-Oculta) y se retrocede por
+psql a −3 d −1 min (completed_at y hidden_at con la fórmula). XH-B1..B6 (fase 1, B aislado): detail,
+complete true/false, update, order y delete de la oculta de A → 500 Not Found, el mismo cuerpo exacto
+que con una tarea no oculta (sin oráculo); XH-A-lista: A no ve `tsk_h` en `GET /task`; XH-V1..V2 (lista
+compartida): B viewer ve la lista sin `tsk_h` y su detail → 500 `{"error":"Not Found"}`.
+
 Miembros (1.5, plan §8.2): K8 cabecera X-Home-Id ajena en PATCH /home/member/update → 404, K11 baja
 soft conserva el histórico (update_event con la misma lista → 200) y K12 asignación nueva de un
 inactivo → 400 Invalid person; K20 usuario C con snapshot `adult` de member_kind_default (18
@@ -289,7 +295,8 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 273  # 266 + 3 de prioridad (0037) + 4 XT-AL de acceso a la lista (0038)
+EXPECTED_CASES = 282  # 266 + 3 de prioridad (0037) + 4 XT-AL de acceso a la lista (0038)
+                      # + 9 XH de ocultas (0039: 6 XH-B, 1 XH-A-lista, 2 XH-V)
 A12_ITERS = int(os.environ.get("A12_ITERS", "20"))
 # F1_ITERS: carreras de solape real por bloque F1/F2 (R1-06; el solape expone el 40P01 de 0020)
 F1_ITERS = int(os.environ.get("F1_ITERS", "10"))
@@ -360,6 +367,12 @@ evt = parse(edge("POST", f"/event/create?timezone={TZ}",
                  {"calendar_id": cal, "title": "XT-Evento", "date_at": "2026-12-20 12:00:00",
                   "alarm": 15}, a_tok)[1])["id"]
 tsk = parse(edge("POST", "/task/create", {"task_list_id": lst, "title": "XT-Tarea"}, a_tok)[1])["id"]
+# 0039: tarea oculta de A (completada y retrocedida a −3 d −1 min con la fórmula de hidden_at).
+tsk_h = parse(edge("POST", "/task/create", {"task_list_id": lst, "title": "XT-Oculta"}, a_tok)[1])["id"]
+edge("PATCH", "/task/complete", {"id": tsk_h, "completed": True}, a_tok)
+psql(f"update task set completed_at = (now() at time zone 'UTC') - interval '3 days 1 minute', "
+     f"hidden_at = (((now() at time zone 'UTC') - interval '3 days 1 minute') + interval '3 days') at time zone 'UTC' "
+     f"where id = {int(tsk_h)}")
 
 # ── Fase 1: B aislado — lecturas Edge de ids de A → 500 Not Found ──
 for name, method, path, body in [
@@ -430,6 +443,31 @@ res = edge("GET", "/task?priority=media", None, b_tok)
 rows = parse(res[1]) if res[0] == 200 else None
 check("B GET /task?priority=media no incluye la tarea de A (0037)",
       isinstance(rows, list) and all(isinstance(r, dict) and r.get("id") != tsk for r in rows), f"obtenido {res!r}"[:300])
+
+# ── Fase 1: ocultas (0039): sobre la oculta de A, B recibe exactamente lo mismo que sobre una visible ──
+for name, method, path, body, same in [
+    ("XH-B1 B GET /task/detail de la oculta de A → Not Found", "GET", f"/task/detail?id={tsk_h}", None,
+     ("GET", f"/task/detail?id={tsk}", None)),
+    ("XH-B2 B PATCH /task/complete true de la oculta de A → Not Found", "PATCH", "/task/complete",
+     {"id": tsk_h, "completed": True}, ("PATCH", "/task/complete", {"id": tsk, "completed": True})),
+    ("XH-B3 B PATCH /task/complete false de la oculta de A → Not Found", "PATCH", "/task/complete",
+     {"id": tsk_h, "completed": False}, ("PATCH", "/task/complete", {"id": tsk, "completed": False})),
+    ("XH-B4 B PATCH /task/update de la oculta de A → Not Found", "PATCH", "/task/update",
+     {"id": tsk_h, "title": "XT-Oculta B"}, ("PATCH", "/task/update", {"id": tsk, "title": "XT-Tarea B"})),
+    ("XH-B5 B PATCH /task/order de la oculta de A → Not Found", "PATCH", "/task/order",
+     {"id": tsk_h, "position": 0}, ("PATCH", "/task/order", {"id": tsk, "position": 0})),
+    ("XH-B6 B DELETE /task/delete de la oculta de A → Not Found", "DELETE", "/task/delete",
+     {"id": tsk_h}, ("DELETE", "/task/delete", {"id": tsk})),
+]:
+    got = edge(method, path, body, b_tok)
+    ref = edge(*same, b_tok)
+    check(name + " (mismo cuerpo que una visible)", got == NOT_FOUND and ref == NOT_FOUND,
+          f"oculta {got!r} / visible {ref!r}"[:300])
+res = edge("GET", "/task", None, a_tok)
+rows = parse(res[1]) if res[0] == 200 else None
+check("XH-A-lista A GET /task no incluye su tarea oculta y sí la visible",
+      isinstance(rows, list) and all(r.get("id") != tsk_h for r in rows) and any(r.get("id") == tsk for r in rows),
+      f"obtenido {res!r}"[:300])
 
 # ── Fase 1: RPC directas PostgREST con JWT de B — 0 filas de A ──
 for name, rpc_name in [
@@ -563,7 +601,9 @@ e5 = rpc_direct("update_event", {"p_id": evt, "p_title": "XT-Evento", "p_date_at
 check("E5 rpc update_event con end_date mal formada → 400 Invalid end date y end_date intacto",
       e5[0] == 400 and parse(e5[1]).get("message") == "Invalid end date"
       and svc_end_date(evt) is None, repr(e5)[:200])
-tasks = parse(request(URL, "GET", f"/rest/v1/task?task_list_id=eq.{lst}&select=title", None, None, apikey=SVC)[1])
+# 0039: XT-Oculta (fixture de los casos XH, creada por A) no cuenta como escritura de B.
+tasks = parse(request(URL, "GET", f"/rest/v1/task?task_list_id=eq.{lst}&title=neq.XT-Oculta&select=title",
+                      None, None, apikey=SVC)[1])
 check("V1-V4 nada se escribe: la lista de A solo tiene su tarea", tasks == [{"title": "XT-Tarea"}], repr(tasks)[:200])
 
 # ── R1 (reescrito, 0015 iv): el trigger persona↔recurso rechaza la asignación cross-home ──
@@ -683,6 +723,14 @@ check("viewer con can_edit POST /task/create en la lista compartida → 200 (A8:
       edge("POST", "/task/create", {"task_list_id": lst, "title": "XT-Tarea B"}, b_tok)[0] in (200, 201))
 check("viewer GET /task-list/detail del compartido → 200",
       edge("GET", f"/task-list/detail?id={lst}", None, b_tok)[0] == 200)
+# 0039: B con acceso a la lista tampoco ve ni lee la oculta.
+res = edge("GET", f"/task?task_list_id={lst}", None, b_tok)
+rows = parse(res[1]) if res[0] == 200 else None
+check("XH-V1 viewer GET /task de la lista compartida sin la oculta (y con la visible)",
+      isinstance(rows, list) and all(r.get("id") != tsk_h for r in rows) and any(r.get("id") == tsk for r in rows),
+      f"obtenido {res!r}"[:300])
+expect("XH-V2 viewer GET /task/detail de la oculta → 500 Not Found",
+       edge("GET", f"/task/detail?id={tsk_h}", None, b_tok), NOT_FOUND)
 
 # ── XT-AL (0038, asignar-alta-lista): al crear, solo personas con cuenta y acceso a la lista ──
 # psql (normal): persona de home(A) vinculada a la cuenta de B (B ya es miembro de home(A) y viewer de
