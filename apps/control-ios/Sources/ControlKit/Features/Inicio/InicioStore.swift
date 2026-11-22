@@ -335,6 +335,29 @@ public final class InicioStore: MainActorWriteFailureReporting {
 
 /// Navegación entre las listas de la tarjeta de tareas de Inicio (swipe y VoiceOver).
 public enum InicioTaskPaging {
+    /// Punto del paginador: lista que representa, si es la actual y si va difuminado (hay listas
+    /// fuera de vista en ese lado).
+    public struct Dot: Equatable, Sendable {
+        public let listIndex: Int?
+        public let highlighted: Bool
+        public let faded: Bool
+    }
+
+    /// Puntos a mostrar para `n` listas con la actual en `c` (máx. 5). Con más de 5 la ventana
+    /// `[s, s+4]` sigue a la actual; el primer/último punto se difuminan si quedan listas ocultas.
+    public static func dots(count n: Int, current c: Int) -> [Dot] {
+        guard n > 0 else { return [] }
+        let cur = min(max(c, 0), n - 1)
+        if n <= 5 {
+            return (0..<n).map { Dot(listIndex: $0, highlighted: $0 == cur, faded: false) }
+        }
+        let s = min(max(cur - 1, 0), n - 5)
+        return (0..<5).map { i in
+            Dot(listIndex: s + i, highlighted: s + i == cur,
+                faded: (i == 0 && s > 0) || (i == 4 && s + 4 < n - 1))
+        }
+    }
+
     /// Id de la lista contigua a `current` (`forward` = la siguiente); `nil` en los extremos o si
     /// `current` no está en `ids`. Sin vuelta al principio: el gesto se detiene en la última lista.
     public static func neighbor(of current: Int, in ids: [Int], forward: Bool) -> Int? {
