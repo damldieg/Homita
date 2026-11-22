@@ -305,7 +305,8 @@ final class OutboxReplayerTests: XCTestCase {
     // MARK: - 0038: personas al reproducir (AC-5, AC-9)
 
     /// Personas del hogar: Ana (cuenta 1), Beto (cuenta 9) y Luz (sin cuenta).
-    private static let roster = ##"[{"id":1,"user_id":1,"name":"Ana","color":"#FF0000","app_user_id":1},{"id":2,"user_id":1,"name":"Beto","color":"#00FF00","app_user_id":9},{"id":3,"user_id":1,"name":"Luz","color":"#0000FF"}]"##
+    /// Forma 0038: las personas traen `home_id` (el hogar de la cola, "2"); el replay solo acepta las de ese hogar.
+    private static let roster = ##"[{"id":1,"user_id":1,"name":"Ana","color":"#FF0000","app_user_id":1,"home_id":2},{"id":2,"user_id":1,"name":"Beto","color":"#00FF00","app_user_id":9,"home_id":2},{"id":3,"user_id":1,"name":"Luz","color":"#0000FF","home_id":2}]"##
     /// ACL de la lista 2 solo con la cuenta 1 (Beto perdió el acceso).
     private static let membersWithoutBeto = #"[{"tlu_id":10,"user_id":1,"name":"Demo","email":"demo@homita.example","role":"owner"}]"#
     private static let invalidPerson = StubURLProtocol.Stub(status: 400, json: #"{"error":"Invalid person"}"#)
@@ -438,6 +439,34 @@ final class OutboxReplayerTests: XCTestCase {
         XCTAssertEqual(outbox.ops.map(\.kind), [expected])
         XCTAssertEqual(OutboxStore(userId: 1, homeId: "2", directory: directory).ops.map(\.kind), [expected],
                        "la reescritura persiste: un cierre a mitad no reenvía la lista original")
+    }
+
+    /// R1-01: el aviso de P-4 sobrevive a un reintento del reenvío (503) y a un cierre de la app.
+    func testAssigneeNoticeSurvivesRetryOfRewrittenOp() async {
+        let replayer = makeSequencedReplayer([
+            "task/create": [Self.invalidPerson, StubURLProtocol.Stub(status: 503, json: #"{"error":"boom"}"#), Self.created],
+            "person": [StubURLProtocol.Stub(json: Self.roster)],
+            "task-list/user": [StubURLProtocol.Stub(json: Self.membersWithoutBeto)]
+        ])
+        let outbox = makeOutbox([.createTask(local: -1, listRef: .remote(2), title: "Pan", personIds: [1, 2])])
+        let op = outbox.ops[0]
+        let first = await replayer.replay(outbox)
+        XCTAssertEqual(first.stop, .retryable)
+        XCTAssertTrue(outbox.notices.isEmpty, "aún no se confirmó")
+        XCTAssertEqual(outbox.ops.first?.removedAssignees, ["Beto"])
+
+        // Segunda pasada sobre la cola releída de disco (la app se cerró entre medias).
+        let reloaded = OutboxStore(userId: 1, homeId: "2", directory: directory)
+        XCTAssertEqual(reloaded.ops.first?.removedAssignees, ["Beto"], "el aviso pendiente persiste")
+        let second = await replayer.replay(reloaded)
+        XCTAssertEqual(second, ReplaySummary(acked: 1, discarded: 0, stop: .drained))
+        let bodies = createBodies
+        XCTAssertEqual(bodies.count, 3)
+        XCTAssertEqual(bodies[2]["person_ids"] as? [Int], [1])
+        XCTAssertEqual(bodies[2]["client_request_id"] as? String, op.clientRequestId, "misma clave en el reintento")
+        XCTAssertEqual(routes.filter { $0 == "person" }.count, 1, "el reintento no vuelve a pedir el roster")
+        XCTAssertTrue(reloaded.isEmpty)
+        XCTAssertEqual(reloaded.notices.map(\.message), ["«Pan» se sincronizó sin asignar a Beto: ya no tiene acceso a la lista."])
     }
 
     func testOtherBadRequestStillDiscards() async {
