@@ -22,7 +22,8 @@
 --     acepta las filas; complete_task con esa zona cumple el CHECK.
 -- H11 (A7) en public solo complete_task asigna hidden_at; las que lo leen son las 7 de 0039; ninguna
 --     función se llama %restore%, %unhide% ni %recover%.
--- H12 policy task_select con el predicado visible: por PostgREST (rol authenticated) A no lee la oculta.
+-- H12 policy task_select, lectura real con rol authenticated: B (no miembro) lee 0 filas de L (oculta por
+--     id, visible por id y listado); A (miembro) lee la visible y no la oculta.
 -- Al final, 0 filas scratch.
 
 \set ON_ERROR_STOP 1
@@ -375,30 +376,51 @@ begin
     raise notice 'ok H11: solo complete_task asigna hidden_at; lectores = las 7 de 0039; sin restore/unhide/recover';
 end $$;
 
--- ── H12: policy task_select ──
+-- ── H12: policy task_select (lectura real por RLS, rol authenticated) ──
+-- Antes de impersonar: como postgres, 999101 sigue oculta y 999102 visible en L (si no, los 0 de abajo no
+-- probarían nada).
 do $$
 begin
-    if not exists (
-        select 1 from pg_policy
-        where polrelid = 'public.task'::regclass and polname = 'task_select' and polcmd = 'r'
-          and pg_get_expr(polqual, polrelid) like '%fn_visible_task_list_ids%'
-          and pg_get_expr(polqual, polrelid) like '%hidden_at IS NULL%hidden_at > now()%'
-    ) then
-        raise exception 'task_hidden H12: task_select sin el predicado visible';
+    if not exists (select 1 from task where id = 999101 and task_list_id = 999101 and hidden_at <= now())
+       or not exists (select 1 from task where id = 999102 and task_list_id = 999101 and hidden_at > now()) then
+        raise exception 'task_hidden H12: fixture rota (999101 no oculta o 999102 no visible)';
     end if;
 end $$;
+-- No miembro: B (hogar H2, sin task_list_user en L) no lee ninguna tarea de L por la policy, ni la oculta
+-- ni la visible, ni por id ni por listado.
+begin;
+set local role authenticated;
+select pg_temp.as_b();
+do $$
+declare
+    v_hidden bigint;
+    v_visible bigint;
+    v_list bigint;
+begin
+    select count(*) into v_hidden from task where id = 999101;
+    select count(*) into v_visible from task where id = 999102;
+    select count(*) into v_list from task where task_list_id = 999101;
+    if v_hidden <> 0 or v_visible <> 0 or v_list <> 0 then
+        raise exception 'task_hidden H12: no miembro lee tareas de L (oculta %, visible %, listado %)',
+            v_hidden, v_visible, v_list;
+    end if;
+end $$;
+rollback;
+-- Miembro: A (owner de L) lee la visible y no la oculta, por id y por listado.
 begin;
 set local role authenticated;
 select pg_temp.as_a();
 do $$
 begin
-    if exists (select 1 from task where id = 999101) then
-        raise exception 'task_hidden H12: authenticated lee la oculta por la policy';
+    if (select count(*) from task where id = 999101) <> 0
+       or exists (select 1 from task where task_list_id = 999101 and id = 999101) then
+        raise exception 'task_hidden H12: el miembro lee la oculta por la policy';
     end if;
-    if not exists (select 1 from task where id = 999102) then
-        raise exception 'task_hidden H12: authenticated no lee la reciente';
+    if (select count(*) from task where id = 999102) <> 1
+       or not exists (select 1 from task where task_list_id = 999101 and id = 999102) then
+        raise exception 'task_hidden H12: el miembro no lee la visible';
     end if;
-    raise notice 'ok H12: policy task_select con el predicado visible (la oculta no se lee por PostgREST)';
+    raise notice 'ok H12: por RLS (authenticated) el no miembro lee 0 filas de L (oculta, visible y listado); el miembro lee la visible y no la oculta';
 end $$;
 rollback;
 

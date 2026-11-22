@@ -15,6 +15,7 @@
 #      task_priority_check P1-P10 (0037), task_person_access_check A1-A9 (0038),
 #      get_persons_home_id_check GP1-GP4 (0038, home_id en get_persons),
 #      task_hidden_check H1-H12 (0039, ocultar completadas a los 3 días),
+#      G5-md5 (solo ADVERTENCIA, no falla: md5 del gate G5 de DEPLOY_0039.md = stack local),
 #      feedback_trello_check B1-B8 (0033) y feedback_trigger_check F1-F12 (0031/0034); trigger inerte en
 #      local: sin feedback_webhook_url en Vault no se encola ninguna petición),
 #      task_priority_rollback_guard_check G0-G3 (guardas LIFO de rollback_0035/0029 con 0037 aplicada),
@@ -207,6 +208,38 @@ expect_log "SQL get_persons_home_id_check" sql-get-persons-home "${gp_pat[@]}"
 run "SQL task_hidden_check" sql-task-hidden sql "$HERE/scripts/supabase/tests/task_hidden_check.sql"
 h_pat=('ok H-clean'); for i in $(seq 1 12); do h_pat+=("ok H$i([^0-9a-z]|\$)"); done
 expect_log "SQL task_hidden_check" sql-task-hidden "${h_pat[@]}"
+
+# G5-md5 (solo ADVERTENCIA, nunca falla): los md5 que supabase/DEPLOY_0039.md pide comparar en el gate
+# G5 (7 funciones de 0039 y la policy task_select) se leen del propio documento (bloque «-- G5.» hasta
+# «-- G6.») y se comparan con los del stack local, con 0039 aplicada. Si difieren imprime «ADVERTENCIA md5»
+# y sigue: la versión menor de PostgreSQL de prod puede no ser la del CI y cambiar pg_get_functiondef o
+# pg_get_expr. Sirve para detectar una constante mal transcrita antes de ir a prod. No toca FAILED.
+g5_md5_check() {
+    local doc="$HERE/supabase/DEPLOY_0039.md" want got
+    want="$(awk '/^-- G5\./{f=1; next} /^-- G6\./{f=0} f' "$doc" \
+        | sed -nE -e 's/^--   ([a-z_]+\([a-z,]*\)) +([0-9a-f]{32})$/\1 \2/p' \
+                  -e 's/^-- Esperado: ([0-9a-f]{32})\.$/policy:task_select \1/p' | LC_ALL=C sort)"
+    got="$("${PSQL_CMD[@]}" -At -F ' ' -c \
+        "select p.oid::regprocedure::text, md5(pg_get_functiondef(p.oid)) from pg_proc p
+          where p.pronamespace = 'public'::regnamespace
+            and p.proname in ('get_tasks', 'get_task_detail', 'complete_task', 'update_task', 'task_order',
+                              'delete_task', 'fn_reorder_tasks')
+         union all
+         select 'policy:task_select', md5(pg_get_expr(polqual, polrelid)) from pg_policy
+          where polrelid = 'public.task'::regclass and polname = 'task_select' and polcmd = 'r'" 2>&1 \
+        | LC_ALL=C sort)" || true
+    if [ "$(printf '%s\n' "$want" | grep -c .)" -ne 8 ]; then
+        echo "ADVERTENCIA md5: G5 de DEPLOY_0039.md no tiene 8 constantes legibles (7 funciones + task_select):"
+        printf '%s\n' "$want"
+    elif [ "$want" != "$got" ]; then
+        echo "ADVERTENCIA md5: G5 de DEPLOY_0039.md ≠ stack local (no corta ci.sh; revisar antes del gate G5):"
+        diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^</  DEPLOY_0039:/; s/^>/  local:/' || true
+    else
+        echo "ok G5-md5: las 7 funciones y task_select del stack local = constantes de G5 en DEPLOY_0039.md"
+    fi
+}
+step "G5-md5 DEPLOY_0039 (advertencia)"
+g5_md5_check 2>&1 | tee "$OUT/g5-md5.log" || true
 
 # Checks de feedback: psql corre dentro del contenedor y no ve el host, así que se expanden los marcadores
 # `-- @MIGRATION:<fichero>@` (supabase/migrations/<fichero>) y `-- @ROLLBACK:<fichero>@`

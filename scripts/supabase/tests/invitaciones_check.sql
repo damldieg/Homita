@@ -244,6 +244,16 @@ begin
         <> '14:c764e6599a8597cd82cdd6aa6a52cc00' then
         raise exception 'invitaciones N4: pg_policies global ≠ baseline 0021';
     end if;
+    -- La excepción de task.task_select es solo su qual (0039 le añade el predicado de ocultas; su lectura
+    -- la prueba task_hidden_check H12 como miembro y como no miembro). El resto de la policy sigue fijado:
+    -- una sola, SELECT, permissive, solo authenticated, sin with_check y con la ACL de 0020.
+    if (select count(*) from pg_policies
+        where schemaname = 'public' and tablename = 'task' and policyname = 'task_select'
+          and cmd = 'SELECT' and permissive = 'PERMISSIVE' and roles = array['authenticated']::name[]
+          and with_check is null
+          and qual like '%(task_list_id IN ( SELECT fn_visible_task_list_ids() AS fn_visible_task_list_ids))%') <> 1 then
+        raise exception 'invitaciones N4: task.task_select fuera de lo acotado (cmd/permissive/roles/with_check/ACL)';
+    end if;
     for r in select rol, priv from unnest(array['anon', 'authenticated']) rol,
              unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) priv loop
         if has_table_privilege(r.rol, 'public.home_invitation', r.priv) then

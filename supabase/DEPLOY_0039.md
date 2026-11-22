@@ -181,6 +181,7 @@ from task;
 -- Esperado: 0, 0, 0.
 
 -- G5. Cuerpos nuevos = los de la 0039 del repo (md5 del reset local 0001–0039) y una firma por función.
+-- ci.sh (paso «G5-md5») compara estas 8 constantes con el stack local; si difieren solo imprime «ADVERTENCIA md5».
 select p.oid::regprocedure as firma, md5(pg_get_functiondef(p.oid)) as md5
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
