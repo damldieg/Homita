@@ -49,7 +49,9 @@ data class Task(
     val task_list_color: String?,
     val title: String,
     val order: Int,
-    val completed_at: String?
+    val completed_at: String?,
+    /** `alta`/`media`/`baja` (0037). Gson lo deja a null si falta (caché de disco antigua): ver [priorityValue]. */
+    val priority: String? = null
 )
 
 /** Contenido de Hoy (ver ContentRepository). */

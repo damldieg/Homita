@@ -15,6 +15,8 @@ import com.dld.homita.dashboard.data.Location
 import com.dld.homita.dashboard.data.ReferenceClock
 import com.dld.homita.dashboard.data.Schedule
 import com.dld.homita.dashboard.data.Store
+import com.dld.homita.dashboard.data.TaskPriority
+import com.dld.homita.dashboard.data.TaskSort
 import com.dld.homita.dashboard.data.Week
 import com.dld.homita.dashboard.data.cache.DiskCache
 import com.dld.homita.dashboard.data.isUnauthorized
@@ -42,6 +44,9 @@ data class UiState(
     val location: Location? = null,
     val schedule: Schedule = Schedule(),
     val brightness: Float? = null,
+    /** Orden y filtro por prioridad de la pantalla de tareas (0037), guardados en Store. */
+    val taskSort: TaskSort = TaskSort.LIST,
+    val taskFilter: TaskPriority? = null,
     /** false si el último intento de sincronizar falló: se muestra lo que hay en caché. */
     val online: Boolean = true,
     /** Hay una red con salida a Internet (sin ella, el login muestra la espera y "Ir a Ajustes"). */
@@ -88,7 +93,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 weeks = calendarRepository.weeks.value,
                 location = store.location,
                 schedule = store.schedule,
-                brightness = store.brightness
+                brightness = store.brightness,
+                taskSort = store.taskSort,
+                taskFilter = store.taskFilter
             )
         }
     )
@@ -165,6 +172,18 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val token = _state.value.token ?: return
         if (!calendarRepository.isStale(monday)) return
         viewModelScope.launch { report(calendarRepository.refresh(token, monday)) }
+    }
+
+    /** Orden de la pantalla de tareas (en cliente, sobre la caché). */
+    fun setTaskSort(sort: TaskSort) {
+        store.taskSort = sort
+        _state.update { it.copy(taskSort = sort) }
+    }
+
+    /** Filtro por prioridad de la pantalla de tareas; null = todas. */
+    fun setTaskFilter(filter: TaskPriority?) {
+        store.taskFilter = filter
+        _state.update { it.copy(taskFilter = filter) }
     }
 
     /**

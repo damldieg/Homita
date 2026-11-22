@@ -247,6 +247,10 @@ struct TasksView: View {
                         .accessibilityLabel("Filtrar")
                 }
             }
+            // 0037: orden y filtro por prioridad (en cliente, sobre lo que ya hay con el overlay).
+            ToolbarItem(placement: .primaryAction) {
+                TaskPriorityMenu(sortMode: $store.sortMode, filter: $store.priorityFilter)
+            }
             #if os(iOS)
             if store.canReorder {
                 ToolbarItem(placement: .primaryAction) {
@@ -264,8 +268,8 @@ struct TasksView: View {
         .sheet(isPresented: $showCreateTask) {
             NavigationStack {
                 TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: nil,
-                               writeFailure: $store.writeFailure) { title, listId, personIds in
-                    await store.createTask(title: title, listId: listId, personIds: personIds)
+                               writeFailure: $store.writeFailure) { title, listId, personIds, priority in
+                    await store.createTask(title: title, listId: listId, personIds: personIds, priority: priority)
                 }
             }
         }
@@ -278,8 +282,8 @@ struct TasksView: View {
                                    isOwner: AccessRoster.callerIsOwner(session.session?.id, in: store.members),
                                    onSetAccess: { userId, level in
                                        Task { await store.setAccess(listId: task.task_list_id, userId: userId, level: level) }
-                                   })) { title, _, personIds in
-                    await store.updateTask(task, title: title, personIds: personIds)
+                                   })) { title, _, personIds, priority in
+                    await store.updateTask(task, title: title, personIds: personIds, priority: priority)
                 } onDelete: {
                     Task { await store.deleteTask(task) }
                 }
@@ -424,6 +428,7 @@ struct TaskRow: View {
                 }
             }
             Spacer()
+            TaskPriorityBadge(priority: task.priorityValue)
             if isPending {
                 PendingSyncIcon()
             }
@@ -435,6 +440,60 @@ struct TaskRow: View {
                 HomitaCard { row }
             }
         }
+    }
+}
+
+/// Prioridad de la tarea en la fila (0037). Media es la de por defecto y va discreta; alta y baja
+/// se distinguen por color.
+struct TaskPriorityBadge: View {
+    let priority: TaskPriority
+
+    private var tintHex: String {
+        switch priority {
+        case .alta: return Palette.accentHex
+        case .media: return Palette.soonHex
+        case .baja: return Palette.sageHex
+        }
+    }
+
+    var body: some View {
+        HomitaBadge(title: priority.label, tintHex: tintHex)
+            .accessibilityLabel("Prioridad \(priority.label.lowercased())")
+    }
+}
+
+/// Menú de la toolbar con el orden (Lista | Prioridad) y el filtro por prioridad (0037). El icono
+/// se rellena cuando hay orden o filtro activo, para que el estado se vea.
+struct TaskPriorityMenu: View {
+    @Binding var sortMode: TaskSortMode
+    @Binding var filter: TaskPriority?
+
+    private var isActive: Bool { sortMode != .list || filter != nil }
+
+    var body: some View {
+        Menu {
+            Picker("Ordenar por", selection: $sortMode) {
+                ForEach(TaskSortMode.allCases) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            Picker("Prioridad", selection: $filter) {
+                Text("Todas").tag(TaskPriority?.none)
+                ForEach(TaskPriority.allCases) { priority in
+                    Text(priority.label).tag(TaskPriority?.some(priority))
+                }
+            }
+        } label: {
+            Image(systemName: isActive ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
+                .foregroundStyle(Palette.ink)
+                .accessibilityLabel("Ordenar y filtrar por prioridad")
+                .accessibilityValue(accessibilityValue)
+        }
+    }
+
+    private var accessibilityValue: String {
+        let order = "Orden: \(sortMode.label)"
+        return filter.map { "\(order), prioridad \($0.label.lowercased())" } ?? order
     }
 }
 

@@ -188,9 +188,64 @@ public struct TaskEntry: Codable, Equatable, Identifiable {
     public let task_list_name: String?
     /// Personas asignadas (`GET task`, migración 0024). Ausente en respuestas antiguas → nil.
     public let persons: [PersonEntry]?
+    /// Prioridad cruda (`alta`/`media`/`baja`, migración 0037). Ausente en respuestas antiguas → nil.
+    /// Se guarda como texto para que un valor futuro desconocido no rompa el decode de la lista.
+    public let priority: String?
+
+    public init(
+        id: Int, task_list_id: Int, title: String, completed_at: String?, created_at: String?,
+        updated_at: String?, order: FlexInt?, task_list_color: String?, task_list_name: String?,
+        persons: [PersonEntry]?, priority: String? = nil
+    ) {
+        self.id = id
+        self.task_list_id = task_list_id
+        self.title = title
+        self.completed_at = completed_at
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.order = order
+        self.task_list_color = task_list_color
+        self.task_list_name = task_list_name
+        self.persons = persons
+        self.priority = priority
+    }
 
     public var isCompleted: Bool { completed_at != nil }
     public var orderValue: Int { order?.value ?? 0 }
+    /// Prioridad efectiva: nil o desconocida → `.media` (el default del servidor).
+    public var priorityValue: TaskPriority { TaskPriority(raw: priority) }
+}
+
+/// Prioridad de una tarea (0037, D-026). Los valores crudos son los de la API.
+public enum TaskPriority: String, CaseIterable, Codable, Equatable, Sendable, Identifiable {
+    case alta
+    case media
+    case baja
+
+    public var id: String { rawValue }
+
+    /// Rango para ordenar: alta (1) > media (2) > baja (3).
+    public var rank: Int {
+        switch self {
+        case .alta: return 1
+        case .media: return 2
+        case .baja: return 3
+        }
+    }
+
+    /// Etiqueta visible.
+    public var label: String {
+        switch self {
+        case .alta: return "Alta"
+        case .media: return "Media"
+        case .baja: return "Baja"
+        }
+    }
+
+    /// Valor crudo de la API; nil o desconocido → `.media`.
+    public init(raw: String?) {
+        self = raw.flatMap(TaskPriority.init(rawValue:)) ?? .media
+    }
 }
 
 // MARK: - Respuestas de escritura

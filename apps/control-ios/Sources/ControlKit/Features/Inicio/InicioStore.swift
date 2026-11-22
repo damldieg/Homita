@@ -260,17 +260,20 @@ public final class InicioStore: MainActorWriteFailureReporting {
         if !queued { await loadTasks() }
     }
 
-    /// Edita título y personas de una tarea (mismo patrón que `TasksStore.updateTask`).
-    /// Devuelve si se guardó (en cola cuenta como guardado).
+    /// Edita título, personas y prioridad de una tarea (mismo patrón que `TasksStore.updateTask`).
+    /// La prioridad solo se envía si cambió respecto de `task.priorityValue`, para no pisar
+    /// la que haya puesto otro usuario. Devuelve si se guardó (en cola cuenta como guardado).
     @discardableResult
-    public func updateTask(_ task: TaskEntry, title: String, personIds: [Int]? = nil) async -> Bool {
+    public func updateTask(_ task: TaskEntry, title: String, personIds: [Int]? = nil, priority: TaskPriority? = nil) async -> Bool {
+        let changed = priority.flatMap { $0 == task.priorityValue ? nil : $0.rawValue }
         guard let coordinator else {
             return await performWrite { store in
-                _ = try await store.tasksRepo.update(UpdateTaskRequest(id: task.id, title: title, person_ids: personIds))
+                _ = try await store.tasksRepo.update(UpdateTaskRequest(id: task.id, title: title, person_ids: personIds, priority: changed))
                 await store.loadTasks()
             }
         }
-        let op = coordinator.makeOp(.updateTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id), title: title, personIds: personIds))
+        let op = coordinator.makeOp(.updateTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id), title: title,
+                                                personIds: personIds, priority: changed))
         return await performWrite { store in
             guard let coordinator = store.coordinator else { return }
             if case .sent = try await coordinator.perform(op) { await store.loadTasks() }
@@ -288,16 +291,17 @@ public final class InicioStore: MainActorWriteFailureReporting {
 
     /// Alta rápida de tarea desde Inicio. Devuelve si se creó (el editor solo se cierra entonces).
     @discardableResult
-    public func createTask(title: String, listId: Int) async -> Bool {
+    public func createTask(title: String, listId: Int, priority: TaskPriority? = nil) async -> Bool {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
         guard let coordinator, let outbox else {
             return await performWrite { store in
-                _ = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed))
+                _ = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed, priority: priority?.rawValue))
                 await store.loadTasks()
             }
         }
-        let op = coordinator.makeOp(.createTask(local: outbox.makeLocalId(), listRef: ref(for: listId), title: trimmed, personIds: nil))
+        let op = coordinator.makeOp(.createTask(local: outbox.makeLocalId(), listRef: ref(for: listId), title: trimmed, personIds: nil,
+                                                priority: priority?.rawValue))
         return await performWrite { store in
             guard let coordinator = store.coordinator else { return }
             if case .sent = try await coordinator.perform(op) { await store.loadTasks() }

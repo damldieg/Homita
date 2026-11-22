@@ -57,6 +57,8 @@ import com.dld.homita.dashboard.data.Event
 import com.dld.homita.dashboard.data.Person
 import com.dld.homita.dashboard.data.partitionEvents
 import com.dld.homita.dashboard.data.Task
+import com.dld.homita.dashboard.data.TaskPriority
+import com.dld.homita.dashboard.data.priorityValue
 import com.dld.homita.dashboard.data.repository.ContentRepository
 import com.dld.homita.dashboard.ui.theme.Palette
 import com.dld.homita.dashboard.ui.theme.Type
@@ -430,8 +432,32 @@ private fun UpcomingList(items: List<Event>, now: LocalDateTime, lastTouch: Long
 
 @Composable
 fun TaskRow(task: Task) {
-    // Sin casilla: el dashboard es de solo lectura y no se pueden marcar.
-    Text(task.title, style = Type.Body, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp))
+    // Sin casilla: el dashboard es de solo lectura y no se pueden marcar. A la derecha, la prioridad (0037).
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+        Text(task.title, style = Type.Body, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        PriorityBadge(task.priorityValue, Modifier.padding(start = 16.dp))
+    }
+}
+
+/** Color de cada prioridad: alta con el acento, media cálida y baja en salvia (la paleta de la app). */
+fun priorityColor(priority: TaskPriority): Color = when (priority) {
+    TaskPriority.ALTA -> Palette.Accent
+    TaskPriority.MEDIA -> Palette.Warm
+    TaskPriority.BAJA -> Palette.Sage
+}
+
+/** Píldora con la prioridad de la tarea, tintada con [priorityColor]. */
+@Composable
+fun PriorityBadge(priority: TaskPriority, modifier: Modifier = Modifier) {
+    val color = priorityColor(priority)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier.background(color.copy(alpha = 0.14f), CircleShape).padding(horizontal = 14.dp, vertical = 5.dp)
+    ) {
+        Dot(color, 12)
+        Text(priority.label, style = Type.Tiny.copy(color = Palette.Ink), maxLines = 1)
+    }
 }
 
 /** Nombres en píldoras del color de cada persona. */

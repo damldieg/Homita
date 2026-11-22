@@ -237,6 +237,10 @@ end $$;
 
 -- ── C8: permisos ──
 do $$
+declare
+    -- 0037 (prioridad-tarea) amplía la firma de create_task: se resuelve la única por proname (C7)
+    -- en lugar de castear la de 0035, así C8 vale con y sin 0037.
+    v_ct oid := (select oid from pg_proc where proname = 'create_task' and pronamespace = 'public'::regnamespace);
 begin
     if not (select relrowsecurity from pg_class where oid = 'public.client_request'::regclass)
        or exists (select 1 from pg_policy where polrelid = 'public.client_request'::regclass) then
@@ -246,9 +250,9 @@ begin
        or has_table_privilege('authenticated', 'public.client_request', 'select,insert,update,delete') then
         raise exception 'client_request C8: anon/authenticated con privilegios sobre client_request';
     end if;
-    if has_function_privilege('anon', 'create_task(bigint,text,jsonb,uuid)', 'execute')
+    if v_ct is null or has_function_privilege('anon', v_ct, 'execute')
        or has_function_privilege('anon', 'create_task_list(text,text,text,boolean,boolean,uuid)', 'execute')
-       or not has_function_privilege('authenticated', 'create_task(bigint,text,jsonb,uuid)', 'execute')
+       or not has_function_privilege('authenticated', v_ct, 'execute')
        or not has_function_privilege('authenticated', 'create_task_list(text,text,text,boolean,boolean,uuid)', 'execute') then
         raise exception 'client_request C8: EXECUTE incorrecto en las RPC';
     end if;

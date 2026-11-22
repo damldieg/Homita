@@ -4,9 +4,10 @@ import Foundation
 /// la op en vuelo (inmutable: lo que llega sobre ella se añade al final y se resuelve con el ack).
 ///
 /// Reglas:
-/// - Update sobre un create pendiente: se funde en el create (título nuevo; `personIds` del update
-///   o, si es nil, los del create).
-/// - Update sobre otro update del mismo recurso: queda el último, con la misma regla de `personIds`.
+/// - Update sobre un create pendiente: se funde en el create (título nuevo; `personIds` y `priority`
+///   del update o, si son nil, los del create).
+/// - Update sobre otro update del mismo recurso: queda el último, con la misma regla de `personIds`
+///   y `priority` (gana la última no nula).
 /// - Varios complete de la misma tarea: queda el último.
 /// - Delete sobre un create pendiente: anula los dos y todas las ops de ese temporal.
 /// - Delete de una tarea remota: quita sus update y complete previos.
@@ -28,19 +29,21 @@ public enum OutboxCompactor {
         case .createTask, .createList:
             queue.append(op)
 
-        case .updateTask(let ref, let listRef, let title, let personIds):
+        case .updateTask(let ref, let listRef, let title, let personIds, let priority):
             if let index = queue.firstIndex(where: { mutable($0) && $0.kind.createdLocal.map { same($0, ref) } == true }),
-               case .createTask(let local, let createListRef, _, let createPersons) = queue[index].kind {
-                queue[index].kind = .createTask(local: local, listRef: createListRef, title: title, personIds: personIds ?? createPersons)
+               case .createTask(let local, let createListRef, _, let createPersons, let createPriority) = queue[index].kind {
+                queue[index].kind = .createTask(local: local, listRef: createListRef, title: title,
+                                                personIds: personIds ?? createPersons, priority: priority ?? createPriority)
                 return queue
             }
             var merged = op
             if let index = queue.lastIndex(where: { other in
-                guard mutable(other), case .updateTask(let otherRef, _, _, _) = other.kind else { return false }
+                guard mutable(other), case .updateTask(let otherRef, _, _, _, _) = other.kind else { return false }
                 return same(otherRef, ref)
-            }), case .updateTask(_, _, _, let previousPersons) = queue[index].kind {
+            }), case .updateTask(_, _, _, let previousPersons, let previousPriority) = queue[index].kind {
                 queue.remove(at: index)
-                merged.kind = .updateTask(ref: ref, listRef: listRef, title: title, personIds: personIds ?? previousPersons)
+                merged.kind = .updateTask(ref: ref, listRef: listRef, title: title,
+                                          personIds: personIds ?? previousPersons, priority: priority ?? previousPriority)
             }
             queue.append(merged)
 

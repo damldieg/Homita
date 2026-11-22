@@ -6,8 +6,36 @@
 -- Datos: se pierden los permisos de edición dados con 0029 (vuelven a ser 'viewer'); las filas
 -- agregadas por set_*_user_access quedan como 'viewer' (no se borran).
 -- supabase_migrations.schema_migrations: la fila '0029' no se borra aquí.
+-- SOLO SIN 0030 NI POSTERIORES (orden LIFO): con 0035 o 0037 aplicada, create_task (y update_task con
+-- 0037) tienen otra firma, el CREATE OR REPLACE de 3 argumentos dejaría dos sobrecargas y la Edge no
+-- podría desambiguar (POST /task/create y PATCH /task/update → 500). Con 0030 aplicada pasa lo mismo
+-- con create_event (6 argumentos, p_end_date) y update_event (8, p_end_date/p_end_date_set): el CREATE
+-- OR REPLACE de las firmas de 0029 (5 y 6 argumentos) no las sustituye y POST /event/create y
+-- PATCH /event/update quedarían ambiguos. Revertir antes 0037, 0035 y 0030 (rollback_0030.sql). La
+-- guarda del principio aborta la transacción si alguna sigue aplicada (R1-02 y R2-02 de prioridad-tarea).
 
 begin;
+
+do $$
+begin
+    if exists (select 1 from information_schema.columns
+               where table_schema = 'public' and table_name = 'task' and column_name = 'priority')
+       or exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace
+                   and proname in ('create_task', 'update_task', 'get_tasks') and 'p_priority' = any(proargnames)) then
+        raise exception 'rollback_0029: 0037 está aplicada; revertir antes 0037 y 0035 (orden LIFO)';
+    end if;
+    if to_regclass('public.client_request') is not null
+       or exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace
+                   and proname in ('create_task', 'create_task_list') and 'p_client_request_id' = any(proargnames)) then
+        raise exception 'rollback_0029: 0035 está aplicada; revertir antes 0035 (rollback_0035.sql, orden LIFO)';
+    end if;
+    if exists (select 1 from information_schema.columns
+               where table_schema = 'public' and table_name = 'event' and column_name = 'end_date')
+       or exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace
+                   and proname in ('create_event', 'update_event') and 'p_end_date' = any(proargnames)) then
+        raise exception 'rollback_0029: 0030 está aplicada; revertir antes 0030 (rollback_0030.sql, orden LIFO)';
+    end if;
+end $$;
 
 drop function if exists set_calendar_user_access(bigint, bigint, boolean);
 drop function if exists set_task_list_user_access(bigint, bigint, boolean);

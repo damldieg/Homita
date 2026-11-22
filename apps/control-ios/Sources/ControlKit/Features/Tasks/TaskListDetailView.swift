@@ -32,8 +32,9 @@ struct TaskListDetailView: View {
     }
     private var pending: [TaskEntry] { listTasks.filter { !$0.isCompleted } }
     private var completed: [TaskEntry] { listTasks.filter { $0.isCompleted } }
-    /// Reordenar solo con orden personalizado, red y sin cambios pendientes (Q9).
-    private var canReorder: Bool { current.sort == "custom" && store.canReorder }
+    /// Reordenar solo con orden personalizado, red y sin cambios pendientes (Q9). No depende del
+    /// orden ni del filtro global por prioridad: esta pantalla no los aplica (R1-01).
+    private var canReorder: Bool { current.sort == "custom" && store.canReorderList }
 
     var body: some View {
         List {
@@ -200,8 +201,8 @@ struct TaskListDetailView: View {
                                    isOwner: AccessRoster.callerIsOwner(session.session?.id, in: store.members),
                                    onSetAccess: { userId, level in
                                        Task { await store.setAccess(listId: task.task_list_id, userId: userId, level: level) }
-                                   })) { title, _, personIds in
-                    await store.updateTask(task, title: title, personIds: personIds)
+                                   })) { title, _, personIds, priority in
+                    await store.updateTask(task, title: title, personIds: personIds, priority: priority)
                 } onDelete: {
                     Task { await store.deleteTask(task) }
                 }

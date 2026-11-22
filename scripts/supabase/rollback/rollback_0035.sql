@@ -7,8 +7,22 @@
 -- Datos: se pierden solo las claves de idempotencia; los recursos creados se conservan. Tras el
 -- rollback, un create reintentado puede duplicar.
 -- supabase_migrations.schema_migrations: la fila '0035' no se borra aquí.
+-- SOLO SIN 0037 (orden LIFO): con 0037 aplicada, create_task es (bigint,text,jsonb,uuid,text), el drop
+-- de arriba no hace nada y el CREATE de 3 argumentos dejaría dos sobrecargas que la llamada de la Edge
+-- no puede desambiguar (POST /task/create → 500). Revertir antes 0037 (rollback_0037.sql). La guarda
+-- del principio aborta la transacción si 0037 sigue aplicada (R1-02 de prioridad-tarea).
 
 begin;
+
+do $$
+begin
+    if exists (select 1 from information_schema.columns
+               where table_schema = 'public' and table_name = 'task' and column_name = 'priority')
+       or exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace
+                   and proname in ('create_task', 'update_task', 'get_tasks') and 'p_priority' = any(proargnames)) then
+        raise exception 'rollback_0035: 0037 está aplicada; revertir antes 0037 (rollback_0037.sql, orden LIFO)';
+    end if;
+end $$;
 
 drop function if exists create_task(bigint, text, jsonb, uuid);
 drop function if exists create_task_list(text, text, text, boolean, boolean, uuid);

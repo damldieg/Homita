@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Editor de tarea (alta/edición). En alta elige lista; en edición solo cambia el título
-/// (mover de lista no existe en el contrato v1). El guard de título duplicado lo hace el store.
+/// Editor de tarea (alta/edición). En alta elige lista; en edición solo cambia el título, las
+/// personas y la prioridad (mover de lista no existe en el contrato v1). La prioridad (0037) arranca
+/// en Media al crear y en la de la tarea al editar. El guard de título duplicado lo hace el store.
 /// Se cierra solo si `onSave` devuelve que la escritura fue bien; si falla conserva lo escrito y
 /// muestra el toast del store (`writeFailure`) con «Reintentar», como el editor de persona.
 struct TaskEditorView: View {
@@ -10,8 +11,8 @@ struct TaskEditorView: View {
     let task: TaskEntry?
     /// Último fallo de escritura del store, para el toast dentro de la hoja.
     @Binding var writeFailure: WriteFailure?
-    /// Guarda (título recortado, lista, personas) y devuelve si fue bien.
-    let onSave: (String, Int, [Int]) async -> Bool
+    /// Guarda (título recortado, lista, personas, prioridad) y devuelve si fue bien.
+    let onSave: (String, Int, [Int], TaskPriority) async -> Bool
     let onDelete: (() -> Void)?
     /// Permisos de la lista de la tarea (la tarea hereda el ACL de su lista). Solo en edición.
     let access: TaskListAccess?
@@ -23,6 +24,7 @@ struct TaskEditorView: View {
     @State private var showDeleteConfirm = false
     @State private var listId: Int
     @State private var personIds: [Int]
+    @State private var priority: TaskPriority
     @State private var isSaving = false
 
     init(
@@ -31,7 +33,7 @@ struct TaskEditorView: View {
         task: TaskEntry?,
         writeFailure: Binding<WriteFailure?>,
         access: TaskListAccess? = nil,
-        onSave: @escaping (String, Int, [Int]) async -> Bool,
+        onSave: @escaping (String, Int, [Int], TaskPriority) async -> Bool,
         onDelete: (() -> Void)? = nil
     ) {
         self.access = access
@@ -44,6 +46,7 @@ struct TaskEditorView: View {
         _title = State(initialValue: task?.title ?? "")
         _listId = State(initialValue: task?.task_list_id ?? taskLists.first?.id ?? 0)
         _personIds = State(initialValue: task?.persons?.map(\.id) ?? [])
+        _priority = State(initialValue: task?.priorityValue ?? .media)
     }
 
     /// Sin listas no hay dónde crear la tarea: en alta hace falta al menos una lista.
@@ -77,6 +80,11 @@ struct TaskEditorView: View {
                         )
                     }
                 }
+                Text("Prioridad")
+                    .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
+                    .foregroundStyle(Palette.inkSoft)
+                HomitaSegmented(selection: $priority, items: TaskPriority.allCases.map { (id: $0, title: $0.label) })
+                    .accessibilityIdentifier("tarea.prioridad")
             }
             PersonSelector(persons: persons, selected: $personIds)
             if task != nil, let access {
@@ -111,7 +119,7 @@ struct TaskEditorView: View {
     private func save() async {
         isSaving = true
         defer { isSaving = false }
-        let ok = await onSave(title.trimmingCharacters(in: .whitespacesAndNewlines), listId, personIds)
+        let ok = await onSave(title.trimmingCharacters(in: .whitespacesAndNewlines), listId, personIds, priority)
         if ok { dismiss() }
     }
 }
