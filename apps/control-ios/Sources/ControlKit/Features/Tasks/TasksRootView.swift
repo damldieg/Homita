@@ -448,16 +448,8 @@ struct TaskRow: View {
 struct TaskPriorityBadge: View {
     let priority: TaskPriority
 
-    private var tintHex: String {
-        switch priority {
-        case .alta: return Palette.accentHex
-        case .media: return Palette.soonHex
-        case .baja: return Palette.sageHex
-        }
-    }
-
     var body: some View {
-        HomitaBadge(title: priority.label, tintHex: tintHex)
+        HomitaBadge(title: priority.label, tintHex: priority.tintHex)
             .accessibilityLabel("Prioridad \(priority.label.lowercased())")
     }
 }

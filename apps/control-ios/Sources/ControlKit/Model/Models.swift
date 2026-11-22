@@ -242,6 +242,15 @@ public enum TaskPriority: String, CaseIterable, Codable, Equatable, Sendable, Id
         }
     }
 
+    /// Letra del avatar de prioridad (A/M/B).
+    public var initial: String {
+        switch self {
+        case .alta: return "A"
+        case .media: return "M"
+        case .baja: return "B"
+        }
+    }
+
     /// Valor crudo de la API; nil o desconocido → `.media`.
     public init(raw: String?) {
         self = raw.flatMap(TaskPriority.init(rawValue:)) ?? .media
