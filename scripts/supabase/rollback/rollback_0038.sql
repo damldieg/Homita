@@ -10,7 +10,11 @@
 -- Orden en prod: solo BD (la Edge no cambia con 0038). Tras el rollback, una persona sin cuenta o sin
 -- acceso a la lista vuelve a poder asignarse al crear (como antes de 0038).
 -- supabase_migrations.schema_migrations: la fila '0038' no se borra aquí (mismo criterio que 0035/0037).
--- Orden LIFO: este script va ANTES de rollback_0037.sql (rollback_0038 → rollback_0037 → rollback_0035).
+-- Orden LIFO: este script va DESPUÉS de rollback_0039.sql y ANTES de rollback_0037.sql
+-- (rollback_0039 → rollback_0038 → rollback_0037 → rollback_0035).
+-- Guarda LIFO (change ocultar-completadas-3-dias): aborta si existe task.hidden_at (0039 aplicada);
+-- revertir antes 0039, o rollback_0037 después recrearía get_tasks, get_task_detail y update_task sin
+-- el filtro de ocultas.
 -- La guarda del principio aborta si create_task(bigint,text,jsonb,uuid,text) no existe (0037 ya
 -- revertida): un create or replace de 5 argumentos dejaría entonces dos sobrecargas de create_task.
 
@@ -18,6 +22,11 @@ begin;
 
 do $$
 begin
+    -- 0039: guarda LIFO (ocultar-completadas-3-dias)
+    if exists (select 1 from information_schema.columns
+               where table_schema = 'public' and table_name = 'task' and column_name = 'hidden_at') then
+        raise exception 'rollback_0038: 0039 está aplicada; revertir antes 0039 (rollback_0039.sql, orden LIFO)';
+    end if;
     if to_regprocedure('public.create_task(bigint,text,jsonb,uuid,text)') is null then
         raise exception 'rollback_0038: no existe create_task(bigint,text,jsonb,uuid,text) (¿0037 revertida?); nada que revertir sin 0037 (orden LIFO)';
     end if;
