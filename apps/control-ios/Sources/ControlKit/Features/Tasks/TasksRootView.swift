@@ -72,6 +72,8 @@ struct TasksView: View {
     /// Personas elegidas en el alta inline (0038); se limpia al crear.
     @State private var newTaskPersonIds: [Int] = []
     @State private var showCreateTask = false
+    /// Lista fijada al abrir el alta desde la cabecera de un grupo (nil = sin fijar).
+    @State private var createListId: Int?
     @State private var pendingTaskDelete: [TaskEntry] = []
     @State private var showTaskDelete = false
     @State private var showCompletedDelete = false
@@ -124,6 +126,19 @@ struct TasksView: View {
             .accessibilityLabel("\(group.name), \(group.tasks.filter(\.isCompleted).count) de \(group.count) completadas")
             .accessibilityValue(collapsedListIds.contains(group.listId) ? "plegada" : "desplegada")
             Spacer(minLength: 0)
+            Button {
+                createListId = group.listId
+                showCreateTask = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Palette.accent)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Añadir tarea a \(group.name)")
+            .accessibilityIdentifier("tareas.grupo.alta")
             // Borra solo las completadas de esta lista, con confirmación.
             if group.tasks.contains(where: \.isCompleted) {
                 Button {
@@ -209,6 +224,7 @@ struct TasksView: View {
             }
             if store.hasLoadedTasks && !hasTasks && !store.isLoading {
                 HomitaEmptyState(.tasks(filtered: store.listFilterId != nil)) {
+                    createListId = nil
                     showCreateTask = true
                 }
                 .homitaRow()
@@ -237,7 +253,10 @@ struct TasksView: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { showCreateTask = true } label: {
+                Button {
+                    createListId = nil
+                    showCreateTask = true
+                } label: {
                     Image(systemName: "plus")
                         .foregroundStyle(Palette.ink)
                 }
@@ -280,12 +299,13 @@ struct TasksView: View {
         #if os(iOS)
         .environment(\.editMode, $editMode)
         #endif
-        .sheet(isPresented: $showCreateTask) {
+        .sheet(isPresented: $showCreateTask, onDismiss: { createListId = nil }) {
             NavigationStack {
                 TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: nil,
                                writeFailure: $store.writeFailure,
                                assignable: { store.assignablePersons(listId: $0) },
-                               loadAssignable: { await store.loadAssignable(listId: $0) }) { title, listId, personIds, priority in
+                               loadAssignable: { await store.loadAssignable(listId: $0) },
+                               initialListId: createListId) { title, listId, personIds, priority in
                     await store.createTask(title: title, listId: listId, personIds: personIds, priority: priority)
                 }
             }
