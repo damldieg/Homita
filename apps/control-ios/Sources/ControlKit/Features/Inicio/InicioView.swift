@@ -282,12 +282,15 @@ public struct InicioView: View {
                 // único control ajustable (deslizar arriba/abajo cambia de lista).
                 if pages.count > 1 {
                     HStack(spacing: 8) {
-                        ForEach(pages) { item in
+                        let idx = pages.firstIndex { $0.id == page.id } ?? 0
+                        ForEach(Array(InicioTaskPaging.dots(count: pages.count, current: idx).enumerated()),
+                                id: \.offset) { _, dot in
                             Button {
-                                selectTaskPage(item.id, in: pages)
+                                if let listIndex = dot.listIndex { selectTaskPage(pages[listIndex].id, in: pages) }
                             } label: {
                                 Circle()
-                                    .fill(item.id == page.id ? Palette.ink : Palette.inkMuted.opacity(0.4))
+                                    .fill(dot.highlighted ? Palette.ink : Palette.inkMuted.opacity(0.4))
+                                    .opacity(dot.faded ? 0.4 : 1)
                                     .frame(width: 8, height: 8)
                                     .frame(width: 20, height: 20)
                                     .contentShape(Rectangle())
@@ -333,25 +336,18 @@ public struct InicioView: View {
                     HomitaCheckbox(isOn: task.isCompleted, tintHex: Palette.onlineHex) {
                         Task { await store.toggleComplete(task) }
                     }
-                    Button { Task { await openItem(.task(task)) } } label: {
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(task.title)
-                                    .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
-                                    .foregroundStyle(Palette.ink)
-                                AssignedPersonsLine(persons: task.persons)
-                            }
-                            Spacer()
-                            TaskPriorityBadge(priority: task.priorityValue, compact: true)
-                                .fixedSize()
-                            if store.pendingTaskIds.contains(task.id) {
-                                PendingSyncIcon()
-                            }
-                        }
-                        .contentShape(Rectangle())
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(task.title)
+                            .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
+                            .foregroundStyle(Palette.ink)
+                        AssignedPersonsLine(persons: task.persons)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(.isButton)
+                    Spacer()
+                    TaskPriorityBadge(priority: task.priorityValue, compact: true)
+                        .fixedSize()
+                    if store.pendingTaskIds.contains(task.id) {
+                        PendingSyncIcon()
+                    }
                 }
             }
             HStack {
