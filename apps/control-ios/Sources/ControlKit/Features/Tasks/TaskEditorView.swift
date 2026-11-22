@@ -21,6 +21,8 @@ struct TaskEditorView: View {
     /// Carga lo que necesita `assignable` para una lista (se llama al elegir lista). Devuelve si la
     /// carga dejó roster (personas y miembros); si no, la selección no se poda.
     let loadAssignable: ((Int) async -> Bool)?
+    /// Lista fijada al abrir el alta desde la cabecera de un grupo; con ella no se elige lista.
+    let lockedListId: Int?
 
     @Environment(\.dismiss) private var dismiss
     @State private var title: String
@@ -40,6 +42,7 @@ struct TaskEditorView: View {
         access: TaskListAccess? = nil,
         assignable: ((Int) -> [PersonEntry])? = nil,
         loadAssignable: ((Int) async -> Bool)? = nil,
+        initialListId: Int? = nil,
         onSave: @escaping (String, Int, [Int], TaskPriority) async -> Bool,
         onDelete: (() -> Void)? = nil
     ) {
@@ -53,9 +56,20 @@ struct TaskEditorView: View {
         self.onSave = onSave
         self.onDelete = onDelete
         _title = State(initialValue: task?.title ?? "")
-        _listId = State(initialValue: task?.task_list_id ?? taskLists.first?.id ?? 0)
+        let resolved = Self.resolveListId(task: task, initialListId: initialListId, taskLists: taskLists)
+        lockedListId = resolved.isLocked ? resolved.listId : nil
+        _listId = State(initialValue: resolved.listId)
         _personIds = State(initialValue: task?.persons?.map(\.id) ?? [])
         _priority = State(initialValue: task?.priorityValue ?? .media)
+    }
+
+    /// Lista inicial: en edición la de la tarea; en alta la fijada si existe (bloqueada); si no, la primera.
+    static func resolveListId(task: TaskEntry?, initialListId: Int?, taskLists: [TaskListEntry]) -> (listId: Int, isLocked: Bool) {
+        if let task { return (task.task_list_id, false) }
+        if let initialListId, taskLists.contains(where: { $0.id == initialListId }) {
+            return (initialListId, true)
+        }
+        return (taskLists.first?.id ?? 0, false)
     }
 
     /// Sin listas no hay dónde crear la tarea: en alta hace falta al menos una lista.
@@ -92,7 +106,7 @@ struct TaskEditorView: View {
                 if task == nil {
                     if taskLists.isEmpty {
                         HomitaFootnote(text: "Todavía no tienes listas. Crea una en la pestaña Listas para añadir tareas.")
-                    } else {
+                    } else if lockedListId == nil {
                         Text("Lista")
                             .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
                             .foregroundStyle(Palette.inkSoft)
