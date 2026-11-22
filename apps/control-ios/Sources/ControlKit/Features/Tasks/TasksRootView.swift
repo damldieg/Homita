@@ -447,9 +447,11 @@ struct TaskRow: View {
 /// se distinguen por color.
 struct TaskPriorityBadge: View {
     let priority: TaskPriority
+    /// Tamaño menor (Inicio); por defecto el de Tareas.
+    var compact: Bool = false
 
     var body: some View {
-        HomitaBadge(title: priority.label, tintHex: priority.tintHex)
+        HomitaBadge(title: priority.label, tintHex: priority.tintHex, compact: compact)
             .accessibilityLabel("Prioridad \(priority.label.lowercased())")
     }
 }

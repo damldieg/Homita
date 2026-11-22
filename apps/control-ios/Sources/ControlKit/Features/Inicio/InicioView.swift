@@ -337,12 +337,11 @@ public struct InicioView: View {
                                 Text(task.title)
                                     .font(HomitaFont.inter(17, weight: .medium, relativeTo: .body))
                                     .foregroundStyle(Palette.ink)
-                                HStack(spacing: Spacing.s3) {
-                                    PersonAvatar(name: task.priorityValue.initial, colorHex: task.priorityValue.tintHex, size: 18)
-                                    AssignedPersonsLine(persons: task.persons)
-                                }
+                                AssignedPersonsLine(persons: task.persons)
                             }
                             Spacer()
+                            TaskPriorityBadge(priority: task.priorityValue, compact: true)
+                                .fixedSize()
                             if store.pendingTaskIds.contains(task.id) {
                                 PendingSyncIcon()
                             }
@@ -351,7 +350,6 @@ public struct InicioView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(.isButton)
-                    .accessibilityValue("Prioridad \(task.priorityValue.label.lowercased())")
                 }
             }
             HStack {
