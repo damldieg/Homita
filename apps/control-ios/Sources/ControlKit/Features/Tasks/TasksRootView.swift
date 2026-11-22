@@ -428,7 +428,7 @@ struct TaskRow: View {
                 }
             }
             Spacer()
-            TaskPriorityBadge(priority: task.priorityValue)
+            TaskPriorityBadge(priority: task.priorityValue, compact: true)
             if isPending {
                 PendingSyncIcon()
             }
