@@ -41,7 +41,7 @@ public struct InicioView: View {
         _store = State(initialValue: InicioStore(
             events: services.events, tasks: services.tasks,
             routines: services.routines, taskLists: services.taskLists,
-            outbox: outbox
+            persons: services.persons, outbox: outbox
         ))
         _eventStore = State(initialValue: EventStore(repo: services.events))
         _calendarStore = State(initialValue: CalendarStore(repo: services.calendars))
@@ -81,8 +81,10 @@ public struct InicioView: View {
             .sheet(isPresented: $showTaskEditor) {
                 NavigationStack {
                     TaskEditorView(taskLists: store.taskLists, task: nil,
-                                   writeFailure: $store.writeFailure) { title, listId, _, priority in
-                        await store.createTask(title: title, listId: listId, priority: priority)
+                                   writeFailure: $store.writeFailure,
+                                   assignable: { store.assignablePersons(listId: $0) },
+                                   loadAssignable: { await store.loadAssignable(listId: $0) }) { title, listId, personIds, priority in
+                        await store.createTask(title: title, listId: listId, personIds: personIds, priority: priority)
                     }
                 }
             }

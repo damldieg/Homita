@@ -118,6 +118,8 @@ public final class TasksStore: MainActorWriteFailureReporting {
     @ObservationIgnored public let outbox: OutboxStore?
     @ObservationIgnored private let coordinator: TaskWriteCoordinator?
     @ObservationIgnored private let isOnline: @MainActor () -> Bool
+    /// Personas asignables en las altas (0038: con cuenta y acceso a la lista).
+    @ObservationIgnored public let assignees: TaskAssigneeLoader
 
     /// Reintentos de una carga cuyo resultado quedó viejo por un ack en vuelo (guard de `generation`).
     static let staleReloadRetries = 2
@@ -134,6 +136,8 @@ public final class TasksStore: MainActorWriteFailureReporting {
         self.outbox = outbox
         self.isOnline = isOnline
         self.coordinator = outbox.map { TaskWriteCoordinator(outbox: $0, tasks: tasks, taskLists: taskLists, isOnline: isOnline) }
+        self.assignees = TaskAssigneeLoader(persons: persons, taskLists: taskLists, outbox: outbox)
+        assignees.onError = { [weak self] error in self?.report(error) }
     }
 
     // MARK: - Overlay
@@ -254,11 +258,23 @@ public final class TasksStore: MainActorWriteFailureReporting {
         }
     }
 
+    /// Personas asignables al crear en `listId` (0038). En una lista local, la del usuario de la sesión.
+    public func assignablePersons(listId: Int) -> [PersonEntry] {
+        assignees.assignable(listId: listId, currentUserId: currentUserId ?? outbox?.userId)
+    }
+
+    /// Carga lo que necesita `assignablePersons` para `listId`.
+    public func loadAssignable(listId: Int) async {
+        await assignees.load(listId: listId)
+    }
+
     /// Devuelve si se creó (el editor solo se cierra entonces y conserva lo escrito si no).
+    /// `personIds` vacío se trata como nil: sin selección no se envía la clave (AC-2).
     @discardableResult
     public func createTask(title: String, listId: Int, personIds: [Int]? = nil, priority: TaskPriority? = nil) async -> Bool {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
+        let personIds = personIds?.isEmpty == true ? nil : personIds
         // Cuenta también las filas pendientes del overlay (Q10).
         let list = resolve(listId)
         let duplicate = tasks.contains {

@@ -69,6 +69,8 @@ struct TasksView: View {
     @Environment(SessionStore.self) private var session
     @Binding var expandRequest: Int?
     @State private var newTaskTitle = ""
+    /// Personas elegidas en el alta inline (0038); se limpia al crear.
+    @State private var newTaskPersonIds: [Int] = []
     @State private var showCreateTask = false
     @State private var pendingTaskDelete: [TaskEntry] = []
     @State private var showTaskDelete = false
@@ -147,11 +149,15 @@ struct TasksView: View {
                 HomitaCard {
                     HStack(spacing: 10) {
                         HomitaField(placeholder: "Nueva tarea", text: $newTaskTitle)
+                        InlinePersonPicker(persons: store.assignablePersons(listId: store.listFilterId ?? 0),
+                                           selected: $newTaskPersonIds)
                         Button {
                             Task {
                                 // Si la escritura falla se conserva lo escrito (toast con «Reintentar»).
-                                if await store.createTask(title: newTaskTitle, listId: store.listFilterId ?? 0) {
+                                if await store.createTask(title: newTaskTitle, listId: store.listFilterId ?? 0,
+                                                          personIds: newTaskPersonIds) {
                                     newTaskTitle = ""
+                                    newTaskPersonIds = []
                                 }
                             }
                         } label: {
@@ -213,6 +219,15 @@ struct TasksView: View {
         .listSectionSpacing(Spacing.s3)
         #endif
         .homitaList()
+        // Asignables de la lista filtrada para el alta inline (0038); la selección se poda al cambiar.
+        .task(id: store.listFilterId) {
+            guard let listId = store.listFilterId else {
+                newTaskPersonIds = []
+                return
+            }
+            await store.loadAssignable(listId: listId)
+            newTaskPersonIds = TaskAssignees.prune(selected: newTaskPersonIds, assignable: store.assignablePersons(listId: listId))
+        }
         .onChange(of: expandRequest, initial: true) { applyExpandRequest() }
         .onChange(of: store.hasLoadedTasks) { applyExpandRequest() }
         .onChange(of: store.isLoading) { applyExpandRequest() }
@@ -268,7 +283,9 @@ struct TasksView: View {
         .sheet(isPresented: $showCreateTask) {
             NavigationStack {
                 TaskEditorView(taskLists: store.taskLists, persons: store.persons, task: nil,
-                               writeFailure: $store.writeFailure) { title, listId, personIds, priority in
+                               writeFailure: $store.writeFailure,
+                               assignable: { store.assignablePersons(listId: $0) },
+                               loadAssignable: { await store.loadAssignable(listId: $0) }) { title, listId, personIds, priority in
                     await store.createTask(title: title, listId: listId, personIds: personIds, priority: priority)
                 }
             }
@@ -282,7 +299,9 @@ struct TasksView: View {
                                    isOwner: AccessRoster.callerIsOwner(session.session?.id, in: store.members),
                                    onSetAccess: { userId, level in
                                        Task { await store.setAccess(listId: task.task_list_id, userId: userId, level: level) }
-                                   })) { title, _, personIds, priority in
+                                   }),
+                               assignable: { store.assignablePersons(listId: $0) },
+                               loadAssignable: { await store.loadAssignable(listId: $0) }) { title, _, personIds, priority in
                     await store.updateTask(task, title: title, personIds: personIds, priority: priority)
                 } onDelete: {
                     Task { await store.deleteTask(task) }

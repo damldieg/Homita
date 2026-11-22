@@ -37,11 +37,13 @@ struct AlarmField: View {
 struct PersonSelector: View {
     let persons: [PersonEntry]
     @Binding var selected: [Int]
+    /// Texto sin personas (nil = el de siempre, crear personas en Ajustes).
+    var emptyText: String?
 
     var body: some View {
         HomitaPanel("Personas", systemImage: "person.2", count: selected.count) {
             if persons.isEmpty {
-                HomitaFootnote(text: "Aún no tienes personas. Créalas en Ajustes › Personas.")
+                HomitaFootnote(text: emptyText ?? "Aún no tienes personas. Créalas en Ajustes › Personas.")
             }
             ForEach(persons, id: \.id) { person in
                 HStack(spacing: 12) {
@@ -61,6 +63,49 @@ struct PersonSelector: View {
                     }
                 }
             }
+        }
+    }
+}
+
+/// Selector compacto de personas para el alta inline de tareas (0038): un `Menu` con un toggle por
+/// persona junto al campo, así el alta sigue siendo de un toque. La etiqueta muestra cuántas hay
+/// elegidas. Se oculta si no hay personas asignables.
+struct InlinePersonPicker: View {
+    let persons: [PersonEntry]
+    @Binding var selected: [Int]
+
+    var body: some View {
+        if !persons.isEmpty {
+            Menu {
+                ForEach(persons, id: \.id) { person in
+                    Toggle(person.name, isOn: Binding(
+                        get: { selected.contains(person.id) },
+                        set: { isOn in
+                            if isOn {
+                                if !selected.contains(person.id) { selected.append(person.id) }
+                            } else {
+                                selected.removeAll { $0 == person.id }
+                            }
+                        }
+                    ))
+                }
+            } label: {
+                HStack(spacing: 2) {
+                    Image(systemName: "person.badge.plus")
+                        .font(.title3)
+                    if !selected.isEmpty {
+                        Text("\(selected.count)")
+                            .font(HomitaFont.inter(13, weight: .semibold, relativeTo: .footnote))
+                    }
+                }
+                .foregroundStyle(selected.isEmpty ? Palette.inkSoft : Palette.ink)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Asignar personas")
+            .accessibilityValue(selected.isEmpty ? "Ninguna" : "\(selected.count) seleccionadas")
+            .accessibilityIdentifier("tarea.alta.personas")
         }
     }
 }
