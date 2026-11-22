@@ -43,4 +43,63 @@ final class TaskRequestEncodingTests: XCTestCase {
         let body = try json(UpdateTaskRequest(id: 1, title: "Pan", person_ids: []))
         XCTAssertEqual(body["person_ids"] as? [Int], [])
     }
+
+    // MARK: - 0038: body real de los stores (AC-1, AC-2)
+
+    nonisolated private static func route(_ request: URLRequest) -> String {
+        let path = request.url?.path ?? ""
+        return path.range(of: "/functions/v1/api/").map { String(path[$0.upperBound...]) } ?? path
+    }
+
+    private func createBody() throws -> [String: Any] {
+        let request = try XCTUnwrap(StubURLProtocol.requests.first { Self.route($0) == "task/create" })
+        let data = try XCTUnwrap(request.capturedBody)
+        return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    @MainActor
+    private func makeTasksStore() -> TasksStore {
+        StubURLProtocol.reset(ContractFixtures.response)
+        let client = makeTestClient()
+        return TasksStore(taskLists: TaskListRepository(client: client), tasks: TaskRepository(client: client),
+                          defaults: UserDefaults(suiteName: "encoding-\(UUID().uuidString)")!)
+    }
+
+    @MainActor
+    private func makeInicioStore() -> InicioStore {
+        StubURLProtocol.reset(ContractFixtures.response)
+        let client = makeTestClient()
+        return InicioStore(events: EventRepository(client: client), tasks: TaskRepository(client: client),
+                           routines: RoutineRepository(client: client), taskLists: TaskListRepository(client: client))
+    }
+
+    @MainActor
+    func testTasksStoreCreateSendsChosenPersons() async throws {
+        let ok = await makeTasksStore().createTask(title: "Pan", listId: 2, personIds: [1, 2])
+        XCTAssertTrue(ok)
+        XCTAssertEqual(try createBody()["person_ids"] as? [Int], [1, 2])
+    }
+
+    @MainActor
+    func testTasksStoreCreateWithEmptyOrNilOmitsPersons() async throws {
+        for personIds in [[], nil] as [[Int]?] {
+            let ok = await makeTasksStore().createTask(title: "Pan", listId: 2, personIds: personIds)
+            XCTAssertTrue(ok)
+            XCTAssertNil(try createBody()["person_ids"], "sin selección no se envía la clave (\(String(describing: personIds)))")
+        }
+    }
+
+    @MainActor
+    func testInicioStoreCreateSendsChosenPersons() async throws {
+        let ok = await makeInicioStore().createTask(title: "Pan", listId: 2, personIds: [1, 2])
+        XCTAssertTrue(ok)
+        XCTAssertEqual(try createBody()["person_ids"] as? [Int], [1, 2])
+    }
+
+    @MainActor
+    func testInicioStoreCreateWithEmptyOmitsPersons() async throws {
+        let ok = await makeInicioStore().createTask(title: "Pan", listId: 2, personIds: [])
+        XCTAssertTrue(ok)
+        XCTAssertNil(try createBody()["person_ids"])
+    }
 }

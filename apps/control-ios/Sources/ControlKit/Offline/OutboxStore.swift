@@ -1,7 +1,8 @@
 import Foundation
 import Observation
 
-/// Aviso de una op descartada al reproducir la cola (4xx o «no existe»): lo muestra un toast.
+/// Aviso de una op descartada al reproducir la cola (4xx o «no existe») o confirmada sin alguna
+/// persona asignada (0038): lo muestra un toast.
 public struct OutboxNotice: Identifiable, Equatable, Sendable {
     public let id: UUID
     public let message: String
@@ -35,7 +36,7 @@ public final class OutboxStore {
     public private(set) var nextLocalId = -1
     /// Sube con cada ack: las vistas recargan y los `load*` en vuelo descartan su resultado.
     public private(set) var generation = 0
-    /// Avisos de descarte pendientes de mostrar.
+    /// Avisos (descartes y asignaciones quitadas) pendientes de mostrar.
     public private(set) var notices: [OutboxNotice] = []
     /// Op que el replayer está enviando (inmutable para la compactación).
     public private(set) var inFlightId: UUID?
@@ -100,7 +101,8 @@ public final class OutboxStore {
     }
 
     /// Op confirmada por el servidor: guarda el mapeo si era un create, la quita y sube `generation`.
-    public func ack(_ opId: UUID, remoteId: Int? = nil) {
+    /// `notice` deja un aviso para el toast (0038: se confirmó sin alguna persona asignada).
+    public func ack(_ opId: UUID, remoteId: Int? = nil, notice: String? = nil) {
         if let remoteId, let op = ops.first(where: { $0.id == opId }), case .local(let local)? = op.kind.createdLocal {
             idMap[local] = remoteId
             trimIdMap()
@@ -108,6 +110,18 @@ public final class OutboxStore {
         ops.removeAll { $0.id == opId }
         if inFlightId == opId { inFlightId = nil }
         generation += 1
+        if let notice { notices.append(OutboxNotice(message: notice)) }
+        persist()
+    }
+
+    /// Reescribe el contenido de una op y lo guarda en disco antes de reenviarla (0038: el replay
+    /// quita personas sin acceso). Solo vale para la op en vuelo o la primera de la cola, que la
+    /// compactación ya no toca; en otra op no hace nada. El llamador conserva el mismo recurso
+    /// (temporal y lista): solo cambian los datos que viajan.
+    public func replaceKind(_ opId: UUID, with kind: PendingOp.Kind) {
+        guard let index = ops.firstIndex(where: { $0.id == opId }),
+              opId == inFlightId || index == 0 else { return }
+        ops[index].kind = kind
         persist()
     }
 

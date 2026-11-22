@@ -301,4 +301,179 @@ final class OutboxReplayerTests: XCTestCase {
         XCTAssertEqual(OutboxReplayer.disposition(for: .http(status: 502, message: "boom"), kind: update), .retry)
         XCTAssertEqual(OutboxReplayer.disposition(for: .network("x"), kind: delete), .retry)
     }
+
+    // MARK: - 0038: personas al reproducir (AC-5, AC-9)
+
+    /// Personas del hogar: Ana (cuenta 1), Beto (cuenta 9) y Luz (sin cuenta).
+    private static let roster = ##"[{"id":1,"user_id":1,"name":"Ana","color":"#FF0000","app_user_id":1},{"id":2,"user_id":1,"name":"Beto","color":"#00FF00","app_user_id":9},{"id":3,"user_id":1,"name":"Luz","color":"#0000FF"}]"##
+    /// ACL de la lista 2 solo con la cuenta 1 (Beto perdió el acceso).
+    private static let membersWithoutBeto = #"[{"tlu_id":10,"user_id":1,"name":"Demo","email":"demo@homita.example","role":"owner"}]"#
+    private static let invalidPerson = StubURLProtocol.Stub(status: 400, json: #"{"error":"Invalid person"}"#)
+    private static let created = StubURLProtocol.Stub(status: 201, json: #"{"id":70,"task_list_id":2,"title":"Pan"}"#)
+
+    /// Respuestas por ruta en secuencia (contador por ruta): la última se repite.
+    private final class Sequence: @unchecked Sendable {
+        private let lock = NSLock()
+        private var counts: [String: Int] = [:]
+        func next(_ route: String, _ stubs: [StubURLProtocol.Stub]) -> StubURLProtocol.Stub {
+            lock.lock(); defer { lock.unlock() }
+            let index = counts[route, default: 0]
+            counts[route] = index + 1
+            return stubs[min(index, stubs.count - 1)]
+        }
+    }
+
+    /// Replayer con `persons` y stubs secuenciales por ruta; el resto, fixtures del contrato.
+    private func makeSequencedReplayer(_ sequences: [String: [StubURLProtocol.Stub]]) -> OutboxReplayer {
+        let sequence = Sequence()
+        StubURLProtocol.reset { request in
+            let route = Self.route(request)
+            if let stubs = sequences[route] { return sequence.next(route, stubs) }
+            return ContractFixtures.response(for: request)
+        }
+        let client = makeTestClient()
+        return OutboxReplayer(tasks: TaskRepository(client: client), taskLists: TaskListRepository(client: client),
+                              persons: PersonRepository(client: client), isOnline: { true })
+    }
+
+    private var createBodies: [[String: Any]] {
+        StubURLProtocol.requests.filter { Self.route($0) == "task/create" }.map(body)
+    }
+
+    func testCreateWithPersonsIsSentOnceWithPersonsAndKey() async {
+        let replayer = makeSequencedReplayer(["task/create": [Self.created]])
+        let outbox = makeOutbox([.createTask(local: -1, listRef: .remote(2), title: "Pan", personIds: [1])])
+        let op = outbox.ops[0]
+        let summary = await replayer.replay(outbox)
+        XCTAssertEqual(summary, ReplaySummary(acked: 1, discarded: 0, stop: .drained))
+        XCTAssertEqual(routes, ["task/create"], "una sola petición")
+        XCTAssertEqual(createBodies[0]["person_ids"] as? [Int], [1])
+        XCTAssertEqual(createBodies[0]["client_request_id"] as? String, op.clientRequestId)
+        XCTAssertTrue(outbox.notices.isEmpty)
+    }
+
+    func testInvalidPersonResendsWithAssignableOnesAndNotice() async {
+        let replayer = makeSequencedReplayer([
+            "task/create": [Self.invalidPerson, Self.created],
+            "person": [StubURLProtocol.Stub(json: Self.roster)],
+            "task-list/user": [StubURLProtocol.Stub(json: Self.membersWithoutBeto)]
+        ])
+        let outbox = makeOutbox([.createTask(local: -1, listRef: .remote(2), title: "Pan", personIds: [1, 2], priority: "alta")])
+        let op = outbox.ops[0]
+        let summary = await replayer.replay(outbox)
+        XCTAssertEqual(summary, ReplaySummary(acked: 1, discarded: 0, stop: .drained))
+        XCTAssertEqual(routes, ["task/create", "person", "task-list/user", "task/create"])
+        let bodies = createBodies
+        XCTAssertEqual(bodies[0]["person_ids"] as? [Int], [1, 2])
+        XCTAssertEqual(bodies[1]["person_ids"] as? [Int], [1], "se quita solo la persona sin acceso")
+        XCTAssertEqual(bodies[1]["client_request_id"] as? String, op.clientRequestId, "misma clave")
+        XCTAssertEqual(bodies[1]["priority"] as? String, "alta", "se conserva la prioridad")
+        XCTAssertEqual(bodies[1]["title"] as? String, "Pan")
+        XCTAssertTrue(outbox.isEmpty, "la tarea no se descarta")
+        XCTAssertEqual(outbox.idMap, [-1: 70])
+        XCTAssertEqual(outbox.notices.map(\.message), ["«Pan» se sincronizó sin asignar a Beto: ya no tiene acceso a la lista."])
+    }
+
+    func testSecondInvalidPersonResendsWithoutPersons() async {
+        let replayer = makeSequencedReplayer([
+            "task/create": [Self.invalidPerson, Self.invalidPerson, Self.created],
+            "person": [StubURLProtocol.Stub(json: Self.roster)],
+            "task-list/user": [StubURLProtocol.Stub(json: Self.membersWithoutBeto)]
+        ])
+        let outbox = makeOutbox([.createTask(local: -1, listRef: .remote(2), title: "Pan", personIds: [1, 2], priority: "baja")])
+        let op = outbox.ops[0]
+        let summary = await replayer.replay(outbox)
+        XCTAssertEqual(summary, ReplaySummary(acked: 1, discarded: 0, stop: .drained))
+        let bodies = createBodies
+        XCTAssertEqual(bodies.count, 3)
+        XCTAssertEqual(bodies[1]["person_ids"] as? [Int], [1])
+        XCTAssertNil(bodies[2]["person_ids"], "último escalón: sin la clave")
+        XCTAssertEqual(bodies[2]["client_request_id"] as? String, op.clientRequestId)
+        XCTAssertEqual(bodies[2]["priority"] as? String, "baja")
+        XCTAssertTrue(outbox.isEmpty)
+        XCTAssertEqual(outbox.notices.map(\.message), ["«Pan» se sincronizó sin asignar a Ana y Beto: ya no tienen acceso a la lista."])
+    }
+
+    func testInvalidPersonWithoutAssignableGoesStraightToNoPersons() async {
+        let replayer = makeSequencedReplayer([
+            "task/create": [Self.invalidPerson, Self.created],
+            "person": [StubURLProtocol.Stub(json: Self.roster)],
+            "task-list/user": [StubURLProtocol.Stub(json: Self.membersWithoutBeto)]
+        ])
+        let outbox = makeOutbox([.createTask(local: -1, listRef: .remote(2), title: "Pan", personIds: [3])])
+        let summary = await replayer.replay(outbox)
+        XCTAssertEqual(summary.acked, 1)
+        XCTAssertEqual(createBodies.count, 2)
+        XCTAssertNil(createBodies[1]["person_ids"])
+        XCTAssertEqual(outbox.notices.map(\.message), ["«Pan» se sincronizó sin asignar a Luz: ya no tiene acceso a la lista."])
+    }
+
+    func testRosterNetworkErrorKeepsOpAndRetries() async {
+        let replayer = makeSequencedReplayer([
+            "task/create": [Self.invalidPerson],
+            "person": [.offline]
+        ])
+        let outbox = makeOutbox([.createTask(local: -1, listRef: .remote(2), title: "Pan", personIds: [1, 2])])
+        let original = outbox.ops[0]
+        let summary = await replayer.replay(outbox)
+        XCTAssertEqual(summary, ReplaySummary(acked: 0, discarded: 0, stop: .retryable))
+        XCTAssertEqual(outbox.ops.map(\.kind), [original.kind], "la op se conserva sin reescribir")
+        XCTAssertEqual(outbox.ops.first?.attempts, 1)
+        XCTAssertNil(outbox.inFlightId)
+        XCTAssertTrue(outbox.notices.isEmpty)
+        let reloaded = OutboxStore(userId: 1, homeId: "2", directory: directory)
+        XCTAssertEqual(reloaded.ops.first?.attempts, 1, "el intento queda en disco")
+    }
+
+    func testRewrittenOpIsPersistedBeforeResend() async {
+        let replayer = makeSequencedReplayer([
+            "task/create": [Self.invalidPerson, StubURLProtocol.Stub(status: 503, json: #"{"error":"boom"}"#)],
+            "person": [StubURLProtocol.Stub(json: Self.roster)],
+            "task-list/user": [StubURLProtocol.Stub(json: Self.membersWithoutBeto)]
+        ])
+        let outbox = makeOutbox([.createTask(local: -1, listRef: .remote(2), title: "Pan", personIds: [1, 2], priority: "alta")])
+        let summary = await replayer.replay(outbox)
+        XCTAssertEqual(summary.stop, .retryable)
+        let expected = PendingOp.Kind.createTask(local: -1, listRef: .remote(2), title: "Pan", personIds: [1], priority: "alta")
+        XCTAssertEqual(outbox.ops.map(\.kind), [expected])
+        XCTAssertEqual(OutboxStore(userId: 1, homeId: "2", directory: directory).ops.map(\.kind), [expected],
+                       "la reescritura persiste: un cierre a mitad no reenvía la lista original")
+    }
+
+    func testOtherBadRequestStillDiscards() async {
+        let replayer = makeSequencedReplayer([
+            "task/create": [StubURLProtocol.Stub(status: 400, json: #"{"error":"Invalid priority"}"#)]
+        ])
+        let outbox = makeOutbox([.createTask(local: -1, listRef: .remote(2), title: "Pan", personIds: [1], priority: "x")])
+        let summary = await replayer.replay(outbox)
+        XCTAssertEqual(summary, ReplaySummary(acked: 0, discarded: 1, stop: .drained))
+        XCTAssertEqual(routes, ["task/create"], "no pide roster")
+        XCTAssertEqual(outbox.notices.count, 1)
+        XCTAssertTrue(outbox.notices[0].message.hasPrefix("No se pudo sincronizar «Pan»."))
+    }
+
+    func testInvalidPersonWithoutPersonsInOpDiscards() async {
+        let replayer = makeSequencedReplayer(["task/create": [Self.invalidPerson]])
+        let outbox = makeOutbox([.createTask(local: -1, listRef: .remote(2), title: "Pan", personIds: nil)])
+        let summary = await replayer.replay(outbox)
+        XCTAssertEqual(summary, ReplaySummary(acked: 0, discarded: 1, stop: .drained))
+        XCTAssertEqual(routes, ["task/create"])
+        XCTAssertEqual(outbox.notices.map(\.message),
+                       ["No se pudo sincronizar «Pan». Alguna persona elegida no se puede asignar en esta lista"])
+    }
+
+    func testInvalidPersonWithoutPersonsRepositoryDiscards() async {
+        let replayer = makeReplayer(["task/create": Self.invalidPerson])
+        let outbox = makeOutbox([.createTask(local: -1, listRef: .remote(2), title: "Pan", personIds: [1])])
+        let summary = await replayer.replay(outbox)
+        XCTAssertEqual(summary, ReplaySummary(acked: 0, discarded: 1, stop: .drained))
+        XCTAssertEqual(routes, ["task/create"])
+    }
+
+    func testAssigneeNoticeText() {
+        XCTAssertEqual(OutboxReplayer.assigneeNotice(title: "Pan", removedNames: []),
+                       "«Pan» se sincronizó sin asignar a una persona: ya no tiene acceso a la lista.")
+        XCTAssertEqual(OutboxReplayer.assigneeNotice(title: "Pan", removedNames: ["Ana", "Beto", "Luz"]),
+                       "«Pan» se sincronizó sin asignar a Ana, Beto y Luz: ya no tienen acceso a la lista.")
+    }
 }

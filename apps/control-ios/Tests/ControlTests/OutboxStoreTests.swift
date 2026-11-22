@@ -111,4 +111,29 @@ final class OutboxStoreTests: XCTestCase {
         XCTAssertTrue(fresh.store(user: 5, home: "4").isEmpty)
         XCTAssertTrue(registry.store(user: 9, home: "2").isEmpty)
     }
+
+    // MARK: - 0038
+
+    func testAckWithNoticeAddsNoticeAndPersistsRemoval() {
+        let store = OutboxStore(userId: 1, homeId: "2", directory: directory)
+        let op = create("Pan", in: store)
+        store.ack(op.id, remoteId: 70, notice: "aviso")
+        XCTAssertEqual(store.notices.map(\.message), ["aviso"])
+        XCTAssertEqual(store.generation, 1)
+        let reloaded = OutboxStore(userId: 1, homeId: "2", directory: directory)
+        XCTAssertTrue(reloaded.isEmpty, "el ack con aviso se guarda en la cola")
+        XCTAssertEqual(reloaded.idMap, [-1: 70])
+    }
+
+    func testReplaceKindOnlyTouchesFirstOrInFlightOpAndPersists() {
+        let store = OutboxStore(userId: 1, homeId: "2", directory: directory)
+        let first = create("Pan", in: store)
+        let second = create("Leche", in: store)
+        let rewritten = PendingOp.Kind.createTask(local: -1, listRef: .remote(2), title: "Pan", personIds: [1])
+        store.replaceKind(first.id, with: rewritten)
+        store.replaceKind(second.id, with: .createTask(local: -2, listRef: .remote(2), title: "Leche", personIds: [9]))
+        XCTAssertEqual(store.ops.map(\.kind), [rewritten, second.kind], "la segunda op no se toca")
+        XCTAssertEqual(OutboxStore(userId: 1, homeId: "2", directory: directory).ops.map(\.kind), [rewritten, second.kind])
+        XCTAssertEqual(store.ops.first?.id, first.id, "conserva id y clave")
+    }
 }

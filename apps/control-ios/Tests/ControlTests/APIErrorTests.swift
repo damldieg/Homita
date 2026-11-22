@@ -50,4 +50,11 @@ final class APIErrorTests: XCTestCase {
         XCTAssertEqual(APIError.http(status: 403, message: "Not Allowed").invitationAdminMessage,
                        "No tienes permiso para crear esta invitación")
     }
+
+    /// 0038: persona sin cuenta o acceso a la lista (toast de escritura en línea, AC-4).
+    func testInvalidPersonMessage() {
+        let error = APIError.http(status: 400, message: "Invalid person")
+        XCTAssertEqual(error.userMessage, "Alguna persona elegida no se puede asignar en esta lista")
+        XCTAssertEqual(error.writeMessage, error.userMessage)
+    }
 }
