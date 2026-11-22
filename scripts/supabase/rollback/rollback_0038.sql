@@ -2,6 +2,9 @@
 -- create or replace de create_task(bigint,text,jsonb,uuid,text) con el cuerpo de 0037 verbatim
 -- (pg_get_functiondef del reset local 0001–0037) y los mismos grants de 5 argumentos. Quita solo la
 -- guarda de acceso a la lista (marcador `0038:`); la firma, la prioridad y la idempotencia siguen.
+-- También restaura get_persons(boolean) a la versión vigente antes de 0038, la de
+-- 0028_person_app_user_id.sql (sin la clave 'home_id'; ninguna migración 0029–0037 la redefine), con
+-- los mismos grants de 0017 (authenticated y service_role; ni PUBLIC ni anon).
 -- Idempotente: se puede aplicar dos veces. No toca datos (las filas de task_person se conservan).
 --
 -- Orden en prod: solo BD (la Edge no cambia con 0038). Tras el rollback, una persona sin cuenta o sin
@@ -91,6 +94,34 @@ end $function$
 
 revoke execute on function create_task(bigint, text, jsonb, uuid, text) from public, anon;
 grant execute on function create_task(bigint, text, jsonb, uuid, text) to authenticated;
+
+-- get_persons de 0028_person_app_user_id.sql verbatim (sin 'home_id').
+create or replace function get_persons(p_include_inactive boolean default false) returns json
+language plpgsql stable security definer set search_path = public as $$
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    return (
+        select coalesce(json_agg(json_build_object(
+            'id', p.id, 'user_id', p.user_id, 'name', p.name, 'color', p.color,
+            'created_at', to_char(p.created_at, 'YYYY-MM-DD HH24:MI:SS'),
+            'updated_at', to_char(p.updated_at, 'YYYY-MM-DD HH24:MI:SS'),
+            'editable', p.user_id = fn_my_user_id(),
+            'home_member_id', p.home_member_id,
+            'kind', hm.kind::text,
+            'app_user_id', hm.app_user_id
+        ) order by translate(p.name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), p.id), '[]'::json)
+        from person p
+        inner join home_member hm on hm.id = p.home_member_id
+        -- 1.8 (§3.3, D4/Q-G): personas por HOGAR del llamante (no por familia)
+        where p.home_id = any (fn_my_home_ids())
+          and (p_include_inactive or hm.status = 'active')
+    );
+end $$;
+
+revoke all on function get_persons(boolean) from public, anon;
+grant execute on function get_persons(boolean) to authenticated, service_role;
 
 commit;
 

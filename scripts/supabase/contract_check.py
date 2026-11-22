@@ -59,6 +59,9 @@ segundo lado con el que comparar. Este script fija el comportamiento documentado
   `can_edit` recibe 403 con prioridad. `CONTRACT_SCHEMA=pre-0037` (BD revertida por rollback_0037)
   quita la clave y el bloque: prueba que la Edge nueva no manda parámetros nuevos si el cliente no
   los envía (502 casos).
+* `home_id` en `GET /person` (0038, change asignar-alta-lista, R1-02): `PERSON_ITEM` lleva `home_id`
+  (aditivo, mismos casos). `CONTRACT_SCHEMA=pre-0038` (0037 aplicada, 0038 revertida por
+  rollback_0038) y `pre-0037` lo quitan; `pre-0038` mantiene el bloque de prioridad (532 casos).
 * `PSQL` (membresía del bloque viewer): comando psql completo contra la BD local; para el stack
   local `docker exec`: `PSQL="docker exec -i supabase_db_homita-api psql -U postgres -d postgres"`.
 
@@ -221,9 +224,11 @@ CASES_END_DATE = 23 + 2 + 4
 # 0037 (prioridad-tarea): 28 en scenario_task_priority + 2 del viewer (create/update con priority → 403).
 # CONTRACT_SCHEMA=pre-0037 (BD revertida por rollback_0037): sin la clave ni el bloque → 502.
 CONTRACT_SCHEMA = os.environ.get("CONTRACT_SCHEMA", "")
-if CONTRACT_SCHEMA not in ("", "pre-0037"):
-    sys.exit(f"CONTRACT_SCHEMA desconocido: {CONTRACT_SCHEMA!r} (vacío o pre-0037)")
+if CONTRACT_SCHEMA not in ("", "pre-0038", "pre-0037"):
+    sys.exit(f"CONTRACT_SCHEMA desconocido: {CONTRACT_SCHEMA!r} (vacío, pre-0038 o pre-0037)")
 PRIORITY = CONTRACT_SCHEMA != "pre-0037"
+# 0038: get_persons añade home_id; sin 0038 (pre-0038 o pre-0037) no llega la clave.
+PERSON_HOME = CONTRACT_SCHEMA == ""
 CASES_PRIORITY = (28 + 2) if PRIORITY else 0
 EXPECTED_CASES = (CASES_BASE + CASES_110 + CASES_115 + CASES_VALUES + CASES_END_DATE
                   + CASES_PRIORITY)  # 351 + 34 + 69 + 19 + 29 = 502 (+ 30 con 0037 = 532)
@@ -268,6 +273,9 @@ PERSON = {"id": "<id>", "user_id": "<int>", "name": "<str>", "color": "<str>",
 # 0028: solo get_persons (GET /person) añade la cuenta vinculada del miembro (null en mascotas o
 # miembros sin cuenta); create/update de persona devuelven PERSON sin esa clave.
 PERSON_ITEM = dict(PERSON, app_user_id="<int?>")
+# 0038 (R1-02): get_persons añade el hogar de la persona (aditivo; misma cantidad de casos).
+if PERSON_HOME:
+    PERSON_ITEM["home_id"] = "<id>"
 PERSON_REF = {"id": "<id>", "user_id": "<int>", "name": "<str>", "color": "<str>"}
 CAL_ITEM = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>",
             "created_at": "<ts>", "updated_at": "<ts>", "widget": "<01>", "dashboard": "<01>",

@@ -17,7 +17,12 @@
 --   perdido el acceso después) → guarda 0038 (antes de cualquier escritura) → insert →
 --   fn_sync_assignments (hogar e inactivos, sin cambios) → fn_reorder_tasks → client_request.
 -- * Grants: los de 0037 sobre create_task(bigint, text, jsonb, uuid, text).
--- Rollback: scripts/supabase/rollback/rollback_0038.sql (restaura el cuerpo de 0037; sin datos).
+-- * get_persons (R1-02, decisión (a)): el JSON de cada persona añade `home_id` (aditivo) para que el
+--   cliente deduplique por hogar y cuenta. Base: get_persons de 0028_person_app_user_id.sql (la
+--   vigente; ninguna migración 0029–0037 la redefine) + una clave. Misma firma
+--   get_persons(boolean) y mismos grants de 0017 (authenticated y service_role; ni PUBLIC ni anon).
+-- Rollback: scripts/supabase/rollback/rollback_0038.sql (restaura create_task de 0037 y get_persons
+-- de 0028; sin datos).
 -- Orden LIFO de rollbacks: rollback_0038 → rollback_0037 → rollback_0035.
 
 begin;
@@ -110,6 +115,37 @@ end $$;
 
 revoke execute on function create_task(bigint, text, jsonb, uuid, text) from public, anon;
 grant execute on function create_task(bigint, text, jsonb, uuid, text) to authenticated;
+
+-- get_persons: cuerpo de 0028_person_app_user_id.sql + 'home_id' (0038, R1-02).
+create or replace function get_persons(p_include_inactive boolean default false) returns json
+language plpgsql stable security definer set search_path = public as $$
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    return (
+        select coalesce(json_agg(json_build_object(
+            'id', p.id, 'user_id', p.user_id, 'name', p.name, 'color', p.color,
+            'created_at', to_char(p.created_at, 'YYYY-MM-DD HH24:MI:SS'),
+            'updated_at', to_char(p.updated_at, 'YYYY-MM-DD HH24:MI:SS'),
+            'editable', p.user_id = fn_my_user_id(),
+            'home_member_id', p.home_member_id,
+            'kind', hm.kind::text,
+            'app_user_id', hm.app_user_id,
+            -- 0038: hogar de la persona (una cuenta tiene una persona por hogar)
+            'home_id', p.home_id
+        ) order by translate(p.name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), p.id), '[]'::json)
+        from person p
+        inner join home_member hm on hm.id = p.home_member_id
+        -- 1.8 (§3.3, D4/Q-G): personas por HOGAR del llamante (no por familia)
+        where p.home_id = any (fn_my_home_ids())
+          and (p_include_inactive or hm.status = 'active')
+    );
+end $$;
+
+-- Grants de 0017 (create or replace los conserva; se repiten por claridad, idempotentes).
+revoke all on function get_persons(boolean) from public, anon;
+grant execute on function get_persons(boolean) to authenticated, service_role;
 
 commit;
 

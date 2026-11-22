@@ -13,6 +13,8 @@
 --        el de 0037 (md5 de abajo; si cambia la 0037 o su volcado, regenerarlo desde un reset 0001–0037:
 --        select md5(pg_get_functiondef('create_task(bigint,text,jsonb,uuid,text)'::regprocedure))).
 -- RB38-4 rollback_0038 una segunda vez no falla y deja el mismo estado (idempotente).
+-- RB38-5 get_persons vuelve a la de 0028: una sola firma get_persons(boolean), sin 'home_id' en el
+--        cuerpo ni en el JSON, y los grants de 0017 (authenticated y service_role; ni PUBLIC ni anon).
 --
 -- Fixture (ids 994xxx, auth_uid …0941–…0942): hogar H con A admin (owner de la lista L) y C member
 -- sin ACL en L; personas PC (cuenta C). Se borra al final.
@@ -55,6 +57,7 @@ language plpgsql as $$
 declare
     v_sigs text[];
     v_ct oid := to_regprocedure('public.create_task(bigint,text,jsonb,uuid,text)');
+    v_gp oid := to_regprocedure('public.get_persons(boolean)');
 begin
     select array_agg(oid::regprocedure::text) into v_sigs
       from pg_proc where pronamespace = 'public'::regnamespace and proname = 'create_task';
@@ -70,6 +73,21 @@ begin
     if pg_get_functiondef(v_ct) like '%0038:%'
        or md5(pg_get_functiondef(v_ct)) <> '91c512311639f3ff136a906b6e68b3a0' then
         return format('RB38-3 create_task no es el de 0037 (md5 %s)', md5(pg_get_functiondef(v_ct)));
+    end if;
+    select array_agg(oid::regprocedure::text) into v_sigs
+      from pg_proc where pronamespace = 'public'::regnamespace and proname = 'get_persons';
+    if v_sigs is distinct from array['get_persons(boolean)'] then
+        return format('RB38-5 firmas de get_persons %s', v_sigs);
+    end if;
+    if pg_get_functiondef(v_gp) like '%''home_id''%' or pg_get_functiondef(v_gp) not like '%''app_user_id''%' then
+        return 'RB38-5 get_persons no es el de 0028 (sigue con home_id o sin app_user_id)';
+    end if;
+    if has_function_privilege('anon', v_gp, 'execute')
+       or not has_function_privilege('authenticated', v_gp, 'execute')
+       or not has_function_privilege('service_role', v_gp, 'execute')
+       or exists (select 1 from pg_proc p, aclexplode(p.proacl) a
+                  where p.oid = v_gp and a.grantee = 0 and a.privilege_type = 'EXECUTE') then
+        return 'RB38-5 EXECUTE de get_persons distinto del de 0017';
     end if;
     return null;
 end $$;
@@ -121,9 +139,14 @@ begin
     if not exists (select 1 from task_person where task_id = (v->>'id')::bigint and person_id = 994002) then
         raise exception 'task_person_access_rollback RB38-3: sin la guarda la persona sin ACL no se asignó (%)', v;
     end if;
+    v := get_persons(false);
+    if json_array_length(v) = 0 or exists (select 1 from json_array_elements(v) x where (x::jsonb) ? 'home_id') then
+        raise exception 'task_person_access_rollback RB38-5: get_persons sigue con home_id o vacío (%)', left(v::text, 200);
+    end if;
     raise notice 'ok RB38-1: una sola firma de create_task, la de 5 argumentos';
     raise notice 'ok RB38-2: EXECUTE para authenticated; sin PUBLIC ni anon';
     raise notice 'ok RB38-3: sin guarda 0038 (persona sin ACL aceptada) y create_task idéntico al de 0037';
+    raise notice 'ok RB38-5: get_persons de 0028 (sin home_id) con los grants de 0017';
 end $$;
 
 -- RB38-4: segunda pasada.
