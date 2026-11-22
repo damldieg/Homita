@@ -296,11 +296,13 @@ public final class InicioStore: MainActorWriteFailureReporting {
 
     /// Personas asignables al crear en `listId` (0038). En una lista local, la del usuario de la cola.
     public func assignablePersons(listId: Int) -> [PersonEntry] {
-        assignees.assignable(listId: listId, currentUserId: outbox?.userId)
+        assignees.assignable(listId: listId, currentUserId: outbox?.userId,
+                             homeId: assignees.homeId(listId: listId, lists: serverTaskLists, fallbackHomeId: outbox.flatMap { Int($0.homeId) }))
     }
 
-    /// Carga lo que necesita `assignablePersons` para `listId`.
-    public func loadAssignable(listId: Int) async {
+    /// Carga lo que necesita `assignablePersons` para `listId`. Devuelve si hay roster para podar.
+    @discardableResult
+    public func loadAssignable(listId: Int) async -> Bool {
         await assignees.load(listId: listId)
     }
 

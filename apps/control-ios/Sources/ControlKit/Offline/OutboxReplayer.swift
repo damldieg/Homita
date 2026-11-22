@@ -139,7 +139,8 @@ public final class OutboxReplayer {
             outbox.beginFlight(op.id)
             do {
                 let remoteId = try await sender.send(op, idMap: outbox.idMap)
-                outbox.ack(op.id, remoteId: remoteId)
+                // Un aviso de P-4 de una pasada anterior (reintento tras reescribir) se emite aquí.
+                outbox.ack(op.id, remoteId: remoteId, notice: Self.pendingAssigneeNotice(op))
                 summary.acked += 1
             } catch let error as APIError where persons != nil && Self.isInvalidPerson(error) && Self.assignedPersons(op.kind) != nil {
                 if let stop = await reassign(op, in: outbox, summary: &summary) {
@@ -229,7 +230,9 @@ public final class OutboxReplayer {
         do {
             roster = try await persons.index()
             let members = try await taskLists.users(taskListId: listId)
-            kept = TaskAssignees.split(personIds: original, persons: roster, members: members).kept
+            // La cola es de un hogar: la lista es de ese hogar y solo valen sus personas.
+            kept = TaskAssignees.split(personIds: original, persons: roster, members: members,
+                                       homeId: Int(op.homeId)).kept
         } catch let error as APIError {
             switch Self.disposition(for: error, kind: op.kind) {
             case .pause, .retry:
@@ -246,13 +249,18 @@ public final class OutboxReplayer {
         steps.append([])
         var current = op
         for (index, step) in steps.enumerated() {
+            let removed = original.filter { !step.contains($0) }
+            let names = removed.compactMap { id in roster.first { $0.id == id }?.name }
+            // Los nombres quitados se guardan con la op reescrita (sumados a los de pasadas previas):
+            // si este reenvío reintenta, el ack de la pasada siguiente emite el aviso.
+            var pending = op.removedAssignees ?? []
+            for name in names where !pending.contains(name) { pending.append(name) }
             current.kind = Self.replacingPersons(op.kind, with: step)
-            outbox.replaceKind(op.id, with: current.kind)
+            current.removedAssignees = pending
+            outbox.replaceKind(op.id, with: current.kind, removedAssignees: pending)
             do {
                 let remoteId = try await sender.send(current, idMap: outbox.idMap)
-                let removed = original.filter { !step.contains($0) }
-                let names = removed.compactMap { id in roster.first { $0.id == id }?.name }
-                outbox.ack(op.id, remoteId: remoteId, notice: Self.assigneeNotice(title: title, removedNames: names))
+                outbox.ack(op.id, remoteId: remoteId, notice: Self.assigneeNotice(title: title, removedNames: pending))
                 summary.acked += 1
                 return nil
             } catch let error as APIError where Self.isInvalidPerson(error) && index < steps.count - 1 {
@@ -262,6 +270,12 @@ public final class OutboxReplayer {
             }
         }
         return nil
+    }
+
+    /// Aviso pendiente de P-4 guardado en la op (`removedAssignees`); nil si no hay.
+    static func pendingAssigneeNotice(_ op: PendingOp) -> String? {
+        guard let names = op.removedAssignees, case .createTask(_, _, let title, _, _) = op.kind else { return nil }
+        return assigneeNotice(title: title, removedNames: names)
     }
 
     /// Aviso de una tarea confirmada sin alguna persona asignada (0038). Sin nombres conocidos, «una persona».

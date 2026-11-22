@@ -117,11 +117,13 @@ public final class OutboxStore {
     /// Reescribe el contenido de una op y lo guarda en disco antes de reenviarla (0038: el replay
     /// quita personas sin acceso). Solo vale para la op en vuelo o la primera de la cola, que la
     /// compactación ya no toca; en otra op no hace nada. El llamador conserva el mismo recurso
-    /// (temporal y lista): solo cambian los datos que viajan.
-    public func replaceKind(_ opId: UUID, with kind: PendingOp.Kind) {
+    /// (temporal y lista): solo cambian los datos que viajan. `removedAssignees` (si no es nil) se
+    /// guarda junto al contenido: el aviso de P-4 sobrevive a un reintento o a un cierre de la app.
+    public func replaceKind(_ opId: UUID, with kind: PendingOp.Kind, removedAssignees: [String]? = nil) {
         guard let index = ops.firstIndex(where: { $0.id == opId }),
               opId == inFlightId || index == 0 else { return }
         ops[index].kind = kind
+        if let removedAssignees { ops[index].removedAssignees = removedAssignees }
         persist()
     }
 

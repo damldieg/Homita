@@ -96,6 +96,9 @@ public struct PersonEntry: Codable, Equatable, Identifiable {
     /// Cuenta vinculada al miembro (`home_member.app_user_id`); `nil` si no tiene cuenta (mascotas,
     /// niños sin cuenta…) o si el servidor aún no envía el campo (migración 0028).
     public let app_user_id: Int?
+    /// Hogar de la persona (`person.home_id`, 0038). Una cuenta tiene una persona por hogar; `nil` si
+    /// el servidor aún no envía el campo (antes de 0038) o dentro de eventos y rutinas.
+    public let home_id: Int?
 
     public var isEditable: Bool { editable?.value ?? false }
 }
@@ -167,6 +170,9 @@ public struct TaskListEntry: Codable, Equatable {
     public let pending_task_count: FlexInt?
     /// Permiso de edición del usuario actual (owner o `can_edit`, 0029); `nil` → se asume edición.
     public let can_edit: FlexBool?
+    /// Hogar de la lista (`task_list.home_id`; lo envían `GET task-list` y `GET task-list/detail`).
+    /// `nil` en listas creadas offline o en cachés anteriores al campo (se tolera su ausencia).
+    public var home_id: Int? = nil
 
     public var showsInWidget: Bool { widget?.value ?? true }
     public var showsInDashboard: Bool { dashboard?.value ?? true }

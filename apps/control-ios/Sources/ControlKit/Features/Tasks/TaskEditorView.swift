@@ -18,8 +18,9 @@ struct TaskEditorView: View {
     let access: TaskListAccess?
     /// Personas asignables al crear en una lista (0038: con cuenta y acceso). nil = `persons` tal cual.
     let assignable: ((Int) -> [PersonEntry])?
-    /// Carga lo que necesita `assignable` para una lista (se llama al elegir lista).
-    let loadAssignable: ((Int) async -> Void)?
+    /// Carga lo que necesita `assignable` para una lista (se llama al elegir lista). Devuelve si la
+    /// carga dejó roster (personas y miembros); si no, la selección no se poda.
+    let loadAssignable: ((Int) async -> Bool)?
 
     @Environment(\.dismiss) private var dismiss
     @State private var title: String
@@ -38,7 +39,7 @@ struct TaskEditorView: View {
         writeFailure: Binding<WriteFailure?>,
         access: TaskListAccess? = nil,
         assignable: ((Int) -> [PersonEntry])? = nil,
-        loadAssignable: ((Int) async -> Void)? = nil,
+        loadAssignable: ((Int) async -> Bool)? = nil,
         onSave: @escaping (String, Int, [Int], TaskPriority) async -> Bool,
         onDelete: (() -> Void)? = nil
     ) {
@@ -132,10 +133,11 @@ struct TaskEditorView: View {
         .writeFailureToast($writeFailure) { dismiss() }
         .navigationTitle(task == nil ? "Nueva tarea" : "Editar tarea")
         // Al elegir (o cambiar) de lista: carga sus asignables y quita de la selección las que no lo son.
+        // Sin roster (sin conexión y sin caché) no se poda: decide el servidor o el replay (R1-03).
         .task(id: listId) {
             guard filtersAssignees, let assignable else { return }
-            await loadAssignable?(listId)
-            personIds = TaskAssignees.prune(selected: personIds, assignable: assignable(listId))
+            let rosterLoaded = await loadAssignable?(listId) ?? false
+            personIds = TaskAssignees.prune(selected: personIds, assignable: assignable(listId), rosterLoaded: rosterLoaded)
         }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
