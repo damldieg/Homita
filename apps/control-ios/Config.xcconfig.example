@@ -6,7 +6,7 @@
 // Para escribirlos a mano, copia este fichero y sustituye los placeholders. Nunca commitear valores reales.
 //
 // Nota xcconfig: `//` inicia comentario, por eso la URL lleva `$()` tras `https:/` (o `http:/`):
-// la expansión en Info.plist (`$(PLANIFY_BASE_URL)`) produce `https://…`.
-PLANIFY_BASE_URL = https:/$()/<ref>.supabase.co/functions/v1/api
+// la expansión en Info.plist (`$(HOMITA_BASE_URL)`) produce `https://…`.
+HOMITA_BASE_URL = https:/$()/<ref>.supabase.co/functions/v1/api
 SUPABASE_URL = https:/$()/<ref>.supabase.co
 SUPABASE_ANON_KEY = <anon key>

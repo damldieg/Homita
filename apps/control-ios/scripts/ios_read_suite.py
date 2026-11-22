@@ -10,7 +10,7 @@ Solo stdlib (`urllib`); sin dependencias y sin verbos de escritura en este fiche
 Uso (creds SIEMPRE por variables de entorno, nunca en el fichero):
 
     export SUPABASE_FUNCTIONS_URL=https://<ref>.supabase.co/functions/v1/api
-    export PLANIFY_IOS_ACCESS_TOKEN="<jwt de POST /user/auth con la cuenta de prueba>"
+    export HOMITA_IOS_ACCESS_TOKEN="<jwt de POST /user/auth con la cuenta de prueba>"
     python3 apps/control-ios/scripts/ios_read_suite.py
 
 Imprime un resumen por ruta y sale con código distinto de 0 ante cualquier fallo.
@@ -184,13 +184,13 @@ class Suite:
 
 def main():
     base = os.environ.get("SUPABASE_FUNCTIONS_URL", "").strip()
-    token = os.environ.get("PLANIFY_IOS_ACCESS_TOKEN", "").strip()
-    timezone = os.environ.get("PLANIFY_IOS_TIMEZONE", "").strip()
+    token = os.environ.get("HOMITA_IOS_ACCESS_TOKEN", "").strip()
+    timezone = os.environ.get("HOMITA_IOS_TIMEZONE", "").strip()
     if not base:
         print("error: falta SUPABASE_FUNCTIONS_URL (…/functions/v1/api)", file=sys.stderr)
         return 2
     if not token:
-        print("error: falta PLANIFY_IOS_ACCESS_TOKEN (jwt de user/auth)", file=sys.stderr)
+        print("error: falta HOMITA_IOS_ACCESS_TOKEN (jwt de user/auth)", file=sys.stderr)
         return 2
     if not timezone:
         import time as _time

@@ -1,14 +1,14 @@
 import Foundation
 
 /// Configuración inyectada desde `Config.local.xcconfig` (Debug) o `Config.prod.xcconfig` (Release), generados por `scripts/gen-config.sh` vía
-/// Info.plist: `PlanifyBaseURL`, `SupabaseURL`, `SupabaseAnonKey`. Validación fail-fast: sin
+/// Info.plist: `HomitaBaseURL`, `SupabaseURL`, `SupabaseAnonKey`. Validación fail-fast: sin
 /// placeholders, URL https (o http solo en loopback para `supabase functions serve`).
 public struct AppConfig: Equatable {
-    public static let planifyBaseURLKey = "PlanifyBaseURL"
+    public static let homitaBaseURLKey = "HomitaBaseURL"
     public static let supabaseURLKey = "SupabaseURL"
     public static let supabaseAnonKeyKey = "SupabaseAnonKey"
 
-    public let planifyBaseURL: URL
+    public let homitaBaseURL: URL
     public let supabaseURL: URL
     public let supabaseAnonKey: String
 
@@ -24,10 +24,10 @@ public struct AppConfig: Equatable {
     }
 
     public init(values: [String: String]) throws {
-        let base = try Self.validateURL(values[Self.planifyBaseURLKey], key: Self.planifyBaseURLKey)
+        let base = try Self.validateURL(values[Self.homitaBaseURLKey], key: Self.homitaBaseURLKey)
         let supabase = try Self.validateURL(values[Self.supabaseURLKey], key: Self.supabaseURLKey)
         let anonKey = try Self.validateKey(values[Self.supabaseAnonKeyKey], key: Self.supabaseAnonKeyKey)
-        planifyBaseURL = base
+        homitaBaseURL = base
         supabaseURL = supabase
         supabaseAnonKey = anonKey
     }
@@ -37,7 +37,7 @@ public struct AppConfig: Equatable {
             bundle.object(forInfoDictionaryKey: key) as? String
         }
         try self.init(values: [
-            Self.planifyBaseURLKey: raw(Self.planifyBaseURLKey) ?? "",
+            Self.homitaBaseURLKey: raw(Self.homitaBaseURLKey) ?? "",
             Self.supabaseURLKey: raw(Self.supabaseURLKey) ?? "",
             Self.supabaseAnonKeyKey: raw(Self.supabaseAnonKeyKey) ?? ""
         ])

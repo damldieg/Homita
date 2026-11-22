@@ -8,8 +8,8 @@
   Nota: INFOPLIST_KEY_* solo acepta claves conocidas por Xcode, por eso van aquí.
 -->
 <dict>
-	<key>PlanifyBaseURL</key>
-	<string>$(PLANIFY_BASE_URL)</string>
+	<key>HomitaBaseURL</key>
+	<string>$(HOMITA_BASE_URL)</string>
 	<key>SupabaseURL</key>
 	<string>$(SUPABASE_URL)</string>
 	<key>SupabaseAnonKey</key>
@@ -19,7 +19,7 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.lito.planify.control.ios</string>
+			<string>com.dld.homita.control.ios</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>homita</string>
@@ -36,7 +36,7 @@
 	</array>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.lito.planify.control.ios.refresh</string>
+		<string>com.dld.homita.control.ios.refresh</string>
 	</array>
 </dict>
 </plist>

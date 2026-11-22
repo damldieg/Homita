@@ -76,7 +76,7 @@ final class TokenStoreTests: XCTestCase {
     func testKeychainStoreSaveLoadDelete() throws {
         // Guarda→carga→borra en el Keychain real del host/simulador. Si el entorno no permite
         // Keychain (p. ej. sandbox de test), se salta en vez de fallar.
-        let store = KeychainTokenStore(service: "com.lito.planify.control.ios.tests")
+        let store = KeychainTokenStore(service: "com.dld.homita.control.ios.tests")
         defer { try? store.remove("test-key") }
         do {
             try store.set("valor-secreto", forKey: "test-key")

@@ -87,7 +87,7 @@ umask 077
 {
     printf '// Generado por scripts/gen-config.sh %s — NO commitear (git-ignorado).\n' "$MODE"
     printf '// Regenerar tras cambiar el origen (%s).\n' "$([ "$MODE" = prod ] && echo '~/.homita/supabase.env' || echo 'supabase status')"
-    printf 'PLANIFY_BASE_URL = %s\n' "$safe_api"
+    printf 'HOMITA_BASE_URL = %s\n' "$safe_api"
     printf 'SUPABASE_URL = %s\n' "$safe_supabase"
     printf 'SUPABASE_ANON_KEY = %s\n' "$anon_key"
 } > "$OUT"

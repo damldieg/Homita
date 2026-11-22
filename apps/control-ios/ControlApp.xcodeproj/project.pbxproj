@@ -466,7 +466,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ControlApp/Info.plist;
-				INFOPLIST_KEY_PlanifyBaseURL = "$(PLANIFY_BASE_URL)";
+				INFOPLIST_KEY_HomitaBaseURL = "$(HOMITA_BASE_URL)";
 				INFOPLIST_KEY_SupabaseAnonKey = "$(SUPABASE_ANON_KEY)";
 				INFOPLIST_KEY_SupabaseURL = "$(SUPABASE_URL)";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -479,7 +479,7 @@
 				MARKETING_VERSION = 1.0;
 				INFOPLIST_KEY_CFBundleDisplayName = "Homita Control";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				PRODUCT_BUNDLE_IDENTIFIER = com.lito.planify.control.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dld.homita.control.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -497,7 +497,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ControlApp/Info.plist;
-				INFOPLIST_KEY_PlanifyBaseURL = "$(PLANIFY_BASE_URL)";
+				INFOPLIST_KEY_HomitaBaseURL = "$(HOMITA_BASE_URL)";
 				INFOPLIST_KEY_SupabaseAnonKey = "$(SUPABASE_ANON_KEY)";
 				INFOPLIST_KEY_SupabaseURL = "$(SUPABASE_URL)";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -510,7 +510,7 @@
 				MARKETING_VERSION = 1.0;
 				INFOPLIST_KEY_CFBundleDisplayName = "Homita Control";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				PRODUCT_BUNDLE_IDENTIFIER = com.lito.planify.control.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dld.homita.control.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -527,7 +527,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.lito.planify.control.ios.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dld.homita.control.ios.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -544,7 +544,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.lito.planify.control.ios.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dld.homita.control.ios.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -568,7 +568,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.lito.planify.control.ios.widgets;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dld.homita.control.ios.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -593,7 +593,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.lito.planify.control.ios.widgets;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dld.homita.control.ios.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
