@@ -447,7 +447,7 @@ struct TaskRow: View {
                 }
             }
             Spacer()
-            TaskPriorityBadge(priority: task.priorityValue)
+            TaskPriorityBadge(priority: task.priorityValue, compact: true)
             if isPending {
                 PendingSyncIcon()
             }
@@ -466,17 +466,11 @@ struct TaskRow: View {
 /// se distinguen por color.
 struct TaskPriorityBadge: View {
     let priority: TaskPriority
-
-    private var tintHex: String {
-        switch priority {
-        case .alta: return Palette.accentHex
-        case .media: return Palette.soonHex
-        case .baja: return Palette.sageHex
-        }
-    }
+    /// Tamaño menor (Inicio); por defecto el de Tareas.
+    var compact: Bool = false
 
     var body: some View {
-        HomitaBadge(title: priority.label, tintHex: tintHex)
+        HomitaBadge(title: priority.label, tintHex: priority.tintHex, compact: compact)
             .accessibilityLabel("Prioridad \(priority.label.lowercased())")
     }
 }

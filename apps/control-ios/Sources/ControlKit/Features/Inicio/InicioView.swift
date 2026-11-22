@@ -342,6 +342,8 @@ public struct InicioView: View {
                                 AssignedPersonsLine(persons: task.persons)
                             }
                             Spacer()
+                            TaskPriorityBadge(priority: task.priorityValue, compact: true)
+                                .fixedSize()
                             if store.pendingTaskIds.contains(task.id) {
                                 PendingSyncIcon()
                             }

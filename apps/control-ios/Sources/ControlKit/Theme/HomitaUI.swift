@@ -136,6 +136,8 @@ struct HomitaBadge: View {
     let title: String
     /// Color de la paleta en hex (p. ej. el color de un calendario o `Palette.accentHex`).
     var tintHex: String = Palette.accentHex
+    /// Versión de menor tamaño (fuente y relleno reducidos) para filas densas como Inicio.
+    var compact: Bool = false
 
     var body: some View {
         #if canImport(ComponentsKit)
@@ -143,13 +145,18 @@ struct HomitaBadge: View {
             $0.title = title
             $0.color = ComponentColor(main: uc(tintHex), contrast: uc(Palette.inkHex))
             $0.style = .light
+            if compact {
+                // BadgeVM no expone `size`: se reducen fuente y relleno.
+                $0.font = .system(size: 11, weight: .semibold)
+                $0.paddings = Paddings(horizontal: 7, vertical: 3)
+            }
         })
         #else
         Text(title)
-            .font(HomitaFont.inter(12, weight: .semibold, relativeTo: .caption))
+            .font(HomitaFont.inter(compact ? 10 : 12, weight: .semibold, relativeTo: .caption))
             .foregroundStyle(Color(hex: tintHex))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
+            .padding(.horizontal, compact ? 7 : 10)
+            .padding(.vertical, compact ? 2 : 4)
             .background(Color(hex: tintHex).opacity(0.14), in: Capsule())
         #endif
     }

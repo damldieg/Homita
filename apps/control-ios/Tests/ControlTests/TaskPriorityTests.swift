@@ -37,6 +37,10 @@ final class TaskPriorityTests: XCTestCase {
         XCTAssertEqual(TaskPriority(raw: "ALTA"), .media, "sensible a mayúsculas, como la API")
     }
 
+    func testPriorityTint() {
+        XCTAssertEqual(TaskPriority.allCases.map(\.tintHex), [Palette.accentHex, Palette.soonHex, Palette.sageHex])
+    }
+
     // MARK: - Requests
 
     func testCreateAndUpdateEncodePriorityOnlyWhenPresent() throws {
