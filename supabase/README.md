@@ -116,6 +116,7 @@ app; el refresco queda para una fase posterior):
 | `migrations/0035_client_request_idempotency.sql` | Change `ios-offline-outbox-tareas` (D-024): tabla `client_request` y firma nueva de `create_task`/`create_task_list`. Ver «Idempotencia de creates (0035)». Reversa: `scripts/supabase/rollback/rollback_0035.sql`, **solo sin 0037**: revertir antes 0037 (`rollback_0037.sql`, orden LIFO). Con 0037 aplicada dejaría dos sobrecargas de `create_task` y `POST /task/create` daría 500; una guarda al inicio aborta el script en ese caso. Lo mismo vale para `rollback_0029.sql`, que exige además haber revertido 0030 (solo sin 0030 ni posteriores, orden LIFO: con 0030 aplicada dejaría dos sobrecargas de `create_event` y `update_event`); su guarda aborta también en ese caso |
 | `migrations/0037_task_priority.sql` | Change `prioridad-tarea` (D-026): columna `task.priority` (`alta`/`media`/`baja`, default `media`), `priority` en las respuestas de tarea, filtro y orden opcionales en `get_tasks` y `p_priority` en `create_task`/`update_task`. Ver «Prioridad de tarea (0037)». Reversa: `scripts/supabase/rollback/rollback_0037.sql` (**pierde las prioridades**) |
 | `migrations/0038_task_create_person_access.sql` | Change `asignar-alta-lista`: `create_task` (misma firma de 5 argumentos, `create or replace`) solo acepta en `p_person_ids` personas con cuenta y con fila en `task_list_user` de la lista; si no, 400 `Invalid person` sin crear la tarea. `update_task` no cambia. Ver «Acceso a la lista al crear (0038)». Reversa: `scripts/supabase/rollback/rollback_0038.sql` (restaura el cuerpo de 0037; sin datos), **antes** que `rollback_0037` (orden LIFO 0038 → 0037 → 0035). Despliegue en `supabase/DEPLOY_0038.md` |
+| `migrations/0039_task_hidden_at.sql` | Change `ocultar-completadas-3-dias` (D-025): columna `task.hidden_at` (`timestamptz` nullable, `completed_at + 3 días` en UTC, CHECK `task_hidden_at_consistent`) con backfill de las completadas; `get_tasks` deja fuera las ocultas y `get_task_detail` y las escrituras sobre una oculta dan `Not Found` (500, como una inexistente). Mismas firmas y shapes; la Edge no cambia. Ver «Ocultar completadas (0039, D-025)». Reversa: `scripts/supabase/rollback/rollback_0039.sql` (solo se pierde `hidden_at`, derivable), **antes** que `rollback_0038` (orden LIFO 0039 → 0038 → 0037 → 0035; `rollback_0038` aborta mientras exista `task.hidden_at`). Despliegue en `supabase/DEPLOY_0039.md` |
 
 ## Edge Function `functions/api/`
 
@@ -556,6 +557,53 @@ Change `asignar-alta-lista` (Control iOS: selector de personas en los tres punto
   (RA38-1), que `ci.sh` corre en una ida y vuelta por fuera de la de 0037; `cross_tenant_check.py`
   (XT-AL1..XT-AL4, +4 casos).
 
+## Ocultar completadas (0039, D-025)
+
+Change `ocultar-completadas-3-dias` (tarjeta [13]). Una tarea completada se oculta 3 días después de
+completarse, en todos los clientes a la vez (marco, Control iOS y Control Android), porque el filtro va
+en la BD. **Sin recuperación:** no hay ruta, RPC, parámetro ni UI para restaurar una oculta.
+
+- **Columna:** `task.hidden_at timestamptz` nullable, sin default. No se expone en ninguna respuesta: las
+  shapes de `task/*` no cambian (D-008, sin desviación).
+- **Fórmula única:** `hidden_at = (completed_at + interval '3 days') at time zone 'UTC'`. `completed_at`
+  es `timestamp` naive en UTC; sumar en UTC naive y convertir después no depende del `TimeZone` de la
+  sesión (`timestamptz + '3 days'` daría 71 o 73 h en un cambio de horario). El CHECK
+  `task_hidden_at_consistent` la exige: pendiente ⇒ `hidden_at` null; completada ⇒ `hidden_at` igual a la
+  fórmula.
+- **Escritura:** solo `complete_task`, en el mismo UPDATE que `completed_at`: completar o re-completar
+  recalcula `hidden_at`; descompletar lo limpia. El backfill de la migración rellena todas las
+  completadas (también las recientes, con `hidden_at` futuro) sin tocar `completed_at`, `updated_at`,
+  `"order"` ni `priority`.
+- **Predicado:** oculta = `hidden_at is not null and hidden_at <= now()`; visible = `hidden_at is null or
+  hidden_at > now()`. Inline sobre el valor crudo, sin cron.
+- **Lecturas:** `get_tasks` (`GET /task`, con o sin filtros, `priority` y `sort`) no devuelve ocultas.
+  `GET /task-list` cuenta pendientes, así que su `pending_task_count` no cambia. La policy `task_select`
+  tampoco devuelve ocultas por PostgREST (defensa en profundidad; ningún cliente la usa).
+- **Errores:** `GET /task/detail` de una oculta y `PATCH /task/complete` (`completed` true o false),
+  `PATCH /task/update`, `PATCH /task/order` y `DELETE /task/delete` sobre una oculta responden 500
+  `{"error":"Not Found"}`, el mismo cuerpo que una tarea inexistente (sin oráculo, también entre
+  tenants). La comprobación va antes del lock y de la ACL y la fila no cambia. `update_task` sigue
+  validando título y prioridad antes de buscar la tarea.
+- **Orden:** `task_order` y `fn_reorder_tasks` excluyen las ocultas: `position` cuenta solo las visibles y
+  el `"order"` de las ocultas queda congelado.
+- **Clientes:** la cola offline de iOS ya trata «Not Found» (delete = ack, resto = descarte con aviso «ya
+  no existe»). En línea, Control iOS recarga las tareas ante un «Not Found» para que la oculta
+  desaparezca; un delete con «Not Found» cuenta como hecho, también en «Eliminar completadas».
+- **Rollback:** `scripts/supabase/rollback/rollback_0039.sql` (idempotente, solo BD) restaura verbatim los
+  7 cuerpos previos (`get_tasks`, `get_task_detail` y `update_task` de 0037; `complete_task`,
+  `task_order` y `delete_task` de 0029; `fn_reorder_tasks` de 0006) y la policy de 0020, y quita el
+  CHECK y la columna. Solo se pierde `hidden_at`, que reaplicar 0039 recalcula. Las ocultas vuelven a
+  verse con su `"order"` congelado. La fila `0039` de `supabase_migrations.schema_migrations` no se
+  borra. **Orden LIFO:** `rollback_0039` → `rollback_0038` → `rollback_0037` → `rollback_0035`;
+  `rollback_0038` aborta mientras exista `task.hidden_at`.
+- **Tests:** `scripts/supabase/tests/task_hidden_check.sql` (H1–H12); rollback y reaplicación en
+  `task_hidden_rollback_check.sql` (RBH1–RBH5) y `task_hidden_reapply_check.sql` (RAH1–RAH3), que
+  `ci.sh` corre en una ida y vuelta por fuera de la de 0038; guarda LIFO en
+  `task_hidden_rollback_guard_check.sql` (G39-1); `contract_check.py` (bloque de ocultas, +32;
+  `CONTRACT_SCHEMA=pre-0039` para la BD revertida) y `cross_tenant_check.py` (+9 casos XH). iOS:
+  `TasksStoreHiddenTests`, `PendingOverlayTests` y `OutboxReplayerTests`.
+- **Despliegue:** `supabase/DEPLOY_0039.md` (solo BD; sin `functions deploy`).
+
 ## Feedback (`POST /feedback`, change control-ios-feedback)
 
 Ruta **aditiva** (D-008): fuera de las 43 rutas legacy y de `EXPECTED_CASES`. La app Control iOS la usa
@@ -618,7 +666,7 @@ python3 scripts/supabase/contract_check.py  # o --fn URL o SUPABASE_FUNCTIONS_UR
 Complementos sin oráculo: `scripts/supabase/tests/expected_shape_check.py`
 (forma esperada: `refresh_token`, `config` con flag `ALLOW_REGISTRATION`, Gemini 400, alta de
 usuarios; se ejecuta una vez por configuración de flag) y `scripts/supabase/tests/cross_tenant_check.py`
-(aislamiento entre tenants: 273 casos —`EXPECTED_CASES` en el script—, ids ajenos → `500 Not Found`, RPC directas
+(aislamiento entre tenants: 282 casos —`EXPECTED_CASES` en el script—, ids ajenos → `500 Not Found`, RPC directas
 `/rest/v1/rpc/*` con JWT ajeno sin fugas, owner vs viewer). Fixture:
 `scripts/supabase/fixture_two_families.py` (RLS).
 
@@ -638,14 +686,22 @@ stack Supabase local y efímero en `ubuntu-latest` y corre `scripts/supabase/ci.
    `acl_can_edit_check.sql` (`ok K1..K8`), `permisos_matriz_check.sql` (29 `ok M`: M1, M1b, M2..M27 y M8b),
    `client_request_check.sql` (`ok C1..C9`), `assistant_usage_check.sql` (`ok U1..U7`),
    `task_priority_check.sql` (`ok P1..P10`), `task_person_access_check.sql` (`ok A1..A9`),
+   `task_hidden_check.sql` (`ok H1..H12`),
    `feedback_trello_check.sql` (`ok B1..B8`, B7b dentro de B7) y `feedback_trigger_check.sql` (`ok F1..F12`). Los dos
    últimos reciben las migraciones y los rollbacks expandidos desde los marcadores
    `-- @MIGRATION:<fichero>@` / `-- @ROLLBACK:<fichero>@`; F10 usa un stub de `net.http_post` porque el
    stack local no instala `pg_net` (si estuviera, mira la cola real).
-5. `contract_check.py` completo (`532/532`: 502 + 30 de prioridad; `CONTRACT_ONLY` y `CONTRACT_SCHEMA` se anulan).
-6. `cross_tenant_check.py` (`273/273`; sale 1 si hay un fallo o si el número de casos no es
+5. `contract_check.py` completo (`564/564`: 502 + 30 de prioridad + 32 de ocultas; `CONTRACT_ONLY` y `CONTRACT_SCHEMA` se anulan).
+6. `cross_tenant_check.py` (`282/282`; sale 1 si hay un fallo o si el número de casos no es
    `EXPECTED_CASES`).
-7. Ida y vuelta exterior 0038 → `rollback_0038` → [la de 0037 de abajo] → 0038:
+7. Ida y vuelta exterior 0039 → `rollback_0039` → [la de 0038 de abajo] → 0039:
+   `task_hidden_rollback_check.sql` (`ok RBH1..RBH5`) y, sobre el esquema sin 0039, `P1..P10`, `A1..A9`,
+   `C1..C9`, `K1..K8` y `contract_check.py` en modo `CONTRACT_SCHEMA=pre-0039` (`532/532`); al salir,
+   `task_hidden_reapply_check.sql` (`ok RAH1..RAH3`), `H1..H12` y `contract_check.py` completo. Va por
+   fuera porque la de 0038/0037 reaplica `get_tasks`, `get_task_detail` y `update_task` sin el filtro.
+   Antes del paso 5, junto a `G0..G3` y `G38-1`, `task_hidden_rollback_guard_check.sql` (`ok G39-1`)
+   comprueba con 0039 aplicada que `rollback_0038` aborta sin tocar nada.
+   Dentro, la ida y vuelta 0038 → `rollback_0038` → [la de 0037 de abajo] → 0038:
    `task_person_access_rollback_check.sql` (`ok RB38-1..RB38-4`), `C1..C9`, `K1..K8` y `P1..P10` sobre
    el esquema sin 0038; al salir, `task_person_access_reapply_check.sql` (`ok RA38-1`), `A1..A9` y
    `contract_check.py` completo (antes se borran las filas de `client_request` de tareas que ya no

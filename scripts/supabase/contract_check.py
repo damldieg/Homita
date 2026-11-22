@@ -62,6 +62,14 @@ segundo lado con el que comparar. Este script fija el comportamiento documentado
 * `home_id` en `GET /person` (0038, change asignar-alta-lista, R1-02): `PERSON_ITEM` lleva `home_id`
   (aditivo, mismos casos). `CONTRACT_SCHEMA=pre-0038` (0037 aplicada, 0038 revertida por
   rollback_0038) y `pre-0037` lo quitan; `pre-0038` mantiene el bloque de prioridad (532 casos).
+* Bloque ocultas (0039, change ocultar-completadas-3-dias, D-025; `CASES_HIDDEN`):
+  `scenario_task_hidden` retrocede por psql `completed_at`/`hidden_at` (con la fórmula) y fija que una
+  completada hace 3 días o más no sale en `GET /task` (lista, todas, dashboard, sort=priority), que
+  una de −2 d 23 h sí, que `GET /task/detail` y las seis escrituras sobre la oculta dan 500
+  `{"error":"Not Found"}` (mismo cuerpo que una inexistente) sin tocar la fila, el recálculo al
+  re-completar, `hidden_at` null al descompletar, `task/order` con una oculta en la lista y
+  `pending_task_count`. Sin cambios en `TASK_ITEM` (A8). Solo con `CONTRACT_SCHEMA` vacío; en
+  `pre-0039` (0039 revertida por rollback_0039), `pre-0038` y `pre-0037` el bloque se salta.
 * `PSQL` (membresía del bloque viewer): comando psql completo contra la BD local; para el stack
   local `docker exec`: `PSQL="docker exec -i supabase_db_homita-api psql -U postgres -d postgres"`.
 
@@ -223,15 +231,21 @@ CASES_VALUES = 14 + 5
 CASES_END_DATE = 23 + 2 + 4
 # 0037 (prioridad-tarea): 28 en scenario_task_priority + 2 del viewer (create/update con priority → 403).
 # CONTRACT_SCHEMA=pre-0037 (BD revertida por rollback_0037): sin la clave ni el bloque → 502.
+# pre-0039 (0039 revertida por rollback_0039; 0038 y 0037 aplicadas): sin el bloque de ocultas → 532.
 CONTRACT_SCHEMA = os.environ.get("CONTRACT_SCHEMA", "")
-if CONTRACT_SCHEMA not in ("", "pre-0038", "pre-0037"):
-    sys.exit(f"CONTRACT_SCHEMA desconocido: {CONTRACT_SCHEMA!r} (vacío, pre-0038 o pre-0037)")
+if CONTRACT_SCHEMA not in ("", "pre-0039", "pre-0038", "pre-0037"):
+    sys.exit(f"CONTRACT_SCHEMA desconocido: {CONTRACT_SCHEMA!r} (vacío, pre-0039, pre-0038 o pre-0037)")
 PRIORITY = CONTRACT_SCHEMA != "pre-0037"
 # 0038: get_persons añade home_id; sin 0038 (pre-0038 o pre-0037) no llega la clave.
-PERSON_HOME = CONTRACT_SCHEMA == ""
+PERSON_HOME = CONTRACT_SCHEMA in ("", "pre-0039")
 CASES_PRIORITY = (28 + 2) if PRIORITY else 0
+# 0039 (ocultar-completadas-3-dias): 32 en scenario_task_hidden (desglose en su docstring); solo con
+# CONTRACT_SCHEMA vacío.
+HIDDEN = CONTRACT_SCHEMA == ""
+CASES_HIDDEN = 32 if HIDDEN else 0
 EXPECTED_CASES = (CASES_BASE + CASES_110 + CASES_115 + CASES_VALUES + CASES_END_DATE
-                  + CASES_PRIORITY)  # 351 + 34 + 69 + 19 + 29 = 502 (+ 30 con 0037 = 532)
+                  + CASES_PRIORITY + CASES_HIDDEN)  # 351 + 34 + 69 + 19 + 29 = 502 (+ 30 con 0037 = 532;
+                                                    # + 32 con 0039 = 564)
 
 
 def record(route, name, ok, detail=""):
@@ -1320,6 +1334,110 @@ def scenario_task_priority():
     request("DELETE", "/task-list/delete", {"id": lid}, tok)
 
 
+def scenario_task_hidden():
+    """0039 (ocultar-completadas-3-dias, D-025): 32 casos. Lista CC-Oculta (custom) con A, B y C;
+    A y B se completan por la Edge y se retroceden por psql (completed_at y hidden_at con la fórmula):
+    A a −3 d −1 min (oculta), B a −2 d 23 h (visible). Desglose: setup 6 (lista, 3 create, 2
+    complete), HC-GET-oculta 8 (lista, todas, dashboard, sort=priority: status + sin A),
+    HC-GET-reciente 1, HC-detail 2, HC-W1..W6 6 + fila intacta 1, HC-recompletar 2, HC-descompletar 2,
+    HC-orden 2, HC-lista 2."""
+    b = check("POST /task-list/create", "hidden: lista CC-Oculta",
+              request("POST", "/task-list/create", {"name": "CC-Oculta", "color": "#222222", "sort": "custom"}, tok),
+              201, TL_DETAIL)
+    lid = b.get("id") if isinstance(b, dict) else None
+    ids = {}
+    for key in ("A", "B", "C"):
+        b = check("POST /task/create", f"hidden: create {key}",
+                  request("POST", "/task/create", {"task_list_id": lid, "title": f"CC-Oculta-{key}"}, tok),
+                  201, TASK_ITEM)
+        ids[key] = b.get("id") if isinstance(b, dict) else None
+    ta, tb, tc = (int(ids[k] or 0) for k in ("A", "B", "C"))
+    for key, tid in (("A", ta), ("B", tb)):
+        check("PATCH /task/complete", f"hidden: complete {key} (200)",
+              request("PATCH", "/task/complete", {"id": tid, "completed": True}, tok), 200, TASK_ITEM)
+
+    def backdate(tid, delta):
+        psql(f"update task set completed_at = (now() at time zone 'UTC') - interval '{delta}', "
+             f"hidden_at = (((now() at time zone 'UTC') - interval '{delta}') + interval '3 days') at time zone 'UTC' "
+             f"where id = {tid}")
+
+    def row_md5(tid):
+        return psql(f"select md5(t::text) from task t where t.id = {tid}")
+
+    backdate(ta, "3 days 1 minute")
+    backdate(tb, "2 days 23 hours")
+
+    # HC-GET-oculta: A fuera de GET /task con cada filtro; forma [TASK_ITEM] sin cambios.
+    rows_list = []
+    for label, path in (("task_list_id", f"/task?task_list_id={lid}"), ("todas", "/task"),
+                        ("dashboard=true", "/task?dashboard=true"), ("sort=priority", "/task?sort=priority")):
+        res = request("GET", path, None, tok)
+        b = check("GET /task", f"hidden: GET /task {label} (200)", res, 200, [TASK_ITEM])
+        rows = b if isinstance(b, list) else []
+        if label == "task_list_id":
+            rows_list = rows
+        value("GET /task", f"hidden: GET /task {label} sin la oculta",
+              res[0] == 200 and all(x.get("id") != ta for x in rows), repr([x.get("id") for x in rows])[:300])
+    # HC-GET-reciente
+    value("GET /task", "hidden: B completada a −2 d 23 h sigue visible",
+          any(x.get("id") == tb and x.get("completed_at") for x in rows_list)
+          and any(x.get("id") == tc for x in rows_list), repr(rows_list)[:300])
+
+    # HC-detail: 500 Not Found, el mismo cuerpo que una inexistente.
+    res = request("GET", f"/task/detail?id={ta}", None, tok)
+    check("GET /task/detail", "hidden: GET /task/detail de la oculta → 500 Not Found", res, 500, ERR_NOT_FOUND)
+    missing = request("GET", "/task/detail?id=999999", None, tok)
+    value("GET /task/detail", "hidden: detail de la oculta = detail de una inexistente", res == missing,
+          f"{res!r} / {missing!r}"[:300])
+
+    # HC-W1..W6: ninguna escritura sobre la oculta; la fila no cambia.
+    snap = row_md5(ta)
+    writes = (
+        ("PATCH /task/complete", "complete false", "PATCH", "/task/complete", {"id": ta, "completed": False}),
+        ("PATCH /task/complete", "complete true", "PATCH", "/task/complete", {"id": ta, "completed": True}),
+        ("PATCH /task/update", "update", "PATCH", "/task/update", {"id": ta, "title": "CC-Oculta-X"}),
+        ("PATCH /task/update", "update con priority", "PATCH", "/task/update",
+         {"id": ta, "title": "CC-Oculta-X", "priority": "baja"}),
+        ("PATCH /task/order", "order", "PATCH", "/task/order", {"id": ta, "position": 0}),
+        ("DELETE /task/delete", "delete", "DELETE", "/task/delete", {"id": ta}),
+    )
+    for route, label, method, path, body in writes:
+        check(route, f"hidden: {label} sobre la oculta → 500 Not Found", request(method, path, body, tok),
+              500, ERR_NOT_FOUND)
+    after = row_md5(ta)
+    value("PATCH /task/update", "hidden: la fila oculta no cambió tras las 6 escrituras", snap and after == snap,
+          f"{snap} → {after}")
+
+    # HC-recompletar: completed_at nuevo y hidden_at = fórmula.
+    old = psql(f"select completed_at from task where id = {tb}")
+    check("PATCH /task/complete", "hidden: re-completar B (200)",
+          request("PATCH", "/task/complete", {"id": tb, "completed": True}, tok), 200, TASK_ITEM)
+    ok = psql(f"select completed_at > '{old}'::timestamp "
+              f"and hidden_at = (completed_at + interval '3 days') at time zone 'UTC' from task where id = {tb}")
+    value("PATCH /task/complete", "hidden: re-completar recalcula completed_at y hidden_at", ok == "t", ok)
+
+    # HC-descompletar
+    request("PATCH", "/task/complete", {"id": tc, "completed": True}, tok)
+    check("PATCH /task/complete", "hidden: descompletar C (200)",
+          request("PATCH", "/task/complete", {"id": tc, "completed": False}, tok), 200, TASK_ITEM)
+    ok = psql(f"select completed_at is null and hidden_at is null from task where id = {tc}")
+    value("PATCH /task/complete", "hidden: descompletar deja hidden_at null", ok == "t", ok)
+
+    # HC-orden: order con una oculta en la lista; el order de A no cambia.
+    order_a = psql(f"select \"order\" from task where id = {ta}")
+    check("PATCH /task/order", "hidden: order de C con una oculta en la lista (200)",
+          request("PATCH", "/task/order", {"id": tc, "position": 0}, tok), 200, TASK_ITEM)
+    now_a = psql(f"select \"order\" from task where id = {ta}")
+    value("PATCH /task/order", "hidden: el order de la oculta no cambia", now_a == order_a, f"{order_a} → {now_a}")
+
+    # HC-lista: pending_task_count (solo C pendiente; la oculta está completada).
+    b = check("GET /task-list", "hidden: GET /task-list (200)", request("GET", "/task-list", None, tok), 200, [TL_ITEM])
+    row = next((x for x in b if isinstance(x, dict) and x.get("id") == lid), {}) if isinstance(b, list) else {}
+    value("GET /task-list", "hidden: pending_task_count = 1 con una oculta", row.get("pending_task_count") == 1,
+          repr(row)[:300])
+    request("DELETE", "/task-list/delete", {"id": lid}, tok)
+
+
 def scenario_routine():
     start = (monday - datetime.timedelta(days=7)).isoformat()
     b = check("POST /routine/create", "escenario routine/create",
@@ -1642,6 +1760,8 @@ scenario_calendar()
 scenario_task_list()
 if PRIORITY:
     scenario_task_priority()
+if HIDDEN:
+    scenario_task_hidden()
 scenario_routine()
 scenario_event()
 scenario_home()
@@ -2956,7 +3076,8 @@ if len(results) != EXPECTED_CASES:
           f"de 1.8 + 39 del bloque 1.9 de configuración de permisos (3+8+15+7+6) + 34 del bloque "
           f"1.10 de contratos home (15+15+4) + 69 del bloque 1.15 de invitaciones "
           f"(3+8+19+7+19+11+2) + 19 de valores de can_edit (14) y app_user_id (5) + 29 de end_date"
-          f" + {CASES_PRIORITY} de prioridad (0037; CONTRACT_SCHEMA={CONTRACT_SCHEMA or 'actual'}))")
+          f" + {CASES_PRIORITY} de prioridad (0037) + {CASES_HIDDEN} de ocultas (0039);"
+          f" CONTRACT_SCHEMA={CONTRACT_SCHEMA or 'actual'})")
 fb_fails = fb_results.count(False)
 print(f"{len(fb_results) - fb_fails}/{len(fb_results)} casos feedback ok (esperados {FEEDBACK_EXPECTED})"
       f" · {len([r for r in FEEDBACK_ROUTES if r in covered_fb])}/{len(FEEDBACK_ROUTES)} ruta feedback")

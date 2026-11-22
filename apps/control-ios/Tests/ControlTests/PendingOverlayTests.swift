@@ -82,6 +82,27 @@ final class PendingOverlayTests: XCTestCase {
         XCTAssertEqual(result.lists.first?.pendingTaskCount, 1, "no suma la fila que el servidor ya contó")
     }
 
+    // MARK: - 0039 (D-025): tareas ocultas que el servidor ya no trae
+
+    func testUpdateAndCompleteOfHiddenTaskDoNotReintroduceIt() {
+        // La tarea 9 se ocultó: el servidor solo trae la 7 y la cola tiene ops sobre la 9.
+        let result = apply([
+            .updateTask(ref: .remote(9), listRef: .remote(2), title: "Pan", personIds: nil),
+            .completeTask(ref: .remote(9), listRef: .remote(2), completed: false),
+            .completeTask(ref: .remote(9), listRef: .remote(2), completed: true)
+        ])
+        XCTAssertEqual(result.tasks, [milk], "no se reintroduce una fila que el servidor no trae")
+        XCTAssertTrue(result.pendingTaskIds.isEmpty, "ni se marca pendiente")
+        XCTAssertEqual(result.lists.first?.pendingTaskCount, 1, "el recuento de la lista no cambia")
+    }
+
+    func testDeleteOfHiddenTaskKeepsCounts() {
+        let result = apply([.deleteTask(ref: .remote(9), listRef: .remote(2))])
+        XCTAssertEqual(result.tasks, [milk])
+        XCTAssertTrue(result.pendingTaskIds.isEmpty)
+        XCTAssertEqual(result.lists.first?.pendingTaskCount, 1, "un delete de un id ausente no toca el recuento")
+    }
+
     func testUpdateOfLocalListRenamesItsTasks() throws {
         let result = apply([
             .updateList(ref: .remote(2), name: "Súper", color: "#000000", sort: "title", widget: true, dashboard: true)

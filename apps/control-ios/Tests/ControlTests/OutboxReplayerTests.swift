@@ -210,6 +210,40 @@ final class OutboxReplayerTests: XCTestCase {
         XCTAssertEqual(outbox.notices.map(\.message), ["No se pudo sincronizar «Pan»: ya no existe."])
     }
 
+    /// 0039 (D-025): un complete sobre una tarea oculta responde 500 «Not Found», igual que una
+    /// inexistente: se descarta con sus dependientes (no bloquea la cola) y avisa «ya no existe».
+    func testCompleteOfHiddenTaskDiscardsWithDependentsAndNotice() async {
+        let replayer = makeReplayer(["task/complete": StubURLProtocol.Stub(status: 500, json: #"{"error":"Not Found"}"#)])
+        let outbox = makeOutbox([
+            .completeTask(ref: .remote(7), listRef: .remote(2), completed: false),
+            .updateTask(ref: .remote(7), listRef: .remote(2), title: "Pan", personIds: nil),
+            .deleteTask(ref: .remote(9), listRef: .remote(2))
+        ])
+        let summary = await replayer.replay(outbox)
+        XCTAssertEqual(summary, ReplaySummary(acked: 1, discarded: 1, stop: .drained))
+        XCTAssertEqual(routes, ["task/complete", "task/delete"], "el update de la oculta se descarta en cascada")
+        XCTAssertTrue(outbox.isEmpty)
+        XCTAssertEqual(outbox.notices.count, 1)
+        XCTAssertTrue(outbox.notices[0].message.hasSuffix(": ya no existe."))
+    }
+
+    /// 0039: update de una oculta (500 «Not Found») → descarte en cascada; el delete posterior de
+    /// otra oculta (también «Not Found») cuenta como confirmado sin aviso.
+    func testUpdateAndDeleteOfHiddenTasks() async {
+        let notFound = StubURLProtocol.Stub(status: 500, json: #"{"error":"Not Found"}"#)
+        let replayer = makeReplayer(["task/update": notFound, "task/delete": notFound])
+        let outbox = makeOutbox([
+            .updateTask(ref: .remote(7), listRef: .remote(2), title: "Pan", personIds: nil),
+            .completeTask(ref: .remote(7), listRef: .remote(2), completed: true),
+            .deleteTask(ref: .remote(9), listRef: .remote(2))
+        ])
+        let summary = await replayer.replay(outbox)
+        XCTAssertEqual(summary, ReplaySummary(acked: 1, discarded: 1, stop: .drained))
+        XCTAssertEqual(routes, ["task/update", "task/delete"])
+        XCTAssertTrue(outbox.isEmpty)
+        XCTAssertEqual(outbox.notices.map(\.message), ["No se pudo sincronizar «Pan»: ya no existe."])
+    }
+
     func testOwnerOnlyDiscardsWithNotice() async {
         let replayer = makeReplayer(["task-list/update": StubURLProtocol.Stub(status: 403, json: #"{"error":"Not Allowed"}"#)])
         let outbox = makeOutbox([
