@@ -10,8 +10,23 @@
 -- (o un pg_dump). Restaurar = UPDATE manual tras reaplicar 0037.
 -- Orden en prod (N3): 1) Edge anterior (deja de enviar p_priority/p_sort), 2) export, 3) este script.
 -- supabase_migrations.schema_migrations: la fila '0037' no se borra aquí (mismo criterio que 0035).
+-- SOLO SIN 0038 (orden LIFO 0038 → 0037 → 0035, change asignar-alta-lista): con 0038 aplicada, el drop
+-- de create_task de 5 argumentos se llevaría en silencio la guarda de acceso a la lista. Revertir antes
+-- 0038 (rollback_0038.sql). La guarda del principio aborta la transacción si create_task contiene el
+-- marcador `0038:`; si la firma de 5 argumentos ya no existe, no salta (sigue siendo idempotente).
 
 begin;
+
+do $$
+begin
+    -- IF anidados: el cast ::regprocedure de una constante falla al preparar la expresión si la firma no
+    -- existe (AND no cortocircuita ahí); solo se evalúa cuando to_regprocedure confirma la firma.
+    if to_regprocedure('public.create_task(bigint,text,jsonb,uuid,text)') is not null then
+        if pg_get_functiondef('public.create_task(bigint,text,jsonb,uuid,text)'::regprocedure) like '%0038:%' then
+            raise exception 'rollback_0037: 0038 está aplicada; revertir antes 0038 (rollback_0038.sql, orden LIFO)';
+        end if;
+    end if;
+end $$;
 
 drop function if exists get_tasks(boolean, bigint, boolean, text, text);
 drop function if exists create_task(bigint, text, jsonb, uuid, text);

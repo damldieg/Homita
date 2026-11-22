@@ -37,9 +37,12 @@ public final class InicioStore: MainActorWriteFailureReporting {
     /// Cola offline del hogar (nil = sin offline, comportamiento previo).
     @ObservationIgnored public let outbox: OutboxStore?
     @ObservationIgnored private let coordinator: TaskWriteCoordinator?
+    /// Personas asignables en el alta rápida (0038: con cuenta y acceso a la lista).
+    @ObservationIgnored public let assignees: TaskAssigneeLoader
 
     public init(events: EventRepository, tasks: TaskRepository, routines: RoutineRepository,
-                taskLists: TaskListRepository, clock: @escaping () -> LocalClock = { LocalClock() },
+                taskLists: TaskListRepository, persons: PersonRepository? = nil,
+                clock: @escaping () -> LocalClock = { LocalClock() },
                 outbox: OutboxStore? = nil, isOnline: @escaping @MainActor () -> Bool = { !DataFreshness.shared.isOffline }) {
         self.eventsRepo = events
         self.tasksRepo = tasks
@@ -48,6 +51,8 @@ public final class InicioStore: MainActorWriteFailureReporting {
         self.clock = clock
         self.outbox = outbox
         self.coordinator = outbox.map { TaskWriteCoordinator(outbox: $0, tasks: tasks, taskLists: taskLists, isOnline: isOnline) }
+        self.assignees = TaskAssigneeLoader(persons: persons, taskLists: taskLists, outbox: outbox)
+        assignees.onError = { [weak self] error in self?.errorMessage = self?.message(error) }
     }
 
     // MARK: - Overlay
@@ -289,18 +294,33 @@ public final class InicioStore: MainActorWriteFailureReporting {
         }
     }
 
-    /// Alta rápida de tarea desde Inicio. Devuelve si se creó (el editor solo se cierra entonces).
+    /// Personas asignables al crear en `listId` (0038). En una lista local, la del usuario de la cola.
+    public func assignablePersons(listId: Int) -> [PersonEntry] {
+        assignees.assignable(listId: listId, currentUserId: outbox?.userId,
+                             homeId: assignees.homeId(listId: listId, lists: serverTaskLists, fallbackHomeId: outbox.flatMap { Int($0.homeId) }))
+    }
+
+    /// Carga lo que necesita `assignablePersons` para `listId`. Devuelve si hay roster para podar.
     @discardableResult
-    public func createTask(title: String, listId: Int, priority: TaskPriority? = nil) async -> Bool {
+    public func loadAssignable(listId: Int) async -> Bool {
+        await assignees.load(listId: listId)
+    }
+
+    /// Alta rápida de tarea desde Inicio. Devuelve si se creó (el editor solo se cierra entonces).
+    /// `personIds` vacío se trata como nil: sin selección no se envía la clave (AC-2).
+    @discardableResult
+    public func createTask(title: String, listId: Int, personIds: [Int]? = nil, priority: TaskPriority? = nil) async -> Bool {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
+        let personIds = personIds?.isEmpty == true ? nil : personIds
         guard let coordinator, let outbox else {
             return await performWrite { store in
-                _ = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed, priority: priority?.rawValue))
+                _ = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed, person_ids: personIds,
+                                                                       priority: priority?.rawValue))
                 await store.loadTasks()
             }
         }
-        let op = coordinator.makeOp(.createTask(local: outbox.makeLocalId(), listRef: ref(for: listId), title: trimmed, personIds: nil,
+        let op = coordinator.makeOp(.createTask(local: outbox.makeLocalId(), listRef: ref(for: listId), title: trimmed, personIds: personIds,
                                                 priority: priority?.rawValue))
         return await performWrite { store in
             guard let coordinator = store.coordinator else { return }

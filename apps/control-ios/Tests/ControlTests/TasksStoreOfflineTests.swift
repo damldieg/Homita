@@ -350,4 +350,22 @@ final class TasksStoreOfflineTests: XCTestCase {
         await store.loadTasks()
         XCTAssertEqual(store.pendingTaskPages.flatMap(\.tasks).map(\.title), ["Leche"], "la recarga no pisa el overlay")
     }
+
+    // MARK: - 0038 (AC-5)
+
+    func testOfflineCreateWithPersonsKeepsThemInTheOp() async throws {
+        let network = Network()
+        let (store, outbox, _) = await loaded(network: network)
+        network.online = false
+        let created = await store.createTask(title: "Pan", listId: 2, personIds: [1, 2])
+        XCTAssertTrue(created)
+        guard case .createTask(_, _, let title, let personIds, _)? = outbox.ops.first?.kind else {
+            return XCTFail("se encola un create")
+        }
+        XCTAssertEqual(title, "Pan")
+        XCTAssertEqual(personIds, [1, 2])
+        XCTAssertEqual(outbox.pendingCount, 1)
+        XCTAssertEqual(store.tasks.filter { $0.title == "Pan" }.count, 1, "una sola tarea en el overlay")
+        XCTAssertTrue(StubURLProtocol.requests.isEmpty)
+    }
 }

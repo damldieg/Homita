@@ -16,6 +16,11 @@ struct TaskEditorView: View {
     let onDelete: (() -> Void)?
     /// Permisos de la lista de la tarea (la tarea hereda el ACL de su lista). Solo en edición.
     let access: TaskListAccess?
+    /// Personas asignables al crear en una lista (0038: con cuenta y acceso). nil = `persons` tal cual.
+    let assignable: ((Int) -> [PersonEntry])?
+    /// Carga lo que necesita `assignable` para una lista (se llama al elegir lista). Devuelve si la
+    /// carga dejó roster (personas y miembros); si no, la selección no se poda.
+    let loadAssignable: ((Int) async -> Bool)?
 
     @Environment(\.dismiss) private var dismiss
     @State private var title: String
@@ -33,10 +38,14 @@ struct TaskEditorView: View {
         task: TaskEntry?,
         writeFailure: Binding<WriteFailure?>,
         access: TaskListAccess? = nil,
+        assignable: ((Int) -> [PersonEntry])? = nil,
+        loadAssignable: ((Int) async -> Bool)? = nil,
         onSave: @escaping (String, Int, [Int], TaskPriority) async -> Bool,
         onDelete: (() -> Void)? = nil
     ) {
         self.access = access
+        self.assignable = assignable
+        self.loadAssignable = loadAssignable
         self.taskLists = taskLists
         self.persons = persons
         self.task = task
@@ -52,6 +61,19 @@ struct TaskEditorView: View {
     /// Sin listas no hay dónde crear la tarea: en alta hace falta al menos una lista.
     private var hasTarget: Bool {
         task != nil || !taskLists.isEmpty
+    }
+
+    /// El selector se filtra en el alta y al editar una tarea aún local: el update se funde en el
+    /// create pendiente (`OutboxCompactor`) y para el servidor será un `create_task`. En la edición
+    /// de una tarea remota se ofrecen todas (`update_task` no restringe, P-2/AC-6).
+    private var filtersAssignees: Bool {
+        assignable != nil && (task == nil || (task?.id ?? 0) < 0)
+    }
+
+    /// Personas que ofrece el selector.
+    private var selectablePersons: [PersonEntry] {
+        guard filtersAssignees, let assignable else { return persons }
+        return assignable(listId)
     }
 
     private var canSave: Bool {
@@ -86,7 +108,10 @@ struct TaskEditorView: View {
                 HomitaSegmented(selection: $priority, items: TaskPriority.allCases.map { (id: $0, title: $0.label) })
                     .accessibilityIdentifier("tarea.prioridad")
             }
-            PersonSelector(persons: persons, selected: $personIds)
+            PersonSelector(
+                persons: selectablePersons, selected: $personIds,
+                emptyText: filtersAssignees ? "Nadie con cuenta y acceso a esta lista para asignar." : nil
+            )
             if task != nil, let access {
                 MembersSection(rows: access.rows, isOwner: access.isOwner, onSetAccess: access.onSetAccess,
                                showsInvites: false, onInvite: { _ in }, onRemove: { _ in })
@@ -107,6 +132,13 @@ struct TaskEditorView: View {
         // «Reintentar» que va bien cierra el editor, igual que un guardado correcto.
         .writeFailureToast($writeFailure) { dismiss() }
         .navigationTitle(task == nil ? "Nueva tarea" : "Editar tarea")
+        // Al elegir (o cambiar) de lista: carga sus asignables y quita de la selección las que no lo son.
+        // Sin roster (sin conexión y sin caché) no se poda: decide el servidor o el replay (R1-03).
+        .task(id: listId) {
+            guard filtersAssignees, let assignable else { return }
+            let rosterLoaded = await loadAssignable?(listId) ?? false
+            personIds = TaskAssignees.prune(selected: personIds, assignable: assignable(listId), rosterLoaded: rosterLoaded)
+        }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancelar") { dismiss() }

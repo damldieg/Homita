@@ -102,6 +102,8 @@ public enum APIError: Error, Equatable {
             case "User cannot remove themselves": return "No puedes quitarte a ti mismo"
             case "Email already exists": return "Ese email ya está registrado"
             case "Invalid member": return "Tipo de miembro no válido"
+            // 0038: alguna persona no tiene cuenta o acceso a la lista de la tarea.
+            case "Invalid person": return "Alguna persona elegida no se puede asignar en esta lista"
             case "Name is required (max 50 characters)": return "El nombre es obligatorio (máx. 50 caracteres)"
             case "Color must be #RRGGBB": return "El color debe ser #RRGGBB"
             case "Member ID is required": return "Falta el identificador del miembro"

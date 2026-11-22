@@ -18,6 +18,11 @@ Regresión H0 (h0-hotfix-fuga-rpc): F1–F4 fuga cross-tenant de personas por es
 con `p_person_ids` de B, V1–V4/V1b/V2b validación de título/fecha en la RPC, P1/N1 positivos (persona
 de co-miembro y `p_person_ids = null` sin cambios).
 
+Acceso a la lista al crear (0038, asignar-alta-lista): XT-AL1 persona de home(A) con la cuenta de B y
+ACL en la lista compartida → 201 con la persona; XT-AL2 la misma persona en una lista sin ACL de B →
+400 `Invalid person` sin tarea; XT-AL3 persona sin cuenta → 400; XT-AL4 lo mismo con
+`client_request_id` → 400 y el reenvío con la misma clave sin la persona → 201 y una sola tarea.
+
 Miembros (1.5, plan §8.2): K8 cabecera X-Home-Id ajena en PATCH /home/member/update → 404, K11 baja
 soft conserva el histórico (update_event con la misma lista → 200) y K12 asignación nueva de un
 inactivo → 400 Invalid person; K20 usuario C con snapshot `adult` de member_kind_default (18
@@ -83,6 +88,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 
 URL = os.environ.get("SUPABASE_URL", "http://127.0.0.1:54321").rstrip("/")
 FN = os.environ.get("SUPABASE_FUNCTIONS_URL", URL + "/functions/v1/api").rstrip("/")
@@ -283,7 +289,7 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 269  # 266 + 3 de prioridad (0037)
+EXPECTED_CASES = 273  # 266 + 3 de prioridad (0037) + 4 XT-AL de acceso a la lista (0038)
 A12_ITERS = int(os.environ.get("A12_ITERS", "20"))
 # F1_ITERS: carreras de solape real por bloque F1/F2 (R1-06; el solape expone el 40P01 de 0020)
 F1_ITERS = int(os.environ.get("F1_ITERS", "10"))
@@ -677,6 +683,49 @@ check("viewer con can_edit POST /task/create en la lista compartida → 200 (A8:
       edge("POST", "/task/create", {"task_list_id": lst, "title": "XT-Tarea B"}, b_tok)[0] in (200, 201))
 check("viewer GET /task-list/detail del compartido → 200",
       edge("GET", f"/task-list/detail?id={lst}", None, b_tok)[0] == 200)
+
+# ── XT-AL (0038, asignar-alta-lista): al crear, solo personas con cuenta y acceso a la lista ──
+# psql (normal): persona de home(A) vinculada a la cuenta de B (B ya es miembro de home(A) y viewer de
+# `lst`). A crea una segunda lista XT-Lista-AL sin ACL de B. `per` (XT-Persona) no tiene cuenta. Las
+# filas se borran al final del bloque (person → trigger 0014c borra su home_member).
+al_per = int(psql(f"""
+with hm as (
+    insert into home_member (home_id, kind, name, color, app_user_id, status, created_by)
+    values ({home_a}, 'adult', 'XT-AL-B', '#5A5A5A', {b_id}, 'active', {a_id}) returning id
+)
+insert into person (user_id, home_id, home_member_id, name, color)
+select {a_id}, {home_a}, hm.id, 'XT-AL-B', '#5A5A5A' from hm returning id;
+"""))
+lst_al = parse(edge("POST", "/task-list/create",
+                    {"name": "XT-Lista-AL", "color": "#2A2A2A", "sort": "title"}, a_tok)[1])["id"]
+
+
+def al_titles(list_id, title):
+    rows = parse(request(URL, "GET", f"/rest/v1/task?task_list_id=eq.{list_id}&title=eq.{title}&select=id",
+                         None, None, apikey=SVC)[1])
+    return len(rows) if isinstance(rows, list) else -1
+
+
+res = edge("POST", "/task/create", {"task_list_id": lst, "title": "XT-AL1", "person_ids": [al_per]}, a_tok)
+body = parse(res[1])
+check("XT-AL1 A crea en la lista compartida asignando a la persona de B (cuenta + ACL) → 201 con la persona",
+      res[0] in (200, 201) and isinstance(body, dict)
+      and any(p.get("id") == al_per for p in body.get("persons") or []), repr(res)[:200])
+res = edge("POST", "/task/create", {"task_list_id": lst_al, "title": "XT-AL2", "person_ids": [al_per]}, a_tok)
+check("XT-AL2 persona con cuenta sin ACL en la lista → 400 Invalid person y sin tarea",
+      res == (400, '{"error":"Invalid person"}') and al_titles(lst_al, "XT-AL2") == 0, repr(res)[:200])
+res = edge("POST", "/task/create", {"task_list_id": lst, "title": "XT-AL3", "person_ids": [per]}, a_tok)
+check("XT-AL3 persona sin cuenta → 400 Invalid person y sin tarea",
+      res == (400, '{"error":"Invalid person"}') and al_titles(lst, "XT-AL3") == 0, repr(res)[:200])
+al_key = str(uuid.uuid4())
+r1 = edge("POST", "/task/create", {"task_list_id": lst_al, "title": "XT-AL4", "person_ids": [al_per],
+                                   "client_request_id": al_key}, a_tok)
+r2 = edge("POST", "/task/create", {"task_list_id": lst_al, "title": "XT-AL4", "client_request_id": al_key}, a_tok)
+check("XT-AL4 con client_request_id → 400; reenvío con la misma clave sin la persona → 201 y una sola tarea",
+      r1 == (400, '{"error":"Invalid person"}') and r2[0] in (200, 201) and al_titles(lst_al, "XT-AL4") == 1,
+      repr((r1, r2))[:300])
+psql(f"delete from person where id = {al_per};")
+edge("DELETE", "/task-list/delete", {"id": lst_al}, a_tok)
 
 # ── Fase 2b (1.4, plan §7.2 X1–X15): rutas /home/* y contexto X-Home-Id ──
 # A crea un hogar propio extra (XT-Otro, POST /home/create) que B no debe ver: para B es

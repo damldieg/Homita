@@ -121,4 +121,13 @@ final class OutboxCompactorTests: XCTestCase {
         ], idMap: [-1: 40])
         XCTAssertEqual(queue.map(\.kind), [.deleteList(ref: .remote(40))])
     }
+
+    /// 0038: editar una tarea aún local con personas las lleva al create (lo que verá `create_task`).
+    func testUpdateOverPendingCreateCarriesNewPersons() {
+        let queue = enqueue([
+            .createTask(local: -1, listRef: .remote(2), title: "Leche", personIds: nil),
+            .updateTask(ref: .local(-1), listRef: .remote(2), title: "Leche", personIds: [3, 4])
+        ])
+        XCTAssertEqual(queue.map(\.kind), [.createTask(local: -1, listRef: .remote(2), title: "Leche", personIds: [3, 4])])
+    }
 }

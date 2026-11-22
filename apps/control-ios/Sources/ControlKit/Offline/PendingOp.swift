@@ -10,6 +10,10 @@ public struct PendingOp: Codable, Equatable, Identifiable, Sendable {
     /// Intentos fallidos por red o 5xx (diagnóstico; no hay descarte automático, A7).
     public var attempts: Int
     public var kind: Kind
+    /// Personas quitadas por el replay (0038, P-4 b) cuyo aviso sigue pendiente: lo emite el ack que
+    /// confirme la op, aunque llegue en otra pasada tras un reintento. nil = sin aviso; `[]` = aviso
+    /// sin nombres conocidos («una persona»). Opcional en disco: las colas antiguas siguen leyéndose.
+    public var removedAssignees: [String]?
 
     /// Operación. Las de tarea guardan su `listRef`: hace falta para anularlas al borrar la lista.
     /// `priority` (0037) es opcional: nil = no se envía (create → `media`, update → conserva). El
@@ -25,12 +29,14 @@ public struct PendingOp: Codable, Equatable, Identifiable, Sendable {
         case deleteList(ref: Ref)
     }
 
-    public init(id: UUID = UUID(), createdAt: Date = Date(), homeId: String, attempts: Int = 0, kind: Kind) {
+    public init(id: UUID = UUID(), createdAt: Date = Date(), homeId: String, attempts: Int = 0, kind: Kind,
+                removedAssignees: [String]? = nil) {
         self.id = id
         self.createdAt = createdAt
         self.homeId = homeId
         self.attempts = attempts
         self.kind = kind
+        self.removedAssignees = removedAssignees
     }
 
     /// `client_request_id` que viaja en los creates (UUID en minúsculas).

@@ -56,15 +56,23 @@ public struct ReplaySummary: Equatable, Sendable {
 /// guarda en la propia `OutboxStore` (no en el replayer), así que una segunda llamada mientras hay otra
 /// en curso espera a la misma pasada aunque venga de otro replayer (UI y `BackgroundRefresh`, R1-02). Para en el primer error de red o 5xx (la op
 /// y el resto se conservan, Q11) y en una sesión caducada (se conserva todo, R1); los 4xx descartan
-/// la op con sus dependientes y dejan un aviso. Se cancela de forma cooperativa entre ops.
+/// la op con sus dependientes y dejan un aviso. Excepción (0038, P-4 b): un 400 `Invalid person` en
+/// un create de tarea con personas no descarta la op; se reescribe con las personas que siguen siendo
+/// asignables según el roster fresco (y, si el servidor vuelve a rechazarla, sin personas), se reenvía
+/// con la misma clave y se confirma con un aviso. Se cancela de forma cooperativa entre ops.
 @MainActor
 public final class OutboxReplayer {
     private let sender: OutboxSender
+    private let taskLists: TaskListRepository
+    private let persons: PersonRepository?
     private let isOnline: @MainActor () -> Bool
 
-    public init(tasks: TaskRepository, taskLists: TaskListRepository,
+    /// `persons` habilita la reasignación de P-4; sin él, un `Invalid person` descarta como cualquier 4xx.
+    public init(tasks: TaskRepository, taskLists: TaskListRepository, persons: PersonRepository? = nil,
                 isOnline: @escaping @MainActor () -> Bool = { !DataFreshness.shared.isOffline }) {
         self.sender = OutboxSender(tasks: tasks, taskLists: taskLists)
+        self.taskLists = taskLists
+        self.persons = persons
         self.isOnline = isOnline
     }
 
@@ -131,40 +139,158 @@ public final class OutboxReplayer {
             outbox.beginFlight(op.id)
             do {
                 let remoteId = try await sender.send(op, idMap: outbox.idMap)
-                outbox.ack(op.id, remoteId: remoteId)
+                // Un aviso de P-4 de una pasada anterior (reintento tras reescribir) se emite aquí.
+                outbox.ack(op.id, remoteId: remoteId, notice: Self.pendingAssigneeNotice(op))
                 summary.acked += 1
-            } catch OutboxSender.SendError.unresolvedRef {
-                // Su create ya no está (se descartó): no hay nada que enviar.
-                outbox.discard(op.id, dependents: Self.target(of: op.kind).map { [$0] } ?? [])
-                summary.discarded += 1
-            } catch let error as APIError {
-                switch Self.disposition(for: error, kind: op.kind) {
-                case .ack:
-                    outbox.ack(op.id)
-                    summary.acked += 1
-                case .discard(let cascade):
-                    let dependents = cascade ? (Self.target(of: op.kind).map { [$0] } ?? []) : []
-                    outbox.discard(op.id, dependents: dependents, notice: Self.notice(for: op.kind, error: error))
-                    summary.discarded += 1
-                case .pause:
-                    outbox.endFlight()
-                    summary.stop = .sessionExpired
-                    return summary
-                case .retry:
-                    outbox.endFlight()
-                    outbox.recordAttempt(op.id)
-                    summary.stop = .retryable
+            } catch let error as APIError where persons != nil && Self.isInvalidPerson(error) && Self.assignedPersons(op.kind) != nil {
+                if let stop = await reassign(op, in: outbox, summary: &summary) {
+                    summary.stop = stop
                     return summary
                 }
             } catch {
-                outbox.endFlight()
-                outbox.recordAttempt(op.id)
-                summary.stop = .retryable
-                return summary
+                if let stop = Self.handle(error, op: op, in: outbox, summary: &summary) {
+                    summary.stop = stop
+                    return summary
+                }
             }
         }
         summary.stop = .drained
         return summary
+    }
+
+    /// Aplica la disposición de un error a la op. Devuelve el motivo de parada o nil para seguir.
+    private static func handle(_ error: Error, op: PendingOp, in outbox: OutboxStore, summary: inout ReplaySummary) -> ReplaySummary.Stop? {
+        if let sendError = error as? OutboxSender.SendError, sendError == .unresolvedRef {
+            // Su create ya no está (se descartó): no hay nada que enviar.
+            outbox.discard(op.id, dependents: target(of: op.kind).map { [$0] } ?? [])
+            summary.discarded += 1
+            return nil
+        }
+        guard let error = error as? APIError else {
+            outbox.endFlight()
+            outbox.recordAttempt(op.id)
+            return .retryable
+        }
+        switch disposition(for: error, kind: op.kind) {
+        case .ack:
+            outbox.ack(op.id)
+            summary.acked += 1
+            return nil
+        case .discard(let cascade):
+            let dependents = cascade ? (target(of: op.kind).map { [$0] } ?? []) : []
+            outbox.discard(op.id, dependents: dependents, notice: notice(for: op.kind, error: error))
+            summary.discarded += 1
+            return nil
+        case .pause:
+            outbox.endFlight()
+            return .sessionExpired
+        case .retry:
+            outbox.endFlight()
+            outbox.recordAttempt(op.id)
+            return .retryable
+        }
+    }
+
+    // MARK: - 0038: personas sin acceso al reproducir (P-4 b)
+
+    /// 400 `Invalid person` (0038): alguna persona no tiene cuenta o acceso a la lista.
+    static func isInvalidPerson(_ error: APIError) -> Bool {
+        if case .http(400, "Invalid person") = error { return true }
+        return false
+    }
+
+    /// Personas de un create de tarea; nil si no es un create de tarea o no lleva personas.
+    static func assignedPersons(_ kind: PendingOp.Kind) -> [Int]? {
+        guard case .createTask(_, _, _, let personIds?, _) = kind, !personIds.isEmpty else { return nil }
+        return personIds
+    }
+
+    /// Misma op con otras personas (nil o vacío = sin la clave). Conserva temporal, lista, título y prioridad.
+    static func replacingPersons(_ kind: PendingOp.Kind, with personIds: [Int]?) -> PendingOp.Kind {
+        guard case .createTask(let local, let listRef, let title, _, let priority) = kind else { return kind }
+        return .createTask(local: local, listRef: listRef, title: title,
+                           personIds: personIds?.isEmpty == true ? nil : personIds, priority: priority)
+    }
+
+    /// Escalera de P-4 para un create rechazado por `Invalid person`: roster fresco (`GET person` y
+    /// `GET task-list/user`), reenvío con las asignables y, si se vuelve a rechazar, sin personas. La op
+    /// reescrita se guarda en disco antes de cada reenvío; la clave es la misma porque el 400 no deja
+    /// fila en `client_request`. La tarea nunca se descarta por las personas. Devuelve el motivo de
+    /// parada o nil para seguir con la cola.
+    private func reassign(_ op: PendingOp, in outbox: OutboxStore, summary: inout ReplaySummary) async -> ReplaySummary.Stop? {
+        guard let persons, let original = Self.assignedPersons(op.kind),
+              case .createTask(_, let listRef, let title, _, _) = op.kind,
+              let listId = listRef.resolved(with: outbox.idMap) else {
+            return Self.handle(APIError.http(status: 400, message: "Invalid person"), op: op, in: outbox, summary: &summary)
+        }
+        // Roster fresco. Red o 5xx: se conserva la op y se reintenta; sesión caducada: pausa. Otro
+        // 4xx (p. ej. la lista ya no es visible): sin roster, se pasa al último escalón.
+        var roster: [PersonEntry] = []
+        var kept: [Int] = []
+        do {
+            roster = try await persons.index()
+            let members = try await taskLists.users(taskListId: listId)
+            // La cola es de un hogar: la lista es de ese hogar y solo valen sus personas.
+            kept = TaskAssignees.split(personIds: original, persons: roster, members: members,
+                                       homeId: Int(op.homeId)).kept
+        } catch let error as APIError {
+            switch Self.disposition(for: error, kind: op.kind) {
+            case .pause, .retry:
+                return Self.handle(error, op: op, in: outbox, summary: &summary)
+            case .ack, .discard:
+                kept = []
+            }
+        } catch {
+            return Self.handle(error, op: op, in: outbox, summary: &summary)
+        }
+        // Escalones: las asignables (si cambian algo) y, como último, ninguna.
+        var steps: [[Int]] = []
+        if !kept.isEmpty && kept != original { steps.append(kept) }
+        steps.append([])
+        var current = op
+        for (index, step) in steps.enumerated() {
+            let removed = original.filter { !step.contains($0) }
+            let names = removed.compactMap { id in roster.first { $0.id == id }?.name }
+            // Los nombres quitados se guardan con la op reescrita (sumados a los de pasadas previas):
+            // si este reenvío reintenta, el ack de la pasada siguiente emite el aviso.
+            var pending = op.removedAssignees ?? []
+            for name in names where !pending.contains(name) { pending.append(name) }
+            current.kind = Self.replacingPersons(op.kind, with: step)
+            current.removedAssignees = pending
+            outbox.replaceKind(op.id, with: current.kind, removedAssignees: pending)
+            do {
+                let remoteId = try await sender.send(current, idMap: outbox.idMap)
+                outbox.ack(op.id, remoteId: remoteId, notice: Self.assigneeNotice(title: title, removedNames: pending))
+                summary.acked += 1
+                return nil
+            } catch let error as APIError where Self.isInvalidPerson(error) && index < steps.count - 1 {
+                continue
+            } catch {
+                return Self.handle(error, op: current, in: outbox, summary: &summary)
+            }
+        }
+        return nil
+    }
+
+    /// Aviso pendiente de P-4 guardado en la op (`removedAssignees`); nil si no hay.
+    static func pendingAssigneeNotice(_ op: PendingOp) -> String? {
+        guard let names = op.removedAssignees, case .createTask(_, _, let title, _, _) = op.kind else { return nil }
+        return assigneeNotice(title: title, removedNames: names)
+    }
+
+    /// Aviso de una tarea confirmada sin alguna persona asignada (0038). Sin nombres conocidos, «una persona».
+    static func assigneeNotice(title: String, removedNames: [String]) -> String {
+        guard !removedNames.isEmpty else {
+            return "«\(title)» se sincronizó sin asignar a una persona: ya no tiene acceso a la lista."
+        }
+        let names: String
+        if removedNames.count == 1 {
+            names = removedNames[0]
+        } else {
+            names = removedNames.dropLast().joined(separator: ", ") + " y " + removedNames[removedNames.count - 1]
+        }
+        let verb = removedNames.count == 1 ? "tiene" : "tienen"
+        return "«\(title)» se sincronizó sin asignar a \(names): ya no \(verb) acceso a la lista."
     }
 
     /// Recurso del que dependen las ops posteriores (los creates ya arrastran su temporal).

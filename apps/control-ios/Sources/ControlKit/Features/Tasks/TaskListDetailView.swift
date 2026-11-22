@@ -9,6 +9,8 @@ struct TaskListDetailView: View {
 
     @Environment(SessionStore.self) private var session
     @State private var newTaskTitle = ""
+    /// Personas elegidas en el alta inline (0038); se limpia al crear.
+    @State private var newTaskPersonIds: [Int] = []
     @State private var pendingTaskDelete: [TaskEntry] = []
     @State private var showTaskDelete = false
     @State private var showCompletedDelete = false
@@ -42,13 +44,20 @@ struct TaskListDetailView: View {
                 HomitaCard {
                     HStack(spacing: 10) {
                         HomitaField(placeholder: "Nueva tarea", text: $newTaskTitle)
+                        InlinePersonPicker(persons: store.assignablePersons(listId: current.id), selected: $newTaskPersonIds)
                         Button {
                             let title = newTaskTitle
+                            let personIds = newTaskPersonIds
                             newTaskTitle = ""
+                            newTaskPersonIds = []
                             Task {
-                                // Si la escritura falla se devuelve lo escrito al campo (si sigue vacío).
-                                let ok = await store.createTask(title: title, listId: current.id)
-                                if !ok, newTaskTitle.isEmpty { newTaskTitle = title }
+                                // Si la escritura falla se devuelve lo escrito al campo (si sigue vacío),
+                                // y también la selección de personas.
+                                let ok = await store.createTask(title: title, listId: current.id, personIds: personIds)
+                                if !ok, newTaskTitle.isEmpty {
+                                    newTaskTitle = title
+                                    if newTaskPersonIds.isEmpty { newTaskPersonIds = personIds }
+                                }
                             }
                         } label: {
                             Image(systemName: "plus.circle.fill")
@@ -180,6 +189,9 @@ struct TaskListDetailView: View {
             await store.loadTasks()
             await store.loadMembers(listId: current.id)
             if store.persons.isEmpty { await store.loadPersons() }
+            // Asignables del alta inline (0038); con el ID real se poda lo elegido con el temporal.
+            await store.loadAssignable(listId: current.id)
+            newTaskPersonIds = TaskAssignees.prune(selected: newTaskPersonIds, assignable: store.assignablePersons(listId: current.id))
         }
         // U5: el filtro de lista es de esta pantalla; al salir, el segmento Tareas vuelve a «Todas».
         .onDisappear {
@@ -201,7 +213,9 @@ struct TaskListDetailView: View {
                                    isOwner: AccessRoster.callerIsOwner(session.session?.id, in: store.members),
                                    onSetAccess: { userId, level in
                                        Task { await store.setAccess(listId: task.task_list_id, userId: userId, level: level) }
-                                   })) { title, _, personIds, priority in
+                                   }),
+                               assignable: { store.assignablePersons(listId: $0) },
+                               loadAssignable: { await store.loadAssignable(listId: $0) }) { title, _, personIds, priority in
                     await store.updateTask(task, title: title, personIds: personIds, priority: priority)
                 } onDelete: {
                     Task { await store.deleteTask(task) }
@@ -216,6 +230,7 @@ struct TaskListDetailView: View {
             await store.loadLists()
             await store.loadTasks()
             await store.loadMembers(listId: current.id)
+            await store.loadAssignable(listId: current.id)
         }
         .errorAlert($store.errorMessage)
         .writeFailureToast($store.writeFailure)
