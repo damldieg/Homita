@@ -1440,10 +1440,13 @@ def scenario_event_end_date():
     value("GET /event", "end_date: semana 12–18 incluye el evento 11–20", ids is not None and vid_ in ids)
     value("GET /event", "end_date: día 20 (último del rango) lo incluye", vid_ in (listed("2026-11-20", "2026-11-20")[1] or []))
     value("GET /event", "end_date: día 11 (inicio) lo incluye", vid_ in (listed("2026-11-11", "2026-11-11")[1] or []))
-    value("GET /event", "end_date: día 21 no lo incluye", vid_ not in (listed("2026-11-21", "2026-11-21")[1] or [vid_]))
-    value("GET /event", "end_date: día 10 no lo incluye (empieza el 11)", vid_ not in (listed("2026-11-10", "2026-11-10")[1] or [vid_]))
+    ids = listed("2026-11-21", "2026-11-21")[1]
+    value("GET /event", "end_date: día 21 no lo incluye", ids is not None and vid_ not in ids)
+    ids = listed("2026-11-10", "2026-11-10")[1]
+    value("GET /event", "end_date: día 10 no lo incluye (empieza el 11)", ids is not None and vid_ not in ids)
+    ids = listed("2026-11-11", "2026-11-12")[1]
     value("GET /event", "end_date: un evento sin fin sigue saliendo solo su día",
-          sid in (listed("2026-11-10", "2026-11-10")[1] or []) and sid not in (listed("2026-11-11", "2026-11-12")[1] or [sid]))
+          sid in (listed("2026-11-10", "2026-11-10")[1] or []) and ids is not None and sid not in ids)
     # CA-4: borrar el fin con null explícito
     b = check("PATCH /event/update", "end_date: update con end_date null borra el fin → 200",
               ev_update(vid_, "CC-Vacaciones", "2026-11-11 10:00:00", end_date=None), 200, EVENT_DETAIL)
