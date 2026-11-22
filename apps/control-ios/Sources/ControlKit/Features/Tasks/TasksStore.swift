@@ -230,21 +230,43 @@ public final class TasksStore: MainActorWriteFailureReporting {
         }
     }
 
+    /// Qué hacer cuando una escritura en línea sobre una tarea responde «Not Found» (0039, D-025: la
+    /// tarea se ocultó o se borró con la pantalla abierta). Siempre se recargan las tareas para que
+    /// desaparezca; `.ignore` además la cuenta como éxito sin toast (delete, como D-024 en la cola).
+    enum TaskNotFound {
+        case reload
+        case ignore
+    }
+
     /// Envía o encola la op (offline) y recarga solo si se envió. Sin cola, `legacy` es la escritura
     /// de siempre. La op se crea fuera del cierre: el reintento reusa el mismo `client_request_id`.
+    /// Con `notFound` (escrituras de tarea), un «Not Found» recarga las tareas (ver `TaskNotFound`).
     @discardableResult
-    private func write(_ kind: PendingOp.Kind?, reload: @escaping @MainActor (TasksStore) async -> Void,
+    private func write(_ kind: PendingOp.Kind?, notFound: TaskNotFound? = nil,
+                       reload: @escaping @MainActor (TasksStore) async -> Void,
                        legacy: @escaping @MainActor (TasksStore) async throws -> Void) async -> Bool {
-        guard let coordinator, let kind else {
-            return await performWrite { store in
+        let send: @MainActor (TasksStore) async throws -> Void
+        if let coordinator, let kind {
+            let op = coordinator.makeOp(kind)
+            send = { store in
+                guard let coordinator = store.coordinator else { return }
+                if case .sent = try await coordinator.perform(op) { await reload(store) }
+            }
+        } else {
+            send = { store in
                 try await legacy(store)
                 await reload(store)
             }
         }
-        let op = coordinator.makeOp(kind)
+        guard let notFound else { return await performWrite(send) }
         return await performWrite { store in
-            guard let coordinator = store.coordinator else { return }
-            if case .sent = try await coordinator.perform(op) { await reload(store) }
+            do {
+                try await send(store)
+            } catch let error as APIError where error.isNotFound {
+                // 0039: la tarea ya no la trae el servidor (oculta o borrada): fuera de la lista.
+                await store.loadTasks()
+                if notFound == .reload { throw error }
+            }
         }
     }
 
@@ -304,14 +326,14 @@ public final class TasksStore: MainActorWriteFailureReporting {
         let changed = priority.flatMap { $0 == task.priorityValue ? nil : $0.rawValue }
         let kind = PendingOp.Kind.updateTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id), title: title,
                                              personIds: personIds, priority: changed)
-        return await write(kind, reload: { await $0.loadTasks() }) { store in
+        return await write(kind, notFound: .reload, reload: { await $0.loadTasks() }) { store in
             _ = try await store.tasksRepo.update(UpdateTaskRequest(id: task.id, title: title, person_ids: personIds, priority: changed))
         }
     }
 
     public func toggleComplete(_ task: TaskEntry) async {
         let kind = PendingOp.Kind.completeTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id), completed: !task.isCompleted)
-        await write(kind, reload: { await $0.loadTasks() }) { store in
+        await write(kind, notFound: .reload, reload: { await $0.loadTasks() }) { store in
             _ = try await store.tasksRepo.complete(CompleteTaskRequest(id: task.id, completed: !task.isCompleted))
         }
     }
@@ -323,7 +345,8 @@ public final class TasksStore: MainActorWriteFailureReporting {
             _ = try await store.tasksRepo.order(OrderTaskRequest(id: id, position: position))
             await store.loadTasks()
         }
-        // Si falla, se recarga para deshacer el movimiento local de la lista.
+        // Si falla, se recarga para deshacer el movimiento local de la lista (también con «Not
+        // Found», 0039: una tarea oculta desaparece).
         if !ok { await loadTasks() }
     }
 
@@ -364,6 +387,8 @@ public final class TasksStore: MainActorWriteFailureReporting {
             }
             for await (task, error) in group {
                 guard let error else { continue }
+                // 0039: «Not Found» = ya no está (oculta o borrada): cuenta como borrada.
+                if (error as? APIError)?.isNotFound == true { continue }
                 if outbox != nil, case APIError.network? = error as? APIError {
                     offline.append(task)
                 } else {
@@ -384,7 +409,8 @@ public final class TasksStore: MainActorWriteFailureReporting {
 
     public func deleteTask(_ task: TaskEntry) async {
         let kind = PendingOp.Kind.deleteTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id))
-        await write(kind, reload: { await $0.loadTasks() }) { store in
+        // 0039: «Not Found» = ya no está (oculta o borrada): éxito sin toast, como el ack de la cola.
+        await write(kind, notFound: .ignore, reload: { await $0.loadTasks() }) { store in
             _ = try await store.tasksRepo.delete(id: task.id)
         }
     }

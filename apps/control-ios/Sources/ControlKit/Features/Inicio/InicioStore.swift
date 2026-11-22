@@ -273,15 +273,31 @@ public final class InicioStore: MainActorWriteFailureReporting {
         let changed = priority.flatMap { $0 == task.priorityValue ? nil : $0.rawValue }
         guard let coordinator else {
             return await performWrite { store in
-                _ = try await store.tasksRepo.update(UpdateTaskRequest(id: task.id, title: title, person_ids: personIds, priority: changed))
-                await store.loadTasks()
+                try await store.reloadingOnNotFound {
+                    _ = try await store.tasksRepo.update(UpdateTaskRequest(id: task.id, title: title, person_ids: personIds, priority: changed))
+                    await store.loadTasks()
+                }
             }
         }
         let op = coordinator.makeOp(.updateTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id), title: title,
                                                 personIds: personIds, priority: changed))
         return await performWrite { store in
             guard let coordinator = store.coordinator else { return }
-            if case .sent = try await coordinator.perform(op) { await store.loadTasks() }
+            try await store.reloadingOnNotFound {
+                if case .sent = try await coordinator.perform(op) { await store.loadTasks() }
+            }
+        }
+    }
+
+    /// 0039 (D-025): si una escritura en línea sobre una tarea responde «Not Found» (se ocultó o se
+    /// borró con la pantalla abierta), recarga las tareas para que desaparezca y relanza el error
+    /// (toast «No encontrado»). `toggleComplete` ya recarga siempre tras un fallo.
+    private func reloadingOnNotFound(_ body: @MainActor () async throws -> Void) async throws {
+        do {
+            try await body()
+        } catch let error as APIError where error.isNotFound {
+            await loadTasks()
+            throw error
         }
     }
 
