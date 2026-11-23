@@ -79,6 +79,8 @@ struct TasksView: View {
     @State private var showCompletedDelete = false
     @State private var completedListId: Int?
     @State private var completedNames: [String] = []
+    /// Ids de las completadas mostradas en el grupo: lo borrado coincide con lo listado en el aviso.
+    @State private var completedIds: Set<Int> = []
     @State private var taskToEdit: TaskEntry?
     /// Listas plegadas; por defecto todas desplegadas.
     @State private var collapsedListIds: Set<Int> = []
@@ -143,7 +145,9 @@ struct TasksView: View {
             if group.tasks.contains(where: \.isCompleted) {
                 Button {
                     completedListId = group.listId
-                    completedNames = group.tasks.filter(\.isCompleted).map(\.title)
+                    let shown = group.tasks.filter(\.isCompleted)
+                    completedNames = shown.map(\.title)
+                    completedIds = Set(shown.map(\.id))
                     showCompletedDelete = true
                 } label: {
                     Image(systemName: "trash")
@@ -223,7 +227,7 @@ struct TasksView: View {
                 HomitaSkeletonRows(count: 3, height: 56, label: "Cargando tareas").homitaRow()
             }
             if store.hasLoadedTasks && !hasTasks && !store.isLoading {
-                HomitaEmptyState(.tasks(filtered: store.listFilterId != nil)) {
+                HomitaEmptyState(.tasks(filtered: store.listFilterId != nil, personFiltered: store.personFilter != nil)) {
                     createListId = nil
                     showCreateTask = true
                 }
@@ -267,7 +271,33 @@ struct TasksView: View {
                 Menu {
                     Button("Todas") {
                         store.listFilterId = nil
+                        store.personFilter = nil
                         Task { await store.loadTasks() }
+                    }
+                    Button {
+                        store.personFilter = .mine
+                    } label: {
+                        if store.personFilter == .mine {
+                            Label("Mis tareas", systemImage: "checkmark")
+                        } else {
+                            Text("Mis tareas")
+                        }
+                    }
+                    .accessibilityIdentifier("tareas.filtro.mis")
+                    if !store.persons.isEmpty {
+                        Section("Persona") {
+                            ForEach(store.persons, id: \.id) { person in
+                                Button {
+                                    store.personFilter = .person(person.id)
+                                } label: {
+                                    if store.personFilter == .person(person.id) {
+                                        Label(person.name, systemImage: "checkmark")
+                                    } else {
+                                        Text(person.name)
+                                    }
+                                }
+                            }
+                        }
                     }
                     ForEach(store.taskLists, id: \.id) { list in
                         Button(list.name) {
@@ -276,7 +306,9 @@ struct TasksView: View {
                         }
                     }
                 } label: {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
+                    Image(systemName: store.personFilter != nil
+                        ? "line.3.horizontal.decrease.circle.fill"
+                        : "line.3.horizontal.decrease.circle")
                         .foregroundStyle(Palette.ink)
                         .accessibilityLabel("Filtrar")
                 }
@@ -341,7 +373,7 @@ struct TasksView: View {
             Task { for task in tasks { await store.deleteTask(task) } }
         }
         .homitaConfirm(DeleteConfirmation.message(names: completedNames, consequence: "Se eliminarán las tareas completadas de esta lista."), isPresented: $showCompletedDelete, confirmTitle: "Eliminar") {
-            if let id = completedListId { Task { await store.deleteCompleted(listId: id) } }
+            if let id = completedListId { Task { await store.deleteCompleted(listId: id, only: completedIds) } }
         }
         .overlay {
             // Bloquea la interacción mientras se borran las completadas.

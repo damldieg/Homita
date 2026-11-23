@@ -44,4 +44,14 @@ final class DeleteCompletedTests: XCTestCase {
         XCTAssertEqual(store.writeFailure?.message, "No se pudieron eliminar 3 de 3 tareas completadas")
         XCTAssertFalse(store.isDeletingCompleted)
     }
+
+    /// R1-01: con filtro activo solo se borran las completadas mostradas, no las de otras personas.
+    func testOnlyDeletesRequestedIds() async {
+        let store = await makeStore(deleteStatus: 200)
+        StubURLProtocol.reset { [tasksJSON] request in
+            self.route(request) == "task/delete" ? .init(json: "{}") : .init(json: tasksJSON)
+        }
+        await store.deleteCompleted(listId: 5, only: [1, 3])
+        XCTAssertEqual(StubURLProtocol.requests.filter { route($0) == "task/delete" }.count, 2)
+    }
 }
