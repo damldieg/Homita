@@ -1,7 +1,7 @@
 import Foundation
 
-/// Estado de Ajustes › Perfil de hogar: perfil del servidor, lista de comensales posibles (A1, de
-/// `GET home/member` sin mascotas) y escrituras. Tras cada escritura recarga del servidor.
+/// Estado de Ajustes › Perfil de hogar: perfil del servidor, lista de comensales posibles (A1, viene en
+/// `GET meal/profile` bajo `menu.view`; no usa `GET home/member`, que exige `home.view`) y escrituras. Tras cada escritura recarga del servidor.
 @Observable
 public final class MealProfileStore {
     public private(set) var profile: MealProfile?
@@ -10,12 +10,10 @@ public final class MealProfileStore {
     public var errorMessage: String?
 
     private let meals: MealRepository
-    private let homes: HomeRepository
     private let activeHomeId: () -> String?
 
-    public init(meals: MealRepository, homes: HomeRepository, activeHomeId: @escaping () -> String?) {
+    public init(meals: MealRepository, activeHomeId: @escaping () -> String?) {
         self.meals = meals
-        self.homes = homes
         self.activeHomeId = activeHomeId
     }
 
@@ -26,10 +24,9 @@ public final class MealProfileStore {
         state = .loading
         do {
             let loaded = try await meals.profile()
-            let members = try await homes.members(homeId: loaded.homeId)
             guard activeHomeId() == requested else { return }
             profile = loaded
-            candidates = MealRules.eaterCandidates(members)
+            candidates = MealRules.eaterCandidates(loaded.candidates)
             state = .loaded
         } catch {
             guard activeHomeId() == requested else { return }

@@ -11,7 +11,7 @@ struct MealProfileView: View {
 
     init(services: AppServices) {
         _store = State(initialValue: MealProfileStore(
-            meals: services.meals, homes: services.homes, activeHomeId: { services.homeContext.activeHomeId }))
+            meals: services.meals, activeHomeId: { services.homeContext.activeHomeId }))
     }
 
     var body: some View {

@@ -56,7 +56,7 @@ public enum MealRules {
         return options.first { $0.0 == value }?.1
     }
 
-    /// A1: quién puede comer en casa = miembros activos que no son mascotas (la lista sale de `GET home/member`).
+    /// A1: quién puede comer en casa = miembros activos que no son mascotas (la lista llega en `GET meal/profile`).
     public static func eaterCandidates(_ members: [HomeMember]) -> [HomeMember] {
         members.filter { $0.kind != MemberKind.pet.rawValue && $0.status == MemberStatus.active.rawValue }
     }

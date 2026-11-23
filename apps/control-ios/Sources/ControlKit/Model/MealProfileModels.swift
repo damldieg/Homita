@@ -107,10 +107,13 @@ public struct MealProfile: Codable, Equatable, Sendable {
     public var profile: MealHomeSettings
     public var slots: [MealSlot]
     public var members: [MealMember]
+    /// A1: personas que pueden comer (miembros activos sin mascotas). Llega con `menu.view`, sin
+    /// depender de `home.view` (un adulto no admin no puede llamar a `GET home/member`).
+    public var candidates: [HomeMember]
     public var schedule: [MealScheduleEntry]
 
     enum CodingKeys: String, CodingKey {
-        case homeId = "home_id", timezone, canEdit = "can_edit", profile, slots, members, schedule
+        case homeId = "home_id", timezone, canEdit = "can_edit", profile, slots, members, candidates, schedule
     }
 }
 

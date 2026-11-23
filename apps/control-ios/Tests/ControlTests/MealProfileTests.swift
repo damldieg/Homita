@@ -13,6 +13,8 @@ final class MealProfileTests: XCTestCase {
        "age_band":"adult","portion_size":null,"allergies_answered":true,
        "allergies":[{"allergen":"egg","severity":"no_traces"}],"diet":"omnivore","diet_note":null,"goals":[],
        "dislikes":["coliflor"],"favorites":[],"quirks":null,"spice":1,"preferences":{}}],
+     "candidates":[{"id":3,"home_id":7,"kind":"adult","name":"Ana","color":"#112233","status":"active","linked":true},
+       {"id":5,"home_id":7,"kind":"child","name":"Leo","color":null,"status":"active","linked":false}],
      "schedule":[{"home_member_id":3,"weekday":2,"slot":"lunch","status":"out"}]}
     """
 
@@ -29,6 +31,24 @@ final class MealProfileTests: XCTestCase {
         XCTAssertEqual(profile.members[0].allergies, [MealAllergy(allergen: "egg", severity: "no_traces")])
         XCTAssertTrue(profile.members[0].isMe)
         XCTAssertEqual(profile.schedule[0].status, "out")
+        XCTAssertEqual(profile.candidates.map(\.id), [3, 5])
+        XCTAssertEqual(profile.candidates[1].kind, "child")
+    }
+
+    /// R1-01: la pantalla carga A1 solo de `GET meal/profile`; `GET home/member` (403 sin `home.view`) no se llama.
+    func testStoreLoadsCandidatesWithoutHomeMemberCall() async throws {
+        StubURLProtocol.reset { req in
+            if req.url?.path.contains("/home/member") == true {
+                return StubURLProtocol.Stub(status: 403, json: #"{"error":"Not Allowed"}"#)
+            }
+            return StubURLProtocol.Stub(json: self.profileJSON)
+        }
+        let store = MealProfileStore(meals: MealRepository(client: makeTestClient()), activeHomeId: { "7" })
+        await store.load()
+        XCTAssertEqual(store.state, .loaded)
+        XCTAssertEqual(store.candidates.map(\.id), [3, 5])
+        XCTAssertEqual(store.profile?.members.map(\.homeMemberId), [3])
+        XCTAssertFalse(StubURLProtocol.requests.contains { $0.url?.path.contains("/home/member") == true })
     }
 
     func testMealRequestsShapeAndHeader() async throws {
