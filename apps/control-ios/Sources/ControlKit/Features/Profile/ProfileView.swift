@@ -20,6 +20,7 @@ public struct ProfileView: View {
     /// Cambios offline sin sincronizar al pedir cerrar sesión (se perderían, D-024).
     @State private var signOutPendingCount = 0
     @State private var showNotifications = false
+    @State private var showInicioSettings = false
     @AppStorage(AppearancePreference.storageKey) private var appearance = AppearancePreference.system.rawValue
     @Environment(\.colorScheme) private var colorScheme
 
@@ -69,6 +70,7 @@ public struct ProfileView: View {
                     familyCard
                     invitationsCard
                     notificationsCard
+                    inicioCard
                     feedbackCard
                     HomitaCard {
                         HomitaToggle(title: "Modo oscuro", isOn: darkModeBinding)
@@ -94,6 +96,7 @@ public struct ProfileView: View {
             .homitaNavigationBar()
             .errorAlert($errorMessage)
             .navigationDestination(isPresented: $showNotifications) { NotificationSettingsView() }
+            .navigationDestination(isPresented: $showInicioSettings) { InicioSettingsView() }
             // `homita://ajustes-notificaciones` (widgets desactivados, permiso denegado…).
             .task { openNotificationsIfRequested(DeepLinkCenter.shared.pending) }
             .onChange(of: DeepLinkCenter.shared.pending) { _, link in openNotificationsIfRequested(link) }
@@ -152,6 +155,21 @@ public struct ProfileView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("ajustes.personas")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Palette.card, in: RoundedRectangle(cornerRadius: 24))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Palette.cardBorder, lineWidth: 1))
+    }
+
+    private var inicioCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HomitaSectionHeader(title: "Inicio", systemImage: "rectangle.3.group")
+            Button { showInicioSettings = true } label: {
+                linkRow(title: "Orden y bloques ocultos", systemImage: "list.bullet.indent", tint: Palette.accentHex)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("ajustes.inicio")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
