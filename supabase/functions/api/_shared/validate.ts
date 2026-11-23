@@ -228,7 +228,7 @@ export const FEEDBACK_CATALOG: FeedbackSeccion[] = [
     {
         nombre: "Calendario",
         pantallas: [
-            { nombre: "Eventos", acciones: ["Ver / cargar", "Día anterior", "Día siguiente", "Deslizar entre días", "Tira de semana", "Hoy", "Elegir fecha", "Nuevo evento", "Abrir evento"] },
+            { nombre: "Eventos", acciones: ["Ver / cargar", "Semana anterior", "Semana siguiente", "Deslizar entre semanas", "Tira de semana", "Hoy", "Elegir fecha", "Nuevo evento", "Abrir evento"] },
             { nombre: "Eventos › Elegir fecha", acciones: ["Fecha", "Hoy", "Listo"] },
             { nombre: "Eventos › Nuevo evento", acciones: ["Título", "Fecha y hora", "Fecha de fin", "Calendario", "Aviso", "Personas", "Crear evento", "Cancelar"] },
             { nombre: "Eventos › Editar evento", acciones: ["Título", "Fecha y hora", "Fecha de fin", "Aviso", "Personas", "Guardar", "Eliminar evento", "Cancelar"] },

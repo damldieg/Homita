@@ -65,8 +65,9 @@ public final class CalendarAgendaStore {
     }
 
     /// Todo lo que se muestra un día: en curso + lista del día. Para puntos de color y accesibilidad.
+    /// Eventos del día ordenados por hora de inicio (los de varios días que empezaron antes van primero).
     public func dayEvents(on day: Date) -> [EventEntry] {
-        ongoing(on: day) + listEvents(on: day)
+        (ongoing(on: day) + listEvents(on: day)).sorted { $0.date_at < $1.date_at }
     }
 
     /// Día local `yyyy-MM-dd` de una fecha (zona de la rejilla).

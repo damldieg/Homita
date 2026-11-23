@@ -183,9 +183,9 @@
           "nombre": "Eventos",
           "acciones": [
             "Ver / cargar",
-            "Día anterior",
-            "Día siguiente",
-            "Deslizar entre días",
+            "Semana anterior",
+            "Semana siguiente",
+            "Deslizar entre semanas",
             "Tira de semana",
             "Hoy",
             "Elegir fecha",
