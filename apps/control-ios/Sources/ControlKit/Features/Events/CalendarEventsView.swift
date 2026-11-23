@@ -34,17 +34,7 @@ struct CalendarEventsView: View {
                                 defaultDate: newEventDate)
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showCreate = true
-                } label: {
-                    Image(systemName: "plus")
-                        .foregroundStyle(Palette.ink)
-                        .accessibilityLabel("Nuevo evento")
-                }
-            }
-        }
+        // Un solo punto de alta: el CTA «Nuevo evento» al final de la lista (sin «+» en la barra superior).
         .errorAlert($calendarStore.errorMessage)
         // Un borrado que falla en el detalle (ya cerrado) se avisa aquí.
         .writeFailureToast($eventStore.writeFailure)
