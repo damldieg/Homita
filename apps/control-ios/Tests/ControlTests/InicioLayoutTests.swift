@@ -52,4 +52,35 @@ final class InicioLayoutTests: XCTestCase {
         store.save(layout)
         XCTAssertEqual(store.load(), layout)
     }
+
+    /// R2-01: lo que se lee de disco se normaliza igual que al crear (repetidos e incompletos).
+    func testDecodingNormalizesStoredOrder() throws {
+        let json = #"{"order":["tasks","tasks"],"hidden":[]}"#
+        let layout = try JSONDecoder().decode(InicioLayout.self, from: Data(json.utf8))
+        XCTAssertEqual(layout.order, [.tasks, .routines, .events])
+    }
+
+    /// R2-01: un valor desconocido no se decodifica; el almacén cae al orden por defecto.
+    func testUnknownBlockFallsBackToDefaultLayout() throws {
+        let name = "test.inicio.layout.unknown.\(UUID().uuidString)"
+        let suite = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { UserDefaults.standard.removePersistentDomain(forName: name) }
+        suite.set(Data(#"{"order":["nope"],"hidden":[]}"#.utf8), forKey: InicioLayoutStore.key)
+        XCTAssertEqual(InicioLayoutStore(defaults: suite).load(), InicioLayout())
+    }
+
+    /// R2-01: más casos de `move`: arriba a abajo, abajo a arriba y al mismo sitio.
+    func testMoveCases() {
+        var down = InicioLayout()
+        down.move(from: IndexSet(integer: 0), to: 3)
+        XCTAssertEqual(down.order, [.events, .tasks, .routines])
+
+        var up = InicioLayout()
+        up.move(from: IndexSet(integer: 2), to: 1)
+        XCTAssertEqual(up.order, [.routines, .tasks, .events])
+
+        var same = InicioLayout()
+        same.move(from: IndexSet(integer: 1), to: 1)
+        XCTAssertEqual(same.order, [.routines, .events, .tasks])
+    }
 }
