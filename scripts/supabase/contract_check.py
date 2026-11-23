@@ -35,7 +35,7 @@ segundo lado con el que comparar. Este script fija el comportamiento documentado
   El usuario demo no abandona su hogar original: la salida feliz la hace el viewer.
 * Bloque permisos por kind (1.7, §6.2): `fn_seed_kind_permissions` de 0019 por psql sobre la
   membresía member de cc-mem → `GET /home/membership` devuelve `permissions` = el conjunto exacto
-  del kind (child 6, adult 18; collate "C"); admin = 23 del catálogo (A4, sin snapshot). R1-02:
+  del kind (child 8, adult 23; collate "C"); admin = 28 del catálogo (A4, sin snapshot). R1-02:
   el helper rechaza una membresía admin (`'Not Allowed'`, sin filas). Sin rutas nuevas (D-008).
 * Bloque 1.10 (contratos de /home/*, 34 casos = 15 + 15 + 4; `docs/CONTRATOS_HOME.md`): por cada
   ruta home un caso sin Bearer → `401 Unauthorized` y otro con `X-Home-Id: abc` → `400 Invalid
@@ -253,9 +253,13 @@ CASES_HIDDEN = 32 if HIDDEN else 0
 # el escenario de orden y 502 casos (más lo que aporten 0037/0039 si siguen aplicadas).
 POSITION = os.environ.get("CONTRACT_POSITION", "1") != "0"
 CASES_POSITION = 17 if POSITION else 0
+# 0043 (menus-perfil-hogar): 14 casos de scenario_meal (ML1–ML14) sobre las 5 rutas /meal/*; siempre
+# presentes (los modos CONTRACT_SCHEMA/POSITION no revierten 0043).
+CASES_MEAL = 14
 EXPECTED_CASES = (CASES_BASE + CASES_110 + CASES_115 + CASES_VALUES + CASES_END_DATE
-                  + CASES_PRIORITY + CASES_HIDDEN + CASES_POSITION)  # 502 + 30 (0037) + 32 (0039) + 17 (0040)
-                                                                     # = 581; con CONTRACT_SCHEMA/POSITION menos
+                  + CASES_PRIORITY + CASES_HIDDEN + CASES_POSITION + CASES_MEAL)  # 502 + 30 (0037) + 32 (0039)
+                                                                     # + 17 (0040) + 14 (0043) = 595; con
+                                                                     # CONTRACT_SCHEMA/POSITION menos
 
 
 def record(route, name, ok, detail=""):
@@ -394,6 +398,7 @@ ERR_END_RANGE = '{"error":"End date cannot be before start date"}'
 ERR_END_INVALID = '{"error":"Invalid end date"}'
 ERR_END_ROUTINE = '{"error":"Routine events cannot have an end date"}'
 ERR_INVALID_PRIORITY = '{"error":"Invalid priority"}'
+ERR_INVALID_MEAL = '{"error":"Invalid meal profile"}'
 ERR_ALARM = '{"error":"Alarm must be nonnegative minutes or null"}'
 ERR_NAME_REQUIRED = '{"error":"Name is required"}'
 ERR_INVALID_TZ = '{"error":"Invalid timezone"}'
@@ -722,10 +727,11 @@ commit;
 
 PERMISOS_CASES = 39
 PERM_ADULT = ['calendar.manage', 'calendar.view', 'event.assign', 'event.create', 'event.delete',
-              'event.edit', 'routine.assign', 'routine.create', 'routine.delete', 'routine.edit',
+              'event.edit', 'menu.health.view', 'menu.plan.manage', 'menu.profile.edit',
+              'menu.shopping.edit', 'menu.view', 'routine.assign', 'routine.create', 'routine.delete', 'routine.edit',
               'routine.view', 'task.assign', 'task.complete', 'task.create', 'task.delete',
               'task.edit', 'task.view', 'tasklist.manage']
-PERM_KIND_COUNTS = {'adult': 18, 'child': 6, 'guest': 3, 'relative': 10}
+PERM_KIND_COUNTS = {'adult': 23, 'child': 8, 'guest': 3, 'relative': 13}
 PERM_EMAIL = {'a': 'cc-perm-a@homita.example', 'm': 'cc-perm-m@homita.example',
               'k': 'cc-perm-k@homita.example', 'x': 'cc-perm-x@homita.example'}
 PERM_PWD = 'ccperm1234'
@@ -790,8 +796,8 @@ def scenario_permisos_config():
           repr({k: bool(v) for k, v in toks.items()}))
     atok, mtok, ktok, xtok = toks['a'], toks['m'], toks['k'], toks['x']
 
-    # PG1–PG3: GET admin → 200 PERMISSION_GET; catálogo 23, defaults 18/6/10/3 con home.view en
-    # child/relative; fila admin editable=false/permissions=23 y fila member editable=true
+    # PG1–PG3: GET admin → 200 PERMISSION_GET; catálogo 28, defaults 23/8/13/3 con home.view en
+    # child/relative; fila admin editable=false/permissions=28 y fila member editable=true
     b = check("GET /home/permission", "PG1 GET /home/permission admin → 200 PERMISSION_GET",
               request("GET", f"/home/permission?home_id={hc}", None, atok), 200, PERMISSION_GET)
     cat = [c.get("code") for c in b.get("catalog", [])] if isinstance(b, dict) else []
@@ -799,16 +805,16 @@ def scenario_permisos_config():
             if isinstance(b, dict) else {})
     counts = {k: len(v or []) for k, v in defs.items()}
     value("GET /home/permission",
-          "PG2 catálogo 23 y defaults 18/6/10/3 con home.view en child/relative",
-          len(cat) == 23 and counts == PERM_KIND_COUNTS
+          "PG2 catálogo 28 y defaults 23/8/13/3 con home.view en child/relative",
+          len(cat) == 28 and counts == PERM_KIND_COUNTS
           and 'home.view' in (defs.get('child') or []) and 'home.view' in (defs.get('relative') or []),
           f"catalog={len(cat)} defaults={counts}")
     rows = {r.get("app_user_id"): r for r in b.get("memberships", [])} if isinstance(b, dict) else {}
     ra = rows.get(uid['a'], {})
     value("GET /home/permission",
-          "PG3 admin editable=false/permissions=23 y member editable=true",
+          "PG3 admin editable=false/permissions=28 y member editable=true",
           ra.get("editable") is False and ra.get("permissions") == cat
-          and len(ra.get("permissions") or []) == 23
+          and len(ra.get("permissions") or []) == 28
           and rows.get(uid['m'], {}).get("editable") is True,
           repr(rows)[:300])
 
@@ -1494,6 +1500,70 @@ def scenario_task_list_order():
               request("DELETE", "/task-list/delete", {"id": lid}, tok), 200, SUCCESS)
 
 
+def scenario_meal():
+    """0043 (menus-perfil-hogar): ML1–ML14 sobre GET/PATCH /meal/profile, PATCH /meal/profile/member,
+    PUT /meal/schedule y PUT /meal/slots con el admin de la demo (hogar por defecto, sin cabecera)."""
+    meal_profile = {"home_id": "<id>", "timezone": "<str>", "can_edit": "<bool>", "profile": "<obj>",
+                    "slots": ["<obj>"], "members": ["<obj>"], "schedule": ["<obj>"]}
+    b = check("GET /meal/profile", "ML1 GET /meal/profile → 200 con perfil, franjas, fichas y horario",
+              request("GET", "/meal/profile", None, tok), 200, meal_profile)
+    home = b.get("home_id") if isinstance(b, dict) else None
+    slots = {x.get("slot"): x for x in b.get("slots", [])} if isinstance(b, dict) else {}
+    value("GET /meal/profile", "ML2 franjas por defecto: comida 14:00 y cena 21:00 activas, el resto no",
+          set(slots) == {"breakfast", "midmorning", "lunch", "snack", "dinner"}
+          and all(x.get("enabled") == (k in ("lunch", "dinner")) for k, x in slots.items())
+          and slots.get("lunch", {}).get("time") == "14:00" and slots.get("dinner", {}).get("time") == "21:00",
+          repr(slots)[:300])
+    check("PATCH /meal/profile", "ML3 PATCH /meal/profile → 200 {success:true}",
+          request("PATCH", "/meal/profile", {"shopping_day": 5, "equipment": ["oven", "microwave"],
+                                             "preferences": {"supermarkets": ["mercadona"]}}, tok),
+          200, SUCCESS)
+    b = parse(request("GET", "/meal/profile", None, tok)[1])
+    prof = b.get("profile", {}) if isinstance(b, dict) else {}
+    value("GET /meal/profile", "ML4 GET refleja lo guardado (día de compra, equipo, preferencias)",
+          prof.get("shopping_day") == 5 and prof.get("equipment") == ["oven", "microwave"]
+          and prof.get("preferences") == {"supermarkets": ["mercadona"]}, repr(prof)[:300])
+    check("PATCH /meal/profile", "ML5 valor fuera de rango → 400 Invalid meal profile",
+          request("PATCH", "/meal/profile", {"shopping_day": 9}, tok), 400, ERR_INVALID_MEAL)
+    hm = psql(f"select id from home_member where home_id = {home} and app_user_id = {aid} limit 1")
+    member = int(hm or 0)
+    check("PATCH /meal/profile/member", "ML6 PATCH /meal/profile/member → 200 {success, eats:true}",
+          request("PATCH", "/meal/profile/member",
+                  {"home_member_id": member, "diet": "flexitarian", "allergies_answered": True,
+                   "allergies": [{"allergen": "egg", "severity": "avoid_ingredient"}], "spice": 2}, tok),
+          200, {"success": True, "eats": True})
+    b = parse(request("GET", "/meal/profile", None, tok)[1])
+    mine = next((m for m in b.get("members", []) if m.get("home_member_id") == member), {}) if isinstance(b, dict) else {}
+    value("GET /meal/profile", "ML7 la ficha guardada aparece con dieta y alergias",
+          mine.get("diet") == "flexitarian" and mine.get("spice") == 2
+          and mine.get("allergies") == [{"allergen": "egg", "severity": "avoid_ingredient"}], repr(mine)[:300])
+    check("PATCH /meal/profile/member", "ML8 sin home_member_id → 400 Member ID is required",
+          request("PATCH", "/meal/profile/member", {"diet": "vegan"}, tok), 400, ERR_MEMBER_ID_REQUIRED)
+    check("PATCH /meal/profile/member", "ML9 miembro inexistente → 404 Not Found",
+          request("PATCH", "/meal/profile/member", {"home_member_id": 999999999, "diet": "vegan"}, tok), 404, ERR_NOT_FOUND)
+    check("PUT /meal/schedule", "ML10 PUT /meal/schedule → 200 con el número de entradas",
+          request("PUT", "/meal/schedule",
+                  {"entries": [{"home_member_id": member, "weekday": 3, "slot": "dinner", "status": "out"}]}, tok),
+          200, {"success": True, "entries": 1})
+    check("PUT /meal/slots", "ML11 PUT /meal/slots → 200 con el número de franjas",
+          request("PUT", "/meal/slots", {"slots": [{"slot": "snack", "enabled": True, "time": "17:45"}]}, tok),
+          200, {"success": True, "slots": 1})
+    b = parse(request("GET", "/meal/profile", None, tok)[1])
+    snack = next((x for x in b.get("slots", []) if x.get("slot") == "snack"), {}) if isinstance(b, dict) else {}
+    sched = b.get("schedule", []) if isinstance(b, dict) else []
+    value("GET /meal/profile", "ML12 GET refleja la franja de la merienda y el horario",
+          snack.get("enabled") is True and snack.get("time") == "17:45"
+          and {"home_member_id": member, "weekday": 3, "slot": "dinner", "status": "out"} in sched,
+          repr((snack, sched))[:300])
+    check("PUT /meal/slots", "ML13 slots no es un array → 400 Invalid meal profile",
+          request("PUT", "/meal/slots", {"slots": "x"}, tok), 400, ERR_INVALID_MEAL)
+    check("GET /meal/profile", "ML14 sin Bearer → 401",
+          request("GET", "/meal/profile", None, None), 401, ERR_UNAUTHORIZED)
+    # limpieza: la demo vuelve a no tener perfil de comidas (no es un caso)
+    psql(f"delete from meal_schedule where home_id = {home}; delete from meal_profile_member where home_id = {home}; "
+         f"delete from meal_slot_setting where home_id = {home}; delete from meal_profile where home_id = {home}")
+
+
 def scenario_routine():
     start = (monday - datetime.timedelta(days=7)).isoformat()
     b = check("POST /routine/create", "escenario routine/create",
@@ -1820,6 +1890,7 @@ if HIDDEN:
     scenario_task_hidden()
 if POSITION:
     scenario_task_list_order()
+scenario_meal()
 scenario_routine()
 scenario_event()
 scenario_home()
@@ -2486,16 +2557,19 @@ hM, mem_m, demo_m, mid = scenario_membership()
 # C2 deja exactamente un admin sin determinar cuál: se normaliza a demo=admin y cc-mem=member
 # (R1-02: el helper rechaza admins) satisfaciendo el trigger anti-admin de 0015 (demo primero).
 
-PERMS_CHILD = ['calendar.view', 'home.view', 'routine.view', 'task.complete', 'task.create',
-               'task.view']
+PERMS_CHILD = ['calendar.view', 'home.view', 'menu.shopping.edit', 'menu.view', 'routine.view',
+               'task.complete', 'task.create', 'task.view']
 PERMS_ADULT = ['calendar.manage', 'calendar.view', 'event.assign', 'event.create', 'event.delete',
-               'event.edit', 'routine.assign', 'routine.create', 'routine.delete', 'routine.edit',
+               'event.edit', 'menu.health.view', 'menu.plan.manage', 'menu.profile.edit',
+               'menu.shopping.edit', 'menu.view', 'routine.assign', 'routine.create',
+               'routine.delete', 'routine.edit',
                'routine.view', 'task.assign', 'task.complete', 'task.create', 'task.delete',
                'task.edit', 'task.view', 'tasklist.manage']
 PERMS_CATALOG = ['calendar.manage', 'calendar.view', 'event.assign', 'event.create',
                  'event.delete', 'event.edit', 'home.invite', 'home.members.manage',
-                 'home.permissions.manage', 'home.settings.manage', 'home.view', 'routine.assign',
-                 'routine.create', 'routine.delete', 'routine.edit', 'routine.view', 'task.assign',
+                 'home.permissions.manage', 'home.settings.manage', 'home.view',
+                 'menu.health.view', 'menu.plan.manage', 'menu.profile.edit', 'menu.shopping.edit',
+                 'menu.view', 'routine.assign', 'routine.create', 'routine.delete', 'routine.edit', 'routine.view', 'task.assign',
                  'task.complete', 'task.create', 'task.delete', 'task.edit', 'task.view',
                  'tasklist.manage']
 
@@ -2511,24 +2585,24 @@ def scenario_permisos_kind(hM, mem_m, demo_m, mid):
          "delete from membership_permission where home_membership_id = %d; "
          "update home_membership set role = 'member' where id = %d; "
          "commit;" % (demo_m, demo_m, mem_m))
-    # K1–K3: seed child (reemplaza el snapshot de cc-mem) → 6 claves de child (collate "C") y el
+    # K1–K3: seed child (reemplaza el snapshot de cc-mem) → 8 claves de child (collate "C") y el
     # admin (demo) sigue con el catálogo entero (A4, sin filas)
     psql("select fn_seed_kind_permissions(%d, 'child')" % mem_m)
     b = check("GET /home/membership", "K1 seed child → GET /home/membership → [MEMBERSHIP_ITEM]",
               request("GET", f"/home/membership?id={hM}", None, tok), 200, [MEMBERSHIP_ITEM])
-    value("GET /home/membership", 'K2 permissions de cc-mem = 6 claves de child (collate "C")',
+    value("GET /home/membership", 'K2 permissions de cc-mem = 8 claves de child (collate "C")',
           next((x.get("permissions") for x in b
                 if isinstance(x, dict) and x.get("app_user_id") == mid), None) == PERMS_CHILD,
           repr(b)[:300])
-    value("GET /home/membership", "K3 admin (demo) = 23 del catálogo (A4, sin snapshot)",
+    value("GET /home/membership", "K3 admin (demo) = 28 del catálogo (A4, sin snapshot)",
           next((x.get("permissions") for x in b
                 if isinstance(x, dict) and x.get("app_user_id") == aid), None) == PERMS_CATALOG,
           repr(b)[:300])
-    # K4–K5: seed adult reemplaza child → 18 claves de adult (reemplaza, no suma)
+    # K4–K5: seed adult reemplaza child → 23 claves de adult (reemplaza, no suma)
     psql("select fn_seed_kind_permissions(%d, 'adult')" % mem_m)
     b = check("GET /home/membership", "K4 seed adult reemplaza child → [MEMBERSHIP_ITEM]",
               request("GET", f"/home/membership?id={hM}", None, tok), 200, [MEMBERSHIP_ITEM])
-    value("GET /home/membership", 'K5 permissions de cc-mem = 18 claves de adult (collate "C")',
+    value("GET /home/membership", 'K5 permissions de cc-mem = 23 claves de adult (collate "C")',
           next((x.get("permissions") for x in b
                 if isinstance(x, dict) and x.get("app_user_id") == mid), None) == PERMS_ADULT,
           repr(b)[:300])
@@ -2980,10 +3054,10 @@ def scenario_invitations(hM, mem_m, mid):
     mships = parse(request("GET", f"/home/membership?id={hM}", None, tok)[1])
     perms2 = next((x.get("permissions") for x in mships if isinstance(x, dict)
                    and x.get("app_user_id") == iid2), None) if isinstance(mships, list) else None
-    value(A, "IA9 GET /home/member: CC-Inv-Abuela linked = true y cc-inv2 con permisos de relative (10)",
+    value(A, "IA9 GET /home/member: CC-Inv-Abuela linked = true y cc-inv2 con permisos de relative (13)",
           isinstance(members, list) and any(m.get("id") == abuela and m.get("linked") is True
                                             for m in members)
-          and isinstance(perms2, list) and len(perms2) == 10, repr(perms2)[:200])
+          and isinstance(perms2, list) and len(perms2) == 13, repr(perms2)[:200])
     check(A, "IA10 código inexistente de 32 hex → 404 Not Found",
           request("POST", "/home/invitation/accept", {"code": "0123456789abcdef" * 2}, itok3),
           404, ERR_NOT_FOUND)
@@ -3135,7 +3209,7 @@ if len(results) != EXPECTED_CASES:
           f"1.10 de contratos home (15+15+4) + 69 del bloque 1.15 de invitaciones "
           f"(3+8+19+7+19+11+2) + 19 de valores de can_edit (14) y app_user_id (5) + 29 de end_date"
           f" + {CASES_PRIORITY} de prioridad (0037) + {CASES_HIDDEN} de ocultas (0039)"
-          f" + {CASES_POSITION} de orden de listas (0040);"
+          f" + {CASES_POSITION} de orden de listas (0040) + {CASES_MEAL} de /meal/* (0043);"
           f" CONTRACT_SCHEMA={CONTRACT_SCHEMA or 'actual'})")
 fb_fails = fb_results.count(False)
 print(f"{len(fb_results) - fb_fails}/{len(fb_results)} casos feedback ok (esperados {FEEDBACK_EXPECTED})"

@@ -46,6 +46,8 @@ const RPC_STATUS: Record<string, number> = {
     "Invalid priority": 400,
     // 0041 (fecha-limite-vencimiento): fecha límite no parseable en update de tarea
     "Invalid due_at": 400,
+    // 0043 (menus-perfil-hogar): campo, valor o forma del perfil de comidas no válido
+    "Invalid meal profile": 400,
 };
 
 // Router::error de PHP: InvalidArgumentException → 400; el resto → 500 con el mensaje
@@ -88,6 +90,9 @@ export const errInvalidHome = (): Response => error("Invalid home", 400);
 // home/member (1.5 §6.1): id de miembro; los tipos JSON no-string de kind/status emiten
 // 'Invalid member' desde homes.ts (el mensaje vive una sola vez en errors.ts: RPC_STATUS)
 export const errHomeMemberIdRequired = (): Response => error("Member ID is required", 400);
+
+// meal (0043, menus-perfil-hogar): forma de la petición del perfil de comidas (la RPC valida los valores)
+export const errInvalidMealProfile = (): Response => error("Invalid meal profile", 400);
 
 // home/membership (1.6 §6.1): id de home_membership (lo devuelve GET /home/membership) y role
 export const errHomeMembershipIdRequired = (): Response => error("Membership ID is required", 400);

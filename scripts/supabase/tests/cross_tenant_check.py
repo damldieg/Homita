@@ -31,7 +31,7 @@ compartida): B viewer ve la lista sin `tsk_h` y su detail → 500 `{"error":"Not
 
 Miembros (1.5, plan §8.2): K8 cabecera X-Home-Id ajena en PATCH /home/member/update → 404, K11 baja
 soft conserva el histórico (update_event con la misma lista → 200) y K12 asignación nueva de un
-inactivo → 400 Invalid person; K20 usuario C con snapshot `adult` de member_kind_default (18
+inactivo → 400 Invalid person; K20 usuario C con snapshot `adult` de member_kind_default (23
 códigos sin home.view, no LEGACY17) → 403 en GET /home/member; K21 cascada app_user → person →
 home_member (trigger 0014c) e invariante I5 (§8.3) al final.
 
@@ -295,9 +295,10 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 289  # 266 + 3 de prioridad (0037) + 4 XT-AL de acceso a la lista (0038)
+EXPECTED_CASES = 302  # 266 + 3 de prioridad (0037) + 4 XT-AL de acceso a la lista (0038)
                       # + 9 XH de ocultas (0039: 6 XH-B, 1 XH-A-lista, 2 XH-V)
                       # + 7 de PATCH /task-list/order (0040)
+                      # + 13 XM de /meal/* (0043, menus-perfil-hogar)
 A12_ITERS = int(os.environ.get("A12_ITERS", "20"))
 # F1_ITERS: carreras de solape real por bloque F1/F2 (R1-06; el solape expone el 40P01 de 0020)
 F1_ITERS = int(os.environ.get("F1_ITERS", "10"))
@@ -898,7 +899,7 @@ check("N1 update_event con p_person_ids=null conserva las asignaciones propias",
       n1u[0] == 200 and any(p.get("id") == per for p in parse(n1u[1]).get("persons") or []), repr(n1u)[:200])
 
 # ── K20 (1.5, plan §8.2): usuario C con el snapshot por defecto de `adult` ──
-# member_kind_default(kind='adult'): 18 códigos SIN home.view (NO LEGACY17, que sí lo incluye).
+# member_kind_default(kind='adult'): 23 códigos (18 + 5 menu.* de 0043) SIN home.view (NO LEGACY17, que sí lo incluye).
 # C es miembro de home(A) pero sin home.view → GET /home/member 403 (R6, documentado).
 c = edge("POST", "/user/create", {"name": C_NAME, "email": C_EMAIL, "password": C_PASSWORD})
 c_auth = edge("POST", "/user/auth", {"email": C_EMAIL, "password": C_PASSWORD})
@@ -944,8 +945,8 @@ commit;
 n_adult = psql(f"select count(*) from membership_permission mp "
                f"join home_membership hm on hm.id = mp.home_membership_id "
                f"where hm.home_id = {home_a} and hm.app_user_id = {c_id}")
-check("K20 setup: snapshot de adult = 18 códigos (member_kind_default, sin home.view)",
-      n_adult == "18", f"n={n_adult}")
+check("K20 setup: snapshot de adult = 23 códigos (member_kind_default, sin home.view)",
+      n_adult == "23", f"n={n_adult}")
 expect("K20 C GET /home/member?home_id=homeA → 403 Not Allowed (adult sin home.view)",
        edge("GET", f"/home/member?home_id={home_a}", None, c_tok), NOT_ALLOWED)
 expect("K20b C POST /home/member/create → 403 (adult sin home.members.manage)",
@@ -2185,6 +2186,60 @@ n = psql("select count(*) from feedback where texto = 'XT-feedback-b' "
          f"and user_id = '{a_uid}'")
 check("FB4 B con user_id de A en el body → 201 pero la fila nunca es de A", r[0] == 201 and n == "0",
       f"obtenido {r!r} filas_de_A={n}")
+XT_BLOCK = "BASE"
+
+# ── XM (0043, menus-perfil-hogar): /meal/* y tablas meal_* — B no lee ni escribe el perfil de A ──
+# A rellena la ficha de su propio miembro en home(A). B (que ya no es miembro de home(A)) recibe 404 con la
+# cabecera de A, opera solo en su propio hogar sin cabecera (sin ver nada de A) y por RPC directa y PostgREST
+# no lee ni escribe meal_* de A; el estado de A no cambia.
+XT_BLOCK = "XM"
+a_hm = psql(f"select id from home_member where home_id = {home_a} and app_user_id = {a_id} limit 1")
+xm1 = edge("PATCH", "/meal/profile/member",
+           {"home_member_id": int(a_hm or 0), "diet": "vegetarian",
+            "allergies_answered": True, "allergies": [{"allergen": "gluten", "severity": "no_traces"}]}, a_tok)
+check("XM1 A edita la ficha de su miembro por la Edge → 200", xm1[0] == 200, f"obtenido {xm1!r}")
+xm2 = edge("GET", "/meal/profile", None, a_tok)
+xm2_body = parse(xm2[1]) if xm2[0] == 200 else {}
+check("XM2 A GET /meal/profile → su hogar con la ficha guardada",
+      isinstance(xm2_body, dict) and xm2_body.get("home_id") == home_a
+      and any(m.get("home_member_id") == int(a_hm or 0) and m.get("diet") == "vegetarian"
+              for m in xm2_body.get("members", [])), repr(xm2)[:200])
+xm3 = edge("GET", "/meal/profile", None, b_tok)
+xm3_body = parse(xm3[1]) if xm3[0] == 200 else {}
+check("XM3 B GET /meal/profile sin cabecera → solo su hogar, sin fichas de A",
+      isinstance(xm3_body, dict) and xm3_body.get("home_id") == home_b and xm3_body.get("members") == [],
+      repr(xm3)[:200])
+expect("XM4 B GET /meal/profile con X-Home-Id de A → 404",
+       edge("GET", "/meal/profile", None, b_tok, home=home_a), HOME_NOT_FOUND)
+expect("XM5 B PATCH /meal/profile con X-Home-Id de A → 404",
+       edge("PATCH", "/meal/profile", {"shopping_day": 1}, b_tok, home=home_a), HOME_NOT_FOUND)
+expect("XM6 B PATCH /meal/profile/member con un miembro de A → 404",
+       edge("PATCH", "/meal/profile/member", {"home_member_id": int(a_hm or 0), "diet": "vegan"}, b_tok),
+       HOME_NOT_FOUND)
+expect("XM7 B PUT /meal/schedule con un miembro de A → 404",
+       edge("PUT", "/meal/schedule",
+            {"entries": [{"home_member_id": int(a_hm or 0), "weekday": 1, "slot": "lunch", "status": "out"}]}, b_tok),
+       HOME_NOT_FOUND)
+expect("XM8 B PUT /meal/slots con X-Home-Id de A → 404",
+       edge("PUT", "/meal/slots", {"slots": [{"slot": "lunch", "time": "10:00"}]}, b_tok, home=home_a), HOME_NOT_FOUND)
+expect_err("XM9 B rpc get_meal_profile con X-Home-Id de A → Not Found",
+           request(URL, "POST", "/rest/v1/rpc/get_meal_profile", {}, b_tok, apikey=ANON, home=home_a), "Not Found")
+expect_err("XM10 B rpc update_meal_profile_member(miembro de A) → Not Found",
+           rpc_direct("update_meal_profile_member", {"p_member_id": int(a_hm or 0), "p_data": {"diet": "vegan"}}, b_tok),
+           "Not Found")
+xm11 = [request(URL, "GET", f"/rest/v1/{t}?select=*&home_id=eq.{home_a}", None, b_tok, apikey=ANON)
+        for t in ("meal_profile", "meal_profile_member", "meal_schedule", "meal_slot_setting")]
+check("XM11 B SELECT directo de meal_* de A (PostgREST) → 200 y lista vacía",
+      all(r[0] == 200 and parse(r[1]) == [] for r in xm11), repr(xm11)[:300])
+xm12 = request(URL, "POST", "/rest/v1/meal_profile", {"home_id": home_a}, b_tok, apikey=ANON)
+check("XM12 B INSERT directo en meal_profile → rechazado (sin privilegio de escritura)",
+      xm12[0] in (401, 403), f"obtenido {xm12!r}")
+state = psql(f"select (select diet from meal_profile_member where home_member_id = {int(a_hm or 0)}) || ' ' || "
+             f"(select to_char(time, 'HH24:MI') from meal_slot_setting where home_id = {home_a} and slot = 'lunch') || ' ' || "
+             f"(select count(*) from meal_schedule where home_id = {home_a}) || ' ' || "
+             f"(select shopping_day from meal_profile where home_id = {home_a})")
+check("XM13 el perfil de A sigue intacto tras los intentos de B (vegetarian 14:00, sin horario, sábado)",
+      state == "vegetarian 14:00 0 6", f"psql: {state!r}")
 XT_BLOCK = "BASE"
 
 # ── K21 (1.5, plan §8.2) y §8.3: cascada app_user → person → home_member (trigger 0014c, I5) ──
