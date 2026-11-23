@@ -4,13 +4,13 @@
 -- Cada bloque DO emite 'ok P…' o aborta con 'permisos_kind_check: …'. Impersonación vía
 -- set_config('request.jwt.claim.sub', …, true) (auth.uid() → fn_my_user_id).
 --
--- Cubre (§6.1): P1 catálogo 23/37 y conjuntos exactos por kind (§5.5, collate "C"); P2 adult
--- (18 filas, task.delete=true, home.view=false); P3 child (task.create=true, task.delete=false,
+-- Cubre (§6.1): P1 catálogo 28/47 y conjuntos exactos por kind (§5.5, collate "C"); P2 adult
+-- (23 filas, task.delete=true, home.view=false); P3 child (task.create=true, task.delete=false,
 -- home.view=true); P4 relative (task.assign=true, event.edit=true, event.delete=false,
 -- event.assign=false); P5 guest (task.complete=true, task.create=false); P6 reemplazo
 -- adult→guest = 3 filas sin residuos; P7 pet/null → 'Invalid member' P0001, membership_id null
 -- → 'Not Found' P0002, snapshot sin cambios (R1-01); P8 admin: fn_has_permission = true en los
--- 23 códigos sin filas (A4) y el helper rechaza admin ('Not Allowed' 42501) y membresía
+-- 28 códigos sin filas (A4) y el helper rechaza admin ('Not Allowed' 42501) y membresía
 -- inexistente ('Not Found' P0002) (R1-02); P9 ACL inmutable (md5 de calendar_user y
 -- task_list_user idénticos tras cada seed); P10 las aserciones de 0019 abortan sin persistir;
 -- P11 orden de locks home → home_membership → membership_permission, sin app_user.
@@ -61,16 +61,17 @@ do $$
 declare v_n bigint; v_set text; v_exp text;
 begin
     select count(*) into v_n from permission;
-    if v_n <> 23 then
-        raise exception 'permisos_kind_check: P1 permission = % (esperado 23)', v_n;
+    if v_n <> 28 then
+        raise exception 'permisos_kind_check: P1 permission = % (esperado 28)', v_n;
     end if;
     select count(*) into v_n from member_kind_default;
-    if v_n <> 37 then
-        raise exception 'permisos_kind_check: P1 member_kind_default = % (esperado 37)', v_n;
+    if v_n <> 47 then
+        raise exception 'permisos_kind_check: P1 member_kind_default = % (esperado 47)', v_n;
     end if;
     v_exp := array_to_string(array[
         'calendar.manage', 'calendar.view', 'event.assign', 'event.create', 'event.delete',
-        'event.edit', 'routine.assign', 'routine.create', 'routine.delete', 'routine.edit',
+        'event.edit', 'menu.health.view', 'menu.plan.manage', 'menu.profile.edit',
+        'menu.shopping.edit', 'menu.view', 'routine.assign', 'routine.create', 'routine.delete', 'routine.edit',
         'routine.view', 'task.assign', 'task.complete', 'task.create', 'task.delete',
         'task.edit', 'task.view', 'tasklist.manage'], ',');
     select coalesce(string_agg(permission_code, ',' order by permission_code collate "C"), '')
@@ -79,7 +80,7 @@ begin
         raise exception 'permisos_kind_check: P1 adult ≠ §5.5 (%, esperado %)', v_set, v_exp;
     end if;
     v_exp := array_to_string(array[
-        'calendar.view', 'home.view', 'routine.view', 'task.complete', 'task.create',
+        'calendar.view', 'home.view', 'menu.shopping.edit', 'menu.view', 'routine.view', 'task.complete', 'task.create',
         'task.view'], ',');
     select coalesce(string_agg(permission_code, ',' order by permission_code collate "C"), '')
       into v_set from member_kind_default where kind = 'child';
@@ -87,7 +88,8 @@ begin
         raise exception 'permisos_kind_check: P1 child ≠ §5.5 (%, esperado %)', v_set, v_exp;
     end if;
     v_exp := array_to_string(array[
-        'calendar.view', 'event.create', 'event.edit', 'home.view', 'routine.view',
+        'calendar.view', 'event.create', 'event.edit', 'home.view', 'menu.plan.manage', 'menu.shopping.edit', 'menu.view',
+        'routine.view',
         'task.assign', 'task.complete', 'task.create', 'task.edit', 'task.view'], ',');
     select coalesce(string_agg(permission_code, ',' order by permission_code collate "C"), '')
       into v_set from member_kind_default where kind = 'relative';
@@ -105,10 +107,10 @@ begin
     if v_n <> 0 then
         raise exception 'permisos_kind_check: P1 pet con % filas (esperado 0)', v_n;
     end if;
-    raise notice 'ok P1 catálogo: 23/37 y conjuntos exactos por kind (§5.5)';
+    raise notice 'ok P1 catálogo: 28/47 y conjuntos exactos por kind (§5.5)';
 end $$;
 
--- ── P2 (§6.1): seed adult — 18 filas = member_kind_default, task.delete=true, home.view=false ──
+-- ── P2 (§6.1): seed adult — 23 filas = member_kind_default, task.delete=true, home.view=false ──
 
 do $$
 declare v_n bigint; v_bad bigint;
@@ -118,10 +120,11 @@ begin
     select count(*) into v_bad from membership_permission
      where home_membership_id = 996102 and permission_code not in (
         'calendar.manage', 'calendar.view', 'event.assign', 'event.create', 'event.delete',
-        'event.edit', 'routine.assign', 'routine.create', 'routine.delete', 'routine.edit',
+        'event.edit', 'menu.health.view', 'menu.plan.manage', 'menu.profile.edit',
+        'menu.shopping.edit', 'menu.view', 'routine.assign', 'routine.create', 'routine.delete', 'routine.edit',
         'routine.view', 'task.assign', 'task.complete', 'task.create', 'task.delete',
         'task.edit', 'task.view', 'tasklist.manage');
-    if v_n <> 18 or v_bad <> 0 then
+    if v_n <> 23 or v_bad <> 0 then
         raise exception 'permisos_kind_check: P2 snapshot ≠ adult (n=%, ajenos=%)', v_n, v_bad;
     end if;
     perform set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000987', true);
@@ -131,7 +134,7 @@ begin
     if fn_has_permission(996001, 'home.view') then
         raise exception 'permisos_kind_check: P2 home.view = true (esperado false)';
     end if;
-    raise notice 'ok P2 adult: 18 filas = member_kind_default, task.delete=true, home.view=false';
+    raise notice 'ok P2 adult: 23 filas = member_kind_default, task.delete=true, home.view=false';
 end $$;
 
 -- ── P3 (§6.1): seed child — task.create=true, task.delete=false, home.view=true ──
@@ -143,8 +146,8 @@ begin
     select count(*) into v_n from membership_permission where home_membership_id = 996102;
     select count(*) into v_bad from membership_permission
      where home_membership_id = 996102 and permission_code not in (
-        'calendar.view', 'home.view', 'routine.view', 'task.complete', 'task.create', 'task.view');
-    if v_n <> 6 or v_bad <> 0 then
+        'calendar.view', 'home.view', 'menu.shopping.edit', 'menu.view', 'routine.view', 'task.complete', 'task.create', 'task.view');
+    if v_n <> 8 or v_bad <> 0 then
         raise exception 'permisos_kind_check: P3 snapshot ≠ child (n=%, ajenos=%)', v_n, v_bad;
     end if;
     perform set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000987', true);
@@ -154,7 +157,7 @@ begin
     if fn_has_permission(996001, 'task.delete') then
         raise exception 'permisos_kind_check: P3 task.delete = true (esperado false)';
     end if;
-    raise notice 'ok P3 child: 6 filas, task.create=true, task.delete=false, home.view=true';
+    raise notice 'ok P3 child: 8 filas, task.create=true, task.delete=false, home.view=true';
 end $$;
 
 -- ── P4 (§6.1): seed relative — task.assign=true, event.edit=true, event.delete=false ──
@@ -166,9 +169,10 @@ begin
     select count(*) into v_n from membership_permission where home_membership_id = 996102;
     select count(*) into v_bad from membership_permission
      where home_membership_id = 996102 and permission_code not in (
-        'calendar.view', 'event.create', 'event.edit', 'home.view', 'routine.view',
+        'calendar.view', 'event.create', 'event.edit', 'home.view', 'menu.plan.manage', 'menu.shopping.edit', 'menu.view',
+        'routine.view',
         'task.assign', 'task.complete', 'task.create', 'task.edit', 'task.view');
-    if v_n <> 10 or v_bad <> 0 then
+    if v_n <> 13 or v_bad <> 0 then
         raise exception 'permisos_kind_check: P4 snapshot ≠ relative (n=%, ajenos=%)', v_n, v_bad;
     end if;
     perform set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000987', true);
@@ -178,7 +182,7 @@ begin
     if fn_has_permission(996001, 'event.delete') or fn_has_permission(996001, 'event.assign') then
         raise exception 'permisos_kind_check: P4 event.delete/event.assign = true (esperado false)';
     end if;
-    raise notice 'ok P4 relative: 10 filas, task.assign=true, event.edit=true, event.delete=false, event.assign=false';
+    raise notice 'ok P4 relative: 13 filas, task.assign=true, event.edit=true, event.delete=false, event.assign=false';
 end $$;
 
 -- ── P5 (§6.1): seed guest — task.complete=true, task.create=false ──
@@ -263,7 +267,7 @@ begin
     raise notice 'ok P7: pet/null → Invalid member P0001, membership_id null → Not Found P0002, snapshot intacto';
 end $$;
 
--- ── P8 (§6.1 + R1-02): admin = 23 códigos sin filas (A4) y el helper rechaza admin/inexistente ──
+-- ── P8 (§6.1 + R1-02): admin = 28 códigos sin filas (A4) y el helper rechaza admin/inexistente ──
 
 do $$
 declare v_n bigint; v_code text;
@@ -292,14 +296,14 @@ begin
     if v_n <> 0 then
         raise exception 'permisos_kind_check: P8 la admin quedó con % filas (esperado 0, A4)', v_n;
     end if;
-    -- A4: fn_has_permission = true en los 23 códigos sin snapshot (sin llamar al helper)
+    -- A4: fn_has_permission = true en los 28 códigos sin snapshot (sin llamar al helper)
     perform set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000986', true);
     for v_code in select code from permission order by code collate "C" loop
         if not fn_has_permission(996001, v_code) then
             raise exception 'permisos_kind_check: P8 admin sin % (esperado true)', v_code;
         end if;
     end loop;
-    raise notice 'ok P8 admin: 23/23 con fn_has_permission=true y 0 filas; helper rechaza admin (42501) e inexistente (P0002)';
+    raise notice 'ok P8 admin: 28/28 con fn_has_permission=true y 0 filas; helper rechaza admin (42501) e inexistente (P0002)';
 end $$;
 
 -- ── P9 (§6.1): ACL inmutable — md5 de calendar_user y task_list_user idénticos tras cada seed ──
@@ -348,22 +352,23 @@ end $$;
 do $$
 declare v_ok boolean; v_n bigint; v_set text; v_exp text;
 begin
-    -- Corrupción 1: catálogo con 22 códigos (se revierte con la subtransacción)
+    -- Corrupción 1: catálogo con 27 códigos (se revierte con la subtransacción)
     v_ok := false;
     begin
         delete from permission where code = 'home.permissions.manage';
         -- ── copia literal del bloque de aserciones de 0019 §3.2 ──
         select count(*) into v_n from permission;
-        if v_n <> 23 then
-            raise exception 'Aserción 0019: permission = % (esperado 23)', v_n;
+        if v_n <> 28 then
+            raise exception 'Aserción 0019: permission = % (esperado 28)', v_n;
         end if;
         select count(*) into v_n from member_kind_default;
-        if v_n <> 37 then
-            raise exception 'Aserción 0019: member_kind_default = % (esperado 37)', v_n;
+        if v_n <> 47 then
+            raise exception 'Aserción 0019: member_kind_default = % (esperado 47)', v_n;
         end if;
         v_exp := array_to_string(array[
             'calendar.manage', 'calendar.view', 'event.assign', 'event.create', 'event.delete',
-            'event.edit', 'routine.assign', 'routine.create', 'routine.delete', 'routine.edit',
+            'event.edit', 'menu.health.view', 'menu.plan.manage', 'menu.profile.edit',
+        'menu.shopping.edit', 'menu.view', 'routine.assign', 'routine.create', 'routine.delete', 'routine.edit',
             'routine.view', 'task.assign', 'task.complete', 'task.create', 'task.delete',
             'task.edit', 'task.view', 'tasklist.manage'], ',');
         select coalesce(string_agg(permission_code, ',' order by permission_code collate "C"), '')
@@ -372,7 +377,7 @@ begin
             raise exception 'Aserción 0019: adult ≠ §5.5 (%, esperado %)', v_set, v_exp;
         end if;
         v_exp := array_to_string(array[
-            'calendar.view', 'home.view', 'routine.view', 'task.complete', 'task.create',
+            'calendar.view', 'home.view', 'menu.shopping.edit', 'menu.view', 'routine.view', 'task.complete', 'task.create',
             'task.view'], ',');
         select coalesce(string_agg(permission_code, ',' order by permission_code collate "C"), '')
           into v_set from member_kind_default where kind = 'child';
@@ -380,7 +385,8 @@ begin
             raise exception 'Aserción 0019: child ≠ §5.5 (%, esperado %)', v_set, v_exp;
         end if;
         v_exp := array_to_string(array[
-            'calendar.view', 'event.create', 'event.edit', 'home.view', 'routine.view',
+            'calendar.view', 'event.create', 'event.edit', 'home.view', 'menu.plan.manage', 'menu.shopping.edit', 'menu.view',
+        'routine.view',
             'task.assign', 'task.complete', 'task.create', 'task.edit', 'task.view'], ',');
         select coalesce(string_agg(permission_code, ',' order by permission_code collate "C"), '')
           into v_set from member_kind_default where kind = 'relative';
@@ -406,7 +412,7 @@ begin
             raise exception 'Aserción 0019: % filas de membership_permission en membresías admin (A4)', v_n;
         end if;
         -- fin de la copia literal
-        raise exception 'permisos_kind_check: P10 las aserciones NO abortaron con permission = 22';
+        raise exception 'permisos_kind_check: P10 las aserciones NO abortaron con permission = 27';
     exception
         when raise_exception then
             if sqlerrm like 'Aserción 0019:%' then
@@ -419,7 +425,7 @@ begin
         raise exception 'permisos_kind_check: P10 corrupción del catálogo sin abortar';
     end if;
     select count(*) into v_n from permission;
-    if v_n <> 23 then
+    if v_n <> 28 then
         raise exception 'permisos_kind_check: P10 la corrupción persistió (permission = %)', v_n;
     end if;
 

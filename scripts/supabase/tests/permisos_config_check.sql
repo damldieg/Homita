@@ -3,7 +3,7 @@
 --   psql -v ON_ERROR_STOP=1 -f permisos_config_check.sql
 -- Cada bloque DO emite 'ok Cx: …' o aborta con 'permisos_config Cx: …'.
 --
--- C1 catálogo 23/defaults 37 y conjuntos por kind = oráculo BD; C2 memberships (admin = 23,
+-- C1 catálogo 28/defaults 47 y conjuntos por kind = oráculo BD; C2 memberships (admin = 28,
 -- editable según llamante); C3 get sin home.view / no miembro / cabecera ajena; C4/C5 grant y
 -- revoke efectivos vía fn_has_permission; C6 idempotente (0 escrituras, 0 audit); C7 [] revoca
 -- todo; C8 target admin (A4) y 0 filas de admin; C9 member con home.permissions.manage → 403;
@@ -94,7 +94,7 @@ insert into task_list_user (task_list_id, user_id, role, widget, dashboard, home
     (996002, 996001, 'owner', true, true, 996001);
 commit;
 
--- ── C1: catálogo 23 / defaults 37 y conjuntos por kind = oráculo BD ──
+-- ── C1: catálogo 28 / defaults 47 y conjuntos por kind = oráculo BD ──
 
 do $$
 declare
@@ -107,10 +107,10 @@ begin
     perform set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000981', true);
     v := get_home_permissions(996001);
     select count(*) into v_cat from jsonb_array_elements(v::jsonb->'catalog') e;
-    if v_cat <> 23 then
-        raise exception 'permisos_config C1: catálogo % (esperado 23)', v_cat;
+    if v_cat <> 28 then
+        raise exception 'permisos_config C1: catálogo % (esperado 28)', v_cat;
     end if;
-    if (select count(distinct e->>'code') from jsonb_array_elements(v::jsonb->'catalog') e) <> 23
+    if (select count(distinct e->>'code') from jsonb_array_elements(v::jsonb->'catalog') e) <> 28
        or (select count(*) from jsonb_array_elements(v::jsonb->'catalog') e
            where not exists (select 1 from permission p
                              where p.code = e->>'code' and p.domain = e->>'domain'
@@ -119,8 +119,8 @@ begin
     end if;
     select coalesce(sum(jsonb_array_length(e->'permissions')), 0) into v_def
       from jsonb_array_elements(v::jsonb->'defaults') e;
-    if v_def <> 37 then
-        raise exception 'permisos_config C1: defaults total % (esperado 37)', v_def;
+    if v_def <> 47 then
+        raise exception 'permisos_config C1: defaults total % (esperado 47)', v_def;
     end if;
     for r in select e->>'kind' as kind, e->'permissions' as perms
                from jsonb_array_elements(v::jsonb->'defaults') e loop
@@ -136,10 +136,10 @@ begin
            where e->>'kind' = 'pet') <> 0 then
         raise exception 'permisos_config C1: defaults ≠ 4 kinds sin pet';
     end if;
-    -- Oráculo literal (0019:84-124 / findings §1): adult 18 sin home.*; child 6 y relative 10
+    -- Oráculo literal (0019:84-124 / findings §1): adult 23 sin home.* (18 + 5 menu.*); child 8 y relative 13
     -- CON home.view; guest 3.
     if (select jsonb_array_length(e->'permissions') from jsonb_array_elements(v::jsonb->'defaults') e
-        where e->>'kind' = 'adult') <> 18
+        where e->>'kind' = 'adult') <> 23
        or (select count(*) from jsonb_array_elements(v::jsonb->'defaults') e
            where e->>'kind' = 'adult' and e->'permissions' ?| array['home.view',
                  'home.members.manage', 'home.permissions.manage']) <> 0
@@ -153,10 +153,10 @@ begin
           and not (e->'permissions' ? 'home.view')) <> 0 then
         raise exception 'permisos_config C1: child/relative sin home.view (A9/P1)';
     end if;
-    raise notice 'ok C1: catálogo 23, defaults 37 (18/6/10/3) = oráculo 0019';
+    raise notice 'ok C1: catálogo 28, defaults 47 (23/8/13/3) = oráculo 0019 + 0043';
 end $$;
 
--- ── C2: memberships (admin = 23, editable según llamante) ──
+-- ── C2: memberships (admin = 28, editable según llamante) ──
 
 do $$
 declare
@@ -167,8 +167,8 @@ begin
     v := get_home_permissions(996001)::jsonb;
     for r in select e from jsonb_array_elements(v->'memberships') e loop
         if (r.e->>'role') = 'admin' then
-            if jsonb_array_length(r.e->'permissions') <> 23 or (r.e->>'editable')::boolean then
-                raise exception 'permisos_config C2: fila admin ≠ catálogo 23 / editable=false (%)', r.e;
+            if jsonb_array_length(r.e->'permissions') <> 28 or (r.e->>'editable')::boolean then
+                raise exception 'permisos_config C2: fila admin ≠ catálogo 28 / editable=false (%)', r.e;
             end if;
         else
             if not (r.e->>'editable')::boolean then
@@ -186,7 +186,7 @@ begin
         where (e->>'editable')::boolean) <> 0 then
         raise exception 'permisos_config C2: editable=true para un member';
     end if;
-    raise notice 'ok C2: memberships con admin=23 y editable según llamante';
+    raise notice 'ok C2: memberships con admin=28 y editable según llamante';
 end $$;
 
 -- ── C3: get sin home.view → 403; no miembro → 404; cabecera ajena → 404 ──
