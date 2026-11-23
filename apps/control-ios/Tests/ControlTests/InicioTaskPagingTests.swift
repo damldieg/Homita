@@ -1,43 +1,179 @@
 import XCTest
 @testable import ControlKit
 
-/// Puntos del paginador de «Tareas pendientes»: ventana de 5, un solo activo y difuminado en los extremos.
 final class InicioTaskPagingTests: XCTestCase {
-    /// Una sola fuente de verdad: para cada página hay exactamente un punto activo, y es esa página.
-    func testExactlyOneActiveDotMatchesTheVisiblePage() {
-        for count in [1, 3, 5, 6, 8] {
-            for current in 0..<count {
-                let dots = InicioTaskPaging.dots(count: count, current: current)
-                let active = dots.filter(\.highlighted).compactMap(\.listIndex)
-                XCTAssertEqual(active, [current], "n=\(count) actual=\(current)")
+    private let ids = [4, 7, 9]
+
+    func testNeighborMovesForwardAndBack() {
+        XCTAssertEqual(InicioTaskPaging.neighbor(of: 4, in: ids, forward: true), 7)
+        XCTAssertEqual(InicioTaskPaging.neighbor(of: 7, in: ids, forward: true), 9)
+        XCTAssertEqual(InicioTaskPaging.neighbor(of: 9, in: ids, forward: false), 7)
+    }
+
+    func testNeighborStopsAtTheEnds() {
+        XCTAssertNil(InicioTaskPaging.neighbor(of: 9, in: ids, forward: true))
+        XCTAssertNil(InicioTaskPaging.neighbor(of: 4, in: ids, forward: false))
+    }
+
+    func testNeighborIgnoresUnknownListOrSingleList() {
+        XCTAssertNil(InicioTaskPaging.neighbor(of: 5, in: ids, forward: true))
+        XCTAssertNil(InicioTaskPaging.neighbor(of: 4, in: [4], forward: true))
+        XCTAssertNil(InicioTaskPaging.neighbor(of: 4, in: [], forward: false))
+    }
+
+    func testOnlyClearlyHorizontalLongDragsAreSwipes() {
+        XCTAssertTrue(InicioTaskPaging.isHorizontalSwipe(width: -80, height: 10))
+        XCTAssertTrue(InicioTaskPaging.isHorizontalSwipe(width: 70, height: -20))
+        XCTAssertFalse(InicioTaskPaging.isHorizontalSwipe(width: 40, height: 0))      // corto
+        XCTAssertFalse(InicioTaskPaging.isHorizontalSwipe(width: 80, height: 60))     // diagonal
+        XCTAssertFalse(InicioTaskPaging.isHorizontalSwipe(width: 10, height: 120))    // scroll vertical
+    }
+
+    // MARK: dots
+
+    func testDotsEmpty() {
+        XCTAssertEqual(InicioTaskPaging.dots(count: 0, current: 0), [])
+    }
+
+    func testDotsUpToFiveOnePerList() {
+        for n in 1...5 {
+            for c in 0..<n {
+                let dots = InicioTaskPaging.dots(count: n, current: c)
+                XCTAssertEqual(dots.count, n)
+                XCTAssertEqual(dots.map(\.listIndex), Array(0..<n))
+                XCTAssertTrue(dots.allSatisfy { !$0.faded })
+                XCTAssertEqual(dots.enumerated().filter { $0.element.highlighted }.map(\.offset), [c])
             }
         }
     }
 
-    /// La ventana nunca muestra más de 5 puntos, aunque haya más listas.
-    func testWindowNeverShowsMoreThanFive() {
-        for current in 0..<8 {
-            XCTAssertLessThanOrEqual(InicioTaskPaging.dots(count: 8, current: current).count, 5)
+    private func summary(_ n: Int, _ c: Int) -> (idx: [Int?], hi: Int?, faded: [Int]) {
+        let d = InicioTaskPaging.dots(count: n, current: c)
+        return (d.map(\.listIndex), d.firstIndex { $0.highlighted }, d.indices.filter { d[$0].faded })
+    }
+
+    func testDotsSixLists() {
+        for c in [0, 1] {
+            let r = summary(6, c)
+            XCTAssertEqual(r.idx, [0, 1, 2, 3, 4])
+            XCTAssertEqual(r.faded, [4])
+            XCTAssertEqual(r.hi, c)
         }
+        let r2 = summary(6, 2)
+        XCTAssertEqual(r2.idx, [1, 2, 3, 4, 5])
+        XCTAssertEqual(r2.faded, [0])
+        XCTAssertEqual(r2.hi, 1)
+        let r5 = summary(6, 5)
+        XCTAssertEqual(r5.idx, [1, 2, 3, 4, 5])
+        XCTAssertEqual(r5.faded, [0])
+        XCTAssertEqual(r5.hi, 4)
     }
 
-    /// Difuminado en los extremos solo si hay listas ocultas a ese lado.
-    func testEdgesFadeOnlyWhenMoreListsAreHidden() {
-        // Al inicio: el último punto se difumina (quedan listas a la derecha), el primero no.
-        let start = InicioTaskPaging.dots(count: 8, current: 0)
-        XCTAssertFalse(start.first!.faded)
-        XCTAssertTrue(start.last!.faded)
-        // Al final: el primero se difumina (quedan a la izquierda), el último no.
-        let end = InicioTaskPaging.dots(count: 8, current: 7)
-        XCTAssertTrue(end.first!.faded)
-        XCTAssertFalse(end.last!.faded)
-        // Con 5 o menos no hay difuminado.
-        XCTAssertFalse(InicioTaskPaging.dots(count: 5, current: 2).contains { $0.faded })
+    func testDotsSevenListsLast() {
+        let r = summary(7, 6)
+        XCTAssertEqual(r.idx, [2, 3, 4, 5, 6])
+        XCTAssertEqual(r.faded, [0])
+        XCTAssertEqual(r.hi, 4)
+    }
+}
+
+/// Orden de las páginas de la tarjeta de tareas por `position` de la lista (0040).
+@MainActor
+final class InicioTaskPagesOrderTests: XCTestCase {
+    private let utc = TimeZone(identifier: "UTC")!
+
+    private func task(_ id: Int, list: Int) -> String {
+        #"{"id":\#(id),"task_list_id":\#(list),"title":"T\#(id)","completed_at":null,"order":\#(id),"task_list_name":"L\#(list)"}"#
     }
 
-    /// La ventana se desplaza cuando el activo llega al centro (no se queda fija en 2-3).
-    func testWindowSlidesWhileActiveMoves() {
-        let middle = InicioTaskPaging.dots(count: 8, current: 4).compactMap(\.listIndex)
-        XCTAssertEqual(middle, [3, 4, 5, 6, 7])
+    private func list(_ id: Int, position: String?) -> String {
+        let extra = position.map { ##","position":\##($0)"## } ?? ""
+        return ##"{"id":\##(id),"name":"L\##(id)","color":"#6923E2","sort":"custom"\##(extra)}"##
+    }
+
+    /// Carga tareas (listas 4, 7, 9 en ese orden de aparición) y las listas del servidor con `lists`.
+    private func pageIds(lists: [String]) async -> [Int] {
+        let tasks = [task(1, list: 4), task(2, list: 7), task(3, list: 9)].joined(separator: ",")
+        let listsJson = lists.joined(separator: ",")
+        StubURLProtocol.reset { request in
+            let path = request.url?.path ?? ""
+            if path.hasSuffix("/task-list") { return StubURLProtocol.Stub(json: "[\(listsJson)]") }
+            if path.hasSuffix("/task") { return StubURLProtocol.Stub(json: "[\(tasks)]") }
+            return StubURLProtocol.Stub(json: "[]")
+        }
+        let client = makeTestClient()
+        let now = PHPDateTime.parse("2026-11-09 10:00:00", timeZone: utc)!
+        let store = InicioStore(
+            events: EventRepository(client: client), tasks: TaskRepository(client: client),
+            routines: RoutineRepository(client: client), taskLists: TaskListRepository(client: client),
+            clock: { [utc] in LocalClock(now: now, timeZone: utc) }
+        )
+        await store.loadTasks()
+        await store.loadTaskLists()
+        return store.pendingTaskPages.map(\.id)
+    }
+
+    func testPagesFollowListPosition() async {
+        let ids = await pageIds(lists: [list(4, position: "2"), list(7, position: "3"), list(9, position: "1")])
+        XCTAssertEqual(ids, [9, 4, 7])
+    }
+
+    func testListsWithoutPositionGoLastKeepingTheCurrentOrder() async {
+        let ids = await pageIds(lists: [list(4, position: nil), list(7, position: "1"), list(9, position: nil)])
+        XCTAssertEqual(ids, [7, 4, 9])
+    }
+
+    func testTiesAndUnknownListsKeepTheCurrentOrder() async {
+        let ids = await pageIds(lists: [list(4, position: "1"), list(7, position: "1")])
+        XCTAssertEqual(ids, [4, 7, 9])
+    }
+
+    func testServerWithoutPositionKeyKeepsTheCurrentOrder() async throws {
+        let ids = await pageIds(lists: [list(4, position: nil), list(7, position: nil), list(9, position: nil)])
+        XCTAssertEqual(ids, [4, 7, 9])
+        let decoded = try JSONDecoder().decode(TaskListEntry.self, from: Data(list(4, position: nil).utf8))
+        XCTAssertNil(decoded.positionValue)
+    }
+
+    /// `loadTasks()` pide también `/task-list` y las páginas salen ordenadas sin llamar a `loadTaskLists()`.
+    func testLoadTasksFetchesListsAndOrdersPages() async {
+        let tasks = [task(1, list: 4), task(2, list: 7), task(3, list: 9)].joined(separator: ",")
+        let lists = [list(4, position: "2"), list(7, position: nil), list(9, position: "1")].joined(separator: ",")
+        StubURLProtocol.reset { request in
+            let path = request.url?.path ?? ""
+            if path.hasSuffix("/task-list") { return StubURLProtocol.Stub(json: "[\(lists)]") }
+            if path.hasSuffix("/task") { return StubURLProtocol.Stub(json: "[\(tasks)]") }
+            return StubURLProtocol.Stub(json: "[]")
+        }
+        let store = makeStore()
+        await store.loadTasks()
+        XCTAssertEqual(store.tasksState, .loaded)
+        XCTAssertEqual(store.pendingTaskPages.map(\.id), [9, 4, 7])
+    }
+
+    /// Si `/task-list` falla, las tareas cargan igual, sin error y con el orden de siempre.
+    func testTaskListFailureDoesNotBlockTasks() async {
+        let tasks = [task(1, list: 4), task(2, list: 7)].joined(separator: ",")
+        StubURLProtocol.reset { request in
+            let path = request.url?.path ?? ""
+            if path.hasSuffix("/task-list") { return StubURLProtocol.Stub(status: 500, json: #"{"error":"boom"}"#) }
+            if path.hasSuffix("/task") { return StubURLProtocol.Stub(json: "[\(tasks)]") }
+            return StubURLProtocol.Stub(json: "[]")
+        }
+        let store = makeStore()
+        await store.loadTasks()
+        XCTAssertEqual(store.tasksState, .loaded)
+        XCTAssertNil(store.errorMessage)
+        XCTAssertEqual(store.pendingTaskPages.map(\.id), [4, 7])
+    }
+
+    private func makeStore() -> InicioStore {
+        let client = makeTestClient()
+        let now = PHPDateTime.parse("2026-11-09 10:00:00", timeZone: utc)!
+        return InicioStore(
+            events: EventRepository(client: client), tasks: TaskRepository(client: client),
+            routines: RoutineRepository(client: client), taskLists: TaskListRepository(client: client),
+            clock: { [utc] in LocalClock(now: now, timeZone: utc) }
+        )
     }
 }

@@ -369,7 +369,7 @@ public struct InicioView: View {
                     .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
                     .foregroundStyle(Palette.accent)
             }
-            // Hueco para el botón flotante (perro) abajo a la derecha: «Ver más» y la prioridad no quedan debajo.
+            // Hueco para el botón flotante (perro) abajo a la derecha: «Ver más» no queda debajo.
             .padding(.trailing, 72)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
