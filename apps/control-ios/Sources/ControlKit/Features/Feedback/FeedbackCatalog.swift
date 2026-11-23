@@ -64,7 +64,7 @@ public enum FeedbackCatalog {
             FeedbackScreen("Detalle de lista › Editar lista", actions: ["Nombre", "Color", "Orden de las tareas", "Widget", "Dashboard", "Guardar", "Eliminar lista", "Cancelar"])
         ]),
         FeedbackSection("Calendario", screens: [
-            FeedbackScreen("Eventos", actions: ["Ver / cargar", "Día anterior", "Día siguiente", "Deslizar entre días", "Tira de semana", "Hoy", "Elegir fecha", "Nuevo evento", "Abrir evento"]),
+            FeedbackScreen("Eventos", actions: ["Ver / cargar", "Semana anterior", "Semana siguiente", "Deslizar entre semanas", "Tira de semana", "Hoy", "Elegir fecha", "Nuevo evento", "Abrir evento"]),
             FeedbackScreen("Eventos › Elegir fecha", actions: ["Fecha", "Hoy", "Listo"]),
             FeedbackScreen("Eventos › Nuevo evento", actions: ["Título", "Fecha y hora", "Fecha de fin", "Calendario", "Aviso", "Personas", "Crear evento", "Cancelar"]),
             FeedbackScreen("Eventos › Editar evento", actions: ["Título", "Fecha y hora", "Fecha de fin", "Aviso", "Personas", "Guardar", "Eliminar evento", "Cancelar"]),

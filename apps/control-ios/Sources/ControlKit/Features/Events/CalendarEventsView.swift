@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Pestaña Eventos: un día cada vez. Cabecera con flechas y selector de fecha, tira de la semana y lista del día.
-/// Solo eventos (las rutinas tienen su segmento). Tocar un evento abre su detalle en push.
+/// Pestaña Eventos: un día cada vez. Cabecera con flechas de semana y selector de fecha, tira de la semana
+/// (con barras de los eventos de varios días) y lista del día. Solo eventos (las rutinas tienen su segmento).
+/// Tocar un evento abre su detalle en push. El alta se hace desde el CTA «Nuevo evento» al final de la lista.
 struct CalendarEventsView: View {
     @Bindable var eventStore: EventStore
     @Bindable var calendarStore: CalendarAgendaStore
@@ -33,17 +34,7 @@ struct CalendarEventsView: View {
                                 defaultDate: newEventDate)
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showCreate = true
-                } label: {
-                    Image(systemName: "plus")
-                        .foregroundStyle(Palette.ink)
-                        .accessibilityLabel("Nuevo evento")
-                }
-            }
-        }
+        // Un solo punto de alta: el CTA «Nuevo evento» al final de la lista (sin «+» en la barra superior).
         .errorAlert($calendarStore.errorMessage)
         // Un borrado que falla en el detalle (ya cerrado) se avisa aquí.
         .writeFailureToast($eventStore.writeFailure)
@@ -76,31 +67,24 @@ struct CalendarEventsView: View {
                     HomitaSkeletonRows(count: 3, height: 64, label: "Cargando calendario")
                 } else {
                     weekStrip
-                    ongoingSection
                     dayList
+                    newEventButton
                 }
             }
             .padding(20)
         }
         .scrollContentBackground(.hidden)
-        // Deslizar a los lados cambia de día (solo gestos claramente horizontales).
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 30).onEnded { value in
-                let dx = value.translation.width, dy = value.translation.height
-                guard abs(dx) > 60, abs(dx) > abs(dy) * 1.5 else { return }
-                Task { await calendarStore.move(dx < 0 ? 1 : -1) }
-            }
-        )
     }
 
     // MARK: - Cabecera y navegación
 
     private var header: some View {
         HStack(spacing: 12) {
-            Button { Task { await calendarStore.move(-1) } } label: {
+            // Las flechas mueven una semana y conservan el día de la semana.
+            Button { Task { await calendarStore.moveWeek(-1) } } label: {
                 Image(systemName: "chevron.left").foregroundStyle(Palette.ink)
             }
-            .accessibilityLabel("Día anterior")
+            .accessibilityLabel("Semana anterior")
             Button { showPicker = true } label: {
                 HStack(spacing: 6) {
                     Text(dayTitle)
@@ -119,15 +103,15 @@ struct CalendarEventsView: View {
                     .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
                     .foregroundStyle(Palette.accent)
             }
-            Button { Task { await calendarStore.move(1) } } label: {
+            Button { Task { await calendarStore.moveWeek(1) } } label: {
                 Image(systemName: "chevron.right").foregroundStyle(Palette.ink)
             }
-            .accessibilityLabel("Día siguiente")
+            .accessibilityLabel("Semana siguiente")
         }
     }
 
     private var dayTitle: String {
-        Self.format("EEEEdMMMM", calendarStore.anchor, grid).capitalized
+        CalendarWeekLayout.dayTitle(calendarStore.anchor, timeZone: grid.timeZone)
     }
 
     /// Hoja con el selector gráfico: permite saltar a cualquier día sin pasar por los intermedios.
@@ -142,7 +126,8 @@ struct CalendarEventsView: View {
                 displayedComponents: .date
             )
             .datePickerStyle(.graphical)
-            .environment(\.calendar, grid.calendar)
+            .environment(\.calendar, spanishCalendar)
+            .environment(\.locale, CalendarWeekLayout.locale)
             .tint(Palette.accent)
             .padding(.horizontal)
             .navigationTitle("Elegir fecha")
@@ -166,29 +151,55 @@ struct CalendarEventsView: View {
 
     // MARK: - Tira de la semana
 
+    /// Calendario de la rejilla con locale es_ES (selector de fecha).
+    private var spanishCalendar: Calendar {
+        var calendar = grid.calendar
+        calendar.locale = CalendarWeekLayout.locale
+        return calendar
+    }
+
+    private static let stripSpacing: CGFloat = 4
+    private static let barHeight: CGFloat = 6
+    private static let barSpacing: CGFloat = 3
+
     private var weekStrip: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 4) {
-                ForEach(Array(Self.weekdayLetters(grid).enumerated()), id: \.offset) { _, letter in
+        let spans = CalendarWeekLayout.spans(events: calendarStore.events, weekDays: calendarStore.visibleDayStrings)
+        return VStack(spacing: 8) {
+            HStack(spacing: Self.stripSpacing) {
+                ForEach(Array(CalendarWeekLayout.weekdayLetters().enumerated()), id: \.offset) { _, letter in
                     Text(letter)
                         .font(HomitaFont.inter(12, weight: .semibold, relativeTo: .caption))
                         .foregroundStyle(Palette.inkSoft)
                         .frame(maxWidth: .infinity)
                 }
             }
-            HStack(spacing: 4) {
+            HStack(spacing: Self.stripSpacing) {
                 ForEach(calendarStore.visibleDays, id: \.self) { day in
                     dayCell(day)
                 }
             }
+            if !spans.isEmpty {
+                multiDayBars(spans)
+            }
         }
+        .contentShape(Rectangle())
+        // Deslizar la tira a los lados cambia de semana (solo gestos claramente horizontales).
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 20).onEnded { value in
+                guard let step = CalendarWeekLayout.weekStep(
+                    swipeWidth: value.translation.width, height: value.translation.height
+                ) else { return }
+                Task { await calendarStore.moveWeek(step) }
+            }
+        )
     }
 
     private func dayCell(_ day: Date) -> some View {
         let calendar = grid.calendar
         let isSelected = calendar.isDate(day, inSameDayAs: calendarStore.anchor)
         let dayEvents = calendarStore.dayEvents(on: day)
-        let colors = Self.uniqueColors(dayEvents)
+        // Los puntos son solo para eventos de un día; los de varios días se ven como barra.
+        let colors = Self.uniqueColors(calendarStore.listEvents(on: day))
         let number = calendar.component(.day, from: day)
 
         return Button {
@@ -214,44 +225,67 @@ struct CalendarEventsView: View {
         .accessibilityLabel(Self.accessibilityLabel(day: day, count: dayEvents.count, grid: grid))
     }
 
-    // MARK: - En curso
-
-    /// Eventos de varios días cuyo rango contiene el día elegido (D-020). Sin sección si no hay ninguno.
-    @ViewBuilder
-    private var ongoingSection: some View {
-        let ongoing = calendarStore.ongoing(on: calendarStore.anchor)
-        if !ongoing.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                HomitaSectionHeader(title: "En curso", count: ongoing.count, systemImage: "calendar.badge.clock")
-                ForEach(ongoing, id: \.id) { event in
-                    CalendarEventRow(event: event) { selectedEvent = event }
-                }
+    /// Barras continuas de los eventos de varios días, alineadas con las columnas de la tira y apiladas
+    /// en filas cuando se solapan. Decorativas: la lista del día ya los nombra.
+    private func multiDayBars(_ spans: [EventWeekSpan]) -> some View {
+        let rows = CalendarWeekLayout.rowCount(spans)
+        let height = CGFloat(rows) * Self.barHeight + CGFloat(max(rows - 1, 0)) * Self.barSpacing
+        return GeometryReader { proxy in
+            let column = (proxy.size.width - Self.stripSpacing * 6) / 7
+            ForEach(spans, id: \.eventId) { span in
+                let x = CGFloat(span.startColumn) * (column + Self.stripSpacing)
+                let columns = CGFloat(span.endColumn - span.startColumn)
+                let width = (columns + 1) * column + columns * Self.stripSpacing
+                MultiDayBar(span: span)
+                    .frame(width: width, height: Self.barHeight)
+                    .offset(x: x, y: CGFloat(span.row) * (Self.barHeight + Self.barSpacing))
             }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("En curso, \(ongoing.count) \(ongoing.count == 1 ? "evento" : "eventos")")
         }
+        .frame(height: height)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     // MARK: - Lista del día seleccionado
 
+    /// Todo lo del día: los de varios días (cada día de su rango, con «Día N de M») y los que empiezan ese día.
     private var dayList: some View {
-        let items = calendarStore.listEvents(on: calendarStore.anchor)
-        let hasOngoing = !calendarStore.ongoing(on: calendarStore.anchor).isEmpty
+        let items = calendarStore.dayEvents(on: calendarStore.anchor)
+        let day = calendarStore.dayString(calendarStore.anchor)
         return VStack(alignment: .leading, spacing: 10) {
             HomitaSectionHeader(
                 title: dayTitle,
                 count: items.count,
                 systemImage: "calendar"
             )
-            if items.isEmpty && !hasOngoing {
-                HomitaFootnote(text: "Sin eventos este día.")
-                HomitaButton(title: "Nuevo evento", kind: .secondary) { showCreate = true }
+            if items.isEmpty {
+                CalendarFreeDayView()
             } else {
                 ForEach(items, id: \.id) { event in
-                    CalendarEventRow(event: event) { selectedEvent = event }
+                    CalendarEventRow(event: event, dayLabel: CalendarWeekLayout.dayLabel(of: event, on: day)) {
+                        selectedEvent = event
+                    }
                 }
             }
         }
+    }
+
+    /// CTA primario de alta al final de la lista, con o sin eventos.
+    private var newEventButton: some View {
+        Button { showCreate = true } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.body.weight(.semibold))
+                Text("Nuevo evento")
+                    .font(HomitaFont.inter(17, weight: .semibold, relativeTo: .body))
+            }
+            .foregroundStyle(Palette.onFill)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Palette.accent))
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 4)
     }
 
     // MARK: - Auxiliares
@@ -260,18 +294,10 @@ struct CalendarEventsView: View {
         let formatter = DateFormatter()
         formatter.calendar = grid.calendar
         formatter.timeZone = grid.timeZone
-        formatter.locale = grid.calendar.locale
-        // Plantilla de esqueleto: el sistema localiza el orden y las palabras (A6).
+        formatter.locale = CalendarWeekLayout.locale
+        // Plantilla de esqueleto: el formateador ordena y escribe las palabras en español.
         formatter.setLocalizedDateFormatFromTemplate(template)
         return formatter.string(from: date)
-    }
-
-    /// Letras de los días en el idioma del dispositivo, empezando por el lunes (A6).
-    static func weekdayLetters(_ grid: CalendarGrid) -> [String] {
-        let symbols = grid.calendar.veryShortStandaloneWeekdaySymbols
-        guard symbols.count == 7 else { return ["L", "M", "X", "J", "V", "S", "D"] }
-        // veryShort… empieza en domingo (índice 0); se rota para que la semana empiece en lunes.
-        return Array(symbols[1...]) + [symbols[0]]
     }
 
     private static func uniqueColors(_ events: [EventEntry]) -> [String] {
@@ -289,9 +315,10 @@ struct CalendarEventsView: View {
     }
 }
 
-/// Fila de evento en el calendario: barra de color, hora y título.
+/// Fila de evento en el calendario: barra de color, hora y título. Un evento de varios días lleva «Día N de M».
 struct CalendarEventRow: View {
     let event: EventEntry
+    var dayLabel: String? = nil
     let onOpen: () -> Void
 
     var body: some View {
@@ -302,6 +329,11 @@ struct CalendarEventRow: View {
                         .fill(Color(hex: event.calendar_color ?? Palette.fallbackItem))
                         .frame(width: 5)
                     VStack(alignment: .leading, spacing: 4) {
+                        if let dayLabel {
+                            Text(dayLabel)
+                                .font(HomitaFont.inter(12, weight: .semibold, relativeTo: .caption))
+                                .foregroundStyle(Palette.accent)
+                        }
                         Text(DateDisplay.dateTime(event.date_at).uppercased())
                             .font(HomitaFont.inter(12, weight: .semibold, relativeTo: .caption))
                             .foregroundStyle(Palette.inkSoft)
@@ -322,5 +354,105 @@ struct CalendarEventRow: View {
             }
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Barra de un evento de varios días en la tira: redondeada en los extremos; borde recto con flecha
+/// en el lado por el que continúa en otra semana.
+private struct MultiDayBar: View {
+    let span: EventWeekSpan
+
+    var body: some View {
+        let radius: CGFloat = 3
+        let color = Color(hex: span.colorHex)
+        UnevenRoundedRectangle(
+            topLeadingRadius: span.continuesBefore ? 0 : radius,
+            bottomLeadingRadius: span.continuesBefore ? 0 : radius,
+            bottomTrailingRadius: span.continuesAfter ? 0 : radius,
+            topTrailingRadius: span.continuesAfter ? 0 : radius
+        )
+        .fill(color)
+        .overlay(alignment: .leading) {
+            if span.continuesBefore { arrow("chevron.left", color: color).offset(x: -9) }
+        }
+        .overlay(alignment: .trailing) {
+            if span.continuesAfter { arrow("chevron.right", color: color).offset(x: 9) }
+        }
+    }
+
+    private func arrow(_ name: String, color: Color) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 8, weight: .bold))
+            .foregroundStyle(color)
+    }
+}
+
+/// Estado vacío del día: ilustración cálida dibujada con formas (taza humeante bajo un sol),
+/// título «Día libre» y una frase amable.
+struct CalendarFreeDayView: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            illustration
+            Text("Día libre")
+                .font(HomitaFont.inter(18, weight: .semibold, relativeTo: .headline))
+                .foregroundStyle(Palette.ink)
+            Text("Nada agendado. Buen momento para descansar.")
+                .font(HomitaFont.inter(15, relativeTo: .subheadline))
+                .foregroundStyle(Palette.inkSoft)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var illustration: some View {
+        ZStack {
+            Circle()
+                .fill(Palette.accentSoft)
+                .frame(width: 120, height: 120)
+            // Sol detrás de la taza.
+            Circle()
+                .fill(Palette.soon.opacity(0.85))
+                .frame(width: 34, height: 34)
+                .offset(x: 30, y: -30)
+            // Vapor.
+            ForEach(0..<2, id: \.self) { index in
+                SteamCurve()
+                    .stroke(Palette.accent.opacity(0.55), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .frame(width: 10, height: 24)
+                    .offset(x: CGFloat(index) * 14 - 13, y: -24)
+            }
+            // Taza.
+            UnevenRoundedRectangle(bottomLeadingRadius: 14, bottomTrailingRadius: 14)
+                .fill(Palette.accent)
+                .frame(width: 50, height: 38)
+                .offset(x: -6, y: 14)
+            Circle()
+                .stroke(Palette.accent, lineWidth: 5)
+                .frame(width: 18, height: 18)
+                .offset(x: 22, y: 12)
+            // Platillo.
+            Capsule()
+                .fill(Palette.accentPress.opacity(0.35))
+                .frame(width: 72, height: 7)
+                .offset(x: -4, y: 36)
+        }
+        .frame(width: 120, height: 120)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Curva en S del vapor de la taza.
+private struct SteamCurve: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.addCurve(
+            to: CGPoint(x: rect.midX, y: rect.minY),
+            control1: CGPoint(x: rect.minX - rect.width * 0.4, y: rect.maxY - rect.height * 0.35),
+            control2: CGPoint(x: rect.maxX + rect.width * 0.4, y: rect.minY + rect.height * 0.35)
+        )
+        return path
     }
 }
