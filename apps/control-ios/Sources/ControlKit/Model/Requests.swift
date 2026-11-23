@@ -400,12 +400,15 @@ public struct UpdateTaskRequest: Encodable, Equatable {
     public let person_ids: [Int]?
     /// Prioridad `alta`/`media`/`baja` (0037). nil = no se envía (el servidor conserva la actual).
     public let priority: String?
+    /// Fecha límite `YYYY-MM-DD HH:MM:SS` en UTC (0041). nil = no tocar; "" = borrar la fecha.
+    public let due_at: String?
 
-    public init(id: Int, title: String, person_ids: [Int]? = nil, priority: String? = nil) {
+    public init(id: Int, title: String, person_ids: [Int]? = nil, priority: String? = nil, due_at: String? = nil) {
         self.id = id
         self.title = title
         self.person_ids = person_ids
         self.priority = priority
+        self.due_at = due_at
     }
 }
 

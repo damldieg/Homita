@@ -326,7 +326,7 @@ public final class TasksStore: MainActorWriteFailureReporting {
     /// Devuelve si se creó (el editor solo se cierra entonces y conserva lo escrito si no).
     /// `personIds` vacío se trata como nil: sin selección no se envía la clave (AC-2).
     @discardableResult
-    public func createTask(title: String, listId: Int, personIds: [Int]? = nil, priority: TaskPriority? = nil) async -> Bool {
+    public func createTask(title: String, listId: Int, personIds: [Int]? = nil, priority: TaskPriority? = nil, dueAt: String? = nil) async -> Bool {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
         let personIds = personIds?.isEmpty == true ? nil : personIds
@@ -341,11 +341,15 @@ public final class TasksStore: MainActorWriteFailureReporting {
         }
         let kind = outbox.map {
             PendingOp.Kind.createTask(local: $0.makeLocalId(), listRef: ref(for: listId), title: trimmed, personIds: personIds,
-                                      priority: priority?.rawValue)
+                                      priority: priority?.rawValue, dueAt: dueAt)
         }
         return await write(kind, reload: { await $0.loadTasks() }) { store in
-            _ = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed, person_ids: personIds,
-                                                                   priority: priority?.rawValue))
+            let created = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed, person_ids: personIds,
+                                                                             priority: priority?.rawValue))
+            // 0041: create_task no recibe fecha; se fija tras crear.
+            if let dueAt, !dueAt.isEmpty {
+                _ = try await store.tasksRepo.update(UpdateTaskRequest(id: created.id, title: trimmed, due_at: dueAt))
+            }
         }
     }
 
@@ -353,12 +357,15 @@ public final class TasksStore: MainActorWriteFailureReporting {
     /// (`task.priorityValue`; sin clave en caché = media): no pisa el cambio de otro usuario cuando
     /// solo se edita el título.
     @discardableResult
-    public func updateTask(_ task: TaskEntry, title: String, personIds: [Int]? = nil, priority: TaskPriority? = nil) async -> Bool {
+    /// `dueAt` (0041): nil = no tocar; "" = borrar la fecha; `YYYY-MM-DD HH:MM:SS` UTC = fijarla.
+    public func updateTask(_ task: TaskEntry, title: String, personIds: [Int]? = nil, priority: TaskPriority? = nil,
+                           dueAt: String? = nil) async -> Bool {
         let changed = priority.flatMap { $0 == task.priorityValue ? nil : $0.rawValue }
         let kind = PendingOp.Kind.updateTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id), title: title,
-                                             personIds: personIds, priority: changed)
+                                             personIds: personIds, priority: changed, dueAt: dueAt)
         return await write(kind, notFound: .reload, reload: { await $0.loadTasks() }) { store in
-            _ = try await store.tasksRepo.update(UpdateTaskRequest(id: task.id, title: title, person_ids: personIds, priority: changed))
+            _ = try await store.tasksRepo.update(UpdateTaskRequest(id: task.id, title: title, person_ids: personIds, priority: changed,
+                                                                   due_at: dueAt))
         }
     }
 

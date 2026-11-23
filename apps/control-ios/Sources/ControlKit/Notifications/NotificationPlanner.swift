@@ -4,7 +4,7 @@ import HomitaShared
 /// Un aviso local ya calculado (sin tocar el sistema): el scheduler lo convierte en notificación.
 public struct PlannedNotification: Equatable, Sendable {
     public enum Kind: String, Sendable {
-        case event, routine, taskDigest
+        case event, routine, taskDigest, taskDue
     }
 
     public let id: String
@@ -45,6 +45,8 @@ public enum NotificationPlanner {
         if preferences.taskDigest {
             result += digestNotifications(pendingTasks, preferences: preferences, now: now, calendar: calendar)
         }
+        // 0041 (fecha-limite-vencimiento): avisos de vencimiento solo de prioridad alta, asignadas a mí o sin asignar.
+        result += dueNotifications(pendingTasks, now: now, timeZone: timeZone, myPersonIds: myPersonIds)
         return Array(
             result.sorted { $0.fireDate != $1.fireDate ? $0.fireDate < $1.fireDate : $0.id < $1.id }
                 .prefix(maxPending)
@@ -127,6 +129,40 @@ public enum NotificationPlanner {
         }
         return result
     }
+
+    // MARK: - Vencimientos (0041)
+
+    /// Antelaciones de los avisos de vencimiento, en segundos: 1 día, 12 h, 3 h y 1 h.
+    static let dueLeads: [Int] = [24 * 3600, 12 * 3600, 3 * 3600, 3600]
+
+    /// Avisos de tareas de prioridad alta con fecha límite. Sin fecha o de otra prioridad no avisa; las
+    /// asignadas solo a otra persona tampoco (con `myPersonIds` nil no hay filtro). Un aviso cuya hora ya
+    /// pasó no se programa. Los ids son `homita.task-due.<id>.<antelación>`, así cambiar la fecha los sustituye.
+    static func dueNotifications(
+        _ tasks: [TaskEntry], now: Date, timeZone: TimeZone, myPersonIds: Set<Int>?
+    ) -> [PlannedNotification] {
+        var result: [PlannedNotification] = []
+        for task in tasks where !task.isCompleted && task.priorityValue == .alta {
+            guard let raw = task.due_at, let due = PHPDateTime.parse(raw, timeZone: utc) else { continue }
+            if let ids = myPersonIds {
+                let persons = (task.persons ?? []).map(\.id)
+                guard persons.isEmpty || persons.contains(where: ids.contains) else { continue }
+            }
+            for lead in dueLeads {
+                let fire = due.addingTimeInterval(-Double(lead))
+                guard fire > now else { continue }
+                result.append(PlannedNotification(
+                    id: "homita.task-due.\(task.id).\(lead)",
+                    kind: .taskDue, title: "Tarea urgente",
+                    body: "\(task.title) · vence \(timeText(due, timeZone: timeZone))",
+                    fireDate: fire, link: .tareas
+                ))
+            }
+        }
+        return result
+    }
+
+    private static let utc = TimeZone(identifier: "UTC") ?? .current
 
     // MARK: - Textos
 

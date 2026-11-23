@@ -215,8 +215,8 @@ struct TaskListDetailView: View {
                                        Task { await store.setAccess(listId: task.task_list_id, userId: userId, level: level) }
                                    }),
                                assignable: { store.assignablePersons(listId: $0) },
-                               loadAssignable: { await store.loadAssignable(listId: $0) }) { title, _, personIds, priority in
-                    await store.updateTask(task, title: title, personIds: personIds, priority: priority)
+                               loadAssignable: { await store.loadAssignable(listId: $0) }) { title, _, personIds, priority, due in
+                    await store.updateTask(task, title: title, personIds: personIds, priority: priority, dueAt: due)
                 } onDelete: {
                     Task { await store.deleteTask(task) }
                 }

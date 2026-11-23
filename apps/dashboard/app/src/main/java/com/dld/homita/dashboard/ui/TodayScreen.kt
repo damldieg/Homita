@@ -57,6 +57,7 @@ import com.dld.homita.dashboard.data.Event
 import com.dld.homita.dashboard.data.Person
 import com.dld.homita.dashboard.data.partitionEvents
 import com.dld.homita.dashboard.data.Task
+import com.dld.homita.dashboard.data.TaskDue
 import com.dld.homita.dashboard.data.TaskPriority
 import com.dld.homita.dashboard.data.priorityValue
 import com.dld.homita.dashboard.data.repository.ContentRepository
@@ -98,9 +99,16 @@ fun TodayScreen(state: UiState, lastTouch: Long) {
         }
     }
 
+    // Avisos de vencimiento cerrados en esta sesión (0041): no reaparecen hasta reiniciar el marco.
+    var dismissedDue by remember { mutableStateOf(setOf<Int>()) }
+    val due = state.content?.tasks?.let { TaskDue.banner(it, state.now, dismissedDue) }
+
     BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 32.dp)) {
         val column: Dp = (maxWidth - Gap * 2) / 3
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Gap)) {
+            if (due != null) {
+                DueBannerRow(due, onClose = { dismissedDue = dismissedDue + due.task.id })
+            }
             Row(Modifier.fillMaxWidth().weight(0.55f), horizontalArrangement = Arrangement.spacedBy(Gap)) {
                 ClockColumn(state, Modifier.width(column).fillMaxHeight())
                 val forecast = state.forecast
@@ -430,11 +438,42 @@ private fun UpcomingList(items: List<Event>, now: LocalDateTime, lastTouch: Long
     }
 }
 
+/** Banner de la tarea de prioridad alta que vence antes (0041): título, hora y cierre. */
+@Composable
+private fun DueBannerRow(due: TaskDue.DueBanner, onClose: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(Palette.Accent.copy(alpha = 0.14f), RoundedCornerShape(24.dp))
+            .padding(horizontal = 28.dp, vertical = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(due.task.title, style = Type.Body, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "Vence a las " + due.due.format(DueTimeFormat),
+                style = Type.Body.copy(color = Palette.InkMuted),
+            )
+        }
+        Text(
+            "Cerrar",
+            style = Type.Body.copy(color = Palette.InkMuted),
+            modifier = Modifier.clickable(onClick = onClose).padding(start = 16.dp),
+        )
+    }
+}
+
+private val DueTimeFormat = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+
 @Composable
 fun TaskRow(task: Task) {
     // Sin casilla: el dashboard es de solo lectura y no se pueden marcar. A la derecha, la prioridad (0037).
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
-        Text(task.title, style = Type.Body, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Column(Modifier.weight(1f)) {
+            Text(task.title, style = Type.Body, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            // Fecha límite (0041) en hora local, debajo del título.
+            TaskDue.label(task.due_at)?.let { Text("Vence $it", style = Type.Body.copy(color = Palette.InkMuted)) }
+        }
         PriorityBadge(task.priorityValue, Modifier.padding(start = 16.dp))
     }
 }

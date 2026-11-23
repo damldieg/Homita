@@ -16,7 +16,7 @@
 #      task_priority_check P1-P10 (0037), task_person_access_check A1-A9 (0038),
 #      get_persons_home_id_check GP1-GP4 (0038, home_id en get_persons),
 #      task_hidden_check H1-H12 (0039, ocultar completadas a los 3 días),
-#      task_list_position_check TP1-TP8 (0040),
+#      task_list_position_check TP1-TP8 (0040), task_due_check DN1-DN8 (0041, fecha límite),
 #      G5-md5 (solo ADVERTENCIA, no falla: md5 del gate G5 de DEPLOY_0039.md = stack local),
 #      feedback_trello_check B1-B8 (0033) y feedback_trigger_check F1-F12 (0031/0034); trigger inerte en
 #      local: sin feedback_webhook_url en Vault no se encola ninguna petición),
@@ -180,6 +180,10 @@ API_FN="$HERE/supabase/functions/api"
 run "deno test api task-list/order" deno-test-api-order env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/task_list_order_test.ts"
 expect_log "deno test api task-list/order" deno-test-api-order '^ok \| [0-9]+ passed \| 0 failed'
 
+# Test de PATCH /task/update con due_at (0041): fetch falso, mapeo a p_due_at / p_clear_due y 400 local.
+run "deno test api task-due" deno-test-api-due env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/task_due_test.ts"
+expect_log "deno test api task-due" deno-test-api-due '^ok \| [0-9]+ passed \| 0 failed'
+
 run "SQL invitaciones_check" sql-invitaciones sql "$HERE/scripts/supabase/tests/invitaciones_check.sql"
 n_pat=(); for i in $(seq 1 22); do n_pat+=("ok N$i([^0-9]|\$)"); done
 expect_log "SQL invitaciones_check" sql-invitaciones "${n_pat[@]}"
@@ -204,6 +208,11 @@ expect_log "SQL client_request_check" sql-client-request "${c_pat[@]}"
 run "SQL task_list_position_check" sql-task-list-position sql "$HERE/scripts/supabase/tests/task_list_position_check.sql"
 tp_pat=(); for i in $(seq 1 8); do tp_pat+=("ok TP$i([^0-9a-z]|\$)"); done
 expect_log "SQL task_list_position_check" sql-task-list-position "${tp_pat[@]}"
+
+# 0041 (fecha-limite-vencimiento): fecha límite de tareas sobre la BD con 0041 aplicada.
+run "SQL task_due_check" sql-task-due sql "$HERE/scripts/supabase/tests/task_due_check.sql"
+dn_pat=(); for i in $(seq 1 8); do dn_pat+=("ok DN$i([^0-9a-z]|\$)"); done
+expect_log "SQL task_due_check" sql-task-due "${dn_pat[@]}"
 
 run "SQL assistant_usage_check" sql-assistant-usage sql "$HERE/scripts/supabase/tests/assistant_usage_check.sql"
 u_pat=(); for i in $(seq 1 7); do u_pat+=("ok U$i([^0-9a-z]|\$)"); done

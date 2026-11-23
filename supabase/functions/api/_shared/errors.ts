@@ -44,6 +44,8 @@ const RPC_STATUS: Record<string, number> = {
     "Invalid client_request_id": 400,
     // 0037 (prioridad-tarea, D-026): prioridad fuera de alta/media/baja en create/update de tarea
     "Invalid priority": 400,
+    // 0041 (fecha-limite-vencimiento): fecha límite no parseable en update de tarea
+    "Invalid due_at": 400,
 };
 
 // Router::error de PHP: InvalidArgumentException → 400; el resto → 500 con el mensaje
@@ -181,6 +183,8 @@ export const errTaskOrderNegative = (): Response => error("position must be zero
 export const errClientRequestIdInvalid = (): Response => error("Invalid client_request_id", 400);
 // 0037: priority opcional de task (alta/media/baja); mismo mensaje que lanza la RPC
 export const errInvalidPriority = (): Response => error("Invalid priority", 400);
+// 0041: due_at no parseable (formato YYYY-MM-DD HH:MM[:SS]); mismo mensaje que lanza la RPC
+export const errInvalidDueAt = (): Response => error("Invalid due_at", 400);
 
 // feedback (POST /feedback, change control-ios-feedback): ruta nueva sin equivalente PHP.
 export const errFeedbackInvalid = (message: string): Response => error(message, 400);

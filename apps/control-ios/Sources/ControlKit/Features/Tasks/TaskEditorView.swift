@@ -12,7 +12,7 @@ struct TaskEditorView: View {
     /// Último fallo de escritura del store, para el toast dentro de la hoja.
     @Binding var writeFailure: WriteFailure?
     /// Guarda (título recortado, lista, personas, prioridad) y devuelve si fue bien.
-    let onSave: (String, Int, [Int], TaskPriority) async -> Bool
+    let onSave: (String, Int, [Int], TaskPriority, String?) async -> Bool
     let onDelete: (() -> Void)?
     /// Permisos de la lista de la tarea (la tarea hereda el ACL de su lista). Solo en edición.
     let access: TaskListAccess?
@@ -32,6 +32,11 @@ struct TaskEditorView: View {
     @State private var listId: Int
     @State private var personIds: [Int]
     @State private var priority: TaskPriority
+    /// Fecha límite (0041): `hasDue` = la tarea tiene fecha; `dueDate` = la que muestra el selector.
+    @State private var hasDue: Bool
+    @State private var dueDate: Date
+    /// Fecha que tenía la tarea al abrir el editor (nil = sin fecha). Para no reenviar una fecha sin cambios.
+    private let initialDue: Date?
     @State private var isSaving = false
 
     init(
@@ -43,7 +48,7 @@ struct TaskEditorView: View {
         assignable: ((Int) -> [PersonEntry])? = nil,
         loadAssignable: ((Int) async -> Bool)? = nil,
         initialListId: Int? = nil,
-        onSave: @escaping (String, Int, [Int], TaskPriority) async -> Bool,
+        onSave: @escaping (String, Int, [Int], TaskPriority, String?) async -> Bool,
         onDelete: (() -> Void)? = nil
     ) {
         self.access = access
@@ -61,6 +66,10 @@ struct TaskEditorView: View {
         _listId = State(initialValue: resolved.listId)
         _personIds = State(initialValue: task?.persons?.map(\.id) ?? [])
         _priority = State(initialValue: task?.priorityValue ?? .media)
+        let due = TaskDue.date(task?.due_at)
+        initialDue = due
+        _hasDue = State(initialValue: due != nil)
+        _dueDate = State(initialValue: due ?? Date().addingTimeInterval(24 * 3600))
     }
 
     /// Lista inicial: en edición la de la tarea; en alta la fijada si existe (bloqueada); si no, la primera.
@@ -121,6 +130,14 @@ struct TaskEditorView: View {
                     .foregroundStyle(Palette.inkSoft)
                 HomitaSegmented(selection: $priority, items: TaskPriority.allCases.map { (id: $0, title: $0.label) })
                     .accessibilityIdentifier("tarea.prioridad")
+                Toggle("Fecha límite", isOn: $hasDue)
+                    .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
+                    .foregroundStyle(Palette.inkSoft)
+                    .accessibilityIdentifier("tarea.fecha.activa")
+                if hasDue {
+                    DatePicker("Vence", selection: $dueDate, displayedComponents: [.date, .hourAndMinute])
+                        .accessibilityIdentifier("tarea.fecha")
+                }
             }
             PersonSelector(
                 persons: selectablePersons, selected: $personIds,
@@ -165,8 +182,16 @@ struct TaskEditorView: View {
     private func save() async {
         isSaving = true
         defer { isSaving = false }
-        let ok = await onSave(title.trimmingCharacters(in: .whitespacesAndNewlines), listId, personIds, priority)
+        let ok = await onSave(title.trimmingCharacters(in: .whitespacesAndNewlines), listId, personIds, priority, dueOutput())
         if ok { dismiss() }
+    }
+
+    /// Valor de fecha para el guardado: nil = no tocar; "" = borrar; fecha UTC = fijarla.
+    private func dueOutput() -> String? {
+        guard hasDue else { return initialDue == nil ? nil : "" }
+        let formatted = TaskDue.format(dueDate)
+        if let initialDue, TaskDue.format(initialDue) == formatted { return nil }
+        return formatted
     }
 }
 

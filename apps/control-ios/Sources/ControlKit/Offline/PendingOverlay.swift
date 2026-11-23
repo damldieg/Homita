@@ -13,6 +13,12 @@ public struct OverlayResult: Equatable {
 /// creadas offline llevan el ID temporal (o el real si ya se confirmó) y, si el servidor ya trae
 /// ese ID, no se duplican.
 public enum PendingOverlay {
+    /// Fecha de una op (0041): nil o "" = sin fecha; si no, la fecha tal cual.
+    static func dueValue(_ raw: String?) -> String? {
+        guard let raw, !raw.isEmpty else { return nil }
+        return raw
+    }
+
     public static func apply(ops: [PendingOp], idMap: [Int: Int], tasks serverTasks: [TaskEntry], lists serverLists: [TaskListEntry]) -> OverlayResult {
         var tasks = serverTasks
         var lists = serverLists
@@ -50,7 +56,7 @@ public enum PendingOverlay {
                 pendingLists.remove(id)
                 pendingTasks.subtract(removed)
 
-            case .createTask(let local, let listRef, let title, _, let priority):
+            case .createTask(let local, let listRef, let title, _, let priority, let dueAt):
                 let id = Ref.local(local).displayId(with: idMap)
                 let listId = listRef.displayId(with: idMap)
                 pendingTasks.insert(id)
@@ -59,14 +65,15 @@ public enum PendingOverlay {
                 tasks.append(TaskEntry(
                     id: id, task_list_id: listId, title: title, completed_at: nil, created_at: PHPDateTime.format(op.createdAt),
                     updated_at: nil, order: nil, task_list_color: list?.color, task_list_name: list?.name, persons: nil,
-                    priority: priority ?? TaskPriority.media.rawValue
+                    priority: priority ?? TaskPriority.media.rawValue,
+                    due_at: Self.dueValue(dueAt)
                 ))
                 adjustCount(listId: listId, by: 1)
 
-            case .updateTask(let ref, _, let title, _, let priority):
+            case .updateTask(let ref, _, let title, _, let priority, let dueAt):
                 let id = ref.displayId(with: idMap)
                 guard let index = tasks.firstIndex(where: { $0.id == id }) else { continue }
-                tasks[index] = tasks[index].overlay(title: title, priority: priority)
+                tasks[index] = tasks[index].overlay(title: title, priority: priority, dueAt: dueAt.map { Self.dueValue($0) })
                 pendingTasks.insert(id)
 
             case .completeTask(let ref, _, let completed):
@@ -105,12 +112,14 @@ public enum PendingOverlay {
 // MARK: - Copias con cambios (memberwise `internal`)
 
 extension TaskEntry {
-    func overlay(title: String? = nil, completedAt: String?? = nil, listName: String? = nil, listColor: String? = nil, priority: String? = nil) -> TaskEntry {
+    /// `dueAt` doble opcional: nil = no tocar; .some(nil) = borrar la fecha; .some(valor) = fijarla.
+    func overlay(title: String? = nil, completedAt: String?? = nil, listName: String? = nil, listColor: String? = nil, priority: String? = nil, dueAt: String?? = nil) -> TaskEntry {
         TaskEntry(
             id: id, task_list_id: task_list_id, title: title ?? self.title,
             completed_at: completedAt ?? completed_at, created_at: created_at, updated_at: updated_at, order: order,
             task_list_color: listColor ?? task_list_color, task_list_name: listName ?? task_list_name, persons: persons,
-            priority: priority ?? self.priority
+            priority: priority ?? self.priority,
+            due_at: dueAt ?? due_at
         )
     }
 }

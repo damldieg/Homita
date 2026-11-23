@@ -201,11 +201,13 @@ public struct TaskEntry: Codable, Equatable, Identifiable {
     /// Prioridad cruda (`alta`/`media`/`baja`, migración 0037). Ausente en respuestas antiguas → nil.
     /// Se guarda como texto para que un valor futuro desconocido no rompa el decode de la lista.
     public let priority: String?
+    /// Fecha límite en UTC naive `YYYY-MM-DD HH:MM:SS` (0041). Ausente o nil → sin fecha.
+    public let due_at: String?
 
     public init(
         id: Int, task_list_id: Int, title: String, completed_at: String?, created_at: String?,
         updated_at: String?, order: FlexInt?, task_list_color: String?, task_list_name: String?,
-        persons: [PersonEntry]?, priority: String? = nil
+        persons: [PersonEntry]?, priority: String? = nil, due_at: String? = nil
     ) {
         self.id = id
         self.task_list_id = task_list_id
@@ -218,6 +220,7 @@ public struct TaskEntry: Codable, Equatable, Identifiable {
         self.task_list_name = task_list_name
         self.persons = persons
         self.priority = priority
+        self.due_at = due_at
     }
 
     public var isCompleted: Bool { completed_at != nil }

@@ -359,7 +359,7 @@ final class TasksStoreOfflineTests: XCTestCase {
         network.online = false
         let created = await store.createTask(title: "Pan", listId: 2, personIds: [1, 2])
         XCTAssertTrue(created)
-        guard case .createTask(_, _, let title, let personIds, _)? = outbox.ops.first?.kind else {
+        guard case .createTask(_, _, let title, let personIds, _, _)? = outbox.ops.first?.kind else {
             return XCTFail("se encola un create")
         }
         XCTAssertEqual(title, "Pan")
