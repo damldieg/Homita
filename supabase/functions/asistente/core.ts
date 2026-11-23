@@ -95,9 +95,21 @@ const sumTokens = (a: Tokens, b: Tokens): Tokens => ({
 });
 
 /** Serializa el resultado de una herramienta para el modelo, acotado en tamaño. */
-const resultadoTexto = (valor: unknown): string => {
+// Nunca devuelve JSON cortado: si no cabe, quita elementos de `elementos` (y marca `hay_mas`) o, como último
+// recurso, avisa de que el resultado es demasiado grande.
+export const resultadoTexto = (valor: unknown): string => {
     const s = JSON.stringify(valor ?? null);
-    return s.length > MAX_RESULTADO_CHARS ? s.slice(0, MAX_RESULTADO_CHARS) + "…[truncado]" : s;
+    if (s.length <= MAX_RESULTADO_CHARS) return s;
+    const o = valor as { elementos?: unknown[] } | null;
+    if (o !== null && typeof o === "object" && Array.isArray(o.elementos)) {
+        const copia = { ...o, elementos: [...o.elementos], hay_mas: true };
+        while (copia.elementos.length > 0) {
+            copia.elementos.pop();
+            const t = JSON.stringify(copia);
+            if (t.length <= MAX_RESULTADO_CHARS) return t;
+        }
+    }
+    return JSON.stringify({ error: "resultado demasiado grande", aviso: "Acota la consulta (fechas, lista o texto)." });
 };
 
 /** Herramientas de las skills disponibles, indexadas por nombre. Nombres duplicados → error de configuración. */
