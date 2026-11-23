@@ -20,8 +20,8 @@ public struct PendingOp: Codable, Equatable, Identifiable, Sendable {
     /// Codable sintetizado la decodifica con `decodeIfPresent`, así las ops ya encoladas sin la clave
     /// siguen leyéndose (fijado en PendingOpTests).
     public enum Kind: Codable, Equatable, Sendable {
-        case createTask(local: Int, listRef: Ref, title: String, personIds: [Int]?, priority: String? = nil)
-        case updateTask(ref: Ref, listRef: Ref, title: String, personIds: [Int]?, priority: String? = nil)
+        case createTask(local: Int, listRef: Ref, title: String, personIds: [Int]?, priority: String? = nil, dueAt: String? = nil)
+        case updateTask(ref: Ref, listRef: Ref, title: String, personIds: [Int]?, priority: String? = nil, dueAt: String? = nil)
         case completeTask(ref: Ref, listRef: Ref, completed: Bool)
         case deleteTask(ref: Ref, listRef: Ref)
         case createList(local: Int, name: String, color: String, sort: String, widget: Bool, dashboard: Bool)
@@ -47,8 +47,8 @@ extension PendingOp.Kind {
     /// Recurso de tarea sobre el que actúa (el temporal en un create); nil en las de lista.
     var taskRef: Ref? {
         switch self {
-        case .createTask(let local, _, _, _, _): return .local(local)
-        case .updateTask(let ref, _, _, _, _), .completeTask(let ref, _, _), .deleteTask(let ref, _): return ref
+        case .createTask(let local, _, _, _, _, _): return .local(local)
+        case .updateTask(let ref, _, _, _, _, _), .completeTask(let ref, _, _), .deleteTask(let ref, _): return ref
         default: return nil
         }
     }
@@ -56,7 +56,7 @@ extension PendingOp.Kind {
     /// Lista sobre la que actúa una op de lista, o lista de la tarea en una op de tarea.
     var listRef: Ref {
         switch self {
-        case .createTask(_, let listRef, _, _, _), .updateTask(_, let listRef, _, _, _),
+        case .createTask(_, let listRef, _, _, _, _), .updateTask(_, let listRef, _, _, _, _),
              .completeTask(_, let listRef, _), .deleteTask(_, let listRef):
             return listRef
         case .createList(let local, _, _, _, _, _): return .local(local)
@@ -69,7 +69,7 @@ extension PendingOp.Kind {
     /// Temporal que crea esta op (solo los creates).
     var createdLocal: Ref? {
         switch self {
-        case .createTask(let local, _, _, _, _), .createList(let local, _, _, _, _, _): return .local(local)
+        case .createTask(let local, _, _, _, _, _), .createList(let local, _, _, _, _, _): return .local(local)
         default: return nil
         }
     }
@@ -93,7 +93,7 @@ extension PendingOp.Kind {
     /// Texto corto del recurso para los avisos («Leche», «la lista Compra»…).
     var subject: String? {
         switch self {
-        case .createTask(_, _, let title, _, _), .updateTask(_, _, let title, _, _): return "«\(title)»"
+        case .createTask(_, _, let title, _, _, _), .updateTask(_, _, let title, _, _, _): return "«\(title)»"
         case .createList(_, let name, _, _, _, _), .updateList(_, let name, _, _, _, _): return "la lista «\(name)»"
         case .completeTask, .deleteTask, .deleteList: return nil
         }

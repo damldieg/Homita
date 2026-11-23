@@ -29,21 +29,23 @@ public enum OutboxCompactor {
         case .createTask, .createList:
             queue.append(op)
 
-        case .updateTask(let ref, let listRef, let title, let personIds, let priority):
+        case .updateTask(let ref, let listRef, let title, let personIds, let priority, let dueAt):
             if let index = queue.firstIndex(where: { mutable($0) && $0.kind.createdLocal.map { same($0, ref) } == true }),
-               case .createTask(let local, let createListRef, _, let createPersons, let createPriority) = queue[index].kind {
+               case .createTask(let local, let createListRef, _, let createPersons, let createPriority, let createDue) = queue[index].kind {
                 queue[index].kind = .createTask(local: local, listRef: createListRef, title: title,
-                                                personIds: personIds ?? createPersons, priority: priority ?? createPriority)
+                                                personIds: personIds ?? createPersons, priority: priority ?? createPriority,
+                                                dueAt: dueAt ?? createDue)
                 return queue
             }
             var merged = op
             if let index = queue.lastIndex(where: { other in
-                guard mutable(other), case .updateTask(let otherRef, _, _, _, _) = other.kind else { return false }
+                guard mutable(other), case .updateTask(let otherRef, _, _, _, _, _) = other.kind else { return false }
                 return same(otherRef, ref)
-            }), case .updateTask(_, _, _, let previousPersons, let previousPriority) = queue[index].kind {
+            }), case .updateTask(_, _, _, let previousPersons, let previousPriority, let previousDue) = queue[index].kind {
                 queue.remove(at: index)
                 merged.kind = .updateTask(ref: ref, listRef: listRef, title: title,
-                                          personIds: personIds ?? previousPersons, priority: priority ?? previousPriority)
+                                          personIds: personIds ?? previousPersons, priority: priority ?? previousPriority,
+                                          dueAt: dueAt ?? previousDue)
             }
             queue.append(merged)
 

@@ -2,7 +2,7 @@
 // personIdsOf, que consulta get_persons para la visibilidad (Person::validateIds).
 import { getInput, type ContractInput } from "./contract.ts";
 import {
-    errAlarmInvalid, errClientRequestIdInvalid, errEventEndDate, errInvalidPriority, errFeedbackInvalid, errEventEndDateRange, errPersonIdsIds, errPersonIdsList, errPersonInvalid,
+    errAlarmInvalid, errClientRequestIdInvalid, errEventEndDate, errInvalidDueAt, errInvalidPriority, errFeedbackInvalid, errEventEndDateRange, errPersonIdsIds, errPersonIdsList, errPersonInvalid,
     errRoutineActive, errRoutineDate, errRoutineDateRange, errRoutineDaysRange, errRoutineDaysRequired,
     errRoutineFrequency, errRoutineInterval, errRoutineTime, errRoutineTitleRequired,
 } from "./errors.ts";
@@ -36,6 +36,21 @@ export const priorityOf = (input: ContractInput): Priority | undefined | Respons
     if (v === null) return undefined;
     if (typeof v !== "string" || !(PRIORITIES as readonly string[]).includes(v)) return errInvalidPriority();
     return v as Priority;
+};
+
+// due_at opcional de task (0041, fecha-limite-vencimiento): clave ausente o null → undefined (no se
+// toca la fecha); '' → { clear: true } (borra la fecha); 'YYYY-MM-DD[ T]HH:MM[:SS]' → { value } normalizado a
+// 'YYYY-MM-DD HH:MM:SS' en UTC naive; cualquier otra cosa → 400 'Invalid due_at' sin llamar a la RPC.
+const DUE_AT = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(:\d{2})?$/;
+export type DueAt = { value?: string; clear?: boolean };
+export const dueAtOf = (input: ContractInput): DueAt | undefined | Response => {
+    const v = getInput(input, "due_at");
+    if (v === null) return undefined;
+    if (v === "") return { clear: true };
+    if (typeof v !== "string") return errInvalidDueAt();
+    const m = DUE_AT.exec(v);
+    if (!m) return errInvalidDueAt();
+    return { value: `${m[1]} ${m[2]}${m[3] ?? ":00"}` };
 };
 
 const isList = (v: unknown): v is unknown[] => Array.isArray(v) && v.every((_, i) => i in v);

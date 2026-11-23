@@ -39,6 +39,11 @@ public final class InicioStore: MainActorWriteFailureReporting {
     @ObservationIgnored private let coordinator: TaskWriteCoordinator?
     /// Personas asignables en el alta rápida (0038: con cuenta y acceso a la lista).
     @ObservationIgnored public let assignees: TaskAssigneeLoader
+    /// Personas del hogar para saber cuáles son mías (banner de vencimiento, 0041). Best-effort.
+    @ObservationIgnored private let personsRepo: PersonRepository?
+    private var roster: [PersonEntry] = []
+    /// Avisos de vencimiento cerrados en esta sesión (no persisten).
+    public private(set) var dismissedDueIds: Set<Int> = []
 
     public init(events: EventRepository, tasks: TaskRepository, routines: RoutineRepository,
                 taskLists: TaskListRepository, persons: PersonRepository? = nil,
@@ -51,6 +56,7 @@ public final class InicioStore: MainActorWriteFailureReporting {
         self.clock = clock
         self.outbox = outbox
         self.coordinator = outbox.map { TaskWriteCoordinator(outbox: $0, tasks: tasks, taskLists: taskLists, isOnline: isOnline) }
+        self.personsRepo = persons
         self.assignees = TaskAssigneeLoader(persons: persons, taskLists: taskLists, outbox: outbox)
         assignees.onError = { [weak self] error in self?.errorMessage = self?.message(error) }
     }
@@ -65,6 +71,16 @@ public final class InicioStore: MainActorWriteFailureReporting {
     }
 
     public var tasks: [TaskEntry] { overlay.tasks }
+
+    /// Banner de vencimiento de Inicio (0041): la tarea de prioridad alta más próxima, si no está cerrada.
+    public func dueBanner(now: Date) -> (task: TaskEntry, due: Date)? {
+        TaskDue.banner(tasks: tasks, now: now, roster: roster, currentUserId: outbox?.userId, dismissed: dismissedDueIds)
+    }
+
+    /// Cierra el banner de una tarea en esta sesión; no vuelve a aparecer hasta reabrir la app.
+    public func dismissDueBanner(taskId: Int) {
+        dismissedDueIds.insert(taskId)
+    }
     public var taskLists: [TaskListEntry] { overlay.lists }
     /// Tareas aún no sincronizadas (icono «Pendiente de sincronizar»).
     public var pendingTaskIds: Set<Int> { overlay.pendingTaskIds }
@@ -239,6 +255,7 @@ public final class InicioStore: MainActorWriteFailureReporting {
         // Las listas (para el orden de las páginas por `position`) son best-effort: si fallan, las tareas
         // siguen cargando y no se toca ni `tasksState` ni `errorMessage`.
         async let listsLoad: [TaskListEntry]? = try? await fetchFresh { try await taskListsRepo.index() }
+        if let personsRepo, let people = try? await personsRepo.index() { roster = people }
         do {
             serverTasks = try await fetchFresh { try await tasksRepo.index(taskListId: nil) }
             if let lists = await listsLoad { serverTaskLists = lists }
@@ -283,18 +300,20 @@ public final class InicioStore: MainActorWriteFailureReporting {
     /// La prioridad solo se envía si cambió respecto de `task.priorityValue`, para no pisar
     /// la que haya puesto otro usuario. Devuelve si se guardó (en cola cuenta como guardado).
     @discardableResult
-    public func updateTask(_ task: TaskEntry, title: String, personIds: [Int]? = nil, priority: TaskPriority? = nil) async -> Bool {
+    public func updateTask(_ task: TaskEntry, title: String, personIds: [Int]? = nil, priority: TaskPriority? = nil,
+                           dueAt: String? = nil) async -> Bool {
         let changed = priority.flatMap { $0 == task.priorityValue ? nil : $0.rawValue }
         guard let coordinator else {
             return await performWrite { store in
                 try await store.reloadingOnNotFound {
-                    _ = try await store.tasksRepo.update(UpdateTaskRequest(id: task.id, title: title, person_ids: personIds, priority: changed))
+                    _ = try await store.tasksRepo.update(UpdateTaskRequest(id: task.id, title: title, person_ids: personIds, priority: changed,
+                                                                           due_at: dueAt))
                     await store.loadTasks()
                 }
             }
         }
         let op = coordinator.makeOp(.updateTask(ref: ref(for: task.id), listRef: ref(for: task.task_list_id), title: title,
-                                                personIds: personIds, priority: changed))
+                                                personIds: personIds, priority: changed, dueAt: dueAt))
         return await performWrite { store in
             guard let coordinator = store.coordinator else { return }
             try await store.reloadingOnNotFound {
@@ -339,19 +358,24 @@ public final class InicioStore: MainActorWriteFailureReporting {
     /// Alta rápida de tarea desde Inicio. Devuelve si se creó (el editor solo se cierra entonces).
     /// `personIds` vacío se trata como nil: sin selección no se envía la clave (AC-2).
     @discardableResult
-    public func createTask(title: String, listId: Int, personIds: [Int]? = nil, priority: TaskPriority? = nil) async -> Bool {
+    public func createTask(title: String, listId: Int, personIds: [Int]? = nil, priority: TaskPriority? = nil,
+                           dueAt: String? = nil) async -> Bool {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
         let personIds = personIds?.isEmpty == true ? nil : personIds
         guard let coordinator, let outbox else {
             return await performWrite { store in
-                _ = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed, person_ids: personIds,
-                                                                       priority: priority?.rawValue))
+                let created = try await store.tasksRepo.create(CreateTaskRequest(task_list_id: listId, title: trimmed, person_ids: personIds,
+                                                                                 priority: priority?.rawValue))
+                // 0041: create_task no recibe fecha; se fija tras crear.
+                if let dueAt, !dueAt.isEmpty {
+                    _ = try await store.tasksRepo.update(UpdateTaskRequest(id: created.id, title: trimmed, due_at: dueAt))
+                }
                 await store.loadTasks()
             }
         }
         let op = coordinator.makeOp(.createTask(local: outbox.makeLocalId(), listRef: ref(for: listId), title: trimmed, personIds: personIds,
-                                                priority: priority?.rawValue))
+                                                priority: priority?.rawValue, dueAt: dueAt))
         return await performWrite { store in
             guard let coordinator = store.coordinator else { return }
             if case .sent = try await coordinator.perform(op) { await store.loadTasks() }

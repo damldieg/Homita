@@ -51,7 +51,9 @@ data class Task(
     val order: Int,
     val completed_at: String?,
     /** `alta`/`media`/`baja` (0037). Gson lo deja a null si falta (caché de disco antigua): ver [priorityValue]. */
-    val priority: String? = null
+    val priority: String? = null,
+    /** Fecha límite en UTC, `yyyy-MM-dd HH:mm:ss` (0041). Null = sin fecha; ver [TaskDue.local]. */
+    val due_at: String? = null
 )
 
 /** Contenido de Hoy (ver ContentRepository). */

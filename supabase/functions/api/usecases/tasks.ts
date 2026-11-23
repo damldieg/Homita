@@ -5,7 +5,7 @@ import {
     errTaskOrderNegative, errTaskOrderRequired, errTaskUpdateRequired, rpcError, rpcPass,
 } from "../_shared/errors.ts";
 import { hasTaskListAccess, rpc } from "../_shared/supabase.ts";
-import { clientRequestIdOf, personIdsOf, priorityOf } from "../_shared/validate.ts";
+import { clientRequestIdOf, dueAtOf, personIdsOf, priorityOf } from "../_shared/validate.ts";
 
 // GET /task (TaskIndex.php): task_list_id de body+query con precedencia del body
 // (ControllerAbstract.php:31) — si llega → check estricto de pertenencia (TaskListUser::check →
@@ -90,9 +90,17 @@ export const handleTaskUpdate = async (req: Request, token: string): Promise<Res
     // Sin person_ids no se tocan las personas; con array se sincronizan (0025).
     const personIds = await personIdsOf(input, token);
     if (personIds instanceof Response) return personIds;
+    // due_at opcional (0041): ausente/null → no se toca; '' → se borra; fecha → se fija
+    const dueAt = dueAtOf(input);
+    if (dueAt instanceof Response) return dueAt;
     const args: Record<string, unknown> = { p_id: id, p_title: title, p_person_ids: personIds };
     if (priority !== undefined) args.p_priority = priority;
-    return rpcPass(await rpc("update_task", args, token));
+    // 0041: la fecha va en task_due_set (update_task no cambia de firma: la cadena de rollbacks depende de ella).
+    // Las dos escrituras son idempotentes: si la segunda falla, reenviar la op la deja bien.
+    const res = await rpc("update_task", args, token);
+    if (!res.ok || dueAt === undefined) return rpcPass(res);
+    const dueArgs = dueAt.clear ? { p_id: id, p_clear_due: true } : { p_id: id, p_due_at: dueAt.value };
+    return rpcPass(await rpc("task_due_set", dueArgs, token));
 };
 
 // PATCH /task/complete (TaskComplete.php): completed bool requerido (getInputBool sin default)

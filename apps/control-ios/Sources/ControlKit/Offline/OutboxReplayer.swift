@@ -18,12 +18,19 @@ struct OutboxSender {
             return id
         }
         switch op.kind {
-        case .createTask(_, let listRef, let title, let personIds, let priority):
+        case .createTask(_, let listRef, let title, let personIds, let priority, let dueAt):
             let request = CreateTaskRequest(task_list_id: try id(listRef), title: title, person_ids: personIds,
                                             client_request_id: op.clientRequestId, priority: priority)
-            return try await tasks.create(request).id
-        case .updateTask(let ref, _, let title, let personIds, let priority):
-            _ = try await tasks.update(UpdateTaskRequest(id: try id(ref), title: title, person_ids: personIds, priority: priority))
+            let createdId = try await tasks.create(request).id
+            // 0041: create_task no recibe fecha; si la tarea la lleva, se fija tras crearla (la clave de
+            // idempotencia evita duplicar la tarea si este paso falla y la op se reintenta).
+            if let dueAt, !dueAt.isEmpty {
+                _ = try await tasks.update(UpdateTaskRequest(id: createdId, title: title, due_at: dueAt))
+            }
+            return createdId
+        case .updateTask(let ref, _, let title, let personIds, let priority, let dueAt):
+            _ = try await tasks.update(UpdateTaskRequest(id: try id(ref), title: title, person_ids: personIds, priority: priority,
+                                                         due_at: dueAt))
         case .completeTask(let ref, _, let completed):
             _ = try await tasks.complete(CompleteTaskRequest(id: try id(ref), completed: completed))
         case .deleteTask(let ref, _):
@@ -201,15 +208,15 @@ public final class OutboxReplayer {
 
     /// Personas de un create de tarea; nil si no es un create de tarea o no lleva personas.
     static func assignedPersons(_ kind: PendingOp.Kind) -> [Int]? {
-        guard case .createTask(_, _, _, let personIds?, _) = kind, !personIds.isEmpty else { return nil }
+        guard case .createTask(_, _, _, let personIds?, _, _) = kind, !personIds.isEmpty else { return nil }
         return personIds
     }
 
     /// Misma op con otras personas (nil o vacío = sin la clave). Conserva temporal, lista, título y prioridad.
     static func replacingPersons(_ kind: PendingOp.Kind, with personIds: [Int]?) -> PendingOp.Kind {
-        guard case .createTask(let local, let listRef, let title, _, let priority) = kind else { return kind }
+        guard case .createTask(let local, let listRef, let title, _, let priority, let dueAt) = kind else { return kind }
         return .createTask(local: local, listRef: listRef, title: title,
-                           personIds: personIds?.isEmpty == true ? nil : personIds, priority: priority)
+                           personIds: personIds?.isEmpty == true ? nil : personIds, priority: priority, dueAt: dueAt)
     }
 
     /// Escalera de P-4 para un create rechazado por `Invalid person`: roster fresco (`GET person` y
@@ -219,7 +226,7 @@ public final class OutboxReplayer {
     /// parada o nil para seguir con la cola.
     private func reassign(_ op: PendingOp, in outbox: OutboxStore, summary: inout ReplaySummary) async -> ReplaySummary.Stop? {
         guard let persons, let original = Self.assignedPersons(op.kind),
-              case .createTask(_, let listRef, let title, _, _) = op.kind,
+              case .createTask(_, let listRef, let title, _, _, _) = op.kind,
               let listId = listRef.resolved(with: outbox.idMap) else {
             return Self.handle(APIError.http(status: 400, message: "Invalid person"), op: op, in: outbox, summary: &summary)
         }
@@ -274,7 +281,7 @@ public final class OutboxReplayer {
 
     /// Aviso pendiente de P-4 guardado en la op (`removedAssignees`); nil si no hay.
     static func pendingAssigneeNotice(_ op: PendingOp) -> String? {
-        guard let names = op.removedAssignees, case .createTask(_, _, let title, _, _) = op.kind else { return nil }
+        guard let names = op.removedAssignees, case .createTask(_, _, let title, _, _, _) = op.kind else { return nil }
         return assigneeNotice(title: title, removedNames: names)
     }
 

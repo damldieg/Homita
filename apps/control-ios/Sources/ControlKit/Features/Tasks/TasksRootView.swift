@@ -337,8 +337,8 @@ struct TasksView: View {
                                writeFailure: $store.writeFailure,
                                assignable: { store.assignablePersons(listId: $0) },
                                loadAssignable: { await store.loadAssignable(listId: $0) },
-                               initialListId: createListId) { title, listId, personIds, priority in
-                    await store.createTask(title: title, listId: listId, personIds: personIds, priority: priority)
+                               initialListId: createListId) { title, listId, personIds, priority, due in
+                    await store.createTask(title: title, listId: listId, personIds: personIds, priority: priority, dueAt: due)
                 }
             }
         }
@@ -353,8 +353,8 @@ struct TasksView: View {
                                        Task { await store.setAccess(listId: task.task_list_id, userId: userId, level: level) }
                                    }),
                                assignable: { store.assignablePersons(listId: $0) },
-                               loadAssignable: { await store.loadAssignable(listId: $0) }) { title, _, personIds, priority in
-                    await store.updateTask(task, title: title, personIds: personIds, priority: priority)
+                               loadAssignable: { await store.loadAssignable(listId: $0) }) { title, _, personIds, priority, due in
+                    await store.updateTask(task, title: title, personIds: personIds, priority: priority, dueAt: due)
                 } onDelete: {
                     Task { await store.deleteTask(task) }
                 }

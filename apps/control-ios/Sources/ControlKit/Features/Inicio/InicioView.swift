@@ -54,6 +54,10 @@ public struct InicioView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     greeting
+                    if let banner = store.dueBanner(now: Date()) {
+                        dueBanner(task: banner.task, due: banner.due)
+                            .accessibilityIdentifier("inicio.banner.vencimiento")
+                    }
                     routinesCard.accessibilityIdentifier("inicio.tarjeta.rutinas")
                     eventsCard.accessibilityIdentifier("inicio.tarjeta.eventos")
                     tasksCard.accessibilityIdentifier("inicio.tarjeta.tareas")
@@ -83,8 +87,8 @@ public struct InicioView: View {
                     TaskEditorView(taskLists: store.taskLists, task: nil,
                                    writeFailure: $store.writeFailure,
                                    assignable: { store.assignablePersons(listId: $0) },
-                                   loadAssignable: { await store.loadAssignable(listId: $0) }) { title, listId, personIds, priority in
-                        await store.createTask(title: title, listId: listId, personIds: personIds, priority: priority)
+                                   loadAssignable: { await store.loadAssignable(listId: $0) }) { title, listId, personIds, priority, due in
+                        await store.createTask(title: title, listId: listId, personIds: personIds, priority: priority, dueAt: due)
                     }
                 }
             }
@@ -100,8 +104,8 @@ public struct InicioView: View {
                         EventDetailView(store: eventStore, calendars: calendarStore, persons: personStore, event: event)
                     case .task(let task):
                         TaskEditorView(taskLists: store.taskLists, persons: personStore.persons, task: task,
-                                       writeFailure: $store.writeFailure) { title, _, personIds, priority in
-                            await store.updateTask(task, title: title, personIds: personIds, priority: priority)
+                                       writeFailure: $store.writeFailure) { title, _, personIds, priority, due in
+                            await store.updateTask(task, title: title, personIds: personIds, priority: priority, dueAt: due)
                         }
                     case .routine(let routine):
                         RoutineEditorView(store: routineStore, calendars: calendarStore, persons: personStore, routine: routine)
@@ -397,6 +401,35 @@ public struct InicioView: View {
     }
 
     // MARK: - Piezas
+
+    /// Banner de la tarea de prioridad alta más próxima a vencer (0041): nombre, hora y cierre.
+    private func dueBanner(task: TaskEntry, due: Date) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .foregroundStyle(Palette.err)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(task.title)
+                    .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+                Text("Vence \(due.formatted(date: .omitted, time: .shortened))")
+                    .font(HomitaFont.inter(13, weight: .medium, relativeTo: .footnote))
+                    .foregroundStyle(Palette.inkSoft)
+            }
+            Spacer(minLength: 8)
+            Button {
+                store.dismissDueBanner(taskId: task.id)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Palette.inkSoft)
+                    .frame(width: 32, height: 32)
+            }
+            .accessibilityLabel("Cerrar aviso")
+        }
+        .padding(14)
+        .background(Palette.errSoft, in: RoundedRectangle(cornerRadius: 14))
+    }
 
     private func sectionCard<Content: View>(
         title: String, systemImage: String, count: Int, countText: String? = nil, destination: InicioDestination, state: InicioSectionState,

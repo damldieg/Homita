@@ -159,13 +159,18 @@ def trace_norm(value):
 
 # ── plantillas de forma ──
 
+# Claves aditivas que pueden faltar en una respuesta (0041, fecha-limite-vencimiento): si están, su tipo
+# se valida; si no están, no es error. Así un rollback de 0041 o de una migración anterior no rompe el contrato.
+OPTIONAL_KEYS = {"due_at"}
+
+
 def shape(value, tmpl, where, issues):
     if isinstance(tmpl, dict):
         if not isinstance(value, dict):
             issues.append(f"{where}: objeto esperado, llega {value!r}"[:300])
             return
         for k in tmpl:
-            if k not in value:
+            if k not in value and k not in OPTIONAL_KEYS:
                 issues.append(f"{where}: falta la clave {k!r}")
         for k in value:
             if k not in tmpl:
@@ -329,6 +334,7 @@ TASK_ITEM = {"id": "<id>", "task_list_id": "<id>", "title": "<str>", "completed_
              "task_list_color": "<str>", "task_list_name": "<str>", "persons": [PERSON_REF]}
 if PRIORITY:
     TASK_ITEM["priority"] = "<str>"  # 0037 (D-026, aditivo): alta|media|baja
+TASK_ITEM["due_at"] = "<ts?>"  # 0041 (fecha-limite-vencimiento, aditivo, opcional): fecha UTC o null
 TL_ITEM = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>", "sort": "<str>",
            "created_at": "<ts>", "updated_at": "<ts>", "widget": "<01>", "dashboard": "<01>",
            "pending_task_count": "<int>", "home_id": "<id>",
