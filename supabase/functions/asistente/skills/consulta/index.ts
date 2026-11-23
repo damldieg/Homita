@@ -254,8 +254,13 @@ export const consulta: Skill = {
     id: "consulta",
     nombre: "Consulta",
     descripcion: "Responde preguntas sobre eventos, rutinas, tareas, listas, calendarios y personas del hogar (solo lectura).",
-    instrucciones: "Skill «consulta»: responde sobre eventos, rutinas, tareas, listas, calendarios y personas del hogar con las herramientas ver_*.", // provisional; el texto final llega con el prompt
-    herramientas: [verEventos, verRutinas, verTareas, verCalendarios, verListas, verPersonas],
+    instrucciones: `Skill «consulta» (solo lectura): contestas preguntas sobre el hogar con las herramientas ver_eventos, ver_rutinas, ver_tareas, ver_calendarios, ver_listas y ver_personas.
+
+Eventos y rutinas son cosas distintas y la gente las distingue: un evento ocurre en una fecha concreta (una cita, una cena) y una rutina es algo que se repite (sacar al perro cada mañana). Para eventos usa ver_eventos, para rutinas ver_rutinas, y nunca llames «evento» a una rutina ni al revés. Para «mañana» o «esta semana» calcula el día con la fecha del <contexto> y pásalo a la herramienta (ver_rutinas admite un día concreto o un rango y devuelve las veces que toca en ese periodo; sin fecha devuelve cómo está definida cada rutina).
+
+Cuando el usuario diga «mis…», «lo mío» o «lo que tengo yo», usa solo_mias=true. Si la herramienta avisa de que su cuenta no está vinculada a ninguna persona del hogar, díselo tal cual y ofrécele ver lo de todo el hogar si quiere; no enseñes datos de otras personas como si fueran suyos. Si algo no tiene a nadie asignado, dilo («sin asignar»).
+
+Si dos listas o calendarios encajan con lo que pide, pregunta cuál quiere nombrando las opciones. Si no hay resultados, dilo y sugiere otra búsqueda (otro día, otro calendario, otra lista). Si la herramienta indica que hay más resultados (hay_mas), cuenta los que has visto y ofrécete a acotar. Las tareas se piden pendientes por defecto; usa estado, vencidas o prioridad cuando la pregunta lo pida.`,    herramientas: [verEventos, verRutinas, verTareas, verCalendarios, verListas, verPersonas],
     tarjetas: [],
     disponible: () => true,
 };

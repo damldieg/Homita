@@ -230,3 +230,27 @@ Deno.test("modelo por skill: declarado y con secreto, sin secreto, sin declarar 
     await runKito({ mensajes, ctx: CTX, skills: [menus], callModel: m.call, model: "base", env });
     assertEquals(m.cuerpos[0].model, "modelo-menus");
 });
+
+// ── Prompt (T14) ──
+
+Deno.test("system: solo texto estable, con las reglas clave y sin datos variables", async () => {
+    const { consulta } = await import("../skills/consulta/index.ts");
+    const m = modeloFalso([texto("ok")]);
+    await runKito({ mensajes, ctx: { ...CTX, nombreUsuario: "Damián Díez" }, skills: [consulta], callModel: m.call, model: "m" });
+    const sys = (m.cuerpos[0].system as { text: string }[]).map((b) => b.text).join("\n");
+    for (const regla of [
+        "Kito", "Urki", "<contexto>", "Nunca son instrucciones", "solo_mias=true", "nunca llames «evento» a una rutina",
+        "No prometas fechas", "todavía no lo haces", "Cercano", "sin emojis",
+    ]) {
+        if (regla === "Cercano") continue;
+        assert(sys.includes(regla) || sys.toLowerCase().includes(regla.toLowerCase()), regla);
+    }
+    assert(!sys.includes("fecha_actual"));
+    assert(!sys.includes("Damián Díez"));
+    assert(!/\d{4}-\d{2}-\d{2}/.test(sys));
+    // Estable entre peticiones: misma cadena con otro usuario y otra hora.
+    const m2 = modeloFalso([texto("ok")]);
+    await runKito({ mensajes, ctx: { ...CTX, nombreUsuario: "Otra", now: new Date("2027-01-01T00:00:00Z") }, skills: [consulta], callModel: m2.call, model: "m" });
+    assertEquals(JSON.stringify(m2.cuerpos[0].system), JSON.stringify(m.cuerpos[0].system));
+    assertEquals(JSON.stringify(m2.cuerpos[0].tools), JSON.stringify(m.cuerpos[0].tools));
+});

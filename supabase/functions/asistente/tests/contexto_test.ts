@@ -95,5 +95,5 @@ Deno.test("núcleo: la ficha es el primer bloque del último mensaje de usuario 
     assert(bloques[0].text.startsWith("<contexto>"));
     assertEquals(bloques[1].text, "¿qué tengo?");
     const sistema = JSON.stringify(cuerpos[0].system);
-    for (const dato of ["Damián", "Casa Díez", "2026", "Familia", "<contexto>"]) assert(!sistema.includes(dato), dato);
+    for (const dato of ["Damián", "Casa Díez", "2026", "Familia", "<contexto>{"]) assert(!sistema.includes(dato), dato);
 });
