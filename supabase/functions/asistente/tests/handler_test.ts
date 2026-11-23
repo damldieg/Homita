@@ -152,3 +152,31 @@ Deno.test("fallo del modelo → 502 y el mensaje se devuelve (refund)", async ()
     assertEquals(registros.records.length, 1);
     assertEquals(registros.records[0].refund, true);
 });
+
+Deno.test("el handler pasa a las herramientas el usuario de app, su nombre y el lector del api", async () => {
+    const { d } = deps();
+    let ctxVisto: import("../core.ts").ToolCtx | null = null;
+    const espia: Skill = { ...skillFalsa, disponible: (ctx) => { ctxVisto = ctx; return true; } };
+    const leer = () => Promise.resolve([]);
+    const res = await createHandler({
+        ...d,
+        skills: [espia],
+        appUserNombre: () => Promise.resolve("Damián"),
+        crearLector: (_t, uid, tz) => (uid === "uid-1" && tz === "Europe/Madrid" ? leer : () => Promise.reject(new Error("mal"))),
+    })(peticion());
+    assertEquals(res.status, 200);
+    const c = ctxVisto as unknown as import("../core.ts").ToolCtx;
+    assertEquals(c.appUserId, "501");
+    assertEquals(c.nombreUsuario, "Damián");
+    assertEquals(c.homeId, HOME);
+    assertEquals(c.leer, leer);
+});
+
+Deno.test("refusal del modelo → 200 con mensaje neutro y el mensaje no cuenta para el cupo (refund)", async () => {
+    const { d, registros } = deps({ modelo: () => Promise.resolve({ stop_reason: "refusal", content: [], usage: { input_tokens: 9, output_tokens: 1 } }) });
+    const res = await createHandler(d)(peticion());
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).texto, "Con eso no te puedo ayudar.");
+    assertEquals(registros.modelo, 1);
+    assertEquals(registros.records, [{ tokens: { input: 9, output: 1, cacheRead: 0, cacheWrite: 0 }, refund: true }]);
+});
