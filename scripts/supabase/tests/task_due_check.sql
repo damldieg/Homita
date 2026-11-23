@@ -13,6 +13,7 @@
 -- DN6 fecha ilegible en task_due_set → 'Invalid due_at' P0001 y nada cambia.
 -- DN7 X (sin ACL) → Not Found P0002 y nada cambia.
 -- DN8 anon sin EXECUTE sobre task_due_set.
+-- DN9 (0042) p_due_at nulo sin p_clear_due → Invalid due_at y la fecha se conserva.
 -- Al final, 0 filas scratch.
 
 \set ON_ERROR_STOP 1
@@ -194,6 +195,19 @@ begin
         raise exception 'task_due DN8: anon puede ejecutar task_due_set';
     end if;
     raise notice 'ok DN8: anon sin EXECUTE sobre task_due_set';
+end $$;
+
+-- ── DN9 (0042): p_due_at nulo sin p_clear_due → Invalid due_at, la fecha no se borra ──
+do $$
+declare v_tid bigint := current_setting('task_due.tid')::bigint;
+begin
+    perform pg_temp.as_user(1);
+    perform task_due_set(v_tid, '2026-12-03 18:00:00', false);
+    perform pg_temp.expect_err('DN9', format('select task_due_set(%s, null, false)', v_tid), 'P0001', 'Invalid due_at');
+    if (get_task_detail(v_tid)->>'due_at') is distinct from '2026-12-03 18:00:00' then
+        raise exception 'task_due DN9: un null sin borrado explícito borró la fecha';
+    end if;
+    raise notice 'ok DN9: null sin p_clear_due → Invalid due_at, la fecha se conserva';
 end $$;
 
 -- ── Limpieza ──

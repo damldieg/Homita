@@ -256,6 +256,8 @@ public final class TasksStore: MainActorWriteFailureReporting {
         do {
             let filter = listFilterId
             serverTasks = try await fetchFresh { try await tasksRepo.index(taskListId: filter) }
+            // Fecha límite y completadas cambian los avisos locales (0041): se replanifican tras cada carga.
+            await HomitaSync.shared.refresh(force: true, allowPrompt: false)
         } catch {
             report(error)
         }

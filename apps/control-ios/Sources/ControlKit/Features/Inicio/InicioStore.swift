@@ -258,6 +258,8 @@ public final class InicioStore: MainActorWriteFailureReporting {
         if let personsRepo, let people = try? await personsRepo.index() { roster = people }
         do {
             serverTasks = try await fetchFresh { try await tasksRepo.index(taskListId: nil) }
+            // Fecha límite y completadas cambian los avisos locales (0041): se replanifican tras cada carga.
+            await HomitaSync.shared.refresh(force: true, allowPrompt: false)
             if let lists = await listsLoad { serverTaskLists = lists }
             tasksState = .loaded
         } catch {

@@ -130,4 +130,37 @@ final class TaskDueTests: XCTestCase {
         guard case .createTask(_, _, _, _, _, let due) = queue[0].kind else { return XCTFail("debe quedar el create") }
         XCTAssertEqual(due, "2026-12-03 18:00:00")
     }
+
+    // MARK: - Cobertura de AC4 (cambiar la fecha reprograma) y AC6 (completar o vencer quita el aviso)
+
+    /// AC4: cambiar la fecha cambia la hora de cada aviso. Los ids no llevan la fecha, así que
+    /// `replaceAll` (que borra los pendientes `homita.*`) deja solo los nuevos.
+    func testChangingDueMovesEveryReminder() throws {
+        let before = try task(1, due: "2026-12-03 18:00:00")
+        let after = try task(1, due: "2026-12-04 18:00:00")
+        let old = NotificationPlanner.dueNotifications([before], now: now, timeZone: utc, myPersonIds: nil)
+        let new = NotificationPlanner.dueNotifications([after], now: now, timeZone: utc, myPersonIds: nil)
+        XCTAssertEqual(old.map(\.id), new.map(\.id))
+        for (a, b) in zip(old, new) {
+            XCTAssertEqual(b.fireDate.timeIntervalSince(a.fireDate), 24 * 3600, accuracy: 1)
+        }
+    }
+
+    /// AC6: una tarea completada no deja avisos pendientes.
+    func testCompletedTaskHasNoReminders() throws {
+        let done = try task(1, due: "2026-12-03 18:00:00", done: true)
+        XCTAssertTrue(NotificationPlanner.dueNotifications([done], now: now, timeZone: utc, myPersonIds: nil).isEmpty)
+    }
+
+    /// AC6: al vencer, el banner desaparece (la hora límite ya no es futura).
+    func testBannerGoneAfterDueTime() throws {
+        let due = try task(1, due: "2026-12-01 09:30:00")
+        XCTAssertNil(TaskDue.banner(tasks: [due], now: now, roster: [], currentUserId: nil, dismissed: []))
+    }
+
+    /// AC6: al completar, el banner desaparece aunque la fecha siga siendo futura.
+    func testBannerGoneWhenCompleted() throws {
+        let done = try task(1, due: "2026-12-01 12:00:00", done: true)
+        XCTAssertNil(TaskDue.banner(tasks: [done], now: now, roster: [], currentUserId: nil, dismissed: []))
+    }
 }
