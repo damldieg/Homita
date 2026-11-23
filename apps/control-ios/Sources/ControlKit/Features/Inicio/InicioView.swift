@@ -73,6 +73,9 @@ public struct InicioView: View {
             }
             .background(Palette.background.ignoresSafeArea())
             .homitaHiddenNavigationBar()
+            .sheet(isPresented: $showInicioSettings) {
+                NavigationStack { InicioSettingsView() }
+            }
             .sheet(isPresented: $showHighPriority) {
                 HighPriorityTasksSheet(groups: TaskDue.groupedByList(store.highPriorityForMe))
             }
@@ -435,9 +438,6 @@ public struct InicioView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(16)
-        .sheet(isPresented: $showInicioSettings) {
-            NavigationStack { InicioSettingsView() }
-        }
     }
 
     /// Contador de prioridad alta pendiente (propias y del hogar sin asignar) con «Ver más», que abre

@@ -44,6 +44,15 @@ public struct InicioLayout: Codable, Equatable, Sendable {
         if visible { hidden.remove(block) } else { hidden.insert(block) }
     }
 
+    /// Al leer de disco se normaliza igual que al crear: un orden con repetidos o incompleto se corrige.
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.container(keyedBy: CodingKeys.self)
+        self.order = Self.normalized(try raw.decode([InicioBlock].self, forKey: .order))
+        self.hidden = try raw.decode(Set<InicioBlock>.self, forKey: .hidden)
+    }
+
+    private enum CodingKeys: String, CodingKey { case order, hidden }
+
     /// Quita duplicados y añade los bloques que falten al final, en el orden por defecto.
     static func normalized(_ order: [InicioBlock]) -> [InicioBlock] {
         var seen = Set<InicioBlock>()

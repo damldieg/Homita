@@ -40,8 +40,9 @@ final class InicioLayoutTests: XCTestCase {
 
     /// Escenario «la configuración persiste en el iPhone»: ida y vuelta por el almacén.
     func testStoreRoundTripKeepsOrderAndHidden() throws {
-        let suite = try XCTUnwrap(UserDefaults(suiteName: "test.inicio.layout.\(UUID().uuidString)"))
-        defer { suite.removePersistentDomain(forName: suite.dictionaryRepresentation().keys.first ?? "") }
+        let name = "test.inicio.layout.\(UUID().uuidString)"
+        let suite = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { UserDefaults.standard.removePersistentDomain(forName: name) }
         let store = InicioLayoutStore(defaults: suite)
         XCTAssertEqual(store.load(), InicioLayout(), "sin nada guardado, el orden por defecto")
 
