@@ -163,4 +163,27 @@ final class TaskDueTests: XCTestCase {
         let done = try task(1, due: "2026-12-01 12:00:00", done: true)
         XCTAssertNil(TaskDue.banner(tasks: [done], now: now, roster: [], currentUserId: nil, dismissed: []))
     }
+
+    // MARK: - Resumen de prioridad alta (propias + hogar sin asignar, agrupadas por lista)
+
+    func testHighPriorityForMeKeepsMineAndUnassignedOnly() throws {
+        let roster = [try person(10, appUserId: 7), try person(11, appUserId: 8)]
+        let mine = try task(1, due: nil, persons: [10])
+        let unassigned = try task(2, due: nil)
+        let theirs = try task(3, due: nil, persons: [11])
+        let media = try task(4, due: nil, priority: "media")
+        let done = try task(5, due: nil, done: true)
+        let result = TaskDue.highPriorityForMe([mine, unassigned, theirs, media, done], roster: roster, currentUserId: 7)
+        XCTAssertEqual(result.map(\.id), [1, 2])
+    }
+
+    func testGroupedByListSortsListsAndTasks() throws {
+        let listJSON = { (id: Int, name: String) in """
+            {"id":\(id),"task_list_id":\(id),"title":"\(name) tarea","completed_at":null,"order":1,"priority":"alta",
+             "due_at":null,"task_list_name":"\(name)","task_list_color":"#000000"}
+            """ }
+        let fromList = try JSONDecoder().decode(TaskEntry.self, from: Data(listJSON(9, "Hogar").utf8))
+        let groups = TaskDue.groupedByList([fromList, try task(4, due: nil)])
+        XCTAssertEqual(groups.map(\.name), ["Hogar", "Lista"])
+    }
 }
