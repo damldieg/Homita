@@ -16,7 +16,7 @@
 #      task_priority_check P1-P10 (0037), task_person_access_check A1-A9 (0038),
 #      get_persons_home_id_check GP1-GP4 (0038, home_id en get_persons),
 #      task_hidden_check H1-H12 (0039, ocultar completadas a los 3 días),
-#      task_list_position_check TP1-TP8 (0040), task_due_check DN1-DN8 (0041, fecha límite),
+#      task_list_position_check TP1-TP8 (0040), task_due_check DN1-DN9 (0041/0042, fecha límite),
 #      G5-md5 (solo ADVERTENCIA, no falla: md5 del gate G5 de DEPLOY_0039.md = stack local),
 #      feedback_trello_check B1-B8 (0033) y feedback_trigger_check F1-F12 (0031/0034); trigger inerte en
 #      local: sin feedback_webhook_url en Vault no se encola ninguna petición),
@@ -52,7 +52,7 @@
 #         (549/549; get_persons aún sin home_id porque 0038 no está reaplicada).
 #      Si un rollback no queda en verde no se sigue con lo que depende de él (la BD local queda a
 #      medias: repetir ci.sh). Se ejecutan todas aunque una falle; el exit final es != 0 si alguna falló.
-#   9. Ida y vuelta 0041 → rollback_0041.sql → 0041 (fecha-limite-vencimiento), en serie tras la 0040.
+#   9. Ida y vuelta 0041 → rollback_0041.sql → 0041 + 0042 (fecha-limite-vencimiento), en serie tras la 0040.
 #   8. Ida y vuelta 0040 → rollback_0040.sql → 0040 (lista-prioritaria-inicio), en serie tras las anteriores
 #      (0040 solo toca get_task_lists y reorder_task_lists, sin funciones comunes con 0035-0039):
 #      task_list_position_rollback_check TR1-TR3, después home_checks_compat, acl_can_edit_check,
@@ -530,7 +530,7 @@ fi
 
 # Ida y vuelta 0041 → rollback_0041.sql → 0041 (fecha-limite-vencimiento): el último cambio, en serie tras 0040.
 # Tras revertir: task_due_set no existe y la columna due_at tampoco; el contrato corre sin due_at (clave
-# opcional). Luego se reaplica 0041 y se repite task_due_check DN1-DN8. Si el rollback falla no se sigue.
+# opcional). Luego se reaplican 0041 y 0042 y se repite task_due_check DN1-DN9. Si el rollback falla no se sigue.
 run "SQL rollback_0041" sql-rb0041 sql "$HERE/scripts/supabase/rollback/rollback_0041.sql"
 if ! printf '%s\n' ${FAILED[@]+"${FAILED[@]}"} | grep -qx "SQL rollback_0041"; then
     sleep 1 # notify pgrst del rollback: PostgREST recarga el esquema antes de contract_check
@@ -542,6 +542,8 @@ if ! printf '%s\n' ${FAILED[@]+"${FAILED[@]}"} | grep -qx "SQL rollback_0041"; t
     run "contract_check.py (tras rollback_0041)" sql-rb0041-contract python3 "$CONTRACT_PY"
     expect_log "contract_check.py (tras rollback_0041)" sql-rb0041-contract "^${contract_full}/${contract_full} casos ok"
     run "SQL 0041 reaplicada" sql-ra0041 sql "$HERE/supabase/migrations/0041_task_due_at.sql"
+    # 0042 reescribe task_due_set (guarda de p_due_at nulo, DN9): rollback_0041 la quitó, así que se reaplica tras 0041.
+    run "SQL 0042 reaplicada" sql-ra0042 sql "$HERE/supabase/migrations/0042_task_due_set_null.sql"
     sleep 1
     run "SQL task_due_check (tras reaplicar 0041)" sql-ra0041-td sql "$HERE/scripts/supabase/tests/task_due_check.sql"
     expect_log "SQL task_due_check (tras reaplicar 0041)" sql-ra0041-td "${dn_pat[@]}"
