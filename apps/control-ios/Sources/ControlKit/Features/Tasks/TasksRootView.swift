@@ -388,6 +388,7 @@ struct TasksView: View {
 struct TaskListsView: View {
     @Bindable var store: TasksStore
     @State private var showCreateList = false
+    @State private var listToDelete: TaskListEntry?
 
     var body: some View {
         List {
@@ -404,24 +405,37 @@ struct TaskListsView: View {
             Section {
                 // E2-06: orden por nombre (no alfabético de servidor).
                 ForEach(store.taskLists.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }, id: \.id) { list in
-                    NavigationLink {
-                        TaskListDetailView(store: store, list: list)
-                    } label: {
-                        HomitaCard {
-                            HStack(spacing: 12) {
-                                Circle()
-                                    .fill(Color(hex: list.color))
-                                    .frame(width: 14, height: 14)
-                                Text(list.name)
-                                    .font(HomitaFont.inter(17, weight: .semibold, relativeTo: .body))
-                                    .foregroundStyle(Palette.ink)
-                                if store.pendingListIds.contains(list.id) {
-                                    PendingSyncIcon()
+                    HStack(spacing: 8) {
+                        NavigationLink {
+                            TaskListDetailView(store: store, list: list)
+                        } label: {
+                            HomitaCard {
+                                HStack(spacing: 12) {
+                                    Circle()
+                                        .fill(Color(hex: list.color))
+                                        .frame(width: 14, height: 14)
+                                    Text(list.name)
+                                        .font(HomitaFont.inter(17, weight: .semibold, relativeTo: .body))
+                                        .foregroundStyle(Palette.ink)
+                                    if store.pendingListIds.contains(list.id) {
+                                        PendingSyncIcon()
+                                    }
+                                    Spacer()
+                                    HomitaBadge(title: "\(list.pendingTaskCount)", tintHex: list.color)
                                 }
-                                Spacer()
-                                HomitaBadge(title: "\(list.pendingTaskCount)", tintHex: list.color)
                             }
                         }
+                        // Eliminar desde el listado (tarjeta 17): botón visible que abre el editor de la lista,
+                        // donde el borrado exige ser propietario y pide confirmar («Se eliminará la lista y todas sus tareas»).
+                        Button { listToDelete = list } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Palette.err)
+                                .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Eliminar lista \(list.name)")
+                        .accessibilityIdentifier("tareas.listas.eliminar")
                     }
                     .homitaRow()
                 }
@@ -434,6 +448,13 @@ struct TaskListsView: View {
         .safeAreaInset(edge: .bottom) {
             if !store.taskLists.isEmpty {
                 HomitaFloatingAddButton(title: "Nueva lista") { showCreateList = true }
+            }
+        }
+        .sheet(isPresented: Binding(get: { listToDelete != nil }, set: { if !$0 { listToDelete = nil } })) {
+            if let list = listToDelete {
+                NavigationStack {
+                    TaskListEditorView(store: store, editing: list)
+                }
             }
         }
         .sheet(isPresented: $showCreateList) {
