@@ -10,7 +10,7 @@
 //   9. Tokens sumados (assistant_record_usage) → 200 {texto, tarjetas, uso}.
 // Logs: solo operación y estado; nunca texto de usuario, tokens de sesión ni cabeceras.
 
-import { CallModel, ModelError, MAX_CHARS, MAX_HISTORY, Mensaje, runKito, Skill, Tokens } from "./core.ts";
+import { CallModel, Leer, ModelError, MAX_CHARS, MAX_HISTORY, Mensaje, runKito, Skill, Tokens } from "./core.ts";
 
 export interface UsoResultado {
     allowed: boolean;
@@ -29,6 +29,10 @@ export interface HandlerDeps {
     verifyUser(token: string): Promise<{ uid: string } | null>;
     /** app_user.id del uid, o null si no existe. */
     appUserId(uid: string, token: string): Promise<string | null>;
+    /** Nombre del usuario (para la ficha de contexto); opcional. */
+    appUserNombre?(uid: string, token: string): Promise<string | null>;
+    /** Crea el lector del api para esta petición; sin él, las herramientas de datos no funcionan. */
+    crearLector?(token: string, uid: string, timezone: string): Leer;
     checkHomeMember(homeId: string, token: string): Promise<boolean>;
     /** Ejecuta fn con el hogar activo en el contexto (null = sin hogar). */
     runInHome<T>(homeId: string | null, fn: () => Promise<T>): Promise<T>;
@@ -122,6 +126,8 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
             const appUserId = await deps.appUserId(who.uid, token);
             if (appUserId === null) return json(404, { error: "Usuario no encontrado" });
 
+            const nombreUsuario = (await deps.appUserNombre?.(who.uid, token).catch(() => null)) ?? undefined;
+
             // 7. Límite diario, antes de llamar al modelo.
             const uso = await deps.usage.consume(appUserId, parsed.timezone);
             if (!uso.allowed) {
@@ -137,7 +143,10 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
                 const res = await deps.runInHome(homeId, () =>
                     runKito({
                         mensajes: parsed.mensajes,
-                        ctx: { token, uid: who.uid, homeId, timezone: parsed.timezone, now: deps.now() },
+                        ctx: {
+                            token, uid: who.uid, homeId, timezone: parsed.timezone, now: deps.now(),
+                            appUserId, nombreUsuario, leer: deps.crearLector?.(token, who.uid, parsed.timezone),
+                        },
                         skills: deps.skills,
                         callModel: deps.callModel,
                         model: deps.model,

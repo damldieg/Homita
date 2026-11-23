@@ -152,3 +152,22 @@ Deno.test("fallo del modelo → 502 y el mensaje se devuelve (refund)", async ()
     assertEquals(registros.records.length, 1);
     assertEquals(registros.records[0].refund, true);
 });
+
+Deno.test("el handler pasa a las herramientas el usuario de app, su nombre y el lector del api", async () => {
+    const { d } = deps();
+    let ctxVisto: import("../core.ts").ToolCtx | null = null;
+    const espia: Skill = { ...skillFalsa, disponible: (ctx) => { ctxVisto = ctx; return true; } };
+    const leer = () => Promise.resolve([]);
+    const res = await createHandler({
+        ...d,
+        skills: [espia],
+        appUserNombre: () => Promise.resolve("Damián"),
+        crearLector: (_t, uid, tz) => (uid === "uid-1" && tz === "Europe/Madrid" ? leer : () => Promise.reject(new Error("mal"))),
+    })(peticion());
+    assertEquals(res.status, 200);
+    const c = ctxVisto as unknown as import("../core.ts").ToolCtx;
+    assertEquals(c.appUserId, "501");
+    assertEquals(c.nombreUsuario, "Damián");
+    assertEquals(c.homeId, HOME);
+    assertEquals(c.leer, leer);
+});

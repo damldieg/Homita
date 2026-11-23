@@ -6,18 +6,27 @@
 // la app viajan solo como resultados de herramientas (JSON serializado), y el system dice que son datos.
 // Los nombres de herramienta devueltos por el modelo se validan contra las herramientas disponibles.
 
+/** Lectura de una ruta GET del `api` (con el JWT y la zona del usuario). Un error HTTP vuelve como `{error, detalle}`. */
+export type Leer = (ruta: string, params?: Record<string, string | undefined>) => Promise<unknown>;
+
 export interface ToolCtx {
     token: string;
     uid: string;
     homeId: string | null;
     timezone: string;
     now: Date;
+    /** app_user.id numérico del usuario (para localizar sus personas en el hogar activo). */
+    appUserId?: string;
+    /** Nombre del usuario, si se pudo leer. */
+    nombreUsuario?: string;
+    /** Lector del api; lo inyecta el handler (los tests, uno falso). */
+    leer?: Leer;
 }
 
 export interface Tool {
     name: string;
     description: string;
-    input_schema: { type: "object"; properties: Record<string, unknown>; required?: string[] };
+    input_schema: { type: "object"; properties: Record<string, unknown>; required?: string[]; additionalProperties?: boolean };
     run: (input: Record<string, unknown>, ctx: ToolCtx) => Promise<unknown>;
 }
 

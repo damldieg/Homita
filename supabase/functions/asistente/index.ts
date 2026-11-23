@@ -7,6 +7,7 @@ import type { CallModel, ModelResponse } from "./core.ts";
 import { createHandler } from "./handler.ts";
 import type { UsageDb, UsoResultado } from "./handler.ts";
 import { SKILLS } from "./skills/registry.ts";
+import { crearLector } from "./skills/consulta/api.ts";
 import { appUserRow, verifyUser } from "../api/_shared/supabase.ts";
 import { checkHomeMember, runWithHome } from "../api/_shared/home.ts";
 
@@ -72,6 +73,7 @@ const callModel = (apiKey: string): CallModel => async (body) => {
     }
 };
 
+const nombres = new Map<string, string | null>();
 const apiKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 
 Deno.serve(createHandler({
@@ -81,8 +83,16 @@ Deno.serve(createHandler({
     },
     appUserId: async (uid, token) => {
         const row = await appUserRow(uid, token);
+        if (row !== null) nombres.set(uid, typeof row.name === "string" ? row.name : null);
         return row === null ? null : String(row.id);
     },
+    // El nombre sale de la misma fila que appUserId (se lee una vez por petición).
+    appUserNombre: (uid) => {
+        const n = nombres.get(uid) ?? null;
+        nombres.delete(uid);
+        return Promise.resolve(n);
+    },
+    crearLector,
     checkHomeMember,
     runInHome: (homeId, fn) => runWithHome(homeId, fn),
     usage,
