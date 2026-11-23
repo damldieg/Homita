@@ -64,6 +64,30 @@ public enum TaskPriorityOrdering {
     }
 }
 
+/// Filtro por persona (Mis tareas / una persona del hogar). Solo en cliente.
+public enum TaskPersonFilter: Equatable {
+    case mine
+    case person(Int)
+}
+
+/// Filtro por persona en cliente. `GET task` no trae `app_user_id` por persona, así que «mis tareas»
+/// se resuelve por `person.id` contra el roster (`GET person`). Función pura que conserva el orden.
+public enum TaskPersonFiltering {
+    public static func apply(_ tasks: [TaskEntry], filter: TaskPersonFilter?, roster: [PersonEntry],
+                             currentUserId: Int?) -> [TaskEntry] {
+        guard let filter else { return tasks }
+        let wanted: Set<Int>
+        switch filter {
+        case .mine:
+            guard let currentUserId else { return [] }
+            wanted = Set(roster.filter { $0.app_user_id == currentUserId }.map(\.id))
+        case .person(let id):
+            wanted = [id]
+        }
+        return tasks.filter { task in (task.persons ?? []).contains { wanted.contains($0.id) } }
+    }
+}
+
 /// Estado de la pestaña Tareas: listas + tareas (paridad con `TaskViewModel`/`TaskListViewModel`).
 /// Reordenar solo se permite en listas con `sort == "custom"` (como Android) y el aviso de título
 /// duplicado es de cliente (mismo trim/case-insensitive por lista).
@@ -92,6 +116,8 @@ public final class TasksStore: MainActorWriteFailureReporting {
     public var writeFailure: WriteFailure?
     /// Filtro global por lista (nil = todas); dentro de una lista el filtro es la propia lista.
     public var listFilterId: Int?
+    /// Filtro por persona (nil = sin filtro, por defecto). No se persiste.
+    public var personFilter: TaskPersonFilter?
     /// Orden de la vista (0037): `.list` por defecto (el de siempre). Se guarda en UserDefaults.
     public var sortMode: TaskSortMode = .list {
         didSet { defaults.set(sortMode.rawValue, forKey: Self.sortModeKey) }
@@ -185,7 +211,10 @@ public final class TasksStore: MainActorWriteFailureReporting {
     }
 
     /// Tareas que muestra la vista: overlay + filtro y orden por prioridad (0037).
-    public var visibleTasks: [TaskEntry] { TaskPriorityOrdering.apply(tasks, sort: sortMode, filter: priorityFilter) }
+    public var visibleTasks: [TaskEntry] { TaskPriorityOrdering.apply(
+        TaskPersonFiltering.apply(tasks, filter: personFilter, roster: persons, currentUserId: currentUserId ?? outbox?.userId),
+        sort: sortMode, filter: priorityFilter)
+    }
     public var pendingTasks: [TaskEntry] { visibleTasks.filter { !$0.isCompleted } }
     public var completedTasks: [TaskEntry] { visibleTasks.filter { $0.isCompleted } }
     public var taskGroups: [TaskGroup] { TaskGroup.group(tasks: visibleTasks, lists: taskLists) }

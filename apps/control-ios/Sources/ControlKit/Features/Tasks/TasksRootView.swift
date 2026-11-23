@@ -267,7 +267,33 @@ struct TasksView: View {
                 Menu {
                     Button("Todas") {
                         store.listFilterId = nil
+                        store.personFilter = nil
                         Task { await store.loadTasks() }
+                    }
+                    Button {
+                        store.personFilter = .mine
+                    } label: {
+                        if store.personFilter == .mine {
+                            Label("Mis tareas", systemImage: "checkmark")
+                        } else {
+                            Text("Mis tareas")
+                        }
+                    }
+                    .accessibilityIdentifier("tareas.filtro.mis")
+                    if !store.persons.isEmpty {
+                        Section("Persona") {
+                            ForEach(store.persons, id: \.id) { person in
+                                Button {
+                                    store.personFilter = .person(person.id)
+                                } label: {
+                                    if store.personFilter == .person(person.id) {
+                                        Label(person.name, systemImage: "checkmark")
+                                    } else {
+                                        Text(person.name)
+                                    }
+                                }
+                            }
+                        }
                     }
                     ForEach(store.taskLists, id: \.id) { list in
                         Button(list.name) {
