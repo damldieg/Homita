@@ -1,0 +1,499 @@
+Perfil de hogar para el recomendador de menús
+ · 
+Resumen
+El perfil de hogar es un formulario de unos 40 campos en 8 bloques, de los que solo 7 son obligatorios para que Kito proponga el primer menú. El resto se rellena poco a poco, y Kito lo pregunta en el momento en que le hace falta.
+El ciclo previsto es este:
+Kito lee el perfil de hogar y el calendario de la semana.
+Propone un menú semanal en una tarjeta (día × comida).
+La persona marca qué platos quiere cambiar y cuáles le valen.
+Kito vuelve a proponer solo lo marcado.
+Al aceptar, Kito crea la lista de la compra como una lista de tareas de Homita.
+Cada cambio que la persona pide en el paso 3 («el lunes no, que no nos gusta el pescado») es una pista para el perfil. Kito puede ofrecer guardarlo, así el perfil mejora sin volver a pasar el formulario.
+Orden de las preguntas
+El primer menú sale con 7 preguntas, unos 2 minutos. Todo lo demás se pregunta después, de una o dos cosas cada vez, cuando Kito lo necesita para decidir algo.
+Arranque (obligatorio, antes del primer menú). Quién come en casa (A1), su franja de edad (A2), alergias aunque sea «ninguna» (B1), dieta (B5), qué comidas planificamos (D1), qué días se come fuera (D2, versión simple) y tiempo para cocinar entre semana y en fin de semana (E1). Kito ya conoce las personas del hogar, así que A1 es marcar casillas, no escribir nombres.
+Al revisar el primer menú. Cada plato rechazado lleva a «¿lo apunto como algo que no os gusta?». Así se rellenan rechazos (C1), favoritos (C2) y picante (C4) sin un formulario aparte.
+Al crear la primera lista de la compra. Supermercado habitual (G2), en qué lista de Homita se guarda (G5), despensa básica (G3) y presupuesto (G1).
+En la segunda o tercera semana. Equipamiento (E5), táper (D5), comedor escolar (D4), sobras (F6), repetición y platos fijos (F3, F4) y tipos de cocina (F1, F2).
+Cuando surja. Intolerancias y condiciones médicas (B3, B4), objetivos (B6), quién cocina (E3), batch cooking (E4) y celebraciones (H1, H2).
+Dos reglas para que no agote: Kito hace como mucho 2 preguntas de perfil por menú, y toda pregunta opcional tiene «ahora no». Lo mismo está en Ajustes → Perfil de hogar como formulario completo, para quien prefiera rellenarlo de una vez.
+Lo que solo vale para una semana («este jueves viene la abuela») no va al perfil. Kito lo pregunta al empezar el menú y lo guarda en ese menú.
+Campos del formulario
+Hay campos de hogar (uno por casa) y campos de persona (uno por cada miembro que come). Las restricciones de los bloques B y D son duras: Kito nunca las incumple. El resto son preferencias que Kito pondera.
+A. Comensales
+ID
+ | Campo
+ | Ámbito
+ | Tipo
+ | Oblig.
+ | Valores
+ | Por qué importa
+ | 
+A1
+ | Quién come en casa
+ | Hogar
+ | Lista de miembros
+ | Sí
+ | Miembros del hogar (adulto, niño, familiar, invitado); mascotas fuera
+ | Define para cuántos se cocina y de quién mirar restricciones
+ | 
+A2
+ | Franja de edad
+ | Persona
+ | Enum
+ | Sí
+ | 0–1, 1–3, 4–12, 13–17, adulto, 65+
+ | Raciones, texturas, picante y sal para bebés y mayores
+ | 
+A3
+ | Tamaño de ración
+ | Persona
+ | Enum
+ | No
+ | Pequeña, normal, grande (por defecto según edad)
+ | Cantidades de la lista de la compra
+ | 
+A4
+ | Invitados habituales
+ | Hogar
+ | Lista (día, comida, número)
+ | No
+ | P. ej. domingo comida, +2
+ | Sube las cantidades esos días sin preguntarlo cada semana
+ | 
+B. Salud y restricciones
+ID
+ | Campo
+ | Ámbito
+ | Tipo
+ | Oblig.
+ | Valores
+ | Por qué importa
+ | 
+B1
+ | Alergias
+ | Persona
+ | Multiselección + texto
+ | Sí (vale «ninguna»)
+ | Los 14 alérgenos de declaración obligatoria en la UE: gluten, crustáceos, huevo, pescado, cacahuete, soja, leche, frutos de cáscara, apio, mostaza, sésamo, sulfitos, altramuces, moluscos; otro
+ | Restricción dura: el plato entero se descarta si alguien que come ese día es alérgico
+ | 
+B2
+ | Gravedad de la alergia
+ | Persona, por alergia
+ | Enum
+ | Sí si hay B1
+ | Ni trazas, evitar el ingrediente
+ | Decide si basta quitar el ingrediente o hay que vigilar productos envasados
+ | 
+B3
+ | Intolerancias
+ | Persona
+ | Multiselección + texto
+ | No
+ | Lactosa, fructosa, sorbitol, histamina, otra
+ | Cambia ingredientes (leche sin lactosa) en vez de descartar platos
+ | 
+B4
+ | Condiciones que afectan a la dieta
+ | Persona
+ | Multiselección
+ | No
+ | Celiaquía, diabetes, poca sal, colesterol, embarazo, otra
+ | Ajusta sal, azúcar, grasa o alimentos prohibidos en embarazo. Es dato de salud (ver permisos)
+ | 
+B5
+ | Dieta
+ | Persona
+ | Enum
+ | Sí (por defecto omnívora)
+ | Omnívora, flexitariana, pescetariana, vegetariana, vegana, sin cerdo, halal, kosher, otra
+ | Restricción dura de ingredientes; si una persona es vegetariana, Kito propone plato común o variante
+ | 
+B6
+ | Objetivos
+ | Persona u hogar
+ | Multiselección
+ | No
+ | Más verdura, menos carne roja, menos ultraprocesados, perder peso, más proteína
+ | Inclina la elección de platos sin prohibir nada
+ | 
+C. Gustos
+ID
+ | Campo
+ | Ámbito
+ | Tipo
+ | Oblig.
+ | Valores
+ | Por qué importa
+ | 
+C1
+ | No le gusta
+ | Persona
+ | Lista de ingredientes o platos
+ | No (muy recomendado)
+ | Texto con sugerencias; se aprende al rechazar platos
+ | La causa número uno de cambios en el menú
+ | 
+C2
+ | Le encanta
+ | Persona
+ | Lista de ingredientes o platos
+ | No
+ | Texto con sugerencias
+ | Platos que Kito repite con gusto
+ | 
+C3
+ | Manías y texturas
+ | Persona
+ | Texto corto
+ | No
+ | «Sin trozos», «la salsa aparte»
+ | Clave con niños; se resuelve con notas en la receta
+ | 
+C4
+ | Picante
+ | Persona
+ | Escala 0–3
+ | No
+ | Nada, suave, medio, mucho
+ | Decide si el picante va en el plato o aparte
+ | 
+D. Semana tipo
+ID
+ | Campo
+ | Ámbito
+ | Tipo
+ | Oblig.
+ | Valores
+ | Por qué importa
+ | 
+D1
+ | Comidas que planificamos
+ | Hogar
+ | Multiselección
+ | Sí
+ | Desayuno, media mañana, comida, merienda, cena
+ | Cuántas casillas tiene el menú. Lo normal es solo comida y cena
+ | 
+D2
+ | Quién come dónde
+ | Persona × día × comida
+ | Matriz
+ | Sí (versión simple: «¿qué días coméis fuera?»)
+ | En casa, fuera, no come, táper
+ | Raciones por día y días sin cocinar. Por defecto todos en casa
+ | 
+D3
+ | Día de compra y de inicio de semana
+ | Hogar
+ | Día de la semana
+ | No
+ | Lunes a domingo (por defecto compra el sábado, menú de lunes a domingo)
+ | Productos frescos al principio, congelados y conservas al final
+ | 
+D4
+ | Comedor escolar
+ | Persona
+ | Sí/no + menú del cole (texto o foto)
+ | No
+ | Días con comedor
+ | La cena no repite lo que el niño comió en el cole
+ | 
+D5
+ | Táper
+ | Persona
+ | Días + tipo
+ | No
+ | Con microondas, en frío
+ | Platos que aguantan el transporte; a menudo, la cena de la víspera
+ | 
+E. Cocina
+ID
+ | Campo
+ | Ámbito
+ | Tipo
+ | Oblig.
+ | Valores
+ | Por qué importa
+ | 
+E1
+ | Tiempo para cocinar
+ | Hogar, por día
+ | Enum por día
+ | Sí (versión simple: entre semana y fin de semana)
+ | 15, 30, 45, 60+ min
+ | Evita guisos largos un martes
+ | 
+E2
+ | Nivel de cocina
+ | Hogar
+ | Enum
+ | No
+ | Básico, medio, avanzado
+ | Complejidad de las recetas
+ | 
+E3
+ | Quién cocina
+ | Hogar, por día
+ | Miembro
+ | No
+ | Adultos del hogar
+ | Recetas al nivel de quien cocina; se puede asignar como tarea
+ | 
+E4
+ | Batch cooking
+ | Hogar
+ | Sí/no + día
+ | No
+ | P. ej. domingo, 2 h
+ | Agrupa elaboraciones y repite bases (legumbre, sofrito)
+ | 
+E5
+ | Equipamiento
+ | Hogar
+ | Multiselección
+ | No (por defecto fuego, horno, microondas)
+ | Horno, microondas, inducción, gas, Thermomix o robot, olla rápida, freidora de aire, olla lenta, plancha, batidora, barbacoa
+ | Descarta recetas imposibles y aprovecha el robot o la olla rápida
+ | 
+E6
+ | Espacio de congelador
+ | Hogar
+ | Enum
+ | No
+ | Poco, normal, mucho
+ | Si se puede cocinar doble y congelar
+ | 
+F. Estilo y variedad
+ID
+ | Campo
+ | Ámbito
+ | Tipo
+ | Oblig.
+ | Valores
+ | Por qué importa
+ | 
+F1
+ | Tipos de cocina
+ | Hogar
+ | Multiselección con peso
+ | No
+ | Tradicional española, mediterránea, italiana, mexicana, asiática, india, árabe, otra
+ | Variedad y estilo del menú
+ | 
+F2
+ | Cocina de aquí
+ | Hogar
+ | Enum + temporada sí/no
+ | No
+ | Comunidad autónoma (andaluza, vasca, gallega, catalana, valenciana, asturiana...)
+ | Platos de la zona y producto de temporada
+ | 
+F3
+ | Repetición
+ | Hogar
+ | Enum
+ | No
+ | Nunca en 2 semanas, 1 vez por semana, nos da igual
+ | Necesita guardar el historial de menús
+ | 
+F4
+ | Platos fijos
+ | Hogar
+ | Lista (día, comida, plato)
+ | No
+ | «Viernes, cena: pizza»
+ | Kito no los toca
+ | 
+F5
+ | Equilibrio semanal
+ | Hogar
+ | Raciones por semana
+ | No (por defecto, pautas generales)
+ | Legumbre, pescado, carne roja, huevo, verdura
+ | Reparte grupos de alimentos. Las cifras por defecto están por confirmar con la guía de la AESAN
+ | 
+F6
+ | Sobras
+ | Hogar
+ | Enum
+ | No
+ | Las aprovechamos (p. ej. cena con lo de la comida), no
+ | Menos desperdicio y menos compra
+ | 
+F7
+ | Postre
+ | Hogar
+ | Enum
+ | No
+ | Fruta, lácteo, dulce los findes, nada
+ | Entra en la lista de la compra
+ | 
+G. Compra
+ID
+ | Campo
+ | Ámbito
+ | Tipo
+ | Oblig.
+ | Valores
+ | Por qué importa
+ | 
+G1
+ | Presupuesto semanal
+ | Hogar
+ | Importe en €
+ | No
+ | P. ej. 120 €
+ | Elige ingredientes más baratos. Al principio es orientativo, sin precios reales
+ | 
+G2
+ | Supermercado habitual
+ | Hogar
+ | Multiselección + texto
+ | No
+ | Mercadona, Carrefour, Lidl, Dia, Alcampo, Eroski, Consum, mercado o tienda de barrio, online, otro
+ | Nombres y formatos de los productos; más adelante, precios
+ | 
+G3
+ | Despensa básica
+ | Hogar
+ | Lista
+ | No
+ | Aceite, sal, arroz, pasta, especias...
+ | No se añade a la lista lo que siempre hay
+ | 
+G4
+ | Preferencias de producto
+ | Hogar
+ | Multiselección
+ | No
+ | Ecológico, de proximidad, marca blanca
+ | Notas en la lista de la compra
+ | 
+G5
+ | Lista de la compra
+ | Hogar
+ | Lista de tareas de Homita
+ | Sí al aceptar el primer menú
+ | Una lista existente o «crear “Compra”»
+ | Destino de los ingredientes; necesita permiso de edición en esa lista
+ | 
+G6
+ | Agrupar por sección
+ | Hogar
+ | Sí/no
+ | No
+ | Frutería, carnicería, lácteos...
+ | Orden de la lista para comprar más rápido
+ | 
+H. Celebraciones
+ID
+ | Campo
+ | Ámbito
+ | Tipo
+ | Oblig.
+ | Valores
+ | Por qué importa
+ | 
+H1
+ | Eventos del calendario
+ | Leído, no se pregunta
+ | Eventos de Homita
+ | —
+ | Cumpleaños, cenas fuera, viajes
+ | Kito marca «fuera» o propone menú de fiesta, y lo confirma
+ | 
+H2
+ | Fiestas tradicionales
+ | Hogar
+ | Multiselección
+ | No
+ | Navidad, Reyes, Semana Santa, fiestas locales
+ | Platos típicos en esas fechas (roscón, torrijas, potaje)
+ | 
+Encaje con datos y permisos de Homita
+El perfil cuelga del hogar (home) y de sus miembros (home_member), no de las cuentas. Así los niños sin cuenta tienen su ficha, y las mascotas (kind = 'pet') quedan fuera. Es una propuesta: no hay migraciones ni código todavía.
+Lo que ya hay en el repo (master, 63e742e)
+home tiene timezone (por defecto Europe/Madrid), que sirve para los días y horas del menú.
+home_member tiene kind (adult, child, relative, guest, pet), nombre y cuenta vinculada (app_user_id, de 0028). Es la base de A1.
+Las personas asignadas a eventos (event_person) dejan a Kito deducir «fuera» en D2 y H1.
+La lista de la compra puede ser una task_list normal con una task por ingrediente. No hace falta un tipo nuevo para empezar.
+Permisos: el catálogo del hogar (permission, member_kind_default, fn_has_permission, de 0012, 0019 y 0020) y la ACL por lista (task_list_user con can_edit, de 0029).
+Tablas propuestas
+Tabla
+ | Una fila por
+ | Qué guarda
+ | 
+meal_profile
+ | Hogar
+ | Bloques D1, D3, E, F, G y H2. task_list_id para G5
+ | 
+meal_profile_member
+ | Miembro del hogar
+ | Bloques A2, A3, B y C
+ | 
+meal_schedule
+ | Hogar, miembro, día y comida
+ | D2, D4 y D5: en casa, fuera, no come, táper
+ | 
+meal_plan y meal_plan_item (fase siguiente)
+ | Menú semanal y plato
+ | Propuestas, cambios y menú aceptado. Hace falta para F3 (repetición)
+ | 
+Las restricciones duras (B1, B2, B5 y D2) van en columnas tipadas, con check, porque Kito las tiene que aplicar siempre. Las preferencias van en un jsonb preferences con schema_version. Así el formulario puede crecer sin una migración por campo.
+Permisos
+Cuatro códigos nuevos en el catálogo, con el mismo patrón que 0019 y 0020 (RLS por fn_my_home_ids(), escrituras por RPC con fn_has_permission, entrada en audit_log):
+Código
+ | Qué permite
+ | Adulto
+ | Niño
+ | Familiar
+ | Invitado
+ | 
+menu.view
+ | Ver el perfil (sin datos de salud) y los menús
+ | Sí
+ | Sí
+ | Sí
+ | No
+ | 
+menu.profile.edit
+ | Editar el perfil del hogar y de cualquier miembro
+ | Sí
+ | No
+ | No
+ | No
+ | 
+menu.health.view
+ | Ver B3 y B4 de otros miembros
+ | Sí
+ | No
+ | No
+ | No
+ | 
+menu.plan.manage
+ | Pedir, cambiar y aceptar menús
+ | Sí
+ | No
+ | Sí
+ | No
+ | 
+Cada persona con cuenta puede editar siempre sus gustos (bloque C), aunque no tenga menu.profile.edit. El admin del hogar tiene todo, como hoy.
+Al aceptar el menú, Kito crea las tareas con el JWT del usuario, así que necesita task.create y estar en la ACL de la lista (G5). Si no la tiene, se lo dice en vez de fallar a medias. Kito lee el perfil con una RPC get_meal_profile y nunca con service role, como el resto de su skill consulta.
+Datos de salud
+B3 y B4 son datos de salud, una categoría especial en el RGPD. Propuesta: son opcionales, se explica para qué se usan antes de pedirlos, se guardan aparte con su propio permiso y se pueden borrar desde Ajustes. Enviarlos al modelo de IA también hay que contarlo en la política de privacidad del piloto. B1 (alergias) es imprescindible para la seguridad, así que se trata igual pero es obligatorio responder.
+Siguiente paso de desarrollo
+Cuando lo cierres, se abre el change menus-perfil-hogar con el flujo dorch: brief y status en .dorch/changes/, rama dc/menus-perfil-hogar desde origin/master, migración con rollback sin aplicar, y sin push ni PR hasta authorized: push pr gh.
+Preguntas abiertas para Damian
+¿Las 7 preguntas de arranque te parecen las justas, o quitarías o añadirías alguna?
+¿El menú cubre por defecto solo comida y cena, o también desayuno y merienda?
+¿Quién puede editar el perfil: solo adultos (como propongo) o también familiares? ¿Los niños con cuenta pueden marcar sus gustos?
+¿Quieres pedir datos de salud (B3, B4) en el piloto, o dejarlos para cuando haya política de privacidad?
+¿El perfil se rellena solo hablando con Kito, solo con un formulario en Ajustes, o con los dos (como propongo)?
+¿Kito puede leer el calendario para marcar días fuera por su cuenta, o siempre lo pregunta?
+¿La lista de la compra es una lista de tareas normal, o quieres un tipo «Compra» con cantidades y secciones?
+¿El presupuesto es solo orientativo, o quieres precios reales por supermercado más adelante?
+¿El menú trae recetas con pasos, o solo el nombre del plato y los ingredientes?
+¿En qué tier entra: solo Familia (como dice el informe de mercado) o una versión reducida en Plus?
+
