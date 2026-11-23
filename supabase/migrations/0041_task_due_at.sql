@@ -42,6 +42,7 @@ language sql stable set search_path = public as $$
             'updated_at', t.updated_at,
             'persons', coalesce(fn_task_persons(t.id), '[]'::json)
         ) order by (t.completed_at is not null) asc,
+                   -- 0037: con p_sort = 'priority', alta > media > baja; si no, sin efecto (constante)
                    case when p_sort = 'priority' then
                        case t.priority when 'alta' then 1 when 'media' then 2 else 3 end
                    else 0 end asc,
@@ -61,13 +62,15 @@ language sql stable set search_path = public as $$
                to_char(tk.updated_at, 'YYYY-MM-DD HH24:MI:SS') as updated_at
         from task tk
         inner join task_list tl on tl.id = tk.task_list_id
+        -- 1.8 (§3.3): visibilidad ACL ∪ admin (Q1)
         left join task_list_user tlu on tlu.task_list_id = tk.task_list_id and tlu.user_id = fn_my_user_id()
         where tk.task_list_id in (select fn_visible_task_list_ids())
           and (p_task_list_id is null or p_task_list_id = 0 or tk.task_list_id = p_task_list_id)
           and (p_widget is null or tlu.widget = p_widget)
           and (p_dashboard is null or tlu.dashboard = p_dashboard)
+          -- 0037: filtro opcional por prioridad
           and (p_priority is null or tk.priority = p_priority)
-          and (tk.hidden_at is null or tk.hidden_at > now())
+          and (tk.hidden_at is null or tk.hidden_at > now()) -- 0039: fuera las ocultas
     ) t
 $$;
 
@@ -84,9 +87,9 @@ begin
     ) then
         raise exception 'Not Found' using errcode = 'P0002';
     end if;
-    if exists (select 1 from task t where t.id = p_id and t.hidden_at is not null and t.hidden_at <= now()) then
-        raise exception 'Not Found' using errcode = 'P0002';
-    end if;
+    if exists (select 1 from task t where t.id = p_id and t.hidden_at is not null and t.hidden_at <= now()) then -- 0039:
+        raise exception 'Not Found' using errcode = 'P0002'; -- 0039: oculta, como inexistente
+    end if; -- 0039:
     return (
         select json_build_object(
             'id', t.id, 'task_list_id', t.task_list_id, 'title', t.title,

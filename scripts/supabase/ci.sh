@@ -540,7 +540,7 @@ if ! printf '%s\n' ${FAILED[@]+"${FAILED[@]}"} | grep -qx "SQL rollback_0041"; t
     run "SQL limpieza de client_request huérfanas (tras rollback_0041)" sql-rb0041-crclean "${PSQL_CMD[@]}" -v ON_ERROR_STOP=1 -c \
         "delete from client_request cr where cr.kind = 'task' and not exists (select 1 from task t where t.id = cr.resource_id)"
     run "contract_check.py (tras rollback_0041)" sql-rb0041-contract python3 "$CONTRACT_PY"
-    expect_log "contract_check.py (tras rollback_0041)" sql-rb0041-contract "^${contract_nopos}/${contract_nopos} casos ok"
+    expect_log "contract_check.py (tras rollback_0041)" sql-rb0041-contract "^${contract_full}/${contract_full} casos ok"
     run "SQL 0041 reaplicada" sql-ra0041 sql "$HERE/supabase/migrations/0041_task_due_at.sql"
     sleep 1
     run "SQL task_due_check (tras reaplicar 0041)" sql-ra0041-td sql "$HERE/scripts/supabase/tests/task_due_check.sql"
