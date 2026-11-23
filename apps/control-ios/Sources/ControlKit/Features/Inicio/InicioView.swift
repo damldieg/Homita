@@ -26,6 +26,8 @@ public struct InicioView: View {
     @State private var lastOpenedKind: InicioItem.Kind?
     @State private var showTaskEditor = false
     @State private var showHighPriority = false
+    @State private var layoutModel = InicioLayoutModel.shared
+    @State private var showInicioSettings = false
     @State private var showEventEditor = false
     /// Lista mostrada en la tarjeta de tareas (`nil` = la primera).
     @State private var taskPageId: Int?
@@ -59,14 +61,21 @@ public struct InicioView: View {
                         dueBanner(task: banner.task, due: banner.due)
                             .accessibilityIdentifier("inicio.banner.vencimiento")
                     }
-                    routinesCard.accessibilityIdentifier("inicio.tarjeta.rutinas")
-                    eventsCard.accessibilityIdentifier("inicio.tarjeta.eventos")
-                    tasksCard.accessibilityIdentifier("inicio.tarjeta.tareas")
+                    // Orden y bloques ocultos desde Ajustes › Inicio (tarjeta [12]).
+                    ForEach(layoutModel.layout.visibleBlocks) { block in
+                        blockView(block)
+                    }
+                    if layoutModel.layout.visibleBlocks.isEmpty {
+                        hiddenBlocksNote
+                    }
                 }
                 .padding(20)
             }
             .background(Palette.background.ignoresSafeArea())
             .homitaHiddenNavigationBar()
+            .sheet(isPresented: $showInicioSettings) {
+                NavigationStack { InicioSettingsView() }
+            }
             .sheet(isPresented: $showHighPriority) {
                 HighPriorityTasksSheet(groups: TaskDue.groupedByList(store.highPriorityForMe))
             }
@@ -406,6 +415,30 @@ public struct InicioView: View {
     }
 
     // MARK: - Piezas
+
+    @ViewBuilder
+    private func blockView(_ block: InicioBlock) -> some View {
+        switch block {
+        case .routines: routinesCard.accessibilityIdentifier("inicio.tarjeta.rutinas")
+        case .events: eventsCard.accessibilityIdentifier("inicio.tarjeta.eventos")
+        case .tasks: tasksCard.accessibilityIdentifier("inicio.tarjeta.tareas")
+        }
+    }
+
+    /// Nota cuando todos los bloques están ocultos: enlace a Ajustes › Inicio para volver a mostrarlos.
+    private var hiddenBlocksNote: some View {
+        VStack(spacing: 8) {
+            Text("Tus bloques de Inicio están ocultos.")
+                .font(HomitaFont.inter(15, weight: .medium, relativeTo: .body))
+                .foregroundStyle(Palette.inkSoft)
+            Button("Mostrar en Ajustes › Inicio") { showInicioSettings = true }
+                .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .body))
+                .foregroundStyle(Palette.accent)
+                .accessibilityIdentifier("inicio.nota.ajustes")
+        }
+        .frame(maxWidth: .infinity)
+        .padding(16)
+    }
 
     /// Contador de prioridad alta pendiente (propias y del hogar sin asignar) con «Ver más», que abre
     /// la lista agrupada por lista.
