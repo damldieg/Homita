@@ -57,7 +57,7 @@ final class TaskDueTests: XCTestCase {
     func testBannerSkipsTasksAssignedToSomeoneElse() throws {
         let mineRoster = [try person(10, appUserId: 7), try person(11, appUserId: 8)]
         let others = try task(1, due: "2026-12-01 12:00:00", persons: [11])
-        let mine = try task(2, due: "2026-12-02 12:00:00", persons: [10])
+        let mine = try task(2, due: "2026-12-01 20:00:00", persons: [10])
         let unassigned = try task(3, due: "2026-12-03 12:00:00")
         let banner = TaskDue.banner(tasks: [others, mine, unassigned], now: now, roster: mineRoster, currentUserId: 7, dismissed: [])
         XCTAssertEqual(banner?.task.id, 2)
@@ -209,5 +209,21 @@ final class TaskDueTests: XCTestCase {
         let groups = TaskDue.groupedByList([try listed(7, "Compra"), try listed(3, "Compra"), try listed(5, "")])
         XCTAssertEqual(groups.map(\.id), [3, 7, 5])
         XCTAssertEqual(groups.map(\.name), ["Compra", "Compra", "Tareas"])
+    }
+
+    /// El banner solo aparece en las 24 h previas: una tarea que vence en una semana no lo muestra.
+    func testBannerHiddenBeyondTwentyFourHours() throws {
+        let far = try task(1, due: "2026-12-08 12:00:00")
+        XCTAssertNil(TaskDue.banner(tasks: [far], now: now, roster: [], currentUserId: nil, dismissed: []))
+        let inside = try task(2, due: "2026-12-02 09:00:00")
+        XCTAssertEqual(TaskDue.banner(tasks: [inside], now: now, roster: [], currentUserId: nil, dismissed: [])?.task.id, 2)
+    }
+
+    /// Límite exacto de 24 h: entra; un segundo más, no.
+    func testBannerBoundaryAtTwentyFourHours() throws {
+        let exact = try task(1, due: "2026-12-02 10:00:00")
+        XCTAssertEqual(TaskDue.banner(tasks: [exact], now: now, roster: [], currentUserId: nil, dismissed: [])?.task.id, 1)
+        let beyond = try task(2, due: "2026-12-02 10:00:01")
+        XCTAssertNil(TaskDue.banner(tasks: [beyond], now: now, roster: [], currentUserId: nil, dismissed: []))
     }
 }
