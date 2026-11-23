@@ -29,6 +29,14 @@
 --   nothing`, por el kind de su home_member. NO se llama a fn_seed_kind_permissions (reemplaza el
 --   snapshot). Membresías sin home_member vinculado no tienen kind: no reciben menu.* (solo admin).
 --
+-- * Límites de entrada (R1-03; error 400 'Invalid meal profile' al excederlos, vía check de columna o
+--   validación en la RPC): texto libre (diet_note, quirks y cada elemento de dislikes/favorites) <= 200
+--   caracteres; dislikes y favorites <= 50 elementos; preferences (hogar y miembro, ya fusionado)
+--   <= 8192 caracteres como texto; set_meal_schedule <= 500 entradas por llamada (7 días x 5 franjas
+--   x 14 personas) y set_meal_slot_settings <= 5 entradas.
+-- * get_meal_profile devuelve también `candidates` (A1: miembros activos que no son mascota, con los
+--   datos de ficha de home_member) bajo menu.view, sin depender de home.view (R1-01).
+--
 -- Rollback: scripts/supabase/rollback/rollback_0043_meal_profile.sql (borra las tablas y sus datos).
 
 begin;
@@ -81,6 +89,13 @@ language sql immutable as $$
     select coalesce(array_agg(v), array[]::text[]) from jsonb_array_elements_text(j) v
 $$;
 
+-- Límite de texto libre en listas (C1/C2): <= 50 elementos de <= 200 caracteres, sin nulos.
+create or replace function fn_meal_texts_valid(a text[]) returns boolean
+language sql immutable as $$
+    select coalesce(cardinality(a), 0) <= 50
+       and not exists (select 1 from unnest(a) v where v is null or char_length(v) > 200)
+$$;
+
 -- ─────────────────── (c) Tablas ───────────────────
 
 -- Hogar (D1 va en meal_slot_setting): D3, E1–E6, F1–F7, G1–G6, H2.
@@ -102,7 +117,7 @@ create table meal_profile (
     task_list_id bigint references task_list (id) on delete set null,                      -- G5
     group_by_section boolean not null default true,                                        -- G6
     -- E3, E4, F1, F2, F4, F5, G2, G3, G4, H2 y lo que crezca: preferencias blandas
-    preferences jsonb not null default '{}'::jsonb check (jsonb_typeof(preferences) = 'object'),
+    preferences jsonb not null default '{}'::jsonb check (jsonb_typeof(preferences) = 'object' and length(preferences::text) <= 8192),
     schema_version integer not null default 1,
     created_at timestamp without time zone not null default (now() at time zone 'UTC'),
     updated_at timestamp without time zone not null default (now() at time zone 'UTC')
@@ -119,15 +134,16 @@ create table meal_profile_member (
     allergies jsonb not null default '[]'::jsonb check (fn_meal_allergies_valid(allergies)),  -- B1 + B2
     diet text not null default 'omnivore' check (diet in (                                 -- B5
         'omnivore', 'flexitarian', 'pescatarian', 'vegetarian', 'vegan', 'no_pork', 'halal', 'kosher', 'other')),
-    diet_note text,
+    diet_note text check (char_length(diet_note) <= 200),
     goals text[] not null default array[]::text[]                                          -- B6
         check (goals <@ array['more_veg', 'less_red_meat', 'less_ultraprocessed', 'lose_weight',
                               'more_protein']::text[]),
-    dislikes text[] not null default array[]::text[],                                      -- C1
-    favorites text[] not null default array[]::text[],                                     -- C2
-    quirks text,                                                                           -- C3
+    dislikes text[] not null default array[]::text[] check (fn_meal_texts_valid(dislikes)),   -- C1
+    favorites text[] not null default array[]::text[] check (fn_meal_texts_valid(favorites)), -- C2
+    quirks text check (char_length(quirks) <= 200),                                                                         -- C3
     spice smallint check (spice between 0 and 3),                                          -- C4
-    preferences jsonb not null default '{}'::jsonb check (jsonb_typeof(preferences) = 'object'),
+    preferences jsonb not null default '{}'::jsonb
+        check (jsonb_typeof(preferences) = 'object' and length(preferences::text) <= 8192),
     schema_version integer not null default 1,
     created_at timestamp without time zone not null default (now() at time zone 'UTC'),
     updated_at timestamp without time zone not null default (now() at time zone 'UTC'),
@@ -260,6 +276,11 @@ begin
                 'preferences', pm.preferences) order by m.name collate "C", m.id), '[]'::json)
                 from meal_profile_member pm join home_member m on m.id = pm.home_member_id
                 where pm.home_id = h.id),
+            'candidates', (select coalesce(json_agg(json_build_object(
+                'id', c.id, 'home_id', c.home_id, 'kind', c.kind, 'name', c.name, 'color', c.color,
+                'status', c.status, 'linked', c.app_user_id is not null)
+                order by c.name collate "C", c.id), '[]'::json)
+                from home_member c where c.home_id = h.id and c.kind <> 'pet' and c.status = 'active'),
             'schedule', (select coalesce(json_agg(json_build_object(
                 'home_member_id', sc.home_member_id, 'weekday', sc.weekday, 'slot', sc.slot, 'status', sc.status)
                 order by sc.home_member_id, sc.weekday, sc.slot), '[]'::json)
@@ -293,6 +314,9 @@ begin
     perform fn_meal_profile_ensure(v_home);
     if p_data ? 'task_list_id' and jsonb_typeof(p_data->'task_list_id') <> 'null' then
         -- G5: la lista debe ser del hogar (misma respuesta si no existe o es de otro hogar)
+        if jsonb_typeof(p_data->'task_list_id') <> 'number' or (p_data->>'task_list_id') !~ '^[0-9]{1,18}$' then
+            raise exception 'Invalid meal profile' using errcode = 'P0001';
+        end if;
         select tl.id into v_list from task_list tl
         where tl.id = (p_data->>'task_list_id')::bigint and tl.home_id = v_home;
         if v_list is null then
@@ -442,6 +466,9 @@ begin
     if p_entries is null or jsonb_typeof(p_entries) <> 'array' then
         raise exception 'Invalid meal profile' using errcode = 'P0001';
     end if;
+    if jsonb_array_length(p_entries) > 500 then
+        raise exception 'Invalid meal profile' using errcode = 'P0001';
+    end if;
     perform fn_home_write_lock(v_home);
     perform fn_meal_profile_ensure(v_home);
     begin
@@ -486,6 +513,9 @@ begin
     if p_slots is null or jsonb_typeof(p_slots) <> 'array' then
         raise exception 'Invalid meal profile' using errcode = 'P0001';
     end if;
+    if jsonb_array_length(p_slots) > 5 then
+        raise exception 'Invalid meal profile' using errcode = 'P0001';
+    end if;
     perform fn_home_write_lock(v_home);
     perform fn_meal_profile_ensure(v_home);
     begin
@@ -516,7 +546,7 @@ end $$;
 
 -- Grants: helpers internos sin acceso externo; RPC solo para authenticated.
 revoke all on function fn_meal_profile_ensure(bigint), fn_meal_member_guard(),
-    fn_meal_allergies_valid(jsonb), fn_meal_jsonb_to_text_array(jsonb) from public, anon, authenticated;
+    fn_meal_allergies_valid(jsonb), fn_meal_jsonb_to_text_array(jsonb), fn_meal_texts_valid(text[]) from public, anon, authenticated;
 revoke all on function get_meal_profile(), update_meal_profile(jsonb), update_meal_profile_member(bigint, jsonb),
     set_meal_schedule(jsonb), set_meal_slot_settings(jsonb) from public, anon;
 grant execute on function get_meal_profile(), update_meal_profile(jsonb), update_meal_profile_member(bigint, jsonb),

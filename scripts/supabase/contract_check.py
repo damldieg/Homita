@@ -1504,7 +1504,8 @@ def scenario_meal():
     """0043 (menus-perfil-hogar): ML1–ML14 sobre GET/PATCH /meal/profile, PATCH /meal/profile/member,
     PUT /meal/schedule y PUT /meal/slots con el admin de la demo (hogar por defecto, sin cabecera)."""
     meal_profile = {"home_id": "<id>", "timezone": "<str>", "can_edit": "<bool>", "profile": "<obj>",
-                    "slots": ["<obj>"], "members": ["<obj>"], "schedule": ["<obj>"]}
+                    "slots": ["<obj>"], "members": ["<obj>"], "candidates": ["<obj>"],
+                    "schedule": ["<obj>"]}
     b = check("GET /meal/profile", "ML1 GET /meal/profile → 200 con perfil, franjas, fichas y horario",
               request("GET", "/meal/profile", None, tok), 200, meal_profile)
     home = b.get("home_id") if isinstance(b, dict) else None

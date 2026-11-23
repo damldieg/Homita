@@ -13,7 +13,8 @@
 -- MP4 matriz menu.* por kind (AC4): 28 permisos, 47 defaults (23/8/13/3), fn_has_permission por kind.
 -- MP5 backfill (AC4): solo añade los menu.* que faltan y conserva personalizaciones; idempotente.
 -- MP6 bloque C (AC5): cada persona edita solo sus C1–C4 sin menu.profile.edit; B/A propios y C ajeno → 403.
--- MP7 permisos de lectura/escritura del perfil y validación (400) incl. lista G5 de otro hogar.
+-- MP7 permisos de lectura/escritura del perfil y validación (400) incl. lista G5 de otro hogar, task_list_id
+--     no numérico (R1-02), límites de longitud/tamaño (R1-03) y candidates de A1 sin home.view (R1-01).
 -- MP8 alergias B1+B2: validación, obligatoriedad, B3/B4 ausentes; audit_log por escritura sin datos.
 -- MP9 horario y franjas: set_meal_schedule / set_meal_slot_settings, eats=false borra la ficha.
 -- MP10 grants: anon sin EXECUTE; authenticated sin escritura directa; RLS activa.
@@ -431,6 +432,31 @@ begin
     perform pg_temp.fails('MP7 familiar escribe', $q$select update_meal_profile('{"shopping_day":2}'::jsonb)$q$,
         '42501', 'Not Allowed');
 
+    -- R1-01: A1 llega dentro de get_meal_profile con menu.view, sin depender de home.view
+    perform pg_temp.as_user(2);
+    if fn_has_permission(981001, 'home.view') then
+        raise exception 'meal_profile MP7: el fixture adulto tiene home.view (R1-01 no probaría nada)';
+    end if;
+    v := get_meal_profile();
+    if json_array_length(v->'candidates') <> 6
+       or exists (select 1 from json_array_elements(v->'candidates') c where (c->>'kind') = 'pet'
+                  or (c->>'home_id')::bigint <> 981001 or (c->>'status') <> 'active')
+       or not exists (select 1 from json_array_elements(v->'candidates') c
+                      where (c->>'id')::bigint = 981006 and (c->>'linked')::boolean = false and (c->>'kind') = 'child')
+       or not exists (select 1 from json_array_elements(v->'candidates') c
+                      where (c->>'id')::bigint = 981002 and (c->>'linked')::boolean) then
+        raise exception 'meal_profile MP7: candidates de A1 incorrectos %', v->'candidates';
+    end if;
+    perform pg_temp.as_user(3);
+    if json_array_length(get_meal_profile()->'candidates') <> 6 then
+        raise exception 'meal_profile MP7: el niño no recibe candidates';
+    end if;
+    perform pg_temp.as_user(6);    -- otro hogar: nunca ve los de H
+    if exists (select 1 from json_array_elements(get_meal_profile()->'candidates') c
+               where (c->>'home_id')::bigint = 981001) then
+        raise exception 'meal_profile MP7: candidates de otro hogar';
+    end if;
+
     perform pg_temp.as_user(2);    -- adulto: menu.profile.edit
     perform update_meal_profile(
         '{"shopping_day":5,"cook_minutes_weekday":30,"cook_minutes_weekend":60,"equipment":["oven","air_fryer"],
@@ -460,6 +486,30 @@ begin
     -- lista G5 de otro hogar o inexistente: misma respuesta
     perform pg_temp.fails('MP7 lista ajena', $q$select update_meal_profile('{"task_list_id":981002}'::jsonb)$q$, 'P0001', 'Invalid meal profile');
     perform pg_temp.fails('MP7 lista inexistente', $q$select update_meal_profile('{"task_list_id":989999}'::jsonb)$q$, 'P0001', 'Invalid meal profile');
+    -- R1-02: task_list_id no numérico → 400 (no 500 con el texto de Postgres)
+    perform pg_temp.fails('MP7 lista texto', $q$select update_meal_profile('{"task_list_id":"abc"}'::jsonb)$q$, 'P0001', 'Invalid meal profile');
+    perform pg_temp.fails('MP7 lista bool', $q$select update_meal_profile('{"task_list_id":true}'::jsonb)$q$, 'P0001', 'Invalid meal profile');
+    perform pg_temp.fails('MP7 lista decimal', $q$select update_meal_profile('{"task_list_id":1.5}'::jsonb)$q$, 'P0001', 'Invalid meal profile');
+    perform pg_temp.fails('MP7 lista enorme', $q$select update_meal_profile('{"task_list_id":99999999999999999999999}'::jsonb)$q$, 'P0001', 'Invalid meal profile');
+    -- R1-03: límites de longitud y tamaño (texto <= 200, listas <= 50, preferences <= 8192, horario <= 500, franjas <= 5)
+    perform update_meal_profile_member(981006, jsonb_build_object('quirks', repeat('a', 200), 'diet_note', repeat('b', 200),
+        'dislikes', (select jsonb_agg(repeat('c', 200)) from generate_series(1, 50))));
+    perform pg_temp.fails('MP7 quirks', format($q$select update_meal_profile_member(981006, jsonb_build_object('quirks', %L))$q$, repeat('a', 201)), 'P0001', 'Invalid meal profile');
+    perform pg_temp.fails('MP7 diet_note', format($q$select update_meal_profile_member(981006, jsonb_build_object('diet_note', %L))$q$, repeat('a', 201)), 'P0001', 'Invalid meal profile');
+    perform pg_temp.fails('MP7 dislikes elemento', format($q$select update_meal_profile_member(981006, jsonb_build_object('dislikes', jsonb_build_array(%L)))$q$, repeat('a', 201)), 'P0001', 'Invalid meal profile');
+    perform pg_temp.fails('MP7 dislikes 51', $q$select update_meal_profile_member(981006, jsonb_build_object('dislikes', (select jsonb_agg('x' || g) from generate_series(1, 51) g)))$q$, 'P0001', 'Invalid meal profile');
+    perform pg_temp.fails('MP7 favorites 51', $q$select update_meal_profile_member(981006, jsonb_build_object('favorites', (select jsonb_agg('x' || g) from generate_series(1, 51) g)))$q$, 'P0001', 'Invalid meal profile');
+    perform pg_temp.fails('MP7 preferences miembro', format($q$select update_meal_profile_member(981006, jsonb_build_object('preferences', jsonb_build_object('k', %L)))$q$, repeat('a', 8200)), 'P0001', 'Invalid meal profile');
+    perform pg_temp.fails('MP7 preferences hogar', format($q$select update_meal_profile(jsonb_build_object('preferences', jsonb_build_object('k', %L)))$q$, repeat('a', 8200)), 'P0001', 'Invalid meal profile');
+    perform pg_temp.fails('MP7 preferences acumulado', format($q$select update_meal_profile(jsonb_build_object('preferences', jsonb_build_object('k', %L, 'j', %L)))$q$, repeat('a', 4100), repeat('b', 4100)), 'P0001', 'Invalid meal profile');
+    perform pg_temp.fails('MP7 horario 501', $q$select set_meal_schedule((select jsonb_agg(jsonb_build_object('home_member_id', 981001, 'weekday', 1, 'slot', 'lunch', 'status', 'home')) from generate_series(1, 501)))$q$, 'P0001', 'Invalid meal profile');
+    perform set_meal_schedule((select jsonb_agg(jsonb_build_object('home_member_id', 981001, 'weekday', 7, 'slot', 'snack', 'status', 'home')) from generate_series(1, 500)));
+    delete from meal_schedule where home_member_id = 981001 and weekday = 7 and slot = 'snack';     -- el tope exacto (500) pasa; se limpia para MP9
+    perform pg_temp.fails('MP7 franjas 6', $q$select set_meal_slot_settings((select jsonb_agg(jsonb_build_object('slot', 'lunch')) from generate_series(1, 6)))$q$, 'P0001', 'Invalid meal profile');
+    -- el bloque C de la propia persona (sin menu.profile.edit) también respeta los límites
+    perform pg_temp.as_user(3);
+    perform pg_temp.fails('MP7 C propio quirks', format($q$select update_meal_profile_member(981003, jsonb_build_object('quirks', %L))$q$, repeat('a', 201)), 'P0001', 'Invalid meal profile');
+    perform pg_temp.as_user(2);
     if (select shopping_day from meal_profile where home_id = 981001) <> 5 then
         raise exception 'meal_profile MP7: una petición inválida modificó el perfil';
     end if;

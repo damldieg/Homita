@@ -24,6 +24,7 @@ drop function if exists fn_meal_profile_ensure(bigint);
 drop function if exists fn_meal_member_guard();
 drop function if exists fn_meal_allergies_valid(jsonb);
 drop function if exists fn_meal_jsonb_to_text_array(jsonb);
+drop function if exists fn_meal_texts_valid(text[]);
 
 delete from membership_permission where permission_code like 'menu.%';
 delete from member_kind_default where permission_code like 'menu.%';

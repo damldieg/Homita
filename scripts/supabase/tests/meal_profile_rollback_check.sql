@@ -31,7 +31,7 @@ begin
     if exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace
                and proname in ('get_meal_profile', 'update_meal_profile', 'update_meal_profile_member',
                                'set_meal_schedule', 'set_meal_slot_settings', 'fn_meal_profile_ensure',
-                               'fn_meal_member_guard', 'fn_meal_allergies_valid', 'fn_meal_jsonb_to_text_array')) then
+                               'fn_meal_member_guard', 'fn_meal_allergies_valid', 'fn_meal_jsonb_to_text_array', 'fn_meal_texts_valid')) then
         return 'RM1 siguen existiendo funciones meal';
     end if;
     if (select count(*) from permission) <> 23 or (select count(*) from member_kind_default) <> 37
