@@ -69,8 +69,14 @@ public final class CalendarAgendaStore {
         ongoing(on: day) + listEvents(on: day)
     }
 
-    private func dayString(_ day: Date) -> String {
+    /// Día local `yyyy-MM-dd` de una fecha (zona de la rejilla).
+    public func dayString(_ day: Date) -> String {
         LocalClock(now: day, timeZone: grid.timeZone).todayString
+    }
+
+    /// Los 7 días de la semana visible como `yyyy-MM-dd` (para las barras de varios días).
+    public var visibleDayStrings: [String] {
+        visibleDays.map(dayString)
     }
 
     public func load() async {
@@ -105,6 +111,11 @@ public final class CalendarAgendaStore {
     /// Mueve el día elegido (±1 día) y recarga solo si cambia de semana.
     public func move(_ steps: Int) async {
         await select(grid.shift(anchor, mode: .day, by: steps))
+    }
+
+    /// Mueve el día elegido ±7 días por semana: mismo día de la semana en la semana vecina (flechas y swipe de la tira).
+    public func moveWeek(_ steps: Int) async {
+        await select(grid.shift(anchor, mode: .week, by: steps))
     }
 
     /// Elige un día (tira, flechas, deslizar o selector). Recarga solo si cambia la semana visible (R1-07).
