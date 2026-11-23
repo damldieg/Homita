@@ -368,6 +368,7 @@ final class PermissionRulesTests: XCTestCase {
         XCTAssertEqual(PermissionRules.domainLabel("task"), "Tareas")
         XCTAssertEqual(PermissionRules.domainLabel("calendar"), "Calendarios y eventos")
         XCTAssertEqual(PermissionRules.domainLabel("routine"), "Rutinas")
+        XCTAssertEqual(PermissionRules.domainLabel("menu"), "Menú")
         XCTAssertEqual(PermissionRules.domainLabel("zeta"), "Zeta")
     }
 }

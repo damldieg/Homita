@@ -155,6 +155,7 @@ public enum PermissionRules {
         case "calendar": return "Calendarios y eventos"
         case "routine": return "Rutinas"
         case "person": return "Personas"
+        case "menu": return "Menú"
         default: return domain.prefix(1).uppercased() + domain.dropFirst()
         }
     }

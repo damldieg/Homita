@@ -38,7 +38,8 @@ public final class ReadCache: @unchecked Sendable {
     /// ¿Se puede cachear esta petición? Solo GET autenticados de datos del hogar.
     public static func isCacheable(_ request: APIRequest) -> Bool {
         guard request.method == .get, !request.isPublic else { return false }
-        return !(request.path.contains("invitation") || request.path.hasPrefix("user"))
+        // `meal/*` lleva alergias (dato de salud): nunca a la caché de disco
+        return !(request.path.contains("invitation") || request.path.hasPrefix("user") || request.path.hasPrefix("meal/"))
     }
 
     /// Clave estable (SHA-256) para la petición y el hogar activo.

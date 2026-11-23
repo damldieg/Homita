@@ -32,6 +32,27 @@ final class RequestBuilderTests: XCTestCase {
         XCTAssertEqual(try header(APIRequest(method: .post, path: "home/invitation/create", body: Data("{}".utf8))), "7")
     }
 
+    func testMealRoutesCarryHeader() throws {
+        // 0043 (menus-perfil-hogar): el planificador de comidas opera sobre el hogar activo
+        XCTAssertEqual(try header(APIRequest(method: .get, path: "meal/profile")), "7")
+        XCTAssertEqual(try header(APIRequest(method: .patch, path: "meal/profile", body: Data("{}".utf8))), "7")
+        XCTAssertEqual(try header(APIRequest(method: .patch, path: "meal/profile/member", body: Data("{}".utf8))), "7")
+        XCTAssertEqual(try header(APIRequest(method: .put, path: "meal/schedule", body: Data("{}".utf8))), "7")
+        XCTAssertEqual(try header(APIRequest(method: .put, path: "meal/slots", body: Data("{}".utf8))), "7")
+        XCTAssertNil(try header(APIRequest(method: .get, path: "meal/profile", isPublic: true)))
+        XCTAssertNil(try header(APIRequest(method: .get, path: "meal/profile"), homeId: nil))
+        XCTAssertNil(try header(APIRequest(method: .get, path: "mealplan")))
+    }
+
+    func testPutCarriesBodyAndMethod() throws {
+        let request = try RequestBuilder.urlRequest(
+            baseURL: base, apiRequest: APIRequest(method: .put, path: "meal/slots", body: Data("{\"slots\":[]}".utf8)),
+            accessToken: "tok", homeId: "7")
+        XCTAssertEqual(request.httpMethod, "PUT")
+        XCTAssertEqual(request.httpBody, Data("{\"slots\":[]}".utf8))
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+    }
+
     func testPublicAndLegacyRoutesCarryNoHeader() throws {
         XCTAssertNil(try header(APIRequest(method: .get, path: "home/detail", isPublic: true)))
         XCTAssertNil(try header(APIRequest(method: .get, path: "task")))
