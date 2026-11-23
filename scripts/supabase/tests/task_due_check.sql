@@ -1,5 +1,5 @@
 -- task_due_check.sql — Fecha límite de tareas (0041_task_due_at.sql, change fecha-limite-vencimiento, [10]).
--- Solo BD local, tras aplicar 0001–0041:  psql -v ON_ERROR_STOP=1 -f task_due_check.sql
+-- Solo BD local, tras aplicar 0001–0041 (update_task sigue con 4 argumentos):  psql -v ON_ERROR_STOP=1 -f task_due_check.sql
 -- Cada bloque emite 'ok DNn: …' o aborta con 'task_due DNn: …'.
 --
 -- Fixture (ids 9971xx, auth_uid …0961–…0962): hogar H con A admin (owner de la lista L con can_edit) y
@@ -7,12 +7,12 @@
 --
 -- DN1 columna task.due_at timestamp nullable.
 -- DN2 una tarea nueva no tiene fecha (get_task_detail due_at null).
--- DN3 update_task con p_due_at fija la fecha; get_task_detail y get_tasks la devuelven en UTC.
--- DN4 update_task sin p_due_at ni p_clear_due no toca la fecha.
--- DN5 update_task con p_clear_due = true la borra.
--- DN6 fecha ilegible → 'Invalid due_at' P0001 y nada cambia.
+-- DN3 task_due_set fija la fecha; get_task_detail y get_tasks la devuelven en UTC.
+-- DN4 update_task (título) no toca la fecha.
+-- DN5 task_due_set con p_clear_due = true la borra.
+-- DN6 fecha ilegible en task_due_set → 'Invalid due_at' P0001 y nada cambia.
 -- DN7 X (sin ACL) → Not Found P0002 y nada cambia.
--- DN8 anon sin EXECUTE sobre la firma de 6 argumentos.
+-- DN8 anon sin EXECUTE sobre task_due_set.
 -- Al final, 0 filas scratch.
 
 \set ON_ERROR_STOP 1
@@ -123,7 +123,7 @@ do $$
 declare v_tid bigint := current_setting('task_due.tid')::bigint; v_seen text;
 begin
     perform pg_temp.as_user(1);
-    perform update_task(v_tid, 'Leche', null, null, '2026-12-03 18:00:00', false);
+    perform task_due_set(v_tid, '2026-12-03 18:00:00', false);
     if (get_task_detail(v_tid)->>'due_at') is distinct from '2026-12-03 18:00:00' then
         raise exception 'task_due DN3: detalle % ', get_task_detail(v_tid)->>'due_at';
     end if;
@@ -153,7 +153,7 @@ do $$
 declare v_tid bigint := current_setting('task_due.tid')::bigint;
 begin
     perform pg_temp.as_user(1);
-    perform update_task(v_tid, 'Leche entera', null, null, null, true);
+    perform task_due_set(v_tid, null, true);
     if (get_task_detail(v_tid)->>'due_at') is not null then
         raise exception 'task_due DN5: no se borró la fecha';
     end if;
@@ -165,8 +165,8 @@ do $$
 declare v_tid bigint := current_setting('task_due.tid')::bigint;
 begin
     perform pg_temp.as_user(1);
-    perform update_task(v_tid, 'Leche entera', null, null, '2026-12-03 18:00:00', false);
-    perform pg_temp.expect_err('DN6', format('select update_task(%s, ''Leche entera'', null, null, ''2026-13-01 10:00:00'', false)', v_tid),
+    perform task_due_set(v_tid, '2026-12-03 18:00:00', false);
+    perform pg_temp.expect_err('DN6', format('select task_due_set(%s, ''2026-13-01 10:00:00'', false)', v_tid),
                                'P0001', 'Invalid due_at');
     if (get_task_detail(v_tid)->>'due_at') is distinct from '2026-12-03 18:00:00' then
         raise exception 'task_due DN6: la fecha cambió tras un error';
@@ -179,7 +179,7 @@ do $$
 declare v_tid bigint := current_setting('task_due.tid')::bigint;
 begin
     perform pg_temp.as_user(2);
-    perform pg_temp.expect_err('DN7', format('select update_task(%s, ''Hack'', null, null, null, true)', v_tid), 'P0002', 'Not Found');
+    perform pg_temp.expect_err('DN7', format('select task_due_set(%s, null, true)', v_tid), 'P0002', 'Not Found');
     perform pg_temp.as_user(1);
     if (get_task_detail(v_tid)->>'due_at') is distinct from '2026-12-03 18:00:00' then
         raise exception 'task_due DN7: un no miembro cambió la fecha';
@@ -190,10 +190,10 @@ end $$;
 -- ── DN8 ──
 do $$
 begin
-    if has_function_privilege('anon', 'update_task(bigint, text, jsonb, text, text, boolean)', 'EXECUTE') then
-        raise exception 'task_due DN8: anon puede ejecutar update_task';
+    if has_function_privilege('anon', 'task_due_set(bigint, text, boolean)', 'EXECUTE') then
+        raise exception 'task_due DN8: anon puede ejecutar task_due_set';
     end if;
-    raise notice 'ok DN8: anon sin EXECUTE';
+    raise notice 'ok DN8: anon sin EXECUTE sobre task_due_set';
 end $$;
 
 -- ── Limpieza ──

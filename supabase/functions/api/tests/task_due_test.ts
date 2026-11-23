@@ -1,4 +1,5 @@
-// Tests de la Edge del change fecha-limite-vencimiento (0041): `due_at` en PATCH /task/update.
+// Tests de la Edge del change fecha-limite-vencimiento (0041): `due_at` en PATCH /task/update, que escribe
+// la fecha con task_due_set (update_task no cambia de firma).
 // Sin BD ni red: fetch se sustituye por un stub. La semántica real (fijar, borrar, no tocar) la comprueba
 // en BD scripts/supabase/tests/task_due_check.sql; aquí se fija el mapeo de la clave a p_due_at / p_clear_due
 // y el 400 'Invalid due_at' sin llamar a la RPC para formatos no válidos. Una fecha con formato correcto pero
@@ -52,9 +53,11 @@ for (const [input, expected] of fixed) {
         await withFetch(() => okTask(), async (calls) => {
             const res = await handleTaskUpdate(send({ id: 41, title: "Leche", due_at: input }), "jwt");
             assertEquals(res.status, 200);
-            const body = rpcBody(calls, "update_task");
+            const body = rpcBody(calls, "task_due_set");
             assertEquals(body?.p_due_at, expected);
             assertEquals("p_clear_due" in (body ?? {}), false);
+            // update_task sigue recibiendo título y sin claves de fecha (su firma no cambia en 0041).
+            assertEquals("p_due_at" in (rpcBody(calls, "update_task") ?? {}), false);
         });
     });
 }
@@ -62,7 +65,7 @@ for (const [input, expected] of fixed) {
 Deno.test("PATCH /task/update due_at='' -> p_clear_due=true y sin p_due_at", async () => {
     await withFetch(() => okTask(), async (calls) => {
         await handleTaskUpdate(send({ id: 41, title: "Leche", due_at: "" }), "jwt");
-        const body = rpcBody(calls, "update_task");
+        const body = rpcBody(calls, "task_due_set");
         assertEquals(body?.p_clear_due, true);
         assertEquals("p_due_at" in (body ?? {}), false);
     });
@@ -72,9 +75,7 @@ for (const [label, extra] of [["sin la clave", {}], ["con la clave a null", { du
     Deno.test(`PATCH /task/update ${label}: la RPC no recibe fecha (no se toca)`, async () => {
         await withFetch(() => okTask(), async (calls) => {
             await handleTaskUpdate(send({ id: 41, title: "Leche", ...extra }), "jwt");
-            const body = rpcBody(calls, "update_task") ?? {};
-            assertEquals("p_due_at" in body, false);
-            assertEquals("p_clear_due" in body, false);
+            assertEquals(calls.some((x) => x.url.endsWith("/rpc/task_due_set")), false);
         });
     });
 }
@@ -85,7 +86,7 @@ for (const value of ["mañana", "2026-12-01", "01/12/2026 10:00", 1700000000]) {
             const res = await handleTaskUpdate(send({ id: 41, title: "Leche", due_at: value }), "jwt");
             assertEquals(res.status, 400);
             assertEquals(await res.json(), { error: "Invalid due_at" });
-            assertEquals(calls.some((x) => x.url.endsWith("/rpc/update_task")), false);
+            assertEquals(calls.length, 0);
         });
     });
 }

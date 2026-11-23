@@ -52,6 +52,7 @@
 #         (549/549; get_persons aún sin home_id porque 0038 no está reaplicada).
 #      Si un rollback no queda en verde no se sigue con lo que depende de él (la BD local queda a
 #      medias: repetir ci.sh). Se ejecutan todas aunque una falle; el exit final es != 0 si alguna falló.
+#   9. Ida y vuelta 0041 → rollback_0041.sql → 0041 (fecha-limite-vencimiento), en serie tras la 0040.
 #   8. Ida y vuelta 0040 → rollback_0040.sql → 0040 (lista-prioritaria-inicio), en serie tras las anteriores
 #      (0040 solo toca get_task_lists y reorder_task_lists, sin funciones comunes con 0035-0039):
 #      task_list_position_rollback_check TR1-TR3, después home_checks_compat, acl_can_edit_check,
@@ -525,6 +526,27 @@ if grep -Eq 'ok TR1([^0-9]|$)' "$OUT/sql-rb0040.log" && grep -Eq 'ok TR2([^0-9]|
     expect_log "SQL task_list_position_check (tras reaplicar 0040)" sql-ra0040-tp "${tp_pat[@]}"
 else
     FAILED+=("ida y vuelta 0040 (rollback_0040 no quedó en verde; no se reaplica 0040: la BD local queda a medias, repetir ci.sh)")
+fi
+
+# Ida y vuelta 0041 → rollback_0041.sql → 0041 (fecha-limite-vencimiento): el último cambio, en serie tras 0040.
+# Tras revertir: task_due_set no existe y la columna due_at tampoco; el contrato corre sin due_at (clave
+# opcional). Luego se reaplica 0041 y se repite task_due_check DN1-DN8. Si el rollback falla no se sigue.
+run "SQL rollback_0041" sql-rb0041 sql "$HERE/scripts/supabase/rollback/rollback_0041.sql"
+if ! printf '%s\n' ${FAILED[@]+"${FAILED[@]}"} | grep -qx "SQL rollback_0041"; then
+    sleep 1 # notify pgrst del rollback: PostgREST recarga el esquema antes de contract_check
+    run "SQL 0041 revertida (sin task_due_set ni task.due_at)" sql-rb0041-ok "${PSQL_CMD[@]}" -v ON_ERROR_STOP=1 -c \
+        "do \$\$ begin if to_regprocedure('public.task_due_set(bigint,text,boolean)') is not null or exists (select 1 from information_schema.columns where table_name='task' and column_name='due_at') then raise exception 'rollback_0041 incompleto'; end if; end \$\$"
+    # Misma limpieza que tras rollback_0040: client_request de tareas borradas por la pasada anterior.
+    run "SQL limpieza de client_request huérfanas (tras rollback_0041)" sql-rb0041-crclean "${PSQL_CMD[@]}" -v ON_ERROR_STOP=1 -c \
+        "delete from client_request cr where cr.kind = 'task' and not exists (select 1 from task t where t.id = cr.resource_id)"
+    run "contract_check.py (tras rollback_0041)" sql-rb0041-contract python3 "$CONTRACT_PY"
+    expect_log "contract_check.py (tras rollback_0041)" sql-rb0041-contract "^${contract_nopos}/${contract_nopos} casos ok"
+    run "SQL 0041 reaplicada" sql-ra0041 sql "$HERE/supabase/migrations/0041_task_due_at.sql"
+    sleep 1
+    run "SQL task_due_check (tras reaplicar 0041)" sql-ra0041-td sql "$HERE/scripts/supabase/tests/task_due_check.sql"
+    expect_log "SQL task_due_check (tras reaplicar 0041)" sql-ra0041-td "${dn_pat[@]}"
+else
+    FAILED+=("ida y vuelta 0041 (rollback_0041 no quedó en verde; repetir ci.sh)")
 fi
 
 if [ "${#FAILED[@]}" -gt 0 ]; then

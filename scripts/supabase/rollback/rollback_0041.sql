@@ -1,15 +1,15 @@
 -- rollback_0041.sql — Revierte 0041_task_due_at.sql (change fecha-limite-vencimiento, tarjeta [10]).
 -- Orden en prod: primero la Edge anterior (sin p_due_at en PATCH /task) y, antes de ejecutar esto, export
 -- SELECT-only de (id, due_at) y confirmación del usuario: se pierden las fechas límite (no hay otro dato).
--- Restaura get_tasks, get_task_detail y update_task (4 argumentos) con los cuerpos literales de
--- 0039_task_hidden_at.sql (líneas 57-105, 107-137 y 178-226). Quita la columna due_at.
+-- Quita la RPC task_due_set, restaura get_tasks y get_task_detail con los cuerpos literales de
+-- 0039_task_hidden_at.sql (líneas 57-105 y 107-137) y quita la columna due_at. update_task no cambió en 0041.
 -- Sin guarda automática: el rollback se ejecuta a mano tras el export y la confirmación indicados arriba.
 -- supabase_migrations.schema_migrations: la fila '0041' no se borra aquí.
 
 begin;
 
--- update_task de 6 argumentos fuera; vuelve la de 4 de 0039.
-drop function if exists update_task(bigint, text, jsonb, text, text, boolean);
+-- task_due_set fuera (0041).
+drop function if exists task_due_set(bigint, text, boolean);
 
 -- get_tasks: cuerpo de 0039_task_hidden_at.sql:57-105 (sin due_at).
 create or replace function get_tasks(p_dashboard boolean default null, p_task_list_id bigint default null,
@@ -89,55 +89,6 @@ begin
         where t.id = p_id
     );
 end $$;
-
--- update_task de 4 argumentos: cuerpo de 0039_task_hidden_at.sql:178-226.
-create or replace function update_task(p_id bigint, p_title text, p_person_ids jsonb default null,
-                                       p_priority text default null) returns json
-language plpgsql security definer set search_path = public as $$
-declare
-    v_me bigint := fn_my_user_id();
-    v_list bigint;
-    v_home bigint;
-    v_role user_role;
-begin
-    if v_me is null then
-        raise exception 'Not Allowed' using errcode = '42501';
-    end if;
-    if p_title is null or p_title = '' or p_title = '0' then
-        raise exception 'Task ID and title are required' using errcode = 'P0001';
-    end if;
-    if p_priority is not null and p_priority not in ('alta', 'media', 'baja') then
-        raise exception 'Invalid priority' using errcode = 'P0001';
-    end if;
-    select t.task_list_id into v_list from task t where t.id = p_id
-      and (t.hidden_at is null or t.hidden_at > now());
-    if v_list is null then
-        raise exception 'Not Found' using errcode = 'P0002';
-    end if;
-    v_home := fn_home_of_task_list(v_list);
-    perform fn_home_write_lock(v_home);
-    select role into v_role from task_list_user where task_list_id = v_list and user_id = v_me for share;
-    if v_role is null then
-        raise exception 'Not Found' using errcode = 'P0002';
-    end if;
-    if not fn_task_list_editable(v_list) then
-        raise exception 'Not Allowed' using errcode = '42501';
-    end if;
-    if not fn_has_permission(v_home, 'task.edit') then
-        raise exception 'Not Allowed' using errcode = '42501';
-    end if;
-    update task set title = p_title, priority = coalesce(p_priority, priority),
-                    updated_at = (now() at time zone 'UTC')
-    where id = p_id;
-    if p_person_ids is not null then
-        perform fn_sync_assignments('task_person', 'task_id', p_id, p_person_ids);
-    end if;
-    perform fn_reorder_tasks(v_list);
-    return get_task_detail(p_id);
-end $$;
-
-revoke execute on function update_task(bigint, text, jsonb, text) from public, anon;
-grant execute on function update_task(bigint, text, jsonb, text) to authenticated;
 
 -- Quita la columna (y con ella las fechas límite).
 alter table task drop column if exists due_at;

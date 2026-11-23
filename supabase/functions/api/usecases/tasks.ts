@@ -95,11 +95,12 @@ export const handleTaskUpdate = async (req: Request, token: string): Promise<Res
     if (dueAt instanceof Response) return dueAt;
     const args: Record<string, unknown> = { p_id: id, p_title: title, p_person_ids: personIds };
     if (priority !== undefined) args.p_priority = priority;
-    if (dueAt !== undefined) {
-        if (dueAt.clear) args.p_clear_due = true;
-        else args.p_due_at = dueAt.value;
-    }
-    return rpcPass(await rpc("update_task", args, token));
+    // 0041: la fecha va en task_due_set (update_task no cambia de firma: la cadena de rollbacks depende de ella).
+    // Las dos escrituras son idempotentes: si la segunda falla, reenviar la op la deja bien.
+    const res = await rpc("update_task", args, token);
+    if (!res.ok || dueAt === undefined) return rpcPass(res);
+    const dueArgs = dueAt.clear ? { p_id: id, p_clear_due: true } : { p_id: id, p_due_at: dueAt.value };
+    return rpcPass(await rpc("task_due_set", dueArgs, token));
 };
 
 // PATCH /task/complete (TaskComplete.php): completed bool requerido (getInputBool sin default)

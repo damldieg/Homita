@@ -1,23 +1,21 @@
 -- 0041_task_due_at.sql — change fecha-limite-vencimiento (tarjeta [10]): fecha límite opcional en tareas.
 --
 -- * Columna task.due_at timestamp nullable (naive, en UTC, como completed_at). Sin default: sin fecha = null.
---   No hay CHECK de consistencia con priority: la prioridad decide si el cliente avisa (solo alta), no el
---   servidor.
--- * update_task pasa a (bigint, text, jsonb, text, text, boolean): añade p_due_at (texto 'YYYY-MM-DD HH24:MI:SS'
---   en UTC, null = no tocar) y p_clear_due (true = borrar la fecha). Así una sola llamada atómica cambia
---   título, personas, prioridad y fecha. Valor no parseable → 'Invalid due_at' (P0001 → 400 en la Edge).
---   Cambio de firma: DROP de la anterior y CREATE con grants de authenticated (como 0037).
--- * get_tasks y get_task_detail devuelven la clave 'due_at' (naive UTC, mismo formato que completed_at).
+--   No hay CHECK con priority: la prioridad decide si el cliente avisa (solo alta), no el servidor.
+-- * Nueva RPC task_due_set(p_id, p_due_at, p_clear_due): fija o borra la fecha. p_due_at en texto
+--   'YYYY-MM-DD HH24:MI:SS' (UTC); p_clear_due = true la borra. Valor no parseable → 'Invalid due_at'
+--   (P0001 → 400 en la Edge). Mismas reglas de acceso que update_task (0039): validación → lock del hogar →
+--   ACL → task.edit; oculta o sin acceso → 'Not Found'. Devuelve get_task_detail.
+--   update_task NO cambia de firma: la cadena de rollbacks LIFO (0035–0039) depende de su firma de 4
+--   argumentos. Un cambio de firma aquí rompe esas guardas.
+-- * get_tasks y get_task_detail devuelven la clave 'due_at' (UTC naive, mismo formato que completed_at).
 --   Mismas firmas: create or replace conserva los grants.
--- * create_task no cambia: la fecha se pone con update_task tras crear (la app lo hace en la misma sesión).
 -- * Cuerpos base (última definición vigente, sin otros cambios):
 --     get_tasks(boolean,bigint,boolean,text,text)   0039_task_hidden_at.sql:57-105
 --     get_task_detail(bigint)                       0039_task_hidden_at.sql:107-137
---     update_task(bigint,text,jsonb,text)           0039_task_hidden_at.sql:178-226
 --   Cada línea añadida lleva `-- 0041:`.
--- Rollback: scripts/supabase/rollback/rollback_0041.sql (restaura los tres cuerpos de 0039 y la firma de 4
--- argumentos; quita la columna). Solo se pierden las fechas: son el único dato nuevo. Orden LIFO:
--- rollback_0041 → rollback_0040 → rollback_0039 → rollback_0038 → rollback_0037 → rollback_0035.
+-- Rollback: scripts/supabase/rollback/rollback_0041.sql (restaura get_tasks y get_task_detail de 0039, quita
+-- task_due_set y la columna; solo se pierden las fechas). Orden LIFO: rollback_0041 → rollback_0040 → … .
 
 begin;
 
@@ -106,38 +104,29 @@ begin
     );
 end $$;
 
--- 0041: update_task de 6 argumentos (la de 4 se elimina; ver rollback_0041.sql).
-drop function if exists update_task(bigint, text, jsonb, text); -- 0041:
-
--- update_task: cuerpo de 0039_task_hidden_at.sql:178-226 + p_due_at / p_clear_due.
-create or replace function update_task(p_id bigint, p_title text, p_person_ids jsonb default null,
-                                       p_priority text default null, p_due_at text default null,
-                                       p_clear_due boolean default false) returns json -- 0041:
+-- 0041: fijar o borrar la fecha límite de una tarea. Mismas reglas de acceso que update_task (0039).
+create or replace function task_due_set(p_id bigint, p_due_at text default null, p_clear_due boolean default false)
+returns json -- 0041:
 language plpgsql security definer set search_path = public as $$
 declare
     v_me bigint := fn_my_user_id();
     v_list bigint;
     v_home bigint;
     v_role user_role;
-    v_due timestamp; -- 0041:
+    v_due timestamp;
 begin
     if v_me is null then
         raise exception 'Not Allowed' using errcode = '42501';
     end if;
-    if p_title is null or p_title = '' or p_title = '0' then
-        raise exception 'Task ID and title are required' using errcode = 'P0001';
+    -- Fecha: p_clear_due gana; si no, p_due_at es obligatorio y debe ser un timestamp válido.
+    if not p_clear_due then
+        begin
+            v_due := p_due_at::timestamp;
+        exception when others then
+            raise exception 'Invalid due_at' using errcode = 'P0001';
+        end;
     end if;
-    if p_priority is not null and p_priority not in ('alta', 'media', 'baja') then
-        raise exception 'Invalid priority' using errcode = 'P0001';
-    end if;
-    -- 0041: fecha opcional. p_clear_due tiene prioridad; si no, p_due_at null = no tocar.
-    if p_due_at is not null and p_due_at <> '' and not p_clear_due then -- 0041:
-        begin -- 0041:
-            v_due := p_due_at::timestamp; -- 0041:
-        exception when others then -- 0041:
-            raise exception 'Invalid due_at' using errcode = 'P0001'; -- 0041:
-        end; -- 0041:
-    end if; -- 0041:
+    -- validación → lock (hogar de la tarea) → ACL → task.edit, como update_task (0039)
     select t.task_list_id into v_list from task t where t.id = p_id
       and (t.hidden_at is null or t.hidden_at > now());
     if v_list is null then
@@ -155,21 +144,13 @@ begin
     if not fn_has_permission(v_home, 'task.edit') then
         raise exception 'Not Allowed' using errcode = '42501';
     end if;
-    update task set title = p_title, priority = coalesce(p_priority, priority),
-                    due_at = case when p_clear_due then null -- 0041:
-                                  when v_due is not null then v_due -- 0041:
-                                  else due_at end, -- 0041:
-                    updated_at = (now() at time zone 'UTC')
+    update task set due_at = case when p_clear_due then null else v_due end
     where id = p_id;
-    if p_person_ids is not null then
-        perform fn_sync_assignments('task_person', 'task_id', p_id, p_person_ids);
-    end if;
-    perform fn_reorder_tasks(v_list);
     return get_task_detail(p_id);
 end $$;
 
-revoke execute on function update_task(bigint, text, jsonb, text, text, boolean) from public, anon; -- 0041:
-grant execute on function update_task(bigint, text, jsonb, text, text, boolean) to authenticated; -- 0041:
+revoke execute on function task_due_set(bigint, text, boolean) from public, anon; -- 0041:
+grant execute on function task_due_set(bigint, text, boolean) to authenticated; -- 0041:
 
 commit;
 

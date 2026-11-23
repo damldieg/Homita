@@ -363,8 +363,9 @@ begin
     end if;
     select array_agg(proname::text order by proname) into v_readers
       from pg_proc where pronamespace = 'public'::regnamespace and prosrc like '%hidden_at%';
+    -- task_due_set (0041) también lee hidden_at para no tocar tareas ocultas (mismas reglas que update_task).
     if v_readers is distinct from array['complete_task', 'delete_task', 'fn_reorder_tasks', 'get_task_detail',
-                                        'get_tasks', 'task_order', 'update_task'] then
+                                        'get_tasks', 'task_due_set', 'task_order', 'update_task'] then
         raise exception 'task_hidden H11: usan hidden_at %', v_readers;
     end if;
     select array_agg(proname::text) into v_restore
@@ -373,7 +374,7 @@ begin
     if v_restore is not null then
         raise exception 'task_hidden H11: funciones de restauración %', v_restore;
     end if;
-    raise notice 'ok H11: solo complete_task asigna hidden_at; lectores = las 7 de 0039; sin restore/unhide/recover';
+    raise notice 'ok H11: solo complete_task asigna hidden_at; lectores = las 7 de 0039 más task_due_set (0041); sin restore/unhide/recover';
 end $$;
 
 -- ── H12: policy task_select (lectura real por RLS, rol authenticated) ──
