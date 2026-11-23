@@ -57,6 +57,31 @@ Deno.test("GET /meal/profile llama a get_meal_profile y pasa el JSON tal cual", 
     });
 });
 
+Deno.test("GET /meal/profile conserva candidates (A1) tal cual, sin llamar a home/member", async () => {
+    const body = {
+        home_id: 7, members: [],
+        candidates: [{ id: 3, home_id: 7, kind: "adult", name: "Ana", color: null, status: "active", linked: true }],
+    };
+    await withFetch(() => jsonRes(200, body), async (calls) => {
+        const res = await handleMealProfileGet(req("GET"), "tok");
+        assertEquals(await res.json(), body);
+        assertEquals(calls.length, 1);
+        assertEquals(calls[0].url, "http://stub.local/rest/v1/rpc/get_meal_profile");
+    });
+});
+
+Deno.test("PATCH /meal/profile reenvía valores raros a la RPC y su 'Invalid meal profile' sale como 400 (R1-02/R1-03)", async () => {
+    const bodies = [{ task_list_id: "abc" }, { preferences: { k: "x".repeat(9000) } }];
+    for (const data of bodies) {
+        await withFetch(() => jsonRes(400, { message: "Invalid meal profile" }), async (calls) => {
+            const res = await handleMealProfileUpdate(req("PATCH", data), "tok");
+            assertEquals(res.status, 400);
+            assertEquals(await res.json(), { error: "Invalid meal profile" });
+            assertEquals(calls[0].body, { p_data: data });
+        });
+    }
+});
+
 Deno.test("X-Home-Id del contexto se propaga a la RPC", async () => {
     await withFetch(() => jsonRes(200, {}), async (calls) => {
         await runWithHome("42", () => handleMealProfileGet(req("GET"), "tok"));
