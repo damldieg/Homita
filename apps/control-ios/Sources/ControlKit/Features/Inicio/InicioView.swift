@@ -290,8 +290,8 @@ public struct InicioView: View {
                 // Puntos: indican la lista actual y siguen siendo tocables. Para VoiceOver son un
                 // único control ajustable (deslizar arriba/abajo cambia de lista).
                 if pages.count > 1 {
+                    let idx = pages.firstIndex { $0.id == page.id } ?? 0
                     HStack(spacing: 8) {
-                        let idx = pages.firstIndex { $0.id == page.id } ?? 0
                         ForEach(Array(InicioTaskPaging.dots(count: pages.count, current: idx).enumerated()),
                                 id: \.offset) { _, dot in
                             Button {
@@ -308,6 +308,9 @@ public struct InicioView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
+                    // Una sola fuente de verdad: el índice sale de la página visible; la ventana y el
+                    // difuminado se animan al cambiar de página (tarjeta «Tareas pendientes»).
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: idx)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("Lista \(page.name)")
                     .accessibilityValue("\((pages.firstIndex { $0.id == page.id } ?? 0) + 1) de \(pages.count)")
@@ -317,11 +320,12 @@ public struct InicioView: View {
                         ) { selectTaskPage(target, in: pages) }
                     }
                 }
-                ZStack {
+                ZStack(alignment: .top) {
                     taskPageContent(page)
                         .id(page.id)
                         .transition(taskPageTransition)
                 }
+                .frame(maxWidth: .infinity, minHeight: InicioTaskPaging.pageMinHeight, alignment: .top)
                 .clipped()
             } else {
                 emptyText(HomitaEmptyNoteText.pendingTasks)
@@ -365,6 +369,8 @@ public struct InicioView: View {
                     .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
                     .foregroundStyle(Palette.accent)
             }
+            // Hueco para el botón flotante (perro) abajo a la derecha: «Ver más» y la prioridad no quedan debajo.
+            .padding(.trailing, 72)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
@@ -383,11 +389,9 @@ public struct InicioView: View {
         )
     }
 
+    /// Fundido entre listas: no se ven dos listas desplazándose solapadas durante el cambio.
     private var taskPageTransition: AnyTransition {
-        reduceMotion ? .identity : .asymmetric(
-            insertion: .move(edge: taskSwipeForward ? .trailing : .leading).combined(with: .opacity),
-            removal: .move(edge: taskSwipeForward ? .leading : .trailing).combined(with: .opacity)
-        )
+        reduceMotion ? .identity : .opacity
     }
 
     /// Cambia de lista con un deslizamiento corto (sin animación si hay «Reducir movimiento»).
