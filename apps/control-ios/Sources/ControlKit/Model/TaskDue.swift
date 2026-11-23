@@ -63,7 +63,8 @@ public enum TaskDue {
         tasks
             .filter { !$0.isCompleted && $0.priorityValue == .alta && !dismissed.contains($0.id) }
             .compactMap { task -> (task: TaskEntry, due: Date)? in
-                guard let due = date(task.due_at), due > now,
+                // Banner solo en las 24 h previas al vencimiento; antes no aparece.
+                guard let due = date(task.due_at), due > now, due <= now.addingTimeInterval(24 * 3600),
                       isMine(task, roster: roster, currentUserId: currentUserId) else { return nil }
                 return (task, due)
             }

@@ -36,6 +36,13 @@ public struct TasksRootView: View {
                 await store.loadTasks()
                 await store.loadPersons()
             }
+            // Al volver a la pestaña (TabView no repite .task), recargar: una lista creada en otra pestaña aparece.
+            .onAppear {
+                Task {
+                    await store.loadLists()
+                    await store.loadTasks()
+                }
+            }
             .onChange(of: segment) { _, newValue in
                 // Al volver a Tareas desde Listas, recargar: las tareas pueden haber quedado filtradas o desactualizadas.
                 if newValue == 0 { Task { await store.loadTasks() } }
