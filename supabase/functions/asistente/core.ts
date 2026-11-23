@@ -6,6 +6,8 @@
 // la app viajan solo como resultados de herramientas (JSON serializado), y el system dice que son datos.
 // Los nombres de herramienta devueltos por el modelo se validan contra las herramientas disponibles.
 
+import { construirContexto } from "./contexto.ts";
+
 /** Lectura de una ruta GET del `api` (con el JWT y la zona del usuario). Un error HTTP vuelve como `{error, detalle}`. */
 export type Leer = (ruta: string, params?: Record<string, string | undefined>) => Promise<unknown>;
 
@@ -163,6 +165,12 @@ export const runKito = async (args: RunArgs): Promise<RunResult> => {
         role: m.role,
         content: m.content,
     }));
+    // Ficha de contexto: primer bloque de texto del último mensaje de usuario (nunca en `system`).
+    const ficha = await construirContexto(args.ctx).catch(() => null);
+    if (ficha !== null && convo[convo.length - 1]?.role === "user") {
+        const ultimo = convo[convo.length - 1];
+        ultimo.content = [{ type: "text", text: ficha }, { type: "text", text: String(ultimo.content) }];
+    }
     let tokens: Tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
     let herramientasUsadas = 0;
 
