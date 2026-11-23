@@ -212,7 +212,7 @@ expect_log "SQL task_list_position_check" sql-task-list-position "${tp_pat[@]}"
 
 # 0041 (fecha-limite-vencimiento): fecha límite de tareas sobre la BD con 0041 aplicada.
 run "SQL task_due_check" sql-task-due sql "$HERE/scripts/supabase/tests/task_due_check.sql"
-dn_pat=(); for i in $(seq 1 8); do dn_pat+=("ok DN$i([^0-9a-z]|\$)"); done
+dn_pat=(); for i in $(seq 1 9); do dn_pat+=("ok DN$i([^0-9a-z]|\$)"); done
 expect_log "SQL task_due_check" sql-task-due "${dn_pat[@]}"
 
 run "SQL assistant_usage_check" sql-assistant-usage sql "$HERE/scripts/supabase/tests/assistant_usage_check.sql"
