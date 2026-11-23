@@ -218,4 +218,12 @@ final class TaskDueTests: XCTestCase {
         let inside = try task(2, due: "2026-12-02 09:00:00")
         XCTAssertEqual(TaskDue.banner(tasks: [inside], now: now, roster: [], currentUserId: nil, dismissed: [])?.task.id, 2)
     }
+
+    /// Límite exacto de 24 h: entra; un segundo más, no.
+    func testBannerBoundaryAtTwentyFourHours() throws {
+        let exact = try task(1, due: "2026-12-02 10:00:00")
+        XCTAssertEqual(TaskDue.banner(tasks: [exact], now: now, roster: [], currentUserId: nil, dismissed: [])?.task.id, 1)
+        let beyond = try task(2, due: "2026-12-02 10:00:01")
+        XCTAssertNil(TaskDue.banner(tasks: [beyond], now: now, roster: [], currentUserId: nil, dismissed: []))
+    }
 }
