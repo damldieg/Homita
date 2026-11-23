@@ -20,6 +20,21 @@ public enum TaskDue {
         return formatter.string(from: date)
     }
 
+    /// Pendientes de prioridad alta de esta cuenta: las suyas y las del hogar sin asignar (sin completar).
+    public static func highPriorityForMe(_ tasks: [TaskEntry], roster: [PersonEntry], currentUserId: Int?) -> [TaskEntry] {
+        tasks.filter { !$0.isCompleted && $0.priorityValue == .alta && isMine($0, roster: roster, currentUserId: currentUserId) }
+    }
+
+    /// Agrupa tareas por lista: orden por nombre de lista y, dentro de cada lista, por título.
+    public static func groupedByList(_ tasks: [TaskEntry]) -> [TaskListGroup] {
+        Dictionary(grouping: tasks, by: \.task_list_id)
+            .map { id, items in
+                TaskListGroup(id: id, name: items.first?.task_list_name ?? "Lista", colorHex: items.first?.task_list_color,
+                              tasks: items.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending })
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
     /// ¿La tarea es para esta cuenta? Sin personas (o sin datos) cuenta como sin asignar; si tiene
     /// personas, debe haber alguna vinculada a `currentUserId` en `roster`.
     public static func isMine(_ task: TaskEntry, roster: [PersonEntry], currentUserId: Int?) -> Bool {
@@ -44,4 +59,12 @@ public enum TaskDue {
             }
             .min { $0.due < $1.due }
     }
+}
+
+/// Lista con sus tareas de prioridad alta pendientes (resumen de Inicio, 0042-UI).
+public struct TaskListGroup: Identifiable, Equatable {
+    public let id: Int
+    public let name: String
+    public let colorHex: String?
+    public let tasks: [TaskEntry]
 }

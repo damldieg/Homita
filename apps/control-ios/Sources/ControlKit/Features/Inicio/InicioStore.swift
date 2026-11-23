@@ -77,6 +77,11 @@ public final class InicioStore: MainActorWriteFailureReporting {
         TaskDue.banner(tasks: tasks, now: now, roster: roster, currentUserId: outbox?.userId, dismissed: dismissedDueIds)
     }
 
+    /// Prioridad alta pendiente para el resumen: las de esta cuenta y las del hogar sin asignar.
+    public var highPriorityForMe: [TaskEntry] {
+        TaskDue.highPriorityForMe(tasks, roster: roster, currentUserId: outbox?.userId)
+    }
+
     /// Cierra el banner de una tarea en esta sesión; no vuelve a aparecer hasta reabrir la app.
     public func dismissDueBanner(taskId: Int) {
         dismissedDueIds.insert(taskId)

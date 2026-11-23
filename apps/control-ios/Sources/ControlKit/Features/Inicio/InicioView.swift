@@ -25,6 +25,7 @@ public struct InicioView: View {
     /// Tipo del último ítem abierto (decide qué sección recargar al cerrar la hoja).
     @State private var lastOpenedKind: InicioItem.Kind?
     @State private var showTaskEditor = false
+    @State private var showHighPriority = false
     @State private var showEventEditor = false
     /// Lista mostrada en la tarjeta de tareas (`nil` = la primera).
     @State private var taskPageId: Int?
@@ -66,6 +67,9 @@ public struct InicioView: View {
             }
             .background(Palette.background.ignoresSafeArea())
             .homitaHiddenNavigationBar()
+            .sheet(isPresented: $showHighPriority) {
+                HighPriorityTasksSheet(groups: TaskDue.groupedByList(store.highPriorityForMe))
+            }
             .refreshable { await store.load() }
             .task { await store.load() }
             .onChange(of: store.outbox?.generation) {
@@ -281,6 +285,7 @@ public struct InicioView: View {
                     count: store.tasks.filter { !$0.isCompleted }.count,
                     countText: page == nil ? nil : "\(doneCount)/\(listTasks.count)", destination: .tasks,
                     state: store.tasksState, retry: { await store.loadTasks() }) {
+            highPriorityRow
             if let page {
                 // Puntos: indican la lista actual y siguen siendo tocables. Para VoiceOver son un
                 // único control ajustable (deslizar arriba/abajo cambia de lista).
@@ -401,6 +406,25 @@ public struct InicioView: View {
     }
 
     // MARK: - Piezas
+
+    /// Contador de prioridad alta pendiente (propias y del hogar sin asignar) con «Ver más», que abre
+    /// la lista agrupada por lista.
+    private var highPriorityRow: some View {
+        let count = store.highPriorityForMe.count
+        return HStack(spacing: 8) {
+            Text(count == 0 ? "Sin tareas de prioridad alta" : "\(count) de prioridad alta")
+                .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
+                .foregroundStyle(count == 0 ? Palette.inkSoft : Palette.err)
+            Spacer(minLength: 8)
+            if count > 0 {
+                Button("Ver más") { showHighPriority = true }
+                    .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
+                    .foregroundStyle(Palette.accent)
+                    .accessibilityIdentifier("inicio.prioridadAlta.verMas")
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
 
     /// Banner de la tarea de prioridad alta más próxima a vencer (0041): nombre, hora y cierre.
     private func dueBanner(task: TaskEntry, due: Date) -> some View {
