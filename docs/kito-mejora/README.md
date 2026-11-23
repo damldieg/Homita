@@ -4,7 +4,7 @@
 2. Para cada paso, en orden, abre dorch-claude y pásale:
    - el prompt del paso (`prompts/0N-*.md`),
    - `brief.md` de esta carpeta,
-   - en los pasos 5 y 6, además `/mnt/project-files/kito-asistente/dorch-change/plan.md` (plan de Kito del 2026-11-20; está también en `.dorch/changes/kito-asistente/plan.md` si lo conservas) (tabla de campos indispensables).
+   - en los pasos 5 y 6, además `plan-kito.md` de esta carpeta (plan de Kito del 2026-11-20, con la tabla de campos indispensables).
 3. Cuando dorch termine, revisa su informe. Para push y PR añade `authorized: push pr gh` al `status.md` del change.
 4. No empieces un paso hasta que los que necesita estén en master (ver la tabla «Orden» del brief).
    El 1 y el 2 pueden ir en paralelo; el 3 (voz) solo necesita el 2.

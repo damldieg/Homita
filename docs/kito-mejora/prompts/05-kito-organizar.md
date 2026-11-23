@@ -1,7 +1,7 @@
 Nuevo change dorch `kito-organizar` (Homita). Paso 5 de 6 de la mejora de Kito = fase 2 del plan de Kito (escrituras). Backend: Edge `asistente`. Requiere el paso 1 (`kito-calidad-consulta`) en master. Desbloquea la skill `menus` del planificador de comidas.
 
 ## Contexto
-Te paso `brief.md` y el `plan.md` de Kito (2026-11-20), sección «Fase 2: acciones y voz»: tabla de **campos indispensables** por elemento y regla de calendarios («de quién es» = con quién se comparte, opción a de Damian). Léelos enteros. Regla de oro: Kito no tiene tablas ni RPC propias; todo va por `api/usecases/*` con el JWT del usuario (RLS, ACL `can_edit`, catálogo del hogar), así que un 403 es un 403 de verdad.
+Te paso `brief.md` y `plan-kito.md` (plan de Kito del 2026-11-20), sección «Fase 2: acciones y voz»: tabla de **campos indispensables** por elemento y regla de calendarios («de quién es» = con quién se comparte, opción a de Damian). Léelos enteros. Regla de oro: Kito no tiene tablas ni RPC propias; todo va por `api/usecases/*` con el JWT del usuario (RLS, ACL `can_edit`, catálogo del hogar), así que un 403 es un 403 de verdad.
 
 ## Qué hacer
 1. **Change dorch.** `.dorch/changes/kito-organizar/` (brief, plan tuyo, status `approved: yes` por las decisiones del 2026-11-20 y 2026-11-23, `authorized:` vacío). Rama `dc/kito-organizar` desde `origin/master`, worktree `../Homita-kito-organizar`.
