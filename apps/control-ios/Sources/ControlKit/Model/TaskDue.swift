@@ -25,14 +25,24 @@ public enum TaskDue {
         tasks.filter { !$0.isCompleted && $0.priorityValue == .alta && isMine($0, roster: roster, currentUserId: currentUserId) }
     }
 
-    /// Agrupa tareas por lista: orden por nombre de lista y, dentro de cada lista, por título.
+    /// Agrupa tareas por lista: orden por nombre de lista (desempate por id) y, dentro de cada lista, por título.
+    /// Un nombre vacío o ausente se muestra como «Tareas», igual que en la tarjeta de Inicio.
     public static func groupedByList(_ tasks: [TaskEntry]) -> [TaskListGroup] {
         Dictionary(grouping: tasks, by: \.task_list_id)
             .map { id, items in
-                TaskListGroup(id: id, name: items.first?.task_list_name ?? "Lista", colorHex: items.first?.task_list_color,
-                              tasks: items.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending })
+                let name = items.first?.task_list_name.flatMap { $0.isEmpty ? nil : $0 } ?? "Tareas"
+                return TaskListGroup(id: id, name: name, colorHex: items.first?.task_list_color,
+                                     tasks: items.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending })
             }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            .sorted {
+                let order = $0.name.localizedCaseInsensitiveCompare($1.name)
+                return order == .orderedSame ? $0.id < $1.id : order == .orderedAscending
+            }
+    }
+
+    /// Texto y enlace del contador de prioridad alta del resumen (AC2: sin tareas, sin «Ver más»).
+    public static func highPrioritySummary(count: Int) -> (text: String, showsLink: Bool) {
+        count == 0 ? ("Sin tareas de prioridad alta", false) : ("\(count) de prioridad alta", true)
     }
 
     /// ¿La tarea es para esta cuenta? Sin personas (o sin datos) cuenta como sin asignar; si tiene

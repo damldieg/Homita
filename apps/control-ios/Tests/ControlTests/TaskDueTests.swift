@@ -184,6 +184,30 @@ final class TaskDueTests: XCTestCase {
             """ }
         let fromList = try JSONDecoder().decode(TaskEntry.self, from: Data(listJSON(9, "Hogar").utf8))
         let groups = TaskDue.groupedByList([fromList, try task(4, due: nil)])
-        XCTAssertEqual(groups.map(\.name), ["Hogar", "Lista"])
+        XCTAssertEqual(groups.map(\.name), ["Hogar", "Tareas"])
+    }
+
+    /// AC2: sin tareas, el texto es «Sin tareas de prioridad alta» y no hay enlace; con tareas, enlace.
+    func testHighPrioritySummaryWithAndWithoutTasks() {
+        let none = TaskDue.highPrioritySummary(count: 0)
+        XCTAssertEqual(none.text, "Sin tareas de prioridad alta")
+        XCTAssertFalse(none.showsLink)
+        let some = TaskDue.highPrioritySummary(count: 3)
+        XCTAssertEqual(some.text, "3 de prioridad alta")
+        XCTAssertTrue(some.showsLink)
+    }
+
+    /// R1-01/R1-02: listas con el mismo nombre se ordenan por id; un nombre vacío se muestra como «Tareas».
+    func testGroupedByListTieBreaksAndFallbackName() throws {
+        func listed(_ id: Int, _ name: String?) throws -> TaskEntry {
+            let nameJSON = name.map { "\"\($0)\"" } ?? "null"
+            return try JSONDecoder().decode(TaskEntry.self, from: Data("""
+            {"id":\(id),"task_list_id":\(id),"title":"T\(id)","completed_at":null,"order":1,"priority":"alta",
+             "due_at":null,"task_list_name":\(nameJSON),"task_list_color":"#000000"}
+            """.utf8))
+        }
+        let groups = TaskDue.groupedByList([try listed(7, "Compra"), try listed(3, "Compra"), try listed(5, "")])
+        XCTAssertEqual(groups.map(\.id), [3, 7, 5])
+        XCTAssertEqual(groups.map(\.name), ["Compra", "Compra", "Tareas"])
     }
 }

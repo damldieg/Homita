@@ -411,12 +411,13 @@ public struct InicioView: View {
     /// la lista agrupada por lista.
     private var highPriorityRow: some View {
         let count = store.highPriorityForMe.count
+        let summary = TaskDue.highPrioritySummary(count: count)
         return HStack(spacing: 8) {
-            Text(count == 0 ? "Sin tareas de prioridad alta" : "\(count) de prioridad alta")
+            Text(summary.text)
                 .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
                 .foregroundStyle(count == 0 ? Palette.inkSoft : Palette.err)
             Spacer(minLength: 8)
-            if count > 0 {
+            if summary.showsLink {
                 Button("Ver más") { showHighPriority = true }
                     .font(HomitaFont.inter(14, weight: .semibold, relativeTo: .footnote))
                     .foregroundStyle(Palette.accent)
