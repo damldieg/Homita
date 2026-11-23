@@ -72,6 +72,8 @@ public enum TaskPersonFilter: Equatable {
 
 /// Filtro por persona en cliente. `GET task` no trae `app_user_id` por persona, así que «mis tareas»
 /// se resuelve por `person.id` contra el roster (`GET person`). Función pura que conserva el orden.
+/// Las tareas con `persons == nil` quedan fuera; incluye las creadas offline, que el overlay
+/// materializa sin personas hasta sincronizar (limitación aceptada, R1-03).
 public enum TaskPersonFiltering {
     public static func apply(_ tasks: [TaskEntry], filter: TaskPersonFilter?, roster: [PersonEntry],
                              currentUserId: Int?) -> [TaskEntry] {
@@ -383,9 +385,13 @@ public final class TasksStore: MainActorWriteFailureReporting {
     /// Solo desaparecen las que el servidor confirma; las que fallen siguen en la lista y se avisa.
     /// Offline (o con cambios pendientes) encola un delete por tarea: las creadas offline se anulan
     /// con su create; con red, un fallo de red también se encola en vez de avisar.
-    public func deleteCompleted(listId: Int) async {
+    /// `only`: limita el borrado a esos ids (las tareas que la vista muestra y el aviso lista, con
+    /// filtros de persona/prioridad activos); `nil` = todas las completadas de la lista.
+    public func deleteCompleted(listId: Int, only ids: Set<Int>? = nil) async {
         let list = resolve(listId)
-        let completed = tasks.filter { $0.task_list_id == list && $0.isCompleted }
+        let completed = tasks.filter {
+            $0.task_list_id == list && $0.isCompleted && (ids?.contains($0.id) ?? true)
+        }
         guard !completed.isEmpty, !isDeletingCompleted else { return }
         isDeletingCompleted = true
         defer { isDeletingCompleted = false }

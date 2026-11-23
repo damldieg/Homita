@@ -23,6 +23,8 @@ final class HomitaEmptyStateTests: XCTestCase {
         ))
         XCTAssertEqual(HomitaEmptyContent.tasks(filtered: true).message, "Esta lista no tiene tareas todavía.")
         XCTAssertEqual(HomitaEmptyContent.tasks(filtered: true).actionTitle, "Nueva tarea")
+        XCTAssertEqual(HomitaEmptyContent.tasks(filtered: false, personFiltered: true).message,
+                       "Sin tareas para este filtro. Elige «Todas» para quitarlo.")
         XCTAssertEqual(HomitaEmptyContent.taskLists, HomitaEmptyContent(
             illustration: .lists, title: "Sin listas",
             message: "Las listas agrupan tus tareas: compra, casa, trabajo…", actionTitle: "Nueva lista"

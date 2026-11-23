@@ -16,11 +16,14 @@ struct HomitaEmptyContent: Equatable {
     }
 
     /// TASKS-01: sin filtro invita a crear la primera; con una lista filtrada, la lista está vacía.
-    static func tasks(filtered: Bool) -> HomitaEmptyContent {
+    /// Con filtro de persona activo el vacío se explica por el filtro («Todas» lo quita).
+    static func tasks(filtered: Bool, personFiltered: Bool = false) -> HomitaEmptyContent {
         HomitaEmptyContent(
             illustration: .tasks,
             title: "Sin tareas",
-            message: filtered
+            message: personFiltered
+                ? "Sin tareas para este filtro. Elige «Todas» para quitarlo."
+                : filtered
                 ? "Esta lista no tiene tareas todavía."
                 : "Crea tu primera tarea y ponle una lista para tenerla a mano.",
             actionTitle: "Nueva tarea"
