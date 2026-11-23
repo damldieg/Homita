@@ -119,6 +119,17 @@ final class ModelsDecodeTests: XCTestCase {
         XCTAssertEqual(list.sort, "custom")
     }
 
+    func testTaskListEntryPosition() throws {
+        let with = try decodeFixture(TaskListEntry.self, ##"{"id":2,"name":"Compra","color":"#6923E2","sort":"custom","position":3}"##)
+        XCTAssertEqual(with.positionValue, 3)
+        let asString = try decodeFixture(TaskListEntry.self, ##"{"id":2,"name":"Compra","color":"#6923E2","sort":"custom","position":"2"}"##)
+        XCTAssertEqual(asString.positionValue, 2) // FlexInt tolera string numérico
+        let null = try decodeFixture(TaskListEntry.self, ##"{"id":2,"name":"Compra","color":"#6923E2","sort":"custom","position":null}"##)
+        XCTAssertNil(null.positionValue)
+        let without = try decodeFixture(TaskListEntry.self, ##"{"id":2,"name":"Compra","color":"#6923E2","sort":"custom"}"##)
+        XCTAssertNil(without.positionValue)
+    }
+
     func testTaskEntryCompletedStates() throws {
         let pending = try decodeFixture(TaskEntry.self, #"{"id":7,"task_list_id":2,"title":"Leche","completed_at":null,"order":1}"#)
         XCTAssertFalse(pending.isCompleted)

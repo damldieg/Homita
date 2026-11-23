@@ -117,6 +117,7 @@ app; el refresco queda para una fase posterior):
 | `migrations/0037_task_priority.sql` | Change `prioridad-tarea` (D-026): columna `task.priority` (`alta`/`media`/`baja`, default `media`), `priority` en las respuestas de tarea, filtro y orden opcionales en `get_tasks` y `p_priority` en `create_task`/`update_task`. Ver «Prioridad de tarea (0037)». Reversa: `scripts/supabase/rollback/rollback_0037.sql` (**pierde las prioridades**) |
 | `migrations/0038_task_create_person_access.sql` | Change `asignar-alta-lista`: `create_task` (misma firma de 5 argumentos, `create or replace`) solo acepta en `p_person_ids` personas con cuenta y con fila en `task_list_user` de la lista; si no, 400 `Invalid person` sin crear la tarea. `update_task` no cambia. Ver «Acceso a la lista al crear (0038)». Reversa: `scripts/supabase/rollback/rollback_0038.sql` (restaura el cuerpo de 0037; sin datos), **antes** que `rollback_0037` (orden LIFO 0038 → 0037 → 0035). Despliegue en `supabase/DEPLOY_0038.md` |
 | `migrations/0039_task_hidden_at.sql` | Change `ocultar-completadas-3-dias` (D-025): columna `task.hidden_at` (`timestamptz` nullable, `completed_at + 3 días` en UTC, CHECK `task_hidden_at_consistent`) con backfill de las completadas; `get_tasks` deja fuera las ocultas y `get_task_detail` y las escrituras sobre una oculta dan `Not Found` (500, como una inexistente). Mismas firmas y shapes; la Edge no cambia. Ver «Ocultar completadas (0039, D-025)». Reversa: `scripts/supabase/rollback/rollback_0039.sql` (solo se pierde `hidden_at`, derivable), **antes** que `rollback_0038` (orden LIFO 0039 → 0038 → 0037 → 0035; `rollback_0038` aborta mientras exista `task.hidden_at`). Despliegue en `supabase/DEPLOY_0039.md` |
+| `migrations/0040_task_list_position.sql` | Change `lista-prioritaria-inicio`: `task_list.position integer null` (check `> 0`, global por hogar), backfill por hogar (`created_at, id`), `get_task_lists` con la clave aditiva `position` y orden `position` asc nulls last, `name`, `id`, y RPC `reorder_task_lists(bigint[])`. Ver «Orden de listas (0040)». Reversa: `scripts/supabase/rollback/rollback_0040.sql` (se pierde el orden elegido) |
 
 ## Edge Function `functions/api/`
 
@@ -446,6 +447,36 @@ existentes; solo añade la clave `end_date` a las respuestas de evento.
   del dashboard) siguen mostrando el evento solo en su día de inicio; la app iOS muestra el rango
   («10 nov → 20 nov») en la fila del evento y en el editor.
 
+## Orden de listas (0040)
+
+Change `lista-prioritaria-inicio`. Las listas de tareas tienen un orden persistente por hogar que usa Inicio
+(la lista con `position` menor va primero).
+
+- **Columna:** `task_list.position integer null` con check `position is null or position > 0`. Es global por
+  hogar (no por usuario). Nullable a propósito: `create_task_list` no cambia y las listas nuevas nacen sin
+  posición y salen al final hasta que alguien reordene. El backfill de la migración numera 1..n por hogar
+  según `created_at, id`.
+- **`GET /task-list`:** cada elemento lleva la clave aditiva `position` (int o `null`) y la lista viene
+  ordenada por `position` (nulls last), `name` y `id`. El resto del shape no cambia; `GET /task-list/detail` y
+  las respuestas de create/update tampoco.
+- **`PATCH /task-list/order`** (ruta **aditiva**, D-008: fuera de las 43 rutas legacy; sin `X-Home-Id`, D-012):
+  body `{"ids": [3, 1, 2]}` = ids en el orden deseado (lista completa, sin duplicados); respuesta 200
+  `[{"id": 3, "position": 1}, …]`. Atómica (RPC `reorder_task_lists`): exige, para cada lista, ACL propia,
+  permiso de edición (owner o `can_edit`) y `tasklist.manage`, como `update_task_list`; si una falla no cambia
+  ninguna. No cambia `updated_at`. Errores: `ids` ausente, vacío, con duplicados o no enteros → 400
+  `Task list IDs are required`; viewer sin `can_edit` o sin `tasklist.manage` → 403 `Not Allowed`; id inexistente,
+  de otro hogar, sin ACL o de otro tenant → 500 `Not Found`. Las listas del hogar que el usuario no ve conservan su
+  `position` (pueden empatar con las visibles; desempata `name, id`).
+- **Despliegue:** el merge aplica 0040 en prod (D-022) y después se despliega la Edge (ruta nueva). Con la Edge
+  nueva y sin la RPC, `PATCH /task-list/order` daría 500; `GET /task-list` sigue funcionando.
+- **Rollback:** orden Edge anterior → export SELECT-only de `(id, home_id, position)` → `rollback_0040.sql`
+  (borra `reorder_task_lists` y la columna y restaura el cuerpo de `get_task_lists` de 0029; idempotente; la fila
+  `0040` de `schema_migrations` no se borra).
+- **Pruebas:** `task_list_position_check.sql` (`ok TP1..TP8`), ida y vuelta en `ci.sh`
+  (`task_list_position_rollback_check.sql` `ok TR1..TR3` y `task_list_position_reapply_check.sql` `ok TA1..TA2`),
+  test Deno `functions/api/tests/task_list_order_test.ts`, 17 casos en `contract_check.py` (`CASES_POSITION`) y
+  7 en `cross_tenant_check.py`.
+
 ## Idempotencia de creates (0035, D-024)
 
 Change `ios-offline-outbox-tareas`. La cola offline de Control iOS reintenta los creates de tarea y de
@@ -656,7 +687,7 @@ con las desviaciones documentadas fijadas como valor esperado (`401` vs `500` de
 owner-only `403`, `refresh_token`, TypeError de `calendar/create` sin color). Borra los restos `CC-%`
 de ejecuciones anteriores (`reset_leftovers`, service_role local), así que es repetible sin
 re-sembrar. El guard de `--fn` rechaza hosts no locales: jamás debe tocar el proyecto alojado.
-Exit 0 = 43/43 rutas cubiertas sin regresión; si no, lista las rutas con regresión.
+Exit 0 = 43/43 rutas legacy cubiertas sin regresión (más la ruta aditiva `PATCH /task-list/order`, 0040, cuyos casos suman al total); si no, lista las rutas con regresión.
 
 ```sh
 scripts/demo.sh up                          # Edge local servida + seed.py (ver «Flujo demo local»)
@@ -666,7 +697,7 @@ python3 scripts/supabase/contract_check.py  # o --fn URL o SUPABASE_FUNCTIONS_UR
 Complementos sin oráculo: `scripts/supabase/tests/expected_shape_check.py`
 (forma esperada: `refresh_token`, `config` con flag `ALLOW_REGISTRATION`, Gemini 400, alta de
 usuarios; se ejecuta una vez por configuración de flag) y `scripts/supabase/tests/cross_tenant_check.py`
-(aislamiento entre tenants: 282 casos —`EXPECTED_CASES` en el script—, ids ajenos → `500 Not Found`, RPC directas
+(aislamiento entre tenants: 289 casos —`EXPECTED_CASES` en el script—, ids ajenos → `500 Not Found`, RPC directas
 `/rest/v1/rpc/*` con JWT ajeno sin fugas, owner vs viewer). Fixture:
 `scripts/supabase/fixture_two_families.py` (RLS).
 
@@ -691,12 +722,14 @@ stack Supabase local y efímero en `ubuntu-latest` y corre `scripts/supabase/ci.
    últimos reciben las migraciones y los rollbacks expandidos desde los marcadores
    `-- @MIGRATION:<fichero>@` / `-- @ROLLBACK:<fichero>@`; F10 usa un stub de `net.http_post` porque el
    stack local no instala `pg_net` (si estuviera, mira la cola real).
-5. `contract_check.py` completo (`564/564`: 502 + 30 de prioridad + 32 de ocultas; `CONTRACT_ONLY` y `CONTRACT_SCHEMA` se anulan).
-6. `cross_tenant_check.py` (`282/282`; sale 1 si hay un fallo o si el número de casos no es
+   Además `task_list_position_check.sql` (`ok TP1..TP8`, 0040) y el test Deno de `PATCH /task-list/order`
+   (`api/tests/task_list_order_test.ts`, con `--allow-env`).
+5. `contract_check.py` completo (`581/581`: 502 + 30 de prioridad + 32 de ocultas + 17 de la ruta aditiva `PATCH /task-list/order`; `CONTRACT_ONLY` y `CONTRACT_SCHEMA` se anulan).
+6. `cross_tenant_check.py` (`289/289`; sale 1 si hay un fallo o si el número de casos no es
    `EXPECTED_CASES`).
 7. Ida y vuelta exterior 0039 → `rollback_0039` → [la de 0038 de abajo] → 0039:
    `task_hidden_rollback_check.sql` (`ok RBH1..RBH5`) y, sobre el esquema sin 0039, `P1..P10`, `A1..A9`,
-   `C1..C9`, `K1..K8` y `contract_check.py` en modo `CONTRACT_SCHEMA=pre-0039` (`532/532`); al salir,
+   `C1..C9`, `K1..K8` y `contract_check.py` en modo `CONTRACT_SCHEMA=pre-0039` (`549/549`); al salir,
    `task_hidden_reapply_check.sql` (`ok RAH1..RAH3`), `H1..H12` y `contract_check.py` completo. Va por
    fuera porque la de 0038/0037 reaplica `get_tasks`, `get_task_detail` y `update_task` sin el filtro.
    Antes del paso 5, junto a `G0..G3` y `G38-1`, `task_hidden_rollback_guard_check.sql` (`ok G39-1`)
@@ -708,7 +741,7 @@ stack Supabase local y efímero en `ubuntu-latest` y corre `scripts/supabase/ci.
    existen: el replay de prioridad usa una clave fija). Va por fuera porque reaplicar 0037 deja `create_task` sin la guarda.
    Dentro, la ida y vuelta anidada 0037 → `rollback_0037` → (0035 → `rollback_0035` → 0035) → 0037:
    `task_priority_rollback_check.sql` (`ok PR1..PR4`), checks y `contract_check.py` en modo
-   `CONTRACT_SCHEMA=pre-0037` (`502/502`) sobre el esquema revertido; dentro, la de 0035
+   `CONTRACT_SCHEMA=pre-0037` (`519/519`) sobre el esquema revertido; dentro, la de 0035
    (`ok RB1..RB4`, los mismos checks, `event_end_date_rollback_guard_check.sql` (`ok E0..E2`: con 0030
    aplicada la guarda de `rollback_0029` aborta sin tocar nada), `ok RA1..RA2` y `C1..C9`); al final `task_priority_reapply_check.sql`
    (`ok PA1..PA3`), `P1..P10`, `C1..C9` y `contract_check.py` completo otra vez. La de 0035 va dentro
@@ -717,6 +750,10 @@ stack Supabase local y efímero en `ubuntu-latest` y corre `scripts/supabase/ci.
    que las guardas de `rollback_0035` y `rollback_0029` abortan sin tocar nada y que las llamadas por
    nombre de la Edge a `create_task`/`update_task` resuelven sin ambigüedad; el `contract_check.py` del
    paso 5 lo confirma por la Edge (`POST /task/create` 201, `PATCH /task/update` 200).
+
+8. Ida y vuelta 0040 → `rollback_0040.sql` → 0040, en serie tras las anteriores: `task_list_position_rollback_check.sql`
+   (`ok TR1..TR3`), checks sobre el esquema revertido (`contract_check.py` con `CONTRACT_POSITION=0` = `564/564`
+   sin `position`) y reaplicación con `task_list_position_reapply_check.sql` (`ok TA1..TA2`) y `TP1..TP8` otra vez.
 
 Se ejecutan todas las suites aunque una falle y el job falla si falla cualquiera; ante fallo se
 suben `.demo/ci/` (logs, `serve.log`, `supabase status`). Versiones fijadas: Supabase CLI 3.1.0,

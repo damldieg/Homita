@@ -243,9 +243,14 @@ CASES_PRIORITY = (28 + 2) if PRIORITY else 0
 # CONTRACT_SCHEMA vacío.
 HIDDEN = CONTRACT_SCHEMA == ""
 CASES_HIDDEN = 32 if HIDDEN else 0
+# 0040 (lista-prioritaria-inicio): 17 casos de scenario_task_list_order: 3 altas + O1–O11 + 3 bajas (medido)
+# CONTRACT_POSITION=0 (solo ci.sh, tras rollback_0040): esquema sin 0040 → sin `position` en TL_ITEM, sin
+# el escenario de orden y 502 casos (más lo que aporten 0037/0039 si siguen aplicadas).
+POSITION = os.environ.get("CONTRACT_POSITION", "1") != "0"
+CASES_POSITION = 17 if POSITION else 0
 EXPECTED_CASES = (CASES_BASE + CASES_110 + CASES_115 + CASES_VALUES + CASES_END_DATE
-                  + CASES_PRIORITY + CASES_HIDDEN)  # 351 + 34 + 69 + 19 + 29 = 502 (+ 30 con 0037 = 532;
-                                                    # + 32 con 0039 = 564)
+                  + CASES_PRIORITY + CASES_HIDDEN + CASES_POSITION)  # 502 + 30 (0037) + 32 (0039) + 17 (0040)
+                                                                     # = 581; con CONTRACT_SCHEMA/POSITION menos
 
 
 def record(route, name, ok, detail=""):
@@ -328,6 +333,8 @@ TL_ITEM = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>", 
            "created_at": "<ts>", "updated_at": "<ts>", "widget": "<01>", "dashboard": "<01>",
            "pending_task_count": "<int>", "home_id": "<id>",
            "can_edit": "<bool>"}  # 0029: owner o can_edit
+if os.environ.get("CONTRACT_POSITION", "1") != "0":
+    TL_ITEM["position"] = "<int?>"  # 0040: orden de la lista (null si nunca se ordenó)
 TL_DETAIL = {"id": "<id>", "name": "<str>", "color": "<str>", "token": "<token>", "sort": "<str>",
              "created_at": "<ts>", "updated_at": "<ts>", "home_id": "<id>"}
 TL_USER = {"tlu_id": "<id>", "user_id": "<id>", "name": "<str>", "email": "<str>", "role": "<str>",
@@ -439,6 +446,11 @@ HOME_ROUTES = [
 # casos se cuentan aparte (FEEDBACK_EXPECTED) para no alterar el 502/502 legacy que exige ci.sh.
 FEEDBACK_ROUTES = ["POST /feedback"]
 FEEDBACK_EXPECTED = 8
+
+# Ruta aditiva PATCH /task-list/order (change lista-prioritaria-inicio, 0040). Fuera de ROUTES (el 43/43
+# legacy no cambia); sus casos sí entran en `results` y se suman a EXPECTED_CASES (CASES_POSITION).
+ORDER_ROUTES = ["PATCH /task-list/order"]
+ERR_ORDER_IDS = '{"error":"Task list IDs are required"}'
 
 
 def epoch(local_date):
@@ -1438,6 +1450,44 @@ def scenario_task_hidden():
     request("DELETE", "/task-list/delete", {"id": lid}, tok)
 
 
+def scenario_task_list_order():
+    route = "PATCH /task-list/order"
+    ids = []
+    for n in (1, 2, 3):
+        b = check("POST /task-list/create", f"orden: alta de CC-Orden{n}",
+                  request("POST", "/task-list/create", {"name": f"CC-Orden{n}", "color": "#444444", "sort": "title"}, tok),
+                  201, TL_DETAIL)
+        ids.append(b.get("id") if isinstance(b, dict) else None)
+    want = [ids[2], ids[0], ids[1]]
+    b = check(route, "O1 reordenar [l3, l1, l2] → 200 [{id, position}]",
+              request("PATCH", "/task-list/order", {"ids": want}, tok), 200,
+              [{"id": "<id>", "position": "<int>"}])
+    value(route, "O2 respuesta con posiciones 1..3 en el orden pedido",
+          b == [{"id": want[0], "position": 1}, {"id": want[1], "position": 2}, {"id": want[2], "position": 3}], repr(b)[:200])
+    g = check("GET /task-list", "O3 GET /task-list → [TL_ITEM] con position",
+              request("GET", "/task-list", None, tok), 200, [TL_ITEM])
+    seen = [x.get("id") for x in g if x.get("id") in ids] if isinstance(g, list) else []
+    value(route, "O4 GET /task-list devuelve las listas en el orden pedido", seen == want, f"{seen} != {want}")
+    check(route, "O5 ids ausente → 400 Task list IDs are required",
+          request("PATCH", "/task-list/order", {}, tok), 400, ERR_ORDER_IDS)
+    check(route, "O6 ids vacío → 400",
+          request("PATCH", "/task-list/order", {"ids": []}, tok), 400, ERR_ORDER_IDS)
+    check(route, "O7 ids duplicados → 400",
+          request("PATCH", "/task-list/order", {"ids": [ids[0], ids[0]]}, tok), 400, ERR_ORDER_IDS)
+    check(route, "O8 id no entero → 400",
+          request("PATCH", "/task-list/order", {"ids": [ids[0], "x"]}, tok), 400, ERR_ORDER_IDS)
+    check(route, "O9 id inexistente → 500 Not Found",
+          request("PATCH", "/task-list/order", {"ids": [ids[0], 999999999]}, tok), 500, ERR_NOT_FOUND)
+    check(route, "O10 sin Bearer → 401",
+          request("PATCH", "/task-list/order", {"ids": want}, None), 401, ERR_UNAUTHORIZED)
+    g = parse(request("GET", "/task-list", None, tok)[1])
+    seen = [x.get("id") for x in g if x.get("id") in ids] if isinstance(g, list) else []
+    value(route, "O11 los errores no cambian el orden", seen == want, f"{seen} != {want}")
+    for lid in ids:
+        check("DELETE /task-list/delete", f"orden: baja de la lista {lid}",
+              request("DELETE", "/task-list/delete", {"id": lid}, tok), 200, SUCCESS)
+
+
 def scenario_routine():
     start = (monday - datetime.timedelta(days=7)).isoformat()
     b = check("POST /routine/create", "escenario routine/create",
@@ -1762,6 +1812,8 @@ if PRIORITY:
     scenario_task_priority()
 if HIDDEN:
     scenario_task_hidden()
+if POSITION:
+    scenario_task_list_order()
 scenario_routine()
 scenario_event()
 scenario_home()
@@ -3076,7 +3128,8 @@ if len(results) != EXPECTED_CASES:
           f"de 1.8 + 39 del bloque 1.9 de configuración de permisos (3+8+15+7+6) + 34 del bloque "
           f"1.10 de contratos home (15+15+4) + 69 del bloque 1.15 de invitaciones "
           f"(3+8+19+7+19+11+2) + 19 de valores de can_edit (14) y app_user_id (5) + 29 de end_date"
-          f" + {CASES_PRIORITY} de prioridad (0037) + {CASES_HIDDEN} de ocultas (0039);"
+          f" + {CASES_PRIORITY} de prioridad (0037) + {CASES_HIDDEN} de ocultas (0039)"
+          f" + {CASES_POSITION} de orden de listas (0040);"
           f" CONTRACT_SCHEMA={CONTRACT_SCHEMA or 'actual'})")
 fb_fails = fb_results.count(False)
 print(f"{len(fb_results) - fb_fails}/{len(fb_results)} casos feedback ok (esperados {FEEDBACK_EXPECTED})"

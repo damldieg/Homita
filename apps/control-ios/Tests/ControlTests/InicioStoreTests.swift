@@ -21,11 +21,11 @@ final class InicioStoreTests: XCTestCase {
         return path.range(of: "/functions/v1/api/").map { String(path[$0.upperBound...]) } ?? path
     }
 
-    func testLoadUsesOnlyEventTaskRoutineWithDayWindow() async throws {
+    func testLoadUsesOnlyEventTaskTaskListRoutineWithDayWindow() async throws {
         let store = makeStore(ContractFixtures.response)
         await store.load()
         let requests = StubURLProtocol.requests
-        XCTAssertEqual(Set(requests.map(route)), ["event", "task", "routine"])
+        XCTAssertEqual(Set(requests.map(route)), ["event", "task", "task-list", "routine"])
         XCTAssertFalse(requests.contains { route($0).hasPrefix("home") })
         let eventRequest = try XCTUnwrap(requests.first { route($0) == "event" })
         let query = Dictionary(eventRequest.capturedQuery.map { ($0.0, $0.1 ?? "") }, uniquingKeysWith: { a, _ in a })
@@ -67,7 +67,10 @@ final class InicioStoreTests: XCTestCase {
         let requests = StubURLProtocol.requests
         XCTAssertEqual(requests.first.map(route), "task/complete")
         XCTAssertEqual(requests.first?.httpMethod, "PATCH")
-        XCTAssertEqual(requests.last.map(route), "task")
+        // La recarga de tareas incluye también task-list (en paralelo, sin orden fijo).
+        let reloaded = Set(requests.dropFirst().map(route))
+        XCTAssertTrue(reloaded.contains("task"))
+        XCTAssertTrue(reloaded.isSubset(of: ["task", "task-list"]))
     }
 
     /// Cada lista de la tarjeta muestra como mucho 3 pendientes (el widget conserva su límite de 5).

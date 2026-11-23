@@ -9,23 +9,25 @@
 #   2. Guardas: API_URL local y la BD es `supabase/postgres:17.*`.
 #   3. `scripts/demo.sh up`: db reset (migraciones) + `functions serve api` + seed. Es el único reset.
 #   4. Deno: `deno check` y `deno test` de procesar-feedback y de asistente (Kito, fase 1; mocks, sin
-#      red; asistente con --allow-env porque importa los casos de uso de `api`).
+#      red; asistente con --allow-env porque importa los casos de uso de `api`) y el test de
+#      PATCH /task-list/order de `api` (0040, con --allow-env).
 #   5. SQL (invitaciones_check N1-N22, home_checks_compat, acl_can_edit_check K1-K8,
 #      permisos_matriz_check, client_request_check C1-C9 (0035), assistant_usage_check U1-U7 (0036),
 #      task_priority_check P1-P10 (0037), task_person_access_check A1-A9 (0038),
 #      get_persons_home_id_check GP1-GP4 (0038, home_id en get_persons),
 #      task_hidden_check H1-H12 (0039, ocultar completadas a los 3 días),
+#      task_list_position_check TP1-TP8 (0040),
 #      G5-md5 (solo ADVERTENCIA, no falla: md5 del gate G5 de DEPLOY_0039.md = stack local),
 #      feedback_trello_check B1-B8 (0033) y feedback_trigger_check F1-F12 (0031/0034); trigger inerte en
 #      local: sin feedback_webhook_url en Vault no se encola ninguna petición),
 #      task_priority_rollback_guard_check G0-G3 (guardas LIFO de rollback_0035/0029 con 0037 aplicada),
 #      task_person_access_rollback_guard_check G38-1 (guarda LIFO de rollback_0037 con 0038 aplicada),
 #      task_hidden_rollback_guard_check G39-1 (guarda LIFO de rollback_0038 con 0039 aplicada),
-#      contract_check.py (502 + prioridad + ocultas) y cross_tenant_check.py.
+#      contract_check.py (502 + prioridad + ocultas + orden de listas) y cross_tenant_check.py.
 #   5b. Ida y vuelta exterior 0039 → rollback_0039 → [paso 6] → 0039 (ocultar-completadas-3-dias):
 #      task_hidden_rollback_check RBH1-5; sobre el esquema sin 0039: task_priority_check,
 #      task_person_access_check, client_request_check, acl_can_edit_check y contract_check en modo
-#      CONTRACT_SCHEMA=pre-0039 (532/532); al salir del paso 6, task_hidden_reapply_check RAH1-3
+#      CONTRACT_SCHEMA=pre-0039 (549/549); al salir del paso 6, task_hidden_reapply_check RAH1-3
 #      (backfill real), task_hidden_check H1-H12 y contract_check completo otra vez. Va por fuera de la
 #      de 0038 porque la anidada revierte y reaplica get_tasks, get_task_detail y update_task (orden
 #      LIFO de rollbacks 0039 → 0038 → 0037 → 0035).
@@ -33,13 +35,13 @@
 #      task_person_access_rollback_check RB38-1..5; sobre el esquema sin 0038: client_request_check,
 #      acl_can_edit_check y task_priority_check; al salir del paso 7, task_person_access_reapply_check
 #      RA38-1, task_person_access_check A1-A9, get_persons_home_id_check GP1-GP4 y contract_check
-#      en modo pre-0039 (532/532; 0039 todavía revertida). Va por fuera de la de
+#      en modo pre-0039 (549/549; 0039 todavía revertida). Va por fuera de la de
 #      0037 porque reaplicar 0037 restaura create_task sin la guarda de 0038 (orden LIFO de rollbacks
 #      0038 → 0037 → 0035).
 #   7. Ida y vuelta anidada 0037 → rollback_0037 → (0035 → rollback_0035 → 0035) → 0037:
 #      a. task_priority_rollback_check PR1-PR4; sobre el esquema sin 0037: home_checks_compat,
 #         acl_can_edit_check, permisos_matriz_check y contract_check en modo CONTRACT_SCHEMA=pre-0037
-#         (502/502: la Edge nueva sin parámetros nuevos funciona sobre la BD revertida).
+#         (519/519: la Edge nueva sin parámetros nuevos funciona sobre la BD revertida).
 #      b. Dentro, la ida y vuelta 0035 de siempre (rollback_0035 borra create_task(…,uuid), que con
 #         0037 aplicada ya no existe; por eso va anidada): client_request_rollback_check RB1-RB4, los
 #         mismos checks y contract_check (pre-0037) sobre el esquema revertido,
@@ -47,9 +49,14 @@
 #         client_request_reapply_check RA1-RA2 más client_request_check C1-C9 otra vez.
 #      c. task_priority_reapply_check PA1-PA3 y, sobre 0037 reaplicada, task_priority_check P1-P10,
 #         client_request_check C1-C9 y contract_check completo otra vez con CONTRACT_SCHEMA=pre-0038
-#         (532/532; get_persons aún sin home_id porque 0038 no está reaplicada).
+#         (549/549; get_persons aún sin home_id porque 0038 no está reaplicada).
 #      Si un rollback no queda en verde no se sigue con lo que depende de él (la BD local queda a
 #      medias: repetir ci.sh). Se ejecutan todas aunque una falle; el exit final es != 0 si alguna falló.
+#   8. Ida y vuelta 0040 → rollback_0040.sql → 0040 (lista-prioritaria-inicio), en serie tras las anteriores
+#      (0040 solo toca get_task_lists y reorder_task_lists, sin funciones comunes con 0035-0039):
+#      task_list_position_rollback_check TR1-TR3, después home_checks_compat, acl_can_edit_check,
+#      permisos_matriz_check y contract_check (CONTRACT_POSITION=0: 564/564, sin `position`) sobre el
+#      esquema revertido, y task_list_position_reapply_check TA1-TA2 más task_list_position_check TP1-TP8.
 #
 # Nunca usa ~/.homita/supabase.env ni secretos: las claves son las del stack local
 # (`supabase status -o env`). psql va por `docker exec` (socket Unix dentro del contenedor), que es
@@ -67,7 +74,7 @@ EXCLUDE=studio,imgproxy,vector,logflare,mailpit
 # Entorno heredado que podría apuntar a otra BD o alterar la ejecución: fuera.
 unset PGHOST PGHOSTADDR PGSERVICE PGSERVICEFILE PGPASSFILE PGOPTIONS PGSYSCONFDIR PGPORT PGUSER \
     PGPASSWORD PGDATABASE DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY \
-    SUPABASE_FUNCTIONS_URL CONTRACT_ONLY CONTRACT_SCHEMA XT_ONLY PSQL
+    SUPABASE_FUNCTIONS_URL CONTRACT_ONLY CONTRACT_SCHEMA CONTRACT_POSITION XT_ONLY PSQL
 
 step() { echo "==> $*"; }
 fail() { echo "ci.sh: $*" >&2; exit 1; }
@@ -168,6 +175,11 @@ run "deno check asistente" deno-check-asistente env NO_COLOR=1 deno check "$ASIS
 run "deno test asistente" deno-test-asistente env NO_COLOR=1 deno test --no-prompt --allow-env "$ASIST_FN/tests/"
 expect_log "deno test asistente" deno-test-asistente '^ok \| [0-9]+ passed \| 0 failed'
 
+# Test de PATCH /task-list/order (0040): fetch falso, solo validación local y paso de errores de la RPC.
+API_FN="$HERE/supabase/functions/api"
+run "deno test api task-list/order" deno-test-api-order env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/task_list_order_test.ts"
+expect_log "deno test api task-list/order" deno-test-api-order '^ok \| [0-9]+ passed \| 0 failed'
+
 run "SQL invitaciones_check" sql-invitaciones sql "$HERE/scripts/supabase/tests/invitaciones_check.sql"
 n_pat=(); for i in $(seq 1 22); do n_pat+=("ok N$i([^0-9]|\$)"); done
 expect_log "SQL invitaciones_check" sql-invitaciones "${n_pat[@]}"
@@ -188,6 +200,10 @@ expect_log "SQL permisos_matriz_check" sql-permisos-matriz "${m_pat[@]}"
 run "SQL client_request_check" sql-client-request sql "$HERE/scripts/supabase/tests/client_request_check.sql"
 c_pat=(); for i in $(seq 1 9); do c_pat+=("ok C$i([^0-9a-z]|\$)"); done
 expect_log "SQL client_request_check" sql-client-request "${c_pat[@]}"
+
+run "SQL task_list_position_check" sql-task-list-position sql "$HERE/scripts/supabase/tests/task_list_position_check.sql"
+tp_pat=(); for i in $(seq 1 8); do tp_pat+=("ok TP$i([^0-9a-z]|\$)"); done
+expect_log "SQL task_list_position_check" sql-task-list-position "${tp_pat[@]}"
 
 run "SQL assistant_usage_check" sql-assistant-usage sql "$HERE/scripts/supabase/tests/assistant_usage_check.sql"
 u_pat=(); for i in $(seq 1 7); do u_pat+=("ok U$i([^0-9a-z]|\$)"); done
@@ -293,12 +309,14 @@ expect_log "SQL task_hidden_rollback_guard_check" sql-rbguard0039 'ok G39-1([^0-
     'rollback_0038: 0039 está aplicada'
 
 # contract_check: 502 casos del contrato previo + 30 de prioridad (0037: CASES_PRIORITY) + 32 de ocultas
-# (0039: CASES_HIDDEN); en modo CONTRACT_SCHEMA=pre-0039 o pre-0038 (sin el bloque de ocultas), 532; en
-# pre-0037 (BD revertida por rollback_0037) sin el bloque de prioridad, 502.
+# (0039: CASES_HIDDEN) + 17 de orden de listas (0040: CASES_POSITION); en modo CONTRACT_SCHEMA=pre-0039 o
+# pre-0038 (sin el bloque de ocultas), 549; en pre-0037 (BD revertida por rollback_0037) sin el bloque de
+# prioridad, 519. Con CONTRACT_POSITION=0 (esquema sin 0040) se restan los 17 (contract_nopos).
 CONTRACT_PY="$HERE/scripts/supabase/contract_check.py"
-contract_full=564
-contract_pre39=532
-contract_pre=502
+contract_full=581
+contract_nopos=564
+contract_pre39=549
+contract_pre=519
 run "contract_check.py" contract python3 "$CONTRACT_PY"
 expect_log "contract_check.py" contract "^${contract_full}/${contract_full} casos ok"
 
@@ -471,6 +489,35 @@ else
     FAILED+=("ida y vuelta 0039 (rollback_0039 no quedó en verde; no se sigue: la BD local queda a medias, repetir ci.sh)")
 fi
 
+# Ida y vuelta 0040 → rollback_0040.sql → 0040 (lista-prioritaria-inicio): igual que la de 0035, pero sobre el
+# esquema revertido contract_check corre con CONTRACT_POSITION=0 (sin `position` ni escenario de orden: 564).
+# Si el rollback falla no se sigue (la BD local queda a medias: repetir ci.sh).
+run "SQL task_list_position_rollback_check" sql-rb0040 sql_expanded "$HERE/scripts/supabase/tests/task_list_position_rollback_check.sql"
+expect_log "SQL task_list_position_rollback_check" sql-rb0040 'ok TR1([^0-9]|$)' 'ok TR2([^0-9]|$)' 'ok TR3([^0-9]|$)'
+if grep -Eq 'ok TR1([^0-9]|$)' "$OUT/sql-rb0040.log" && grep -Eq 'ok TR2([^0-9]|$)' "$OUT/sql-rb0040.log" \
+    && grep -Eq 'ok TR3([^0-9]|$)' "$OUT/sql-rb0040.log"; then
+    sleep 1 # notify pgrst del rollback: PostgREST recarga el esquema antes de contract_check
+    run "SQL home_checks_compat (tras rollback_0040)" sql-rb0040-compat sql "$HERE/scripts/supabase/tests/home_checks_compat.sql"
+    expect_log "SQL home_checks_compat (tras rollback_0040)" sql-rb0040-compat "${v_pat[@]}"
+    run "SQL acl_can_edit_check (tras rollback_0040)" sql-rb0040-acl sql "$HERE/scripts/supabase/tests/acl_can_edit_check.sql"
+    expect_log "SQL acl_can_edit_check (tras rollback_0040)" sql-rb0040-acl "${k_pat[@]}"
+    run "SQL permisos_matriz_check (tras rollback_0040)" sql-rb0040-matriz sql "$HERE/scripts/supabase/tests/permisos_matriz_check.sql"
+    expect_log "SQL permisos_matriz_check (tras rollback_0040)" sql-rb0040-matriz "${m_pat[@]}"
+    # Misma limpieza que antes de las pasadas pre-0039: la pasada anterior dejó la client_request_id fija
+    # del replay de prioridad apuntando a una tarea borrada. Solo BD local.
+    run "SQL limpieza de client_request huérfanas (tras rollback_0040)" sql-rb0040-crclean "${PSQL_CMD[@]}" -v ON_ERROR_STOP=1 -c \
+        "delete from client_request cr where cr.kind = 'task' and not exists (select 1 from task t where t.id = cr.resource_id)"
+    run "contract_check.py (tras rollback_0040)" sql-rb0040-contract env CONTRACT_POSITION=0 python3 "$CONTRACT_PY"
+    expect_log "contract_check.py (tras rollback_0040)" sql-rb0040-contract "^${contract_nopos}/${contract_nopos} casos ok"
+
+    run "SQL task_list_position_reapply_check" sql-ra0040 sql_expanded "$HERE/scripts/supabase/tests/task_list_position_reapply_check.sql"
+    expect_log "SQL task_list_position_reapply_check" sql-ra0040 'ok TA1([^0-9]|$)' 'ok TA2([^0-9]|$)'
+    run "SQL task_list_position_check (tras reaplicar 0040)" sql-ra0040-tp sql "$HERE/scripts/supabase/tests/task_list_position_check.sql"
+    expect_log "SQL task_list_position_check (tras reaplicar 0040)" sql-ra0040-tp "${tp_pat[@]}"
+else
+    FAILED+=("ida y vuelta 0040 (rollback_0040 no quedó en verde; no se reaplica 0040: la BD local queda a medias, repetir ci.sh)")
+fi
+
 if [ "${#FAILED[@]}" -gt 0 ]; then
     echo
     echo "FALLARON ${#FAILED[@]} paso(s):"
@@ -478,4 +525,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10, task_person_access A1-A9, get_persons GP1-GP4, task_hidden H1-H12, guardas de rollback G0-G3, G38-1 y G39-1, feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta 0039 → rollback → [0038 → rollback → (0037 → rollback → (0035 → rollback → 0035) → 0037) → 0038] → 0039 con RBH1-5, contract pre-0039 ${contract_pre39}/${contract_pre39}, RB38-1..5, PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, guarda 0030 E0-E2, RA1-RA2, PA1-PA3, P1-P10, C1-C9, RA38-1, A1-A9, GP1-GP4, RAH1-3 y H1-H12)"
+echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10, task_person_access A1-A9, get_persons GP1-GP4, task_hidden H1-H12, task_list_position TP1-TP8, guardas de rollback G0-G3, G38-1 y G39-1, feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta 0039 → rollback → [0038 → rollback → (0037 → rollback → (0035 → rollback → 0035) → 0037) → 0038] → 0039 con RBH1-5, contract pre-0039 ${contract_pre39}/${contract_pre39}, RB38-1..5, PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, guarda 0030 E0-E2, RA1-RA2, PA1-PA3, P1-P10, C1-C9, RA38-1, A1-A9, GP1-GP4, RAH1-3 y H1-H12; ida y vuelta 0040 con TR1-TR3, contract ${contract_nopos}/${contract_nopos} sin position, TA1-TA2 y TP1-TP8)"
