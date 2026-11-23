@@ -388,6 +388,7 @@ struct TasksView: View {
 struct TaskListsView: View {
     @Bindable var store: TasksStore
     @State private var showCreateList = false
+    @State private var listToDelete: TaskListEntry?
 
     var body: some View {
         List {
@@ -424,6 +425,14 @@ struct TaskListsView: View {
                         }
                     }
                     .homitaRow()
+                    // Eliminar desde el listado (tarjeta 17): abre el editor de la lista, donde el borrado
+                    // ya exige ser propietario y pide confirmar («Se eliminará la lista y todas sus tareas»).
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) { listToDelete = list } label: {
+                            Label("Eliminar", systemImage: "trash")
+                        }
+                        .accessibilityIdentifier("tareas.listas.eliminar")
+                    }
                 }
             } header: {
                 HomitaSectionHeader(title: "Listas", count: store.taskLists.count, systemImage: "list.bullet")
@@ -434,6 +443,13 @@ struct TaskListsView: View {
         .safeAreaInset(edge: .bottom) {
             if !store.taskLists.isEmpty {
                 HomitaFloatingAddButton(title: "Nueva lista") { showCreateList = true }
+            }
+        }
+        .sheet(isPresented: Binding(get: { listToDelete != nil }, set: { if !$0 { listToDelete = nil } })) {
+            if let list = listToDelete {
+                NavigationStack {
+                    TaskListEditorView(store: store, editing: list)
+                }
             }
         }
         .sheet(isPresented: $showCreateList) {
