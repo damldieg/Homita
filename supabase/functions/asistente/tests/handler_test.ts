@@ -171,3 +171,12 @@ Deno.test("el handler pasa a las herramientas el usuario de app, su nombre y el 
     assertEquals(c.homeId, HOME);
     assertEquals(c.leer, leer);
 });
+
+Deno.test("refusal del modelo → 200 con mensaje neutro y el mensaje no cuenta para el cupo (refund)", async () => {
+    const { d, registros } = deps({ modelo: () => Promise.resolve({ stop_reason: "refusal", content: [], usage: { input_tokens: 9, output_tokens: 1 } }) });
+    const res = await createHandler(d)(peticion());
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).texto, "Con eso no te puedo ayudar.");
+    assertEquals(registros.modelo, 1);
+    assertEquals(registros.records, [{ tokens: { input: 9, output: 1, cacheRead: 0, cacheWrite: 0 }, refund: true }]);
+});

@@ -1,8 +1,10 @@
 // Tests del núcleo (core.ts): bucle con el modelo, herramientas, límites de rondas y registro de skills.
 // Sin red ni BD: el modelo es una función falsa. Incluye una skill falsa que se añade sin tocar el núcleo.
 import { assert, assertEquals, assertRejects, assertThrows } from "jsr:@std/assert@1";
-import { indexTools, MAX_TOOL_ROUNDS, runKito } from "../core.ts";
-import type { ModelResponse, Skill, Tool, ToolCtx } from "../core.ts";
+import {
+    elegirModelo, indexTools, MAX_TOOL_ROUNDS, MENSAJE_REFUSAL, ModelError, NOTA_MAX_TOKENS, resolverEffort, runKito,
+} from "../core.ts";
+import type { CallOpts, ModelResponse, Skill, Tool, ToolCtx } from "../core.ts";
 
 const CTX: ToolCtx = { token: "t", uid: "u", homeId: "7", timezone: "Europe/Madrid", now: new Date("2026-11-20T10:00:00Z") };
 
@@ -34,7 +36,7 @@ const pideTool = (name: string, input: Record<string, unknown>, id = "tu1"): Mod
 const modeloFalso = (respuestas: ModelResponse[]) => {
     const cuerpos: Record<string, unknown>[] = [];
     let i = 0;
-    const call = (body: Record<string, unknown>): Promise<ModelResponse> => {
+    const call = (body: Record<string, unknown>, _opts?: CallOpts): Promise<ModelResponse> => {
         cuerpos.push(JSON.parse(JSON.stringify(body)));
         const r = respuestas[Math.min(i, respuestas.length - 1)];
         i++;
@@ -52,7 +54,7 @@ Deno.test("una skill falsa se añade sin tocar el núcleo: se ofrece al modelo y
     assertEquals(res.texto, "Eco: ping");
     assertEquals(res.herramientasUsadas, 1);
     const primera = m.cuerpos[0];
-    assert(String(primera.system).includes("SKILL-FALSA"));
+    assert(JSON.stringify(primera.system).includes("SKILL-FALSA"));
     assertEquals((primera.tools as { name: string }[]).map((t) => t.name), ["eco"]);
     assertEquals(primera.model, "modelo-x");
     // El resultado de la herramienta vuelve al modelo como tool_result.
@@ -68,7 +70,7 @@ Deno.test("una skill no disponible no aparece ni en el system ni en las herramie
     const oculta: Skill = { ...falsa, id: "oculta", instrucciones: "SKILL-OCULTA", disponible: () => false };
     const m = modeloFalso([texto("ok")]);
     await runKito({ mensajes, ctx: CTX, skills: [oculta], callModel: m.call, model: "m" });
-    assert(!String(m.cuerpos[0].system).includes("SKILL-OCULTA"));
+    assert(!JSON.stringify(m.cuerpos[0].system).includes("SKILL-OCULTA"));
     assertEquals(m.cuerpos[0].tools, undefined);
 });
 
@@ -110,4 +112,121 @@ Deno.test("error del modelo se propaga para que el handler devuelva el mensaje",
 
 Deno.test("dos herramientas con el mismo nombre son un error de configuración", () => {
     assertThrows(() => indexTools([falsa, { ...falsa, id: "otra" }]), Error, "herramienta duplicada: eco");
+});
+
+// ── Llamada al modelo (T10–T13) ──
+
+Deno.test("body al modelo: max_tokens 4096, effort low por defecto, cache_control, strict y sin parámetros prohibidos", async () => {
+    const m = modeloFalso([texto("ok")]);
+    await runKito({ mensajes, ctx: CTX, skills: [falsa], callModel: m.call, model: "m" });
+    const b = m.cuerpos[0];
+    assertEquals(b.max_tokens, 4096);
+    assertEquals(b.output_config, { effort: "low" });
+    const sys = b.system as { type: string; text: string; cache_control?: unknown }[];
+    assertEquals(sys.length, 1);
+    assertEquals(sys[0].cache_control, { type: "ephemeral" });
+    const tools = b.tools as { strict: boolean; input_schema: unknown }[];
+    assert(tools.every((t) => t.strict === true));
+    for (const k of ["temperature", "top_p", "top_k", "thinking"]) assert(!(k in b), k);
+});
+
+Deno.test("effort configurado llega al body y las herramientas van en orden determinista", async () => {
+    const otra: Tool = { ...eco, name: "aaa" };
+    const sk: Skill = { ...falsa, herramientas: [eco, otra] };
+    const m = modeloFalso([texto("ok")]);
+    await runKito({ mensajes, ctx: CTX, skills: [sk], callModel: m.call, model: "m", effort: "high" });
+    assertEquals(m.cuerpos[0].output_config, { effort: "high" });
+    assertEquals((m.cuerpos[0].tools as { name: string }[]).map((t) => t.name), ["aaa", "eco"]);
+});
+
+Deno.test("KITO_EFFORT: vacío, inválido y válido (el valor inválido no se registra)", () => {
+    const avisos: string[] = [];
+    assertEquals(resolverEffort(undefined, (a) => avisos.push(a)), "low");
+    assertEquals(resolverEffort("", (a) => avisos.push(a)), "low");
+    assertEquals(avisos.length, 0);
+    assertEquals(resolverEffort("ultra-secreto", (a) => avisos.push(a)), "low");
+    assertEquals(avisos.length, 1);
+    assert(!avisos[0].includes("ultra-secreto"));
+    assertEquals(resolverEffort(" Medium ", () => {}), "medium");
+    assertEquals(resolverEffort("high", () => {}), "high");
+});
+
+Deno.test("stop_reason max_tokens: el texto que haya más la nota de «a medias»", async () => {
+    const m = modeloFalso([{ stop_reason: "max_tokens", content: [{ type: "text", text: "Tienes tres" }] }]);
+    const res = await runKito({ mensajes, ctx: CTX, skills: [], callModel: m.call, model: "m" });
+    assertEquals(res.texto, `Tienes tres\n\n${NOTA_MAX_TOKENS}`);
+    assertEquals(res.sinCoste, undefined);
+});
+
+Deno.test("refusal: mensaje neutro, sin segunda llamada y sin coste de cupo", async () => {
+    const m = modeloFalso([{ stop_reason: "refusal", content: [], usage: { input_tokens: 7, output_tokens: 1 } }]);
+    const res = await runKito({ mensajes, ctx: CTX, skills: [falsa], callModel: m.call, model: "m" });
+    assertEquals(res.texto, MENSAJE_REFUSAL);
+    assertEquals(res.texto, "Con eso no te puedo ayudar.");
+    assertEquals(res.sinCoste, true);
+    assertEquals(m.cuerpos.length, 1);
+    assertEquals(res.tokens.input, 7);
+});
+
+Deno.test("herramientas de una vuelta en paralelo: un solo mensaje con tool_result en el orden de los tool_use", async () => {
+    const orden: string[] = [];
+    const lenta: Tool = { ...eco, name: "lenta", run: async () => { await new Promise((r) => setTimeout(r, 30)); orden.push("lenta"); return "L"; } };
+    const rapida: Tool = { ...eco, name: "rapida", run: () => { orden.push("rapida"); return Promise.resolve("R"); } };
+    const sk: Skill = { ...falsa, herramientas: [lenta, rapida] };
+    const respuestaTools: ModelResponse = {
+        stop_reason: "tool_use",
+        content: [
+            { type: "thinking", thinking: "pienso", signature: "sig" },
+            { type: "tool_use", id: "a", name: "lenta", input: {} },
+            { type: "tool_use", id: "b", name: "rapida", input: {} },
+        ],
+    };
+    const m = modeloFalso([respuestaTools, { stop_reason: "end_turn", content: [{ type: "thinking", thinking: "x", signature: "s" }, { type: "text", text: "Hecho" }] }]);
+    const res = await runKito({ mensajes, ctx: CTX, skills: [sk], callModel: m.call, model: "m" });
+    assertEquals(orden, ["rapida", "lenta"]); // se ejecutaron a la vez
+    assertEquals(res.texto, "Hecho"); // el thinking no entra en el texto
+    assertEquals(res.herramientasUsadas, 2);
+    const msgs = m.cuerpos[1].messages as { role: string; content: unknown }[];
+    const asistente = msgs[msgs.length - 2];
+    assertEquals(asistente.role, "assistant");
+    assertEquals(asistente.content, respuestaTools.content); // content intacto, con thinking
+    const usuario = msgs[msgs.length - 1];
+    assertEquals(usuario.role, "user");
+    assertEquals((usuario.content as { tool_use_id: string }[]).map((r) => r.tool_use_id), ["a", "b"]);
+});
+
+Deno.test("presupuesto agotado entre vueltas → ModelError", async () => {
+    let t = 0;
+    const m = modeloFalso([pideTool("eco", { texto: "x" })]);
+    await assertRejects(
+        () => runKito({
+            mensajes, ctx: CTX, skills: [falsa], model: "m", presupuestoMs: 60000, reloj: () => t,
+            callModel: (b, o) => { t += 61000; return m.call(b, o); },
+        }),
+        ModelError,
+        "presupuesto",
+    );
+});
+
+Deno.test("la llamada recibe cuánto presupuesto queda", async () => {
+    let t = 1000;
+    let visto = -1;
+    await runKito({
+        mensajes, ctx: CTX, skills: [], model: "m", presupuestoMs: 60000, reloj: () => t,
+        callModel: (_b, o) => { t += 5000; visto = o!.restanteMs!(); return Promise.resolve(texto("ok")); },
+    });
+    assertEquals(visto, 55000);
+});
+
+Deno.test("modelo por skill: declarado y con secreto, sin secreto, sin declarar y varias skills", async () => {
+    const menus: Skill = { ...falsa, id: "menus", modelo: "KITO_MODEL_MENUS" };
+    const env = (n: string) => (n === "KITO_MODEL_MENUS" ? "modelo-menus" : undefined);
+    assertEquals(elegirModelo([menus], env, "base"), "modelo-menus");
+    assertEquals(elegirModelo([menus], () => undefined, "base"), "base");
+    assertEquals(elegirModelo([menus], () => "  ", "base"), "base");
+    assertEquals(elegirModelo([falsa], env, "base"), "base");
+    assertEquals(elegirModelo([menus, falsa], env, "base"), "base");
+    const m = modeloFalso([texto("ok")]);
+    await runKito({ mensajes, ctx: CTX, skills: [menus], callModel: m.call, model: "base", env });
+    assertEquals(m.cuerpos[0].model, "modelo-menus");
 });

@@ -39,6 +39,8 @@ export interface Skill {
     /** Fragmento del system prompt, solo cuando la skill está disponible. */
     instrucciones: string;
     herramientas: Tool[];
+    /** Nombre del secreto con el modelo de la skill (p. ej. KITO_MODEL_MENUS); opcional. Ver `elegirModelo`. */
+    modelo?: string;
     /** Tipos de tarjeta que la skill puede devolver (fase 2+). La fase 1 solo devuelve texto. */
     tarjetas: string[];
     disponible: (ctx: ToolCtx) => boolean | Promise<boolean>;
@@ -59,8 +61,13 @@ export interface ModelResponse {
     usage?: ModelUsage;
 }
 
-/** Llamada al modelo; debe lanzar ModelError si falla (red, HTTP no ok, respuesta mal formada). */
-export type CallModel = (body: Record<string, unknown>) => Promise<ModelResponse>;
+/** Opciones de una llamada: ms que quedan del presupuesto de la petición (Q9). */
+export interface CallOpts {
+    restanteMs?: () => number;
+}
+
+/** Llamada al modelo; debe lanzar ModelError si falla (red, HTTP no ok, respuesta mal formada, presupuesto). */
+export type CallModel = (body: Record<string, unknown>, opts?: CallOpts) => Promise<ModelResponse>;
 
 export class ModelError extends Error {}
 
@@ -77,12 +84,40 @@ export interface RunResult {
     tokens: Tokens;
     /** Número de herramientas ejecutadas (para logs y tests; nunca se devuelve al cliente). */
     herramientasUsadas: number;
+    /** El mensaje no debe contar para el cupo (p. ej. `refusal`, Q10). */
+    sinCoste?: boolean;
 }
 
 export const MAX_TOOL_ROUNDS = 6;
 export const MAX_CHARS = 2000;
 export const MAX_HISTORY = 20;
-const MAX_TOKENS_RESPUESTA = 1024;
+export const MAX_TOKENS_RESPUESTA = 4096;
+export const PRESUPUESTO_MS = 60000;
+export const NOTA_MAX_TOKENS = "(Me he quedado a medias; pregúntame algo más concreto.)";
+export const MENSAJE_REFUSAL = "Con eso no te puedo ayudar.";
+export const EFFORT_POR_DEFECTO = "low";
+const EFFORTS = ["low", "medium", "high"];
+
+/** `KITO_EFFORT` → low | medium | high. Vacío o inválido cae a `low` con un aviso sin el valor (Q7). */
+export const resolverEffort = (valor: string | undefined, avisar: (m: string) => void = console.warn): string => {
+    const v = (valor ?? "").trim().toLowerCase();
+    if (v === "") return EFFORT_POR_DEFECTO;
+    if (EFFORTS.includes(v)) return v;
+    avisar("asistente: KITO_EFFORT no válido, se usa low");
+    return EFFORT_POR_DEFECTO;
+};
+
+/**
+ * Modelo de la petición: con una sola skill disponible que declara `modelo` y cuyo secreto existe, ese; en
+ * cualquier otro caso (sin declarar, secreto vacío o varias skills) el modelo por defecto (KITO_MODEL).
+ */
+export const elegirModelo = (disponibles: Skill[], env: (n: string) => string | undefined, porDefecto: string): string => {
+    if (disponibles.length !== 1) return porDefecto;
+    const nombre = disponibles[0].modelo;
+    if (!nombre) return porDefecto;
+    const v = (env(nombre) ?? "").trim();
+    return v === "" ? porDefecto : v;
+};
 const MAX_RESULTADO_CHARS = 20000;
 
 export const SYSTEM_BASE = `Eres Kito, el asistente de la app de hogar Homita. Respondes siempre en español de España, de forma breve y clara.
@@ -140,7 +175,15 @@ export interface RunArgs {
     ctx: ToolCtx;
     skills: Skill[];
     callModel: CallModel;
+    /** Modelo por defecto (KITO_MODEL). */
     model: string;
+    /** Lee secretos opcionales (modelo por skill). Sin él se usa siempre `model`. */
+    env?: (name: string) => string | undefined;
+    /** low | medium | high (ver `resolverEffort`). */
+    effort?: string;
+    /** Reloj en ms; inyectable para probar el presupuesto. */
+    reloj?: () => number;
+    presupuestoMs?: number;
 }
 
 /**
@@ -154,12 +197,25 @@ export const runKito = async (args: RunArgs): Promise<RunResult> => {
         if (await s.disponible(args.ctx)) disponibles.push(s);
     }
     const tools = indexTools(disponibles);
-    const system = [SYSTEM_BASE, ...disponibles.map((s) => s.instrucciones)].join("\n\n");
-    const toolDefs = [...tools.values()].map((t) => ({
-        name: t.name,
-        description: t.description,
-        input_schema: t.input_schema,
-    }));
+    const reloj = args.reloj ?? Date.now;
+    const inicio = reloj();
+    const restanteMs = () => (args.presupuestoMs ?? PRESUPUESTO_MS) - (reloj() - inicio);
+    const model = args.env ? elegirModelo(disponibles, args.env, args.model) : args.model;
+    // `system` solo lleva texto estable (sin datos del usuario), con cache_control en el último bloque; las
+    // herramientas van en orden determinista. Así `tools` + `system` forman un prefijo cacheable.
+    const system = [{
+        type: "text",
+        text: [SYSTEM_BASE, ...disponibles.map((s) => s.instrucciones)].join("\n\n"),
+        cache_control: { type: "ephemeral" },
+    }];
+    const toolDefs = [...tools.values()]
+        .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+        .map((t) => ({
+            name: t.name,
+            description: t.description,
+            strict: true,
+            input_schema: t.input_schema,
+        }));
 
     const convo: Array<{ role: "user" | "assistant"; content: unknown }> = args.mensajes.map((m) => ({
         role: m.role,
@@ -174,50 +230,62 @@ export const runKito = async (args: RunArgs): Promise<RunResult> => {
     let tokens: Tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
     let herramientasUsadas = 0;
 
+    /** Texto de la respuesta: solo bloques `text` (se ignoran `thinking` y el resto). */
+    const textoDe = (content: Array<Record<string, unknown>>): string =>
+        content
+            .filter((b) => b.type === "text" && typeof b.text === "string")
+            .map((b) => b.text as string)
+            .join("\n")
+            .trim();
+
+    /** Ejecuta una herramienta; sus errores vuelven al modelo como is_error, nunca abortan. */
+    const ejecutar = async (b: Record<string, unknown>): Promise<Record<string, unknown>> => {
+        const id = String(b.id ?? "");
+        const tool = tools.get(String(b.name ?? ""));
+        if (!tool) return { type: "tool_result", tool_use_id: id, is_error: true, content: "herramienta desconocida" };
+        const input = (b.input && typeof b.input === "object" ? b.input : {}) as Record<string, unknown>;
+        try {
+            const valor = await tool.run(input, args.ctx);
+            return { type: "tool_result", tool_use_id: id, content: resultadoTexto(valor) };
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "error";
+            return { type: "tool_result", tool_use_id: id, is_error: true, content: msg.slice(0, 300) };
+        }
+    };
+
     for (let ronda = 0; ronda <= MAX_TOOL_ROUNDS; ronda++) {
+        if (restanteMs() <= 0) throw new ModelError("presupuesto agotado");
         const body: Record<string, unknown> = {
-            model: args.model,
+            model,
             max_tokens: MAX_TOKENS_RESPUESTA,
+            output_config: { effort: args.effort ?? EFFORT_POR_DEFECTO },
             system,
             messages: convo,
         };
         if (toolDefs.length > 0) body.tools = toolDefs;
 
-        const res = await args.callModel(body);
+        const res = await args.callModel(body, { restanteMs });
         tokens = sumTokens(tokens, tokensOf(res.usage));
 
+        if (res.stop_reason === "refusal") {
+            return { texto: MENSAJE_REFUSAL, tarjetas: [], tokens, herramientasUsadas, sinCoste: true };
+        }
+        if (res.stop_reason === "max_tokens") {
+            const t = textoDe(res.content);
+            return { texto: t ? `${t}\n\n${NOTA_MAX_TOKENS}` : NOTA_MAX_TOKENS, tarjetas: [], tokens, herramientasUsadas };
+        }
         if (res.stop_reason !== "tool_use") {
-            const texto = res.content
-                .filter((b) => b.type === "text" && typeof b.text === "string")
-                .map((b) => b.text as string)
-                .join("\n")
-                .trim();
-            return { texto: texto || "No he podido responder a eso.", tarjetas: [], tokens, herramientasUsadas };
+            return { texto: textoDe(res.content) || "No he podido responder a eso.", tarjetas: [], tokens, herramientasUsadas };
         }
 
         if (ronda === MAX_TOOL_ROUNDS) break;
 
+        // El content del asistente se conserva tal cual (incluidos bloques thinking). Las herramientas de la
+        // vuelta se ejecutan en paralelo y los tool_result van en un solo mensaje, en el orden de los tool_use.
         convo.push({ role: "assistant", content: res.content });
-        const resultados: Array<Record<string, unknown>> = [];
-        for (const b of res.content) {
-            if (b.type !== "tool_use") continue;
-            const id = String(b.id ?? "");
-            const nombre = String(b.name ?? "");
-            const tool = tools.get(nombre);
-            herramientasUsadas++;
-            if (!tool) {
-                resultados.push({ type: "tool_result", tool_use_id: id, is_error: true, content: "herramienta desconocida" });
-                continue;
-            }
-            const input = (b.input && typeof b.input === "object" ? b.input : {}) as Record<string, unknown>;
-            try {
-                const valor = await tool.run(input, args.ctx);
-                resultados.push({ type: "tool_result", tool_use_id: id, content: resultadoTexto(valor) });
-            } catch (e) {
-                const msg = e instanceof Error ? e.message : "error";
-                resultados.push({ type: "tool_result", tool_use_id: id, is_error: true, content: msg.slice(0, 300) });
-            }
-        }
+        const usos = res.content.filter((b) => b.type === "tool_use");
+        herramientasUsadas += usos.length;
+        const resultados = await Promise.all(usos.map(ejecutar));
         convo.push({ role: "user", content: resultados });
     }
 

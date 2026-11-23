@@ -38,7 +38,7 @@ Deno.test("la skill consulta expone herramientas de lectura sin fecha_actual", (
     ]);
     for (const t of consulta.herramientas) {
         assertEquals(t.input_schema.additionalProperties, false);
-        assertEquals(t.input_schema.required, Object.keys(t.input_schema.properties));
+        assertEquals(t.input_schema.required, []);
     }
 });
 

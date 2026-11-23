@@ -7,7 +7,7 @@
 //   5. Modelo configurado (ANTHROPIC_API_KEY) → 500 sin consumir (falla cerrada).
 //   6. Usuario de app (app_user) → 404. 7. Límite diario: consume antes de llamar al modelo → 429 sin llamar.
 //   8. Bucle con el modelo dentro del hogar activo. Fallo del modelo → refund del mensaje y 502.
-//   9. Tokens sumados (assistant_record_usage) → 200 {texto, tarjetas, uso}.
+//   9. Tokens sumados (assistant_record_usage) → 200 {texto, tarjetas, uso}. Un `refusal` del modelo devuelve el mensaje.
 // Logs: solo operación y estado; nunca texto de usuario, tokens de sesión ni cabeceras.
 
 import { CallModel, Leer, ModelError, MAX_CHARS, MAX_HISTORY, Mensaje, runKito, Skill, Tokens } from "./core.ts";
@@ -40,6 +40,8 @@ export interface HandlerDeps {
     /** Modelo: se llama solo si la configuración existe. */
     callModel: CallModel;
     model: string;
+    /** low | medium | high; por defecto low (ver `resolverEffort` en core.ts). */
+    effort?: string;
     skills: Skill[];
     env(name: string): string | undefined;
     now(): Date;
@@ -150,11 +152,14 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
                         skills: deps.skills,
                         callModel: deps.callModel,
                         model: deps.model,
+                        effort: deps.effort,
+                        env: deps.env,
                     }));
 
                 // 9. Tokens (si falla, la respuesta ya es válida: solo se registra).
                 try {
-                    await deps.usage.record(appUserId, uso.day, res.tokens, false);
+                    // `sinCoste` (refusal, Q10): se suman los tokens pero el mensaje no cuenta para el cupo.
+                    await deps.usage.record(appUserId, uso.day, res.tokens, res.sinCoste === true);
                 } catch {
                     log("asistente: no se pudieron registrar los tokens");
                 }

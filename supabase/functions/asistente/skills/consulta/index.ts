@@ -36,13 +36,14 @@ const leerDe = (ctx: ToolCtx) => {
     return ctx.leer;
 };
 
-// Esquemas compatibles con `strict`: todas las propiedades en `required`, los opcionales admiten null y
-// `additionalProperties: false`.
-const nulo = (type: string, description: string) => ({ type: [type, "null"], description });
+// Esquemas compatibles con `strict` (doc de Anthropic, structured outputs): `additionalProperties: false` y
+// parámetros opcionales sin listar en `required`. No se usan tipos unión con null: la API limita a 16 los
+// parámetros con unión en todas las herramientas strict y a 24 los opcionales (aquí hay 14 opcionales).
+const nulo = (type: string, description: string) => ({ type, description });
 const esquema = (properties: Record<string, unknown>): Tool["input_schema"] => ({
     type: "object",
     properties,
-    required: Object.keys(properties),
+    required: [],
     additionalProperties: false,
 });
 
