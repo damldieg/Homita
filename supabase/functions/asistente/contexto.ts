@@ -12,11 +12,20 @@ const NO_DISPONIBLE = "no disponible";
 
 type Obj = Record<string, unknown>;
 
-const leerLista = async (ctx: ToolCtx, ruta: string): Promise<unknown[] | null> => {
+/** Plazo por lectura de la ficha: va en el camino crítico de toda petición y el presupuesto total es de 60 s. */
+export const PLAZO_LECTURA_MS = 5_000;
+
+const leerLista = async (ctx: ToolCtx, ruta: string, plazoMs: number): Promise<unknown[] | null> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-        return comoLista(await ctx.leer!(ruta));
+        const vence = new Promise<never>((_, rechazar) => {
+            timer = setTimeout(() => rechazar(new Error("timeout")), plazoMs);
+        });
+        return comoLista(await Promise.race([ctx.leer!(ruta), vence]));
     } catch {
-        return null;
+        return null; // error o timeout: esa parte sale "no disponible"
+    } finally {
+        clearTimeout(timer);
     }
 };
 
@@ -29,13 +38,13 @@ const topar = (l: unknown[], f: (x: Obj) => Obj, extra: Obj, clave: string): unk
 };
 
 /** Ficha de contexto lista para anteponer, o null si no hay lector (sin acceso a datos). */
-export const construirContexto = async (ctx: ToolCtx): Promise<string | null> => {
+export const construirContexto = async (ctx: ToolCtx, plazoMs = PLAZO_LECTURA_MS): Promise<string | null> => {
     if (!ctx.leer) return null;
     const [personas, calendarios, listas, hogares] = await Promise.all([
-        leerLista(ctx, "person"),
-        leerLista(ctx, "calendar"),
-        leerLista(ctx, "task-list"),
-        leerLista(ctx, "home"),
+        leerLista(ctx, "person", plazoMs),
+        leerLista(ctx, "calendar", plazoMs),
+        leerLista(ctx, "task-list", plazoMs),
+        leerLista(ctx, "home", plazoMs),
     ]);
     const ficha: Obj = {
         ahora: isoDeInstante(ctx.now.getTime(), ctx.timezone),

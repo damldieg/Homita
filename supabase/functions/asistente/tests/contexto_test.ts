@@ -97,3 +97,13 @@ Deno.test("núcleo: la ficha es el primer bloque del último mensaje de usuario 
     const sistema = JSON.stringify(cuerpos[0].system);
     for (const dato of ["Damián", "Casa Díez", "2026", "Familia", "<contexto>{"]) assert(!sistema.includes(dato), dato);
 });
+
+Deno.test("ficha: una lectura colgada vence por plazo y sale como no disponible sin romper la petición", async () => {
+    const leer: Leer = (ruta) => ruta === "calendar" ? new Promise(() => {}) : Promise.resolve(DATOS[ruta]);
+    const t0 = Date.now();
+    const f = parsear(await construirContexto(ctxDe(DATOS, { leer }), 50));
+    assert(Date.now() - t0 < 2000);
+    assertEquals(f.calendarios, "no disponible");
+    assertEquals(f.hogar, "Casa Díez");
+    assertEquals(f.listas, [{ id: 4, nombre: "Compra", pendientes: 3 }]);
+});

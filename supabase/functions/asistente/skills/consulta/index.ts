@@ -6,7 +6,7 @@ import {
     comoLista, compactarCalendario, compactarEvento, compactarLista, compactarOcurrencia, compactarPersona,
     compactarRutina, compactarTarea, errorCompacto, idsPersonas, MAX_ITEMS, nombresPersonas, paquete,
 } from "./compacto.ts";
-import { finRango, inicioRango, ISO_DATE, isoDeInstante, instanteUtcNaive } from "./fechas.ts";
+import { epochPared, finRango, inicioRango, ISO_DATE, isoDeInstante, instanteUtcNaive } from "./fechas.ts";
 import { AVISO_SIN_PERSONA, personasDelHogar, personasPropias } from "./personas.ts";
 
 // Se pide más de lo que se muestra para poder filtrar en TypeScript y saber si hay más (Q5).
@@ -113,10 +113,21 @@ const verEventos: Tool = {
     },
 };
 
+const DIAS_VENTANA_RUTINAS = 89;
+const AVISO_VENTANA_RUTINAS =
+    "Las rutinas solo se calculan desde hoy hasta 89 días después: lo que quede fuera de ese rango no figura aquí y no significa que no haya rutinas. No digas que no hay rutinas; di que solo puedes consultar los próximos 89 días.";
+
+/** True si el rango pedido (AAAA-MM-DD) sale de la ventana materializada: hoy .. hoy + 89 días. */
+const fueraDeVentana = (desde: string, hasta: string, ctx: ToolCtx): boolean => {
+    const hoy = isoDeInstante(ctx.now.getTime(), ctx.timezone).slice(0, 10);
+    const limite = new Date((epochPared(hoy) + DIAS_VENTANA_RUTINAS * 86400) * 1000).toISOString().slice(0, 10);
+    return desde < hoy || hasta > limite;
+};
+
 const verRutinas: Tool = {
     name: "ver_rutinas",
     description:
-        "Rutinas del hogar activo (no son eventos). Sin fecha, lista las rutinas con su hora, días y a quién se asignan. Con dia, o con desde y hasta, devuelve las veces concretas que tocan en ese periodo. solo_mias filtra por las personas del usuario.",
+        "Rutinas del hogar activo (no son eventos). Sin fecha, lista las rutinas con su hora, días y a quién se asignan. Con dia, o con desde y hasta, devuelve las veces concretas que tocan en ese periodo (solo de hoy a 89 días; fuera de ahí avisa). solo_mias filtra por las personas del usuario.",
     input_schema: esquema({
         dia: nulo("string", "Un día concreto, AAAA-MM-DD."),
         desde: nulo("string", "Primer día del rango, AAAA-MM-DD."),
@@ -156,7 +167,8 @@ const verRutinas: Tool = {
         if (l === null) return errorCompacto(r);
         const sel = soloMias ? l.filter((x) => interseca(idsPersonas((x as { persons?: unknown }).persons), ids)) : l;
         const tope = soloMias && l.length >= LIMITE_FILTRO;
-        return paquete(sel.map((e) => compactarOcurrencia(e, ctx.timezone)), tope ? { aviso: AVISO_ACOTAR } : {}, tope || (!soloMias && l.length > MAX_ITEMS));
+        const avisos = [fueraDeVentana(desde, hasta, ctx) ? AVISO_VENTANA_RUTINAS : "", tope ? AVISO_ACOTAR : ""].filter((a) => a !== "");
+        return paquete(sel.map((e) => compactarOcurrencia(e, ctx.timezone)), avisos.length ? { aviso: avisos.join(" ") } : {}, tope || (!soloMias && l.length > MAX_ITEMS));
     },
 };
 

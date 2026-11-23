@@ -145,6 +145,17 @@ Deno.test("ver_rutinas con dia: GET /event routine=true con el rango de pared y 
     assert(!JSON.stringify(r).includes('"evento"'));
 });
 
+Deno.test("ver_rutinas fuera de la ventana hoy..hoy+89 avisa; dentro no", async () => {
+    // now = 2026-11-24; ventana hasta 2027-02-21.
+    const { ctx } = montar({ event: [] });
+    const ayer = await run("ver_rutinas", { dia: "2026-11-23" }, ctx);
+    assertEquals(ayer.elementos, []);
+    assert(ayer.aviso?.includes("89 días"));
+    assert((await run("ver_rutinas", { desde: "2026-12-01", hasta: "2027-02-22" }, ctx)).aviso !== undefined);
+    assertEquals((await run("ver_rutinas", { desde: "2026-11-24", hasta: "2027-02-21" }, ctx)).aviso, undefined);
+    assertEquals((await run("ver_rutinas", { dia: "2026-11-25" }, ctx)).aviso, undefined);
+});
+
 const TAREAS = [
     { id: 1, title: "Pendiente", task_list_name: "Compra", priority: "alta", due_at: "2026-11-23 23:00:00", completed_at: null, persons: pers(1) },
     { id: 2, title: "Hecha vencida", task_list_name: "Compra", priority: "baja", due_at: "2026-11-01 10:00:00", completed_at: "2026-11-02 10:00:00", persons: pers(1) },
