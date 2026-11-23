@@ -396,6 +396,9 @@ public final class InicioStore: MainActorWriteFailureReporting {
 
 /// Navegación entre las listas de la tarjeta de tareas de Inicio (swipe y VoiceOver).
 public enum InicioTaskPaging {
+    /// Altura mínima de la zona de la lista: tres filas y cabecera, para que la tarjeta no salte al cambiar de página.
+    public static let pageMinHeight: CGFloat = 250
+
     /// Punto del paginador: lista que representa, si es la actual y si va difuminado (hay listas
     /// fuera de vista en ese lado).
     public struct Dot: Equatable, Sendable {
