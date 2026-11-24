@@ -56,6 +56,8 @@ const RPC_STATUS: Record<string, number> = {
     "Invalid meal plan": 400,
     "Stale meal plan revision": 409,
     "Meal plan exists": 409,
+    // 0045 (menus-compra): artículo de la compra (valor, unidad, sección, estado o alimento no válidos)
+    "Invalid shopping item": 400,
 };
 
 // Router::error de PHP: InvalidArgumentException → 400; el resto → 500 con el mensaje
@@ -109,6 +111,8 @@ export const errInvalidFood = (): Response => error("Invalid food", 400);
 export const errInvalidMealPlan = (): Response => error("Invalid meal plan", 400);
 export const errRecipeIdRequired = (): Response => error("Recipe ID is required", 400);
 export const errFoodIdRequired = (): Response => error("Food ID is required", 400);
+export const errInvalidShoppingItem = (): Response => error("Invalid shopping item", 400);
+export const errShoppingItemIdRequired = (): Response => error("Shopping item ID is required", 400);
 export const errMealPlanIdRequired = (): Response => error("Meal plan ID is required", 400);
 
 // home/membership (1.6 §6.1): id de home_membership (lo devuelve GET /home/membership) y role
