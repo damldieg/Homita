@@ -40,6 +40,10 @@ struct ShoppingView: View {
         .errorAlert($store.errorMessage)
         .refreshable { await store.load() }
         .task { await store.load() }
+        .onChange(of: store.outbox?.generation) {
+            // Cola sincronizada (ack): recarga con los IDs reales.
+            Task { await store.load() }
+        }
         .alert("Cantidad", isPresented: Binding(get: { quantityEditing != nil }, set: { if !$0 { quantityEditing = nil } })) {
             TextField("Cantidad", text: $quantityText)
                 #if os(iOS)
@@ -174,6 +178,9 @@ struct ShoppingView: View {
                     }
                 }
                 Spacer()
+                if store.pendingIds.contains(item.id) {
+                    PendingSyncIcon()
+                }
                 Text(item.quantityText).font(HomitaFont.inter(15)).foregroundStyle(Palette.inkSoft)
             }
         }

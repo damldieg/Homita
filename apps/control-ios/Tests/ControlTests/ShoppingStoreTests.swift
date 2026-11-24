@@ -1,6 +1,7 @@
 import XCTest
 @testable import ControlKit
 
+@MainActor
 final class ShoppingStoreTests: XCTestCase {
     private func item(_ id: Int, _ label: String, section: String = "verdura", state: String = "pending",
                       origin: String = "menu", qty: Double? = 500, unit: String = "g", sources: String = "[]") -> String {

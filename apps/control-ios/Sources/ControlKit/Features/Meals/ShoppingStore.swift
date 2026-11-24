@@ -3,9 +3,15 @@ import Foundation
 /// Estado de Menú › Compra: la lista del hogar por sección. Marcar es optimista (se revierte si el
 /// servidor falla); las filas de origen menú que el servidor oculta (`cleared`) no llegan nunca. Si la
 /// `revision` sube entre dos cargas (el menú cambió) se calcula el aviso «+a −r».
+///
+/// Offline (D-024): con `outbox`, `items` es la última foto del servidor más la cola pendiente (overlay
+/// calculado) y el alta y el marcar pasan por `ShoppingWriteCoordinator` (online-first, caída a la cola).
+/// Editar cantidad, borrar y vaciar comprados siguen necesitando red. Sin `outbox`, el comportamiento de siempre.
+@MainActor
 @Observable
 public final class ShoppingStore {
-    public private(set) var items: [ShoppingItem] = []
+    /// Última foto del servidor; lo que ve la UI es `items` (con el overlay).
+    private var serverItems: [ShoppingItem] = []
     public private(set) var revision = 0
     public private(set) var state: HomeAdminLoadState = .idle
     public private(set) var isWorking = false
@@ -21,17 +27,35 @@ public final class ShoppingStore {
     public private(set) var isReviewing = false
 
     private let repo: ShoppingRepository
+    /// Cola offline del hogar (nil = sin offline, comportamiento previo).
+    @ObservationIgnored public let outbox: OutboxStore?
+    @ObservationIgnored private let coordinator: ShoppingWriteCoordinator?
     private let defaults: UserDefaults
     private let searchFoods: (String) async throws -> [Food]
     private let activeHomeId: () -> String?
 
     public init(repo: ShoppingRepository, searchFoods: @escaping (String) async throws -> [Food] = { _ in [] },
+                outbox: OutboxStore? = nil, isOnline: @escaping @MainActor () -> Bool = { !DataFreshness.shared.isOffline },
                 defaults: UserDefaults = .standard, activeHomeId: @escaping () -> String?) {
         self.repo = repo
+        self.outbox = outbox
+        self.coordinator = outbox.map { ShoppingWriteCoordinator(outbox: $0, shopping: repo, isOnline: isOnline) }
         self.defaults = defaults
         self.searchFoods = searchFoods
         self.activeHomeId = activeHomeId
     }
+
+    // MARK: Overlay
+
+    private var overlay: ShoppingOverlayResult {
+        guard let outbox else { return ShoppingOverlayResult(items: serverItems, pendingIds: []) }
+        return PendingOverlay.applyShopping(ops: outbox.ops, idMap: outbox.idMap, items: serverItems)
+    }
+
+    /// Servidor + cola.
+    public var items: [ShoppingItem] { overlay.items }
+    /// Filas aún no sincronizadas (icono «Pendiente de sincronizar»).
+    public var pendingIds: Set<Int64> { overlay.pendingIds }
 
     // MARK: Derivados
 
@@ -88,7 +112,7 @@ public final class ShoppingStore {
         let requested = activeHomeId()
         if state != .loaded { state = .loading }
         do {
-            let list = try await repo.list()
+            let list = try await fetchFresh { try await repo.list() }
             guard activeHomeId() == requested else { return }
             apply(list)
             state = .loaded
@@ -98,14 +122,26 @@ public final class ShoppingStore {
         }
     }
 
+    /// Carga con guard de `generation`: si hubo un ack mientras estaba en vuelo, el resultado puede ser
+    /// previo al replay y se vuelve a pedir (máximo `TasksStore.staleReloadRetries` veces).
+    private func fetchFresh<T>(_ fetch: () async throws -> T) async throws -> T {
+        var retries = 0
+        while true {
+            let generation = outbox?.generation
+            let result = try await fetch()
+            guard let outbox, outbox.generation != generation, retries < TasksStore.staleReloadRetries else { return result }
+            retries += 1
+        }
+    }
+
     private func apply(_ list: ShoppingList) {
         let hadList = state == .loaded
         if hadList, list.revision > revision {
-            let diff = Self.diff(old: items, new: list.items)
+            let diff = Self.diff(old: serverItems, new: list.items)
             changeNotice = diff.isEmpty ? nil : "El menú ha cambiado la lista: \(diff.summary)"
         }
         revision = list.revision
-        items = list.items
+        serverItems = list.items
     }
 
     /// Diferencia de artículos de origen menú entre dos cargas (para el aviso).
@@ -139,17 +175,31 @@ public final class ShoppingStore {
     }
 
     private func setState(_ item: ShoppingItem, to newState: String) async {
-        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
         let requested = activeHomeId()
-        let before = items[index]
-        items[index].state = newState
+        let index = serverItems.firstIndex(where: { $0.id == item.id })
+        let before = index.map { serverItems[$0] }
+        if let index { serverItems[index].state = newState }
         do {
-            let updated = try await repo.setState(id: item.id, state: newState)
-            guard activeHomeId() == requested else { return }
-            replace(updated)
+            if let coordinator, let outbox {
+                let ref = outbox.ref(for: Int(item.id))
+                let kind: PendingOp.Kind
+                switch newState {
+                case ShoppingState.checked: kind = .checkShoppingItem(ref: ref)
+                case ShoppingState.skipped: kind = .haveShoppingItem(ref: ref)
+                default: kind = .uncheckShoppingItem(ref: ref)
+                }
+                let outcome = try await coordinator.perform(coordinator.makeOp(kind))
+                guard activeHomeId() == requested else { return }
+                // En la cola, el overlay pinta el estado: la foto del servidor vuelve a lo que era.
+                if outcome == .queued, let before { replace(before) }
+            } else {
+                let updated = try await repo.setState(id: item.id, state: newState)
+                guard activeHomeId() == requested else { return }
+                replace(updated)
+            }
         } catch {
             guard activeHomeId() == requested else { return }
-            replace(before)
+            if let before { replace(before) }
             errorMessage = homeAdminMessage(error)
             if let api = error as? APIError, api.isNotFound { await load() }
         }
@@ -157,28 +207,47 @@ public final class ShoppingStore {
 
     /// Edita la cantidad: el servidor deja de sincronizarla con el menú.
     public func updateQuantity(_ item: ShoppingItem, quantity: Double, unit: String? = nil) async {
+        guard !rejectsUnsynced(item) else { return }
         await run { [self] in
             replace(try await repo.updateQuantity(id: item.id, quantity: quantity, unit: unit))
         }
     }
 
-    /// Alta a mano; con `food` toma sección y nombre del catálogo.
+    /// Alta a mano; con `food` toma sección y nombre del catálogo. Con cola offline, sin red queda
+    /// pendiente (cuenta como éxito) y se envía luego con el mismo `client_request_id`.
     @discardableResult
     public func add(label: String, quantity: Double? = nil, unit: String = "ud", food: Food? = nil) async -> Bool {
         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty || food != nil else { return false }
         return await run { [self] in
+            if let coordinator {
+                let op = coordinator.makeOp(.createShoppingItem(
+                    local: coordinator.outbox.makeLocalId(), label: trimmed.isEmpty ? nil : trimmed, quantity: quantity,
+                    unit: unit, section: food?.section, foodId: food?.id))
+                let outcome = try await coordinator.perform(op)
+                suggestions = []
+                if case .sent = outcome { await load() }
+                return
+            }
             let created = try await repo.create(label: trimmed.isEmpty ? nil : trimmed, quantity: quantity, unit: unit,
                                                 section: food?.section, foodId: food?.id)
-            items.append(created)
+            serverItems.append(created)
             suggestions = []
         }
     }
 
+    /// Sin ID real (alta pendiente de sincronizar) no se puede editar ni borrar en el servidor.
+    private func rejectsUnsynced(_ item: ShoppingItem) -> Bool {
+        guard item.id < 0 else { return false }
+        errorMessage = "Este artículo aún no se ha sincronizado. Inténtalo cuando haya conexión."
+        return true
+    }
+
     public func delete(_ item: ShoppingItem) async {
+        guard !rejectsUnsynced(item) else { return }
         await run { [self] in
             try await repo.delete(id: item.id)
-            items.removeAll { $0.id == item.id }
+            serverItems.removeAll { $0.id == item.id }
         }
     }
 
@@ -186,7 +255,7 @@ public final class ShoppingStore {
     public func clearChecked() async {
         await run { [self] in
             try await repo.clearChecked()
-            items.removeAll { $0.isChecked }
+            serverItems.removeAll { $0.isChecked }
         }
     }
 
@@ -198,7 +267,7 @@ public final class ShoppingStore {
     }
 
     private func replace(_ item: ShoppingItem) {
-        if let index = items.firstIndex(where: { $0.id == item.id }) { items[index] = item }
+        if let index = serverItems.firstIndex(where: { $0.id == item.id }) { serverItems[index] = item }
     }
 
     @discardableResult

@@ -15,7 +15,7 @@ struct MealsView: View {
             meals: services.meals, events: services.events, activeHomeId: { services.homeContext.activeHomeId }))
         _shopping = State(initialValue: ShoppingStore(
             repo: services.shopping, searchFoods: { try await services.recipes.searchFood($0, limit: 8) },
-            activeHomeId: { services.homeContext.activeHomeId }))
+            outbox: services.activeOutbox, activeHomeId: { services.homeContext.activeHomeId }))
     }
 
     var body: some View {
