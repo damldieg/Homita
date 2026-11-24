@@ -899,4 +899,123 @@ grant execute on function get_meal_plan(date), upsert_meal_plan_items(date, inte
     accept_meal_plan(bigint, integer), archive_meal_plan(bigint), copy_meal_plan_week(date, date)
     to authenticated;
 
+-- ─────────────────── (f) check del plan y comidas de hoy ───────────────────
+
+-- Conflictos del plan para sus comensales. Devuelve [{item_id, day, slot, member_id, code, detail}]:
+--   member_out   el comensal tiene meal_schedule out | skip | lunchbox ese día y franja (detail.status).
+--   allergen     B1: un ingrediente con food_id lleva un alérgeno con severity 'avoid_ingredient'.
+--   intolerance  B2: ídem con severity 'no_traces' (detail.allergen, detail.ingredient).
+--   diet         B5: un ingrediente con food_id contradice la dieta (por sección del alimento:
+--                vegetarian/vegan/pescatarian; no_pork/halal/kosher por nombre de cerdo).
+-- Limitación: solo se evalúan ingredientes con food_id; el texto libre no. No usa B3/B4 (fuera del piloto).
+-- menu.view basta: B1/B2 viajan con menu.view (decisión de 0043).
+create or replace function check_meal_plan(p_plan_id bigint) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.view');
+    if not exists (select 1 from meal_plan p where p.id = p_plan_id and p.home_id = v_home) then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    return (
+        select coalesce(json_agg(json_build_object(
+                'item_id', x.item_id, 'day', x.day, 'slot', x.slot, 'member_id', x.member_id,
+                'code', x.code, 'detail', x.detail)
+            order by x.day, array_position(array['breakfast', 'midmorning', 'lunch', 'snack', 'dinner'], x.slot),
+                     x.item_id, x.member_id, x.code, x.detail::text), '[]'::json)
+        from (
+            select i.id as item_id, i.day, i.slot, m.member_id, 'member_out'::text as code,
+                   jsonb_build_object('status', s.status) as detail
+            from meal_plan_item i
+            join meal_plan_item_member m on m.item_id = i.id
+            join meal_schedule s on s.home_member_id = m.member_id
+                and s.weekday = extract(isodow from i.day)::integer and s.slot = i.slot and s.status <> 'home'
+            where i.plan_id = p_plan_id
+            union
+            select i.id, i.day, i.slot, m.member_id,
+                   case when a.v->>'severity' = 'avoid_ingredient' then 'allergen' else 'intolerance' end,
+                   jsonb_build_object('allergen', a.v->>'allergen', 'ingredient', ing.label)
+            from meal_plan_item i
+            join meal_plan_item_member m on m.item_id = i.id
+            join meal_profile_member pm on pm.home_member_id = m.member_id
+            cross join lateral jsonb_array_elements(pm.allergies) as a (v)
+            join recipe_ingredient ing on ing.recipe_id = i.recipe_id
+            join food f on f.id = ing.food_id
+            where i.plan_id = p_plan_id and i.kind = 'recipe' and (a.v->>'allergen') = any (f.allergens)
+            union
+            select i.id, i.day, i.slot, m.member_id, 'diet'::text,
+                   jsonb_build_object('diet', pm.diet, 'ingredient', ing.label)
+            from meal_plan_item i
+            join meal_plan_item_member m on m.item_id = i.id
+            join meal_profile_member pm on pm.home_member_id = m.member_id
+            join recipe_ingredient ing on ing.recipe_id = i.recipe_id
+            join food f on f.id = ing.food_id
+            where i.plan_id = p_plan_id and i.kind = 'recipe'
+              and case pm.diet
+                    when 'vegan' then f.section in ('carne', 'embutido', 'pescado', 'marisco', 'lacteos', 'huevos')
+                    when 'vegetarian' then f.section in ('carne', 'embutido', 'pescado', 'marisco')
+                    when 'pescatarian' then f.section in ('carne', 'embutido')
+                    when 'no_pork' then f.name_norm ~ '(cerdo|jamon|chorizo|bacon|panceta|tocino|salchicha|morcilla|lomo embuchado)'
+                    when 'halal' then f.name_norm ~ '(cerdo|jamon|chorizo|bacon|panceta|tocino|salchicha|morcilla|lomo embuchado)'
+                    when 'kosher' then f.name_norm ~ '(cerdo|jamon|chorizo|bacon|panceta|tocino|salchicha|morcilla|lomo embuchado)'
+                    else false end
+        ) x
+    );
+end $$;
+
+-- Casillas de hoy del plan aceptado de la semana de p_date (nulo = hoy en home.timezone).
+-- has_plan = false → sin menú aceptado (el bloque se oculta); has_plan = true con items [] → menú sin
+-- casillas hoy. La hora de cada franja sale de meal_slot_setting (14:00 comida / 21:00 cena por defecto).
+create or replace function get_meals_today(p_date date default null) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_tz text;
+    v_now timestamp without time zone;
+    v_date date;
+    v_plan bigint;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.view');
+    perform fn_meal_profile_ensure(v_home);
+    select h.timezone into v_tz from home h where h.id = v_home;
+    if v_tz is null or not exists (select 1 from pg_timezone_names where name = v_tz) then
+        raise exception 'Invalid timezone' using errcode = 'P0001';
+    end if;
+    v_now := now() at time zone v_tz;
+    v_date := coalesce(p_date, v_now::date);
+    select p.id into v_plan from meal_plan p
+    where p.home_id = v_home and p.status = 'accepted' and p.week_start = fn_meal_week_of(v_home, v_date);
+    if v_plan is null then
+        return json_build_object('has_plan', false, 'date', v_date, 'timezone', v_tz,
+            'now_local', to_char(v_now, 'HH24:MI'), 'items', '[]'::json);
+    end if;
+    return json_build_object('has_plan', true, 'date', v_date, 'timezone', v_tz,
+        'now_local', to_char(v_now, 'HH24:MI'),
+        'items', (select coalesce(json_agg(json_build_object(
+                'item_id', y.id, 'slot', y.slot, 'time', to_char(y.t, 'HH24:MI'), 'kind', y.kind,
+                'title', y.title, 'recipe_id', y.recipe_id, 'servings', y.servings,
+                'cook_member_id', y.cook_member_id,
+                'members', (select coalesce(json_agg(m.member_id order by m.member_id), '[]'::json)
+                            from meal_plan_item_member m where m.item_id = y.id))
+                order by y.t, y.position, y.id), '[]'::json)
+            from (select i.*, coalesce(s.time, case i.slot when 'breakfast' then time '08:00'
+                        when 'midmorning' then time '11:00' when 'lunch' then time '14:00'
+                        when 'snack' then time '17:30' else time '21:00' end) as t
+                  from meal_plan_item i
+                  left join meal_slot_setting s on s.home_id = i.home_id and s.slot = i.slot
+                  where i.plan_id = v_plan and i.day = v_date) y));
+end $$;
+
+revoke all on function check_meal_plan(bigint), get_meals_today(date) from public, anon;
+grant execute on function check_meal_plan(bigint), get_meals_today(date) to authenticated;
+
 commit;
