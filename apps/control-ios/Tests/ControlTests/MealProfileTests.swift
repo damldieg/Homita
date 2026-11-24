@@ -133,6 +133,16 @@ final class MealProfileTests: XCTestCase {
         XCTAssertEqual(run([3: .dinner], []), [out(3, "dinner")])
         // (d) ninguno: todo lo que estaba fuera vuelve a casa
         XCTAssertEqual(run([:], [out(3, "lunch"), out(3, "dinner")]), [home(3, "lunch"), home(3, "dinner")])
+        // desayuno, media mañana y merienda nunca salen como out; día completo solo emite comida y cena
+        let all = ["breakfast", "midmorning", "lunch", "snack", "dinner"].map {
+            MealSlot(slot: $0, enabled: true, time: "10:00")
+        }
+        let full = MealRules.outSchedule(modes: [3: .full], eaters: [3], slots: all, current: [])
+        XCTAssertEqual(full, [out(3, "lunch"), out(3, "dinner")])
+        XCTAssertTrue(MealRules.outSchedule(modes: [3: .lunch, 4: .dinner, 5: .full], eaters: [3], slots: all, current: [])
+            .allSatisfy { ["lunch", "dinner"].contains($0.slot) })
+        // una fila antigua con desayuno fuera no se toca
+        XCTAssertEqual(run([3: .none], [out(3, "breakfast")]), [])
         // (e) sin cambios
         XCTAssertEqual(run([3: .full], [out(3, "lunch"), out(3, "dinner")]), [])
         XCTAssertEqual(run([:], []), [])
@@ -144,7 +154,9 @@ final class MealProfileTests: XCTestCase {
             out(1, "lunch"), out(1, "dinner"), out(2, "lunch"), out(3, "dinner"),
             MealScheduleEntry(homeMemberId: 3, weekday: 4, slot: "breakfast", status: "out"),
         ]
+        // desayuno fuera (día 4) se ignora → ninguno
         XCTAssertEqual(MealRules.outModes(profile), [1: .full, 2: .lunch, 3: .dinner])
+        XCTAssertNil(MealRules.outModes(profile)[4])
         // día mixto: otro comensal sin `out` → ninguno
         var two = profile
         two.members.append(two.members[0])

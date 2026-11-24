@@ -74,12 +74,15 @@ public enum MealRules {
             && profile.slots.contains(where: \.enabled)
     }
 
+    /// Solo la comida y la cena se pueden marcar fuera; el resto de franjas nunca se tocan ni se leen como fuera.
+    public static let outSlots: Set<String> = ["lunch", "dinner"]
+
     /// D2: por día, qué franjas se comen fuera. Todas las personas, `out` en las franjas que marca el modo;
     /// las filas que estaban `out` y dejan de estarlo vuelven a `home`. Solo se emiten las filas que cambian.
     /// Los días sin modo cuentan como `.none`.
     public static func outSchedule(modes: [Int: OutMode], eaters: [Int], slots: [MealSlot],
                                    current: [MealScheduleEntry]) -> [MealScheduleEntry] {
-        let active = slots.filter(\.enabled).map(\.slot)
+        let active = slots.filter(\.enabled).map(\.slot).filter(outSlots.contains)
         var entries: [MealScheduleEntry] = []
         for member in eaters {
             for day in 1...7 {
@@ -90,7 +93,7 @@ public enum MealRules {
                 entries += active.filter { wanted.contains($0) && !outNow.contains($0) }
                     .map { MealScheduleEntry(homeMemberId: member, weekday: day, slot: $0, status: "out") }
                 entries += current.filter {
-                    $0.homeMemberId == member && $0.weekday == day && $0.status == "out" && !wanted.contains($0.slot)
+                    $0.homeMemberId == member && $0.weekday == day && $0.status == "out" && outSlots.contains($0.slot) && !wanted.contains($0.slot)
                 }.map { MealScheduleEntry(homeMemberId: member, weekday: day, slot: $0.slot, status: "home") }
             }
         }
@@ -98,9 +101,9 @@ public enum MealRules {
     }
 
     /// Modo de cada día para pintar D2: una franja cuenta como fuera si todas las personas están `out` en ella.
-    /// Los patrones no representables (p. ej. solo desayuno fuera) se muestran como `.none`.
+    /// Los patrones no representables (p. ej. desayuno o merienda fuera, que se ignoran) se muestran como `.none`.
     public static func outModes(_ profile: MealProfile) -> [Int: OutMode] {
-        let active = profile.slots.filter(\.enabled).map(\.slot)
+        let active = profile.slots.filter(\.enabled).map(\.slot).filter(outSlots.contains)
         guard !profile.members.isEmpty, !active.isEmpty else { return [:] }
         func isOut(_ day: Int, _ slot: String) -> Bool {
             profile.members.allSatisfy { member in
