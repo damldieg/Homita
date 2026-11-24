@@ -42,6 +42,8 @@ struct OutboxSender {
             _ = try await taskLists.update(UpdateTaskListRequest(id: try id(ref), name: name, color: color, sort: sort, widget: widget, dashboard: dashboard))
         case .deleteList(let ref):
             try await taskLists.delete(id: try id(ref))
+        case .createShoppingItem, .checkShoppingItem, .uncheckShoppingItem, .haveShoppingItem:
+            throw SendError.unresolvedRef
         }
         return nil
     }

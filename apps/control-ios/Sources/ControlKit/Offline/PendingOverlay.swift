@@ -93,6 +93,9 @@ public enum PendingOverlay {
                 }
                 tasks.removeAll { $0.id == id }
                 pendingTasks.remove(id)
+
+            case .createShoppingItem, .checkShoppingItem, .uncheckShoppingItem, .haveShoppingItem:
+                continue // Compra: ver `applyShopping`.
             }
         }
 

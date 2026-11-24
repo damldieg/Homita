@@ -11,6 +11,8 @@ import Foundation
 /// - Varios complete de la misma tarea: queda el último.
 /// - Delete sobre un create pendiente: anula los dos y todas las ops de ese temporal.
 /// - Delete de una tarea remota: quita sus update y complete previos.
+/// - Compra: marcar, desmarcar y «ya lo tengo» sobre un alta pendiente se funden en el alta (`state`);
+///   sobre un artículo remoto, el último cambio de estado sustituye a los anteriores.
 /// - Delete de una lista: quita todas las ops de sus tareas; si la lista es local, anula su create.
 public enum OutboxCompactor {
     /// Cola resultante tras encolar `op`. `idMap` traduce temporales ya resueltos, para reconocer el
@@ -65,8 +67,27 @@ public enum OutboxCompactor {
         case .deleteList(let ref):
             let hadPendingCreate = queue.contains { mutable($0) && $0.kind.createdLocal.map { same($0, ref) } == true }
             let resourceExists = exists(ref)
-            queue.removeAll { other in mutable(other) && same(other.kind.listRef, ref) }
+            queue.removeAll { other in mutable(other) && other.kind.listRef.map { same($0, ref) } == true }
             if !hadPendingCreate && resourceExists { queue.append(op) }
+
+        case .createShoppingItem:
+            queue.append(op)
+
+        case .checkShoppingItem(let ref), .uncheckShoppingItem(let ref), .haveShoppingItem(let ref):
+            let state = op.kind.shoppingState ?? ShoppingState.pending
+            // Sobre un alta pendiente: el estado se funde en el alta (el replay lo fija tras crear).
+            if let index = queue.firstIndex(where: { mutable($0) && $0.kind.createdLocal.map { same($0, ref) } == true }),
+               case .createShoppingItem(let local, let label, let quantity, let unit, let section, let foodId, _) = queue[index].kind {
+                queue[index].kind = .createShoppingItem(local: local, label: label, quantity: quantity, unit: unit,
+                                                        section: section, foodId: foodId, state: state)
+                return queue
+            }
+            // Varios cambios de estado del mismo artículo: queda el último (marcar + desmarcar se colapsan).
+            queue.removeAll { other in
+                guard mutable(other), other.kind.shoppingState != nil, let otherRef = other.kind.shoppingRef else { return false }
+                return same(otherRef, ref)
+            }
+            queue.append(op)
 
         case .updateList(let ref, let name, let color, let sort, let widget, let dashboard):
             if let index = queue.firstIndex(where: { mutable($0) && $0.kind.createdLocal.map { same($0, ref) } == true }),

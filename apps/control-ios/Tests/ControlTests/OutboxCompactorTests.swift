@@ -130,4 +130,58 @@ final class OutboxCompactorTests: XCTestCase {
         ])
         XCTAssertEqual(queue.map(\.kind), [.createTask(local: -1, listRef: .remote(2), title: "Leche", personIds: [3, 4])])
     }
+
+    // MARK: Compra
+
+    private func create(_ local: Int, _ label: String = "Leche", state: String = "pending") -> PendingOp.Kind {
+        .createShoppingItem(local: local, label: label, quantity: nil, unit: "ud", section: nil, foodId: nil, state: state)
+    }
+
+    func testCheckOverPendingShoppingCreateMergesState() {
+        let queue = enqueue([create(-1), .checkShoppingItem(ref: .local(-1))])
+        XCTAssertEqual(queue.map(\.kind), [create(-1, state: "checked")])
+    }
+
+    func testCheckThenUncheckOverPendingCreateBackToPending() {
+        let queue = enqueue([create(-1), .checkShoppingItem(ref: .local(-1)), .uncheckShoppingItem(ref: .local(-1))])
+        XCTAssertEqual(queue.map(\.kind), [create(-1)])
+    }
+
+    func testCheckOverCreateConfirmedByIdMapQueuesSeparately() {
+        // El alta ya no está en la cola (ack): la marca va por el ID real y no se funde.
+        let queue = enqueue([.checkShoppingItem(ref: .local(-1))], idMap: [-1: 40])
+        XCTAssertEqual(queue.map(\.kind), [.checkShoppingItem(ref: .local(-1))])
+    }
+
+    func testCheckThenUncheckOfRemoteItemKeepsLast() {
+        let queue = enqueue([.checkShoppingItem(ref: .remote(7)), .uncheckShoppingItem(ref: .remote(7))])
+        XCTAssertEqual(queue.map(\.kind), [.uncheckShoppingItem(ref: .remote(7))])
+    }
+
+    func testStateOpsOfDifferentItemsAreKept() {
+        let queue = enqueue([.checkShoppingItem(ref: .remote(7)), .haveShoppingItem(ref: .remote(8))])
+        XCTAssertEqual(queue.count, 2)
+    }
+
+    func testStateOpsDedupeThroughIdMap() {
+        let queue = enqueue([.checkShoppingItem(ref: .local(-1)), .uncheckShoppingItem(ref: .remote(40))], idMap: [-1: 40])
+        XCTAssertEqual(queue.map(\.kind), [.uncheckShoppingItem(ref: .remote(40))])
+    }
+
+    func testInFlightStateOpIsNotCompacted() {
+        let inFlight = op(.checkShoppingItem(ref: .remote(7)))
+        let queue = OutboxCompactor.enqueue(op(.uncheckShoppingItem(ref: .remote(7))), into: [inFlight], inFlight: inFlight.id)
+        XCTAssertEqual(queue.map(\.kind), [.checkShoppingItem(ref: .remote(7)), .uncheckShoppingItem(ref: .remote(7))])
+    }
+
+    func testInFlightShoppingCreateIsNotMerged() {
+        let inFlight = op(create(-1))
+        let queue = OutboxCompactor.enqueue(op(.checkShoppingItem(ref: .local(-1))), into: [inFlight], inFlight: inFlight.id)
+        XCTAssertEqual(queue.map(\.kind), [create(-1), .checkShoppingItem(ref: .local(-1))])
+    }
+
+    func testShoppingOpsDoNotAffectTaskOps() {
+        let queue = enqueue([.completeTask(ref: .remote(7), listRef: .remote(2), completed: true), .checkShoppingItem(ref: .remote(7))])
+        XCTAssertEqual(queue.count, 2)
+    }
 }

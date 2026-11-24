@@ -1,6 +1,6 @@
 import Foundation
 
-/// Escritura de tareas o listas pendiente de enviar (cola offline, D-024). `id` es también el
+/// Escritura de tareas, listas o artículos de la Compra pendiente de enviar (cola offline, D-024). `id` es también el
 /// `client_request_id` de los creates, así un reenvío no duplica en el servidor (0035).
 public struct PendingOp: Codable, Equatable, Identifiable, Sendable {
     public let id: UUID
@@ -27,6 +27,14 @@ public struct PendingOp: Codable, Equatable, Identifiable, Sendable {
         case createList(local: Int, name: String, color: String, sort: String, widget: Bool, dashboard: Bool)
         case updateList(ref: Ref, name: String, color: String, sort: String, widget: Bool, dashboard: Bool)
         case deleteList(ref: Ref)
+        /// Alta a mano en la Compra. `state` permite fundir en el alta un marcar posterior (el endpoint
+        /// de alta no recibe estado: el replay lo fija tras crear, con la misma clave de idempotencia).
+        case createShoppingItem(local: Int, label: String?, quantity: Double?, unit: String, section: String?, foodId: Int64?,
+                                state: String = ShoppingState.pending)
+        case checkShoppingItem(ref: Ref)
+        case uncheckShoppingItem(ref: Ref)
+        /// «Ya lo tengo».
+        case haveShoppingItem(ref: Ref)
     }
 
     public init(id: UUID = UUID(), createdAt: Date = Date(), homeId: String, attempts: Int = 0, kind: Kind,
@@ -53,14 +61,36 @@ extension PendingOp.Kind {
         }
     }
 
-    /// Lista sobre la que actúa una op de lista, o lista de la tarea en una op de tarea.
-    var listRef: Ref {
+    /// Artículo de la Compra sobre el que actúa (el temporal en un alta); nil en las demás.
+    var shoppingRef: Ref? {
+        switch self {
+        case .createShoppingItem(let local, _, _, _, _, _, _): return .local(local)
+        case .checkShoppingItem(let ref), .uncheckShoppingItem(let ref), .haveShoppingItem(let ref): return ref
+        default: return nil
+        }
+    }
+
+    /// Estado de la Compra que fija una op de marcar; nil en las demás.
+    var shoppingState: String? {
+        switch self {
+        case .checkShoppingItem: return ShoppingState.checked
+        case .uncheckShoppingItem: return ShoppingState.pending
+        case .haveShoppingItem: return ShoppingState.skipped
+        default: return nil
+        }
+    }
+
+    var isShoppingOp: Bool { shoppingRef != nil }
+
+    /// Lista sobre la que actúa una op de lista, o lista de la tarea en una op de tarea; nil en las de la Compra.
+    var listRef: Ref? {
         switch self {
         case .createTask(_, let listRef, _, _, _, _), .updateTask(_, let listRef, _, _, _, _),
              .completeTask(_, let listRef, _), .deleteTask(_, let listRef):
             return listRef
         case .createList(let local, _, _, _, _, _): return .local(local)
         case .updateList(let ref, _, _, _, _, _), .deleteList(let ref): return ref
+        case .createShoppingItem, .checkShoppingItem, .uncheckShoppingItem, .haveShoppingItem: return nil
         }
     }
 
@@ -69,7 +99,8 @@ extension PendingOp.Kind {
     /// Temporal que crea esta op (solo los creates).
     var createdLocal: Ref? {
         switch self {
-        case .createTask(let local, _, _, _, _, _), .createList(let local, _, _, _, _, _): return .local(local)
+        case .createTask(let local, _, _, _, _, _), .createList(let local, _, _, _, _, _),
+             .createShoppingItem(let local, _, _, _, _, _, _): return .local(local)
         default: return nil
         }
     }
@@ -84,9 +115,10 @@ extension PendingOp.Kind {
     }
 
     /// ¿Depende esta op del recurso `ref`? Una op de tarea depende de su tarea y de su lista; una de
-    /// lista, de su lista.
+    /// lista, de su lista; una de la Compra, de su artículo.
     func references(_ ref: Ref) -> Bool {
         if let taskRef, taskRef == ref { return true }
+        if let shoppingRef, shoppingRef == ref { return true }
         return listRef == ref
     }
 
@@ -95,7 +127,8 @@ extension PendingOp.Kind {
         switch self {
         case .createTask(_, _, let title, _, _, _), .updateTask(_, _, let title, _, _, _): return "«\(title)»"
         case .createList(_, let name, _, _, _, _), .updateList(_, let name, _, _, _, _): return "la lista «\(name)»"
-        case .completeTask, .deleteTask, .deleteList: return nil
+        case .createShoppingItem(_, let label, _, _, _, _, _): return label.map { "«\($0)»" }
+        case .completeTask, .deleteTask, .deleteList, .checkShoppingItem, .uncheckShoppingItem, .haveShoppingItem: return nil
         }
     }
 }
