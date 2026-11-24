@@ -389,7 +389,23 @@ begin
     if (v->>'added')::int + (v->>'updated')::int + (v->>'removed')::int <> 0 then
         raise exception 'shopping SH4: sync tras la edición %', v;
     end if;
-    raise notice 'ok SH4: editar el menú aceptado reconcilia (+1 ~1 -3) sin tocar checked, skipped, manual ni cantidad editada';
+    -- segunda edición con el plan ya en draft: la compra sigue la última edición (vuelve R2 en otro día)
+    v_rev_antes := (select shopping_revision from meal_plan where id = v_plan);
+    v := upsert_meal_plan_items('2030-01-07', pg_temp.rev('2030-01-07'), jsonb_build_array(
+        jsonb_build_object('day', '2030-01-10', 'slot', 'dinner', 'kind', 'recipe',
+            'recipe_id', pg_temp.recipe_id('ZZSH R2'), 'members', jsonb_build_array(994001, 994006))));
+    if v->>'status' <> 'draft' then
+        raise exception 'shopping SH4: tras la segunda edición el plan no está en draft';
+    end if;
+    if (pg_temp.si('ZZSH Arroz')).id is null or (pg_temp.si('ZZSH Leche')).quantity <> 1
+       or (pg_temp.si('ZZSH Leche')).unit <> 'l' or (pg_temp.si('ZZSH Harina')).state <> 'checked'
+       or (pg_temp.si('ZZSH Patata')).quantity <> 9 then
+        raise exception 'shopping SH4: la segunda edición en draft no sincronizó la compra';
+    end if;
+    if (select shopping_revision from meal_plan where id = v_plan) <> v_rev_antes + 1 then
+        raise exception 'shopping SH4: la revisión no subió con la segunda edición';
+    end if;
+    raise notice 'ok SH4: editar el menú aceptado reconcilia (+1 ~1 -3) sin tocar checked, skipped, manual ni cantidad editada; la segunda edición en draft también sincroniza';
 end $$;
 
 -- ── SH5: volver a aceptar y archivar ──

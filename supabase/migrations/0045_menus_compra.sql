@@ -478,7 +478,8 @@ begin
             jsonb_build_object('week_start', p_week_start, 'items', v_n, 'deleted', v_del));
     -- 0045 (decisión 3): si el plan estaba aceptado antes de la edición, la compra refleja el último menú
     -- aunque el plan vuelva a draft; un plan que no estaba aceptado no genera compra.
-    if v_plan.status = 'accepted' then
+    if v_plan.status = 'accepted' or (v_plan.status = 'draft' and exists (
+            select 1 from shopping_item s where s.plan_id = v_plan.id and s.origin = 'menu')) then
         perform fn_meal_shopping_sync(v_home, v_plan.id);
     end if;
     return fn_meal_plan_json(v_plan.id);
