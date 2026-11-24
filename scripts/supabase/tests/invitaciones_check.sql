@@ -242,6 +242,8 @@ begin
           -- 0044 (menus-semana) añade 6 policies SELECT (food, recipe, recipe_ingredient y meal_plan*, estas
           -- ya cubiertas por el filtro anterior); las cubre menu_semana_check MS12
           and tablename not in ('food', 'recipe', 'recipe_ingredient')
+          -- 0045 (menus-compra) añade la policy SELECT de shopping_item; la cubre shopping_check SH10
+          and tablename <> 'shopping_item'
           -- 0039 (ocultar-completadas-3-dias) redefine task.task_select con el predicado de ocultas;
           -- la cubre task_hidden_check H12. Baseline de las otras 14 (15 de 0021 menos task_select).
           and not (tablename = 'task' and policyname = 'task_select'))
