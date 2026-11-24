@@ -20,10 +20,14 @@
 #      G5-md5 (solo ADVERTENCIA, no falla: md5 del gate G5 de DEPLOY_0039.md = stack local),
 #      feedback_trello_check B1-B8 (0033) y feedback_trigger_check F1-F12 (0031/0034); trigger inerte en
 #      local: sin feedback_webhook_url en Vault no se encola ninguna petición),
+#      meal_profile_check MP1-MP11 (0043) y menu_semana_check MS1-MS14 (0044, con la semilla
+#      supabase/seed/food_es.sql cargada justo tras aplicar las migraciones),
 #      task_priority_rollback_guard_check G0-G3 (guardas LIFO de rollback_0035/0029 con 0037 aplicada),
 #      task_person_access_rollback_guard_check G38-1 (guarda LIFO de rollback_0037 con 0038 aplicada),
 #      task_hidden_rollback_guard_check G39-1 (guarda LIFO de rollback_0038 con 0039 aplicada),
 #      contract_check.py (502 + prioridad + ocultas + orden de listas) y cross_tenant_check.py.
+#   5a. Ida y vuelta 0044 → rollback_0044_menus_semana → 0044 + semilla (menus-semana): RM4-RM6, RA3-RA4 y
+#      menu_semana_check MS1-MS14 otra vez. Va ANTES de la de 0043 (orden LIFO: 0044 usa lo de 0043).
 #   5b. Ida y vuelta exterior 0039 → rollback_0039 → [paso 6] → 0039 (ocultar-completadas-3-dias):
 #      task_hidden_rollback_check RBH1-5; sobre el esquema sin 0039: task_priority_check,
 #      task_person_access_check, client_request_check, acl_can_edit_check y contract_check en modo
@@ -163,6 +167,13 @@ expect_log() {
 
 sql() { "${PSQL_CMD[@]}" -v ON_ERROR_STOP=1 < "$1"; }
 
+# Catálogo común de alimentos (0044): el seed NO va en la migración. Se carga dos veces: la segunda no
+# inserta nada (idempotente, on conflict contra food_common_name_uq).
+run "SQL seed food_es" sql-seed-food sql "$HERE/supabase/seed/food_es.sql"
+expect_log "SQL seed food_es" sql-seed-food '^INSERT 0 [1-9][0-9]*'
+run "SQL seed food_es (segunda carga)" sql-seed-food2 sql "$HERE/supabase/seed/food_es.sql"
+expect_log "SQL seed food_es (segunda carga)" sql-seed-food2 '^INSERT 0 0$'
+
 # Edge Function procesar-feedback: tipado del cableado (index.ts, db.ts) y tests con mocks.
 FEEDBACK_FN="$HERE/supabase/functions/procesar-feedback"
 run "deno check procesar-feedback" deno-check env NO_COLOR=1 deno check "$FEEDBACK_FN/index.ts"
@@ -211,6 +222,11 @@ expect_log "SQL permisos_matriz_check" sql-permisos-matriz "${m_pat[@]}"
 run "SQL meal_profile_check" sql-meal-profile sql "$HERE/scripts/supabase/tests/meal_profile_check.sql"
 mp_pat=(); for i in $(seq 1 11); do mp_pat+=("ok MP$i([^0-9a-z]|\$)"); done
 expect_log "SQL meal_profile_check" sql-meal-profile "${mp_pat[@]}"
+
+# 0044 (menus-semana): catálogo, recetas y menú semanal; RLS entre hogares, revisión, ciclo del plan, check y comidas de hoy.
+run "SQL menu_semana_check" sql-menu-semana sql "$HERE/scripts/supabase/tests/menu_semana_check.sql"
+ms_pat=(); for i in $(seq 1 14); do ms_pat+=("ok MS$i([^0-9a-z]|\$)"); done
+expect_log "SQL menu_semana_check" sql-menu-semana "${ms_pat[@]}"
 
 run "SQL client_request_check" sql-client-request sql "$HERE/scripts/supabase/tests/client_request_check.sql"
 c_pat=(); for i in $(seq 1 9); do c_pat+=("ok C$i([^0-9a-z]|\$)"); done
@@ -561,6 +577,25 @@ else
     FAILED+=("ida y vuelta 0041 (rollback_0041 no quedó en verde; repetir ci.sh)")
 fi
 
+# Ida y vuelta 0044 → rollback_0044_menus_semana.sql → 0044 + semilla (menus-semana): ANTES que la de 0043 (orden
+# LIFO: 0044 usa meal_profile, meal_schedule y las funciones de 0043, y rollback_0043 las borra). El rollback borra las
+# tablas de menús y el catálogo; luego se reaplica 0044, se recarga la semilla y se repite menu_semana_check. Si el
+# rollback no queda en verde no se reaplica: la BD local queda a medias, repetir ci.sh.
+run "SQL menu_semana_rollback_check" sql-rb0044 sql_expanded "$HERE/scripts/supabase/tests/menu_semana_rollback_check.sql"
+expect_log "SQL menu_semana_rollback_check" sql-rb0044 'ok RM4([^0-9]|$)' 'ok RM5([^0-9]|$)' 'ok RM6([^0-9]|$)'
+if grep -Eq 'ok RM4([^0-9]|$)' "$OUT/sql-rb0044.log" && grep -Eq 'ok RM5([^0-9]|$)' "$OUT/sql-rb0044.log" \
+    && grep -Eq 'ok RM6([^0-9]|$)' "$OUT/sql-rb0044.log"; then
+    run "SQL 0044 reaplicada" sql-ra0044 sql "$HERE/supabase/migrations/0044_menus_semana.sql"
+    run "SQL seed food_es (tras reaplicar 0044)" sql-ra0044-seed sql "$HERE/supabase/seed/food_es.sql"
+    sleep 1 # notify pgrst: PostgREST recarga el esquema
+    run "SQL menu_semana_reapply_check" sql-ra0044-chk sql "$HERE/scripts/supabase/tests/menu_semana_reapply_check.sql"
+    expect_log "SQL menu_semana_reapply_check" sql-ra0044-chk 'ok RA3([^0-9]|$)' 'ok RA4([^0-9]|$)'
+    run "SQL menu_semana_check (tras reaplicar 0044)" sql-ra0044-ms sql "$HERE/scripts/supabase/tests/menu_semana_check.sql"
+    expect_log "SQL menu_semana_check (tras reaplicar 0044)" sql-ra0044-ms "${ms_pat[@]}"
+else
+    FAILED+=("ida y vuelta 0044 (rollback_0044 no quedó en verde; no se reaplica 0044: la BD local queda a medias, repetir ci.sh)")
+fi
+
 # Ida y vuelta 0043 → rollback_0043_meal_profile.sql → 0043 (menus-perfil-hogar): el último cambio, en serie tras 0041/0042.
 # El rollback borra las tablas meal_* y deja el catálogo en 23/37; luego se reaplica 0043 (el backfill vuelve a dar los
 # menu.* a las membresías existentes) y se repiten meal_profile_check y contract_check. contract_check no corre sobre el
@@ -590,4 +625,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10, task_person_access A1-A9, get_persons GP1-GP4, task_hidden H1-H12, task_list_position TP1-TP8, meal_profile MP1-MP11, guardas de rollback G0-G3, G38-1 y G39-1, feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta 0039 → rollback → [0038 → rollback → (0037 → rollback → (0035 → rollback → 0035) → 0037) → 0038] → 0039 con RBH1-5, contract pre-0039 ${contract_pre39}/${contract_pre39}, RB38-1..5, PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, guarda 0030 E0-E2, RA1-RA2, PA1-PA3, P1-P10, C1-C9, RA38-1, A1-A9, GP1-GP4, RAH1-3 y H1-H12; ida y vuelta 0040 con TR1-TR3, contract ${contract_nopos}/${contract_nopos} sin position, TA1-TA2 y TP1-TP8; ida y vuelta 0043 con RM1-RM3, RA1-RA2 y MP1-MP11)"
+echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10, task_person_access A1-A9, get_persons GP1-GP4, task_hidden H1-H12, task_list_position TP1-TP8, meal_profile MP1-MP11, menu_semana MS1-MS14, guardas de rollback G0-G3, G38-1 y G39-1, feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta 0039 → rollback → [0038 → rollback → (0037 → rollback → (0035 → rollback → 0035) → 0037) → 0038] → 0039 con RBH1-5, contract pre-0039 ${contract_pre39}/${contract_pre39}, RB38-1..5, PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, guarda 0030 E0-E2, RA1-RA2, PA1-PA3, P1-P10, C1-C9, RA38-1, A1-A9, GP1-GP4, RAH1-3 y H1-H12; ida y vuelta 0040 con TR1-TR3, contract ${contract_nopos}/${contract_nopos} sin position, TA1-TA2 y TP1-TP8; ida y vuelta 0044 con RM4-RM6, RA3-RA4 y MS1-MS14; ida y vuelta 0043 con RM1-RM3, RA1-RA2 y MP1-MP11)"
