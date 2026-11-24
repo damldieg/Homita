@@ -57,7 +57,7 @@ class MealRepository(
     }
 
     companion object {
-        const val MAX_AGE_MS = 10 * 60_000L
+        const val MAX_AGE_MS = 5 * 60_000L
         private const val PREFIX = "meals-"
     }
 }
