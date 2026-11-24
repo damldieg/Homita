@@ -258,3 +258,22 @@ Deno.test("R1-03: valores válidos límite (int32, null, decimales en grams_per_
         assertEquals(calls.length, 2);
     });
 });
+
+Deno.test("R1-04: steps con más de 50 pasos o pasos de más de 500 caracteres → 400 sin RPC", async () => {
+    await withFetch(ok, async (calls) => {
+        const many = Array.from({ length: 51 }, (_, i) => `p${i}`);
+        const long = ["x".repeat(501)];
+        for (const steps of [many, long, ["a", null]]) {
+            const res = await handleRecipeCreate(req("POST", { name: "a", steps }), "tok");
+            assertEquals(res.status, 400);
+            assertEquals(await res.json(), { error: "Invalid recipe" });
+            const up = await handleRecipeUpdate(req("PATCH", { id: 3, steps }), "tok");
+            assertEquals(up.status, 400);
+        }
+        assertEquals(calls.length, 0);
+        const okSteps = Array.from({ length: 50 }, () => "x".repeat(500));
+        const res = await handleRecipeCreate(req("POST", { name: "a", steps: okSteps }), "tok");
+        assertEquals(res.status, 201);
+        assertEquals(calls.length, 1);
+    });
+});

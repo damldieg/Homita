@@ -25,6 +25,7 @@
 -- MS14 0 filas scratch al terminar.
 -- MS15 week_start_day bloqueado con planes no archivados (corre antes de MS14; R1-01).
 -- MS16 accept y archive respetan expected_revision; accept doble → Stale (R1-02).
+-- MS17 pasos de receta: <= 50, <= 500 caracteres, sin nulos (R1-04).
 
 \set ON_ERROR_STOP 1
 do $$
@@ -942,6 +943,38 @@ begin
     end if;
     -- sin expected_revision sigue valiendo (compatibilidad)
     raise notice 'ok MS16: accept y archive respetan expected_revision';
+end $$;
+
+-- ── MS17: topes de pasos de receta (R1-04) ──
+do $$
+declare
+    v json;
+begin
+    perform pg_temp.as_user(1);
+    v := create_recipe('ZZMS pasos', 2, null, null, (select jsonb_agg('p' || i) from generate_series(1, 50) i), null);
+    if jsonb_array_length((v->'steps')::jsonb) <> 50 then
+        raise exception 'menu_semana MS17: 50 pasos deben caber %', v;
+    end if;
+    v := update_recipe((v->>'id')::bigint, jsonb_build_object('steps', jsonb_build_array(repeat('x', 500))));
+    perform pg_temp.fails('MS17 51 pasos',
+        $q$select create_recipe('ZZMS pasos 51', 2, null, null, (select jsonb_agg('p' || i) from generate_series(1, 51) i), null)$q$,
+        'P0001', 'Invalid recipe');
+    perform pg_temp.fails('MS17 paso de 501',
+        $q$select create_recipe('ZZMS paso largo', 2, null, null, jsonb_build_array(repeat('x', 501)), null)$q$,
+        'P0001', 'Invalid recipe');
+    perform pg_temp.fails('MS17 paso nulo',
+        $q$select create_recipe('ZZMS paso nulo', 2, null, null, '["a", null]'::jsonb, null)$q$,
+        'P0001', 'Invalid recipe');
+    perform pg_temp.fails('MS17 update paso largo',
+        format('select update_recipe(%s, jsonb_build_object(''steps'', jsonb_build_array(repeat(''x'', 501))))', v->>'id'),
+        'P0001', 'Invalid recipe');
+    perform pg_temp.fails('MS17 update paso nulo',
+        format('select update_recipe(%s, ''{"steps":["a", null]}''::jsonb)', v->>'id'),
+        'P0001', 'Invalid recipe');
+    if exists (select 1 from recipe where name in ('ZZMS pasos 51', 'ZZMS paso largo', 'ZZMS paso nulo')) then
+        raise exception 'menu_semana MS17: una receta inválida dejó fila';
+    end if;
+    raise notice 'ok MS17: pasos <= 50 de <= 500 caracteres y sin nulos (RPC y check)';
 end $$;
 
 -- ── MS14: limpieza ──

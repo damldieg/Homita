@@ -43,6 +43,7 @@ drop function if exists fn_meal_plan_json(bigint);
 drop function if exists fn_meal_week_of(bigint, date);
 drop function if exists fn_meal_food_before();
 drop function if exists fn_meal_food_allergens_valid(text[]);
+drop function if exists fn_meal_steps_valid(text[]);
 drop function if exists fn_meal_norm(text);
 
 commit;

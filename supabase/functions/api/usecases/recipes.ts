@@ -25,6 +25,12 @@ const isOptInt32 = (v: unknown): boolean => v === null || isInt32(v);
 const isOptNumber = (v: unknown): boolean => v === null || (typeof v === "number" && Number.isFinite(v));
 const isOptString = (v: unknown): boolean => v === null || typeof v === "string";
 
+// Pasos de receta: <= 50 pasos de <= 500 caracteres (mismos topes que fn_meal_steps_valid en 0044).
+const MAX_STEPS = 50;
+const MAX_STEP_CHARS = 500;
+const isSteps = (v: unknown): boolean =>
+    isStringArray(v) && v.length <= MAX_STEPS && v.every((s) => s.length <= MAX_STEP_CHARS);
+
 const isStringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === "string");
 
 // ── catálogo de alimentos ──
@@ -111,9 +117,8 @@ export const handleRecipeDetail = async (req: Request, token: string): Promise<R
 export const handleRecipeCreate = async (req: Request, token: string): Promise<Response> => {
     const b = await contractBodyOnly(req);
     if (typeof b.name !== "string") return errInvalidRecipe();
-    for (const k of ["slots", "steps"] as const) {
-        if (b[k] !== undefined && b[k] !== null && !isStringArray(b[k])) return errInvalidRecipe();
-    }
+    if (b.slots !== undefined && b.slots !== null && !isStringArray(b.slots)) return errInvalidRecipe();
+    if (b.steps !== undefined && b.steps !== null && !isSteps(b.steps)) return errInvalidRecipe();
     if (b.ingredients !== undefined && b.ingredients !== null && !Array.isArray(b.ingredients)) {
         return errInvalidRecipe();
     }
@@ -138,9 +143,8 @@ export const handleRecipeUpdate = async (req: Request, token: string): Promise<R
         || (data.minutes !== undefined && !isOptInt32(data.minutes))) {
         return errInvalidRecipe();
     }
-    for (const k of ["slots", "steps"] as const) {
-        if (data[k] !== undefined && data[k] !== null && !isStringArray(data[k])) return errInvalidRecipe();
-    }
+    if (data.slots !== undefined && data.slots !== null && !isStringArray(data.slots)) return errInvalidRecipe();
+    if (data.steps !== undefined && data.steps !== null && !isSteps(data.steps)) return errInvalidRecipe();
     if (data.ingredients !== undefined && data.ingredients !== null && !Array.isArray(data.ingredients)) {
         return errInvalidRecipe();
     }

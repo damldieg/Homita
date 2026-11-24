@@ -22,6 +22,15 @@ begin;
 
 -- ─────────────────── (a) Helpers ───────────────────
 
+-- Pasos de receta (R1-04): <= 50 pasos de <= 500 caracteres, sin nulos. Mismo patrón que
+-- fn_meal_texts_valid (0043) con tope propio por paso; null (sin pasos) es válido.
+create or replace function fn_meal_steps_valid(a text[]) returns boolean
+language sql immutable as $$
+    select coalesce(cardinality(a), 0) <= 50
+       and not exists (select 1 from unnest(a) v where v is null or char_length(v) > 500)
+$$;
+revoke all on function fn_meal_steps_valid(text[]) from public, anon, authenticated;
+
 -- Minúsculas sin acentos para buscar y para la unicidad del catálogo. Inmutable y sin unaccent.
 create or replace function fn_meal_norm(t text) returns text
 language sql immutable as $$
@@ -74,7 +83,7 @@ create table recipe (
     minutes integer check (minutes between 0 and 1440),
     slots text[] not null default array[]::text[]                    -- franjas sugeridas (filtro)
         check (slots <@ array['breakfast', 'midmorning', 'lunch', 'snack', 'dinner']::text[]),
-    steps text[] check (cardinality(steps) <= 50),
+    steps text[] check (fn_meal_steps_valid(steps)),
     created_by bigint references app_user (id) on delete set null,
     created_at timestamp without time zone not null default (now() at time zone 'UTC'),
     updated_at timestamp without time zone not null default (now() at time zone 'UTC'),
