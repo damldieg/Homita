@@ -202,6 +202,8 @@ expect_log "deno test api meals" deno-test-api-meals '^ok \| [0-9]+ passed \| 0 
 # Tests de /recipe*, /food* y /meal/plan* (0044): fetch falso; forma, args de cada RPC, 409 de revisión y de semana ocupada.
 run "deno test api recipes" deno-test-api-recipes env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/recipes_test.ts"
 expect_log "deno test api recipes" deno-test-api-recipes '^ok \| [0-9]+ passed \| 0 failed'
+run "deno test api shopping" deno-test-api-shopping env NO_COLOR=1 deno test --no-prompt --allow-env --allow-read "$API_FN/tests/shopping_test.ts"
+expect_log "deno test api shopping" deno-test-api-shopping '^ok \| [0-9]+ passed \| 0 failed'
 run "deno check api" deno-check-api env NO_COLOR=1 deno check "$API_FN/index.ts"
 
 run "SQL invitaciones_check" sql-invitaciones sql "$HERE/scripts/supabase/tests/invitaciones_check.sql"

@@ -295,11 +295,12 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 332  # 266 + 3 de prioridad (0037) + 4 XT-AL de acceso a la lista (0038)
+EXPECTED_CASES = 349  # 266 + 3 de prioridad (0037) + 4 XT-AL de acceso a la lista (0038)
                       # + 9 XH de ocultas (0039: 6 XH-B, 1 XH-A-lista, 2 XH-V)
                       # + 7 de PATCH /task-list/order (0040)
                       # + 13 XM de /meal/* (0043, menus-perfil-hogar)
                       # + 30 XR de recetas, catálogo y menú semanal (0044, menus-semana)
+                      # + 17 XS de la compra (0045, menus-compra)
 A12_ITERS = int(os.environ.get("A12_ITERS", "20"))
 # F1_ITERS: carreras de solape real por bloque F1/F2 (R1-06; el solape expone el 40P01 de 0020)
 F1_ITERS = int(os.environ.get("F1_ITERS", "10"))
@@ -2340,6 +2341,63 @@ state = psql(f"select (select count(*) from food where home_id = {home_a}) || ' 
              f"(select count(*) from food where name in ('XT-Robado', 'XT-Comun', 'XT-Directo', 'XT-DirectoA'))")
 check("XR30 el estado de A sigue intacto (1 alimento, 1 receta, plan revision 1 draft con 1 casilla, nada robado)",
       state == "1 1 1 draft 1 XT-Alimento 0", f"psql: {state!r}")
+XT_BLOCK = "BASE"
+
+# ── XS (0045, menus-compra): la Compra — B no lee ni escribe la compra de A ──
+# A acepta el plan del bloque XR (genera la compra desde el menú) y añade un artículo a mano. B (sin
+# membresía en home(A)) recibe 404 en todas las rutas /shopping* con la cabecera de A y por id de A sin
+# cabecera (Not Found de la RPC), no ve nada de A en su propia lectura, y PostgREST directo es solo lectura
+# bajo RLS. El estado de la compra de A no cambia.
+XT_BLOCK = "XS"
+xs1 = edge("POST", "/meal/plan/accept", {"plan_id": xr_plan, "expected_revision": 1}, a_tok)
+xs1_body = parse(xs1[1]) if xs1[0] == 200 else {}
+check("XS1 A acepta el plan → 200 con shopping_sync (campo aditivo)",
+      isinstance(xs1_body, dict) and isinstance(xs1_body.get("shopping_sync"), dict), repr(xs1)[:200])
+xs2 = edge("GET", "/shopping", None, a_tok)
+xs2_body = parse(xs2[1]) if xs2[0] == 200 else {}
+xs_menu = [i for i in (xs2_body.get("items") or []) if i.get("origin") == "menu"] if isinstance(xs2_body, dict) else []
+xs_menu_id = xs_menu[0].get("id") if xs_menu else None
+check("XS2 A GET /shopping → artículos de origen menu del plan aceptado",
+      xs2[0] == 200 and isinstance(xs_menu_id, int), repr(xs2)[:200])
+xs3 = edge("POST", "/shopping/item/create", {"label": "XT-Manual", "quantity": 2, "unit": "ud"}, a_tok)
+xs_manual = (parse(xs3[1]) or {}).get("id") if xs3[0] == 201 else None
+check("XS3 A añade un artículo a mano → 201 con id", xs3[0] == 201 and isinstance(xs_manual, int), repr(xs3)[:200])
+xs4 = edge("GET", "/shopping", None, b_tok)
+xs4_body = parse(xs4[1]) if xs4[0] == 200 else {}
+check("XS4 B GET /shopping sin cabecera → 200 con su compra vacía (nada de A)",
+      isinstance(xs4_body, dict) and xs4_body.get("items") == [] and "XT-" not in xs4[1], repr(xs4)[:200])
+expect("XS5 B GET /shopping con X-Home-Id de A → 404", edge("GET", "/shopping", None, b_tok, home=home_a), HOME_NOT_FOUND)
+expect("XS6 B GET /shopping/preview del plan de A → 404",
+       edge("GET", f"/shopping/preview?plan_id={xr_plan}", None, b_tok), HOME_NOT_FOUND)
+expect("XS7 B POST /shopping/sync del plan de A → 404",
+       edge("POST", "/shopping/sync", {"plan_id": xr_plan}, b_tok), HOME_NOT_FOUND)
+expect("XS8 B POST /shopping/item/create con X-Home-Id de A → 404",
+       edge("POST", "/shopping/item/create", {"label": "XT-Robado"}, b_tok, home=home_a), HOME_NOT_FOUND)
+expect("XS9 B PATCH /shopping/item/check de un artículo de A → 404",
+       edge("PATCH", "/shopping/item/check", {"id": xs_menu_id, "state": "checked"}, b_tok), HOME_NOT_FOUND)
+expect("XS10 B PATCH /shopping/item/update de un artículo de A → 404",
+       edge("PATCH", "/shopping/item/update", {"id": xs_manual, "quantity": 99}, b_tok), HOME_NOT_FOUND)
+expect("XS11 B DELETE /shopping/item/delete de un artículo de A → 404",
+       edge("DELETE", f"/shopping/item/delete?id={xs_manual}", None, b_tok), HOME_NOT_FOUND)
+expect("XS12 B DELETE /shopping/checked con X-Home-Id de A → 404",
+       edge("DELETE", "/shopping/checked", None, b_tok, home=home_a), HOME_NOT_FOUND)
+expect_err("XS13 B rpc set_shopping_item_state(artículo de A) → Not Found",
+           rpc_direct("set_shopping_item_state", {"p_item_id": xs_menu_id, "p_state": "checked"}, b_tok), "Not Found")
+expect_err("XS14 B rpc sync_meal_shopping con X-Home-Id de A → Not Found",
+           request(URL, "POST", "/rest/v1/rpc/sync_meal_shopping", {"p_plan_id": xr_plan}, b_tok,
+                   apikey=ANON, home=home_a), "Not Found")
+xs15 = request(URL, "GET", f"/rest/v1/shopping_item?select=*&home_id=eq.{home_a}", None, b_tok, apikey=ANON)
+check("XS15 B SELECT directo de shopping_item de A (PostgREST) → 200 y lista vacía",
+      xs15[0] == 200 and parse(xs15[1]) == [], repr(xs15)[:200])
+xs16 = request(URL, "POST", "/rest/v1/shopping_item", {"home_id": home_a, "label": "XT-Directo"}, b_tok, apikey=ANON)
+check("XS16 B INSERT directo en shopping_item → rechazado (sin privilegio de escritura)",
+      xs16[0] in (401, 403), f"obtenido {xs16!r}")
+state = psql(f"select (select count(*) from shopping_item where home_id = {home_a} and origin = 'menu' and state = 'pending') || ' ' || "
+             f"(select quantity from shopping_item where id = {xs_manual}) || ' ' || "
+             f"(select count(*) from shopping_item where label in ('XT-Robado', 'XT-Directo')) || ' ' || "
+             f"(select count(*) from shopping_item where home_id = {home_b})")
+check("XS17 la compra de A sigue intacta tras los intentos de B (todo pendiente, manual con 2, nada robado)",
+      state == f"{len(xs_menu)} 2.00 0 0", f"psql: {state!r}")
 XT_BLOCK = "BASE"
 
 # ── K21 (1.5, plan §8.2) y §8.3: cascada app_user → person → home_member (trigger 0014c, I5) ──
