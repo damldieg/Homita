@@ -171,5 +171,23 @@ upsert("routine_person", [{"routine_id": i, "person_id": P[w]} for i, (_, _, _, 
 call("POST", "/rest/v1/rpc/admin_bump_sequences", {})
 call("POST", "/rest/v1/rpc/materialize_routines_for", {"p_user_id": 1, "p_timezone": TZ})
 
+# Menú aceptado de la semana de hoy en el hogar de la demo, con casillas de hoy para la tarjeta «Hoy se come» del
+# dashboard (GET /meal/today). Idempotente: sustituye el plan vivo de esa semana (las casillas caen en cascada).
+home = call("GET", "/rest/v1/home_membership?app_user_id=eq.1&select=home_id&order=home_id&limit=1")
+if home:
+    home_id = home[0]["home_id"]
+    profile = call("GET", f"/rest/v1/meal_profile?home_id=eq.{home_id}&select=week_start_day")
+    wsd = profile[0]["week_start_day"] if profile else 1
+    week_start = T - datetime.timedelta(days=(T.isoweekday() - wsd) % 7)
+    call("DELETE", f"/rest/v1/meal_plan?home_id=eq.{home_id}&week_start=eq.{week_start}&status=neq.archived")
+    plan = call("POST", "/rest/v1/meal_plan", [{"home_id": home_id, "week_start": str(week_start),
+                                                 "status": "accepted", "accepted_at": TS, "accepted_by": 1}],
+                prefer="return=representation")[0]
+    MENU = [("breakfast", "Tostada con tomate"), ("lunch", "Lentejas con verduras"),
+            ("snack", "Yogur y fruta"), ("dinner", "Tortilla de patatas con ensalada")]
+    call("POST", "/rest/v1/meal_plan_item", [{"plan_id": plan["id"], "home_id": home_id, "day": str(T), "slot": slot,
+                                              "position": 0, "kind": "free_text", "title": title}
+                                             for slot, title in MENU])
+
 n = call("GET", "/rest/v1/event?select=id&routine_id=is.null")
 print("ok", len(n), "eventos")
