@@ -121,4 +121,76 @@ final class PendingOverlayTests: XCTestCase {
         XCTAssertEqual(result.tasks.first?.task_list_name, "Súper")
         XCTAssertEqual(result.pendingListIds, [2])
     }
+
+    // MARK: - Compra
+
+    private func shopItem(_ id: Int64, _ label: String, state: String = "pending") -> ShoppingItem {
+        ShoppingItem(id: id, label: label, state: state)
+    }
+
+    private func shopOp(_ kind: PendingOp.Kind) -> PendingOp { PendingOp(homeId: "1", kind: kind) }
+
+    func testShoppingCreatePaintsPendingRowWithTemporaryId() {
+        let result = PendingOverlay.applyShopping(
+            ops: [shopOp(.createShoppingItem(local: -1, label: "Leche", quantity: 2, unit: "l", section: "lacteos", foodId: nil))],
+            idMap: [:], items: [shopItem(1, "Pan")])
+        XCTAssertEqual(result.items.map(\.label), ["Pan", "Leche"])
+        let added = result.items[1]
+        XCTAssertEqual(added.id, -1)
+        XCTAssertEqual(added.section, "lacteos")
+        XCTAssertEqual(added.quantity, 2)
+        XCTAssertEqual(added.origin, ShoppingOrigin.manual)
+        XCTAssertEqual(result.pendingIds, [-1])
+    }
+
+    func testShoppingCreateWithMergedStateIsPaintedChecked() {
+        let result = PendingOverlay.applyShopping(
+            ops: [shopOp(.createShoppingItem(local: -1, label: "Leche", quantity: nil, unit: "ud", section: nil, foodId: nil, state: "checked"))],
+            idMap: [:], items: [])
+        XCTAssertEqual(result.items.first?.state, "checked")
+        XCTAssertNotNil(result.items.first?.checkedAt)
+    }
+
+    func testShoppingConfirmedCreateUsesRealIdAndDoesNotDuplicate() {
+        let op = shopOp(.createShoppingItem(local: -1, label: "Leche", quantity: nil, unit: "ud", section: nil, foodId: nil))
+        let appended = PendingOverlay.applyShopping(ops: [op], idMap: [-1: 40], items: [])
+        XCTAssertEqual(appended.items.map(\.id), [40])
+        let already = PendingOverlay.applyShopping(ops: [op], idMap: [-1: 40], items: [shopItem(40, "Leche")])
+        XCTAssertEqual(already.items.count, 1, "si el servidor ya lo trae, no se duplica")
+    }
+
+    func testShoppingCheckUncheckAndHaveOverlayState() {
+        let items = [shopItem(1, "Pan"), shopItem(2, "Sal", state: "checked"), shopItem(3, "Té")]
+        let result = PendingOverlay.applyShopping(ops: [
+            shopOp(.checkShoppingItem(ref: .remote(1))),
+            shopOp(.uncheckShoppingItem(ref: .remote(2))),
+            shopOp(.haveShoppingItem(ref: .remote(3)))
+        ], idMap: [:], items: items)
+        XCTAssertEqual(result.items.map(\.state), ["checked", "pending", "skipped"])
+        XCTAssertNotNil(result.items[0].checkedAt)
+        XCTAssertNil(result.items[1].checkedAt)
+        XCTAssertEqual(result.pendingIds, [1, 2, 3])
+    }
+
+    func testShoppingMarkOnLocalItemResolvesThroughIdMap() {
+        let result = PendingOverlay.applyShopping(
+            ops: [shopOp(.checkShoppingItem(ref: .local(-1)))], idMap: [-1: 40], items: [shopItem(40, "Leche")])
+        XCTAssertEqual(result.items.first?.state, "checked")
+        XCTAssertEqual(result.pendingIds, [40])
+    }
+
+    func testShoppingMarkOfMissingItemIsIgnoredAndTaskOverlayIgnoresShoppingOps() {
+        let result = PendingOverlay.applyShopping(ops: [shopOp(.checkShoppingItem(ref: .remote(99)))], idMap: [:], items: [shopItem(1, "Pan")])
+        XCTAssertEqual(result.items, [shopItem(1, "Pan")])
+        XCTAssertTrue(result.pendingIds.isEmpty)
+        let tasks = PendingOverlay.apply(ops: [shopOp(.checkShoppingItem(ref: .remote(1)))], idMap: [:], tasks: [], lists: [])
+        XCTAssertTrue(tasks.tasks.isEmpty && tasks.pendingTaskIds.isEmpty)
+    }
+
+    func testShoppingMarkAlreadyAtStateOnlyMarksPending() {
+        let result = PendingOverlay.applyShopping(
+            ops: [shopOp(.checkShoppingItem(ref: .remote(2)))], idMap: [:], items: [shopItem(2, "Sal", state: "checked")])
+        XCTAssertEqual(result.items.first?.state, "checked")
+        XCTAssertEqual(result.pendingIds, [2])
+    }
 }

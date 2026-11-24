@@ -20,6 +20,11 @@ public final class MealsStore {
     /// Nº de eventos de calendario por día (`YYYY-MM-DD`); lo rellena la vista con lo ya cargado.
     public var eventCounts: [String: Int] = [:]
 
+    /// Hoja «lo que entra en la compra» abierta antes de aceptar (nil = cerrada).
+    public private(set) var acceptPreview: ShoppingPreview?
+    /// Resumen `{added, updated, removed}` de la compra tras aceptar; la vista lo muestra una vez.
+    public var acceptedShopping: ShoppingSyncResult?
+
     private let meals: MealRepository
     private let events: EventRepository?
     private let activeHomeId: () -> String?
@@ -245,11 +250,28 @@ public final class MealsStore {
         }
     }
 
-    /// Acepta el menú (guarda antes lo pendiente).
+    /// Acepta el menú (guarda antes lo pendiente). Si el servidor informa de la sincronización con la
+    /// compra, queda en `acceptedShopping`.
     public func accept() async {
         guard await save(), let plan else { return }
-        await write { try await $0.accept(planId: plan.id, expectedRevision: plan.revision) }
+        acceptPreview = nil
+        if await write({ try await $0.accept(planId: plan.id, expectedRevision: plan.revision) }) {
+            acceptedShopping = self.plan?.shoppingSync
+        }
     }
+
+    /// Paso previo a aceptar: guarda lo pendiente y abre la hoja con lo que entraría en la compra. Si la
+    /// vista previa falla se abre igualmente (vacía) para no bloquear la aceptación.
+    public func prepareAccept() async {
+        guard await save(), let plan else { return }
+        do {
+            acceptPreview = try await meals.shoppingPreview(planId: plan.id)
+        } catch {
+            acceptPreview = ShoppingPreview(planId: plan.id, items: [])
+        }
+    }
+
+    public func cancelAccept() { acceptPreview = nil }
 
     /// Libera la semana para rehacerla.
     public func archive() async {

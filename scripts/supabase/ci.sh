@@ -202,6 +202,8 @@ expect_log "deno test api meals" deno-test-api-meals '^ok \| [0-9]+ passed \| 0 
 # Tests de /recipe*, /food* y /meal/plan* (0044): fetch falso; forma, args de cada RPC, 409 de revisión y de semana ocupada.
 run "deno test api recipes" deno-test-api-recipes env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/recipes_test.ts"
 expect_log "deno test api recipes" deno-test-api-recipes '^ok \| [0-9]+ passed \| 0 failed'
+run "deno test api shopping" deno-test-api-shopping env NO_COLOR=1 deno test --no-prompt --allow-env --allow-read "$API_FN/tests/shopping_test.ts"
+expect_log "deno test api shopping" deno-test-api-shopping '^ok \| [0-9]+ passed \| 0 failed'
 run "deno check api" deno-check-api env NO_COLOR=1 deno check "$API_FN/index.ts"
 
 run "SQL invitaciones_check" sql-invitaciones sql "$HERE/scripts/supabase/tests/invitaciones_check.sql"
@@ -230,6 +232,11 @@ expect_log "SQL meal_profile_check" sql-meal-profile "${mp_pat[@]}"
 run "SQL menu_semana_check" sql-menu-semana sql "$HERE/scripts/supabase/tests/menu_semana_check.sql"
 ms_pat=(); for i in $(seq 1 17); do ms_pat+=("ok MS$i([^0-9a-z]|\$)"); done
 expect_log "SQL menu_semana_check" sql-menu-semana "${ms_pat[@]}"
+
+# 0045 (menus-compra): suma de ingredientes, sincronización con el menú, artículos, permisos, RLS y kinds de client_request.
+run "SQL shopping_check" sql-shopping sql "$HERE/scripts/supabase/tests/shopping_check.sql"
+sh_pat=(); for i in $(seq 1 11); do sh_pat+=("ok SH$i([^0-9a-z]|\$)"); done
+expect_log "SQL shopping_check" sql-shopping "${sh_pat[@]}"
 
 run "SQL client_request_check" sql-client-request sql "$HERE/scripts/supabase/tests/client_request_check.sql"
 c_pat=(); for i in $(seq 1 9); do c_pat+=("ok C$i([^0-9a-z]|\$)"); done
@@ -580,6 +587,20 @@ else
     FAILED+=("ida y vuelta 0041 (rollback_0041 no quedó en verde; repetir ci.sh)")
 fi
 
+# Ida y vuelta 0045 → rollback_0045_menus_compra.sql → 0045 (menus-compra), anidada alrededor de la de 0044 (orden LIFO:
+# shopping_item referencia meal_plan y food, y rollback_0044 los borra). El rollback quita la Compra y restaura
+# accept_meal_plan y upsert_meal_plan_items de 0044; la reaplicación va después de reaplicar 0044 y la semilla. Si el
+# rollback no queda en verde no se reaplica: la BD local queda a medias, repetir ci.sh.
+run "SQL shopping_rollback_check" sql-rb0045 sql_expanded "$HERE/scripts/supabase/tests/shopping_rollback_check.sql"
+expect_log "SQL shopping_rollback_check" sql-rb0045 'ok RS1([^0-9]|$)' 'ok RS2([^0-9]|$)' 'ok RS3([^0-9]|$)'
+RB0045_OK=0
+if grep -Eq 'ok RS1([^0-9]|$)' "$OUT/sql-rb0045.log" && grep -Eq 'ok RS2([^0-9]|$)' "$OUT/sql-rb0045.log" \
+    && grep -Eq 'ok RS3([^0-9]|$)' "$OUT/sql-rb0045.log"; then
+    RB0045_OK=1
+else
+    FAILED+=("ida y vuelta 0045 (rollback_0045 no quedó en verde; no se reaplica 0045: la BD local queda a medias, repetir ci.sh)")
+fi
+
 # Ida y vuelta 0044 → rollback_0044_menus_semana.sql → 0044 + semilla (menus-semana): ANTES que la de 0043 (orden
 # LIFO: 0044 usa meal_profile, meal_schedule y las funciones de 0043, y rollback_0043 las borra). El rollback borra las
 # tablas de menús y el catálogo; luego se reaplica 0044, se recarga la semilla y se repite menu_semana_check. Si el
@@ -597,6 +618,16 @@ if grep -Eq 'ok RM4([^0-9]|$)' "$OUT/sql-rb0044.log" && grep -Eq 'ok RM5([^0-9]|
     expect_log "SQL menu_semana_check (tras reaplicar 0044)" sql-ra0044-ms "${ms_pat[@]}"
 else
     FAILED+=("ida y vuelta 0044 (rollback_0044 no quedó en verde; no se reaplica 0044: la BD local queda a medias, repetir ci.sh)")
+fi
+
+# Reaplicación de 0045 (cierra la ida y vuelta anidada de arriba, con 0044 y la semilla ya reaplicadas).
+if [ "$RB0045_OK" = 1 ]; then
+    run "SQL 0045 reaplicada" sql-ra0045 sql "$HERE/supabase/migrations/0045_menus_compra.sql"
+    sleep 1 # notify pgrst: PostgREST recarga el esquema
+    run "SQL shopping_reapply_check" sql-ra0045-chk sql "$HERE/scripts/supabase/tests/shopping_reapply_check.sql"
+    expect_log "SQL shopping_reapply_check" sql-ra0045-chk 'ok RS4([^0-9]|$)'
+    run "SQL shopping_check (tras reaplicar 0045)" sql-ra0045-sh sql "$HERE/scripts/supabase/tests/shopping_check.sql"
+    expect_log "SQL shopping_check (tras reaplicar 0045)" sql-ra0045-sh "${sh_pat[@]}"
 fi
 
 # Ida y vuelta 0043 → rollback_0043_meal_profile.sql → 0043 (menus-perfil-hogar): el último cambio, en serie tras 0041/0042.
@@ -628,4 +659,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10, task_person_access A1-A9, get_persons GP1-GP4, task_hidden H1-H12, task_list_position TP1-TP8, meal_profile MP1-MP11, menu_semana MS1-MS17, guardas de rollback G0-G3, G38-1 y G39-1, feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta 0039 → rollback → [0038 → rollback → (0037 → rollback → (0035 → rollback → 0035) → 0037) → 0038] → 0039 con RBH1-5, contract pre-0039 ${contract_pre39}/${contract_pre39}, RB38-1..5, PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, guarda 0030 E0-E2, RA1-RA2, PA1-PA3, P1-P10, C1-C9, RA38-1, A1-A9, GP1-GP4, RAH1-3 y H1-H12; ida y vuelta 0040 con TR1-TR3, contract ${contract_nopos}/${contract_nopos} sin position, TA1-TA2 y TP1-TP8; ida y vuelta 0044 con RM4-RM6, RA3-RA4 y MS1-MS17; ida y vuelta 0043 con RM1-RM3, RA1-RA2 y MP1-MP11)"
+echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10, task_person_access A1-A9, get_persons GP1-GP4, task_hidden H1-H12, task_list_position TP1-TP8, meal_profile MP1-MP11, menu_semana MS1-MS17, guardas de rollback G0-G3, G38-1 y G39-1, feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta 0039 → rollback → [0038 → rollback → (0037 → rollback → (0035 → rollback → 0035) → 0037) → 0038] → 0039 con RBH1-5, contract pre-0039 ${contract_pre39}/${contract_pre39}, RB38-1..5, PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, guarda 0030 E0-E2, RA1-RA2, PA1-PA3, P1-P10, C1-C9, RA38-1, A1-A9, GP1-GP4, RAH1-3 y H1-H12; ida y vuelta 0040 con TR1-TR3, contract ${contract_nopos}/${contract_nopos} sin position, TA1-TA2 y TP1-TP8; ida y vuelta 0045 (anidada en la de 0044) con RS1-RS4 y SH1-SH11; ida y vuelta 0044 con RM4-RM6, RA3-RA4 y MS1-MS17; shopping_check SH1-SH11; ida y vuelta 0043 con RM1-RM3, RA1-RA2 y MP1-MP11)"

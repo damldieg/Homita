@@ -1,17 +1,21 @@
 import SwiftUI
 
-/// Pestaña Menú: Semana · Compra · Recetas. Compra queda vacía hasta la fase 3.
+/// Pestaña Menú: Semana · Compra · Recetas.
 struct MealsView: View {
     enum Section: Hashable { case week, shopping, recipes }
 
     let services: AppServices
     @State private var store: MealsStore
+    @State private var shopping: ShoppingStore
     @State private var section: Section = .week
 
     init(services: AppServices) {
         self.services = services
         _store = State(initialValue: MealsStore(
             meals: services.meals, events: services.events, activeHomeId: { services.homeContext.activeHomeId }))
+        _shopping = State(initialValue: ShoppingStore(
+            repo: services.shopping, searchFoods: { try await services.recipes.searchFood($0, limit: 8) },
+            outbox: services.activeOutbox, activeHomeId: { services.homeContext.activeHomeId }))
     }
 
     var body: some View {
@@ -23,8 +27,8 @@ struct MealsView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 switch section {
-                case .week: WeekGridView(store: store, services: services)
-                case .shopping: ShoppingPlaceholderView()
+                case .week: WeekGridView(store: store, services: services, onShoppingSync: { shopping.noteSync($0) })
+                case .shopping: ShoppingView(store: shopping)
                 case .recipes: RecipesView(services: services)
                 }
             }
@@ -34,20 +38,5 @@ struct MealsView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
         }
-    }
-}
-
-/// Compra: vacía hasta la fase 3 del planificador.
-struct ShoppingPlaceholderView: View {
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "cart").font(.system(size: 36)).foregroundStyle(Palette.inkMuted)
-            Text("La lista de la compra llega pronto").font(HomitaFont.inter(17, weight: .semibold)).foregroundStyle(Palette.ink)
-            Text("Cuando tengas el menú de la semana, aquí saldrá lo que hay que comprar.")
-                .font(HomitaFont.inter(15)).foregroundStyle(Palette.inkSoft).multilineTextAlignment(.center)
-        }
-        .padding(32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityIdentifier("menu.compra")
     }
 }

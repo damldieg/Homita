@@ -8,6 +8,12 @@ public struct OverlayResult: Equatable {
     public let pendingListIds: Set<Int>
 }
 
+/// Resultado del overlay de la Compra: artículos (servidor + cola) y los ids aún sin sincronizar.
+public struct ShoppingOverlayResult: Equatable {
+    public let items: [ShoppingItem]
+    public let pendingIds: Set<Int64>
+}
+
 /// Aplica la cola offline sobre la última foto del servidor (D-024). Función pura: los stores la
 /// llaman en sus propiedades calculadas, así una recarga nunca pisa lo pendiente (R3). Las filas
 /// creadas offline llevan el ID temporal (o el real si ya se confirmó) y, si el servidor ya trae
@@ -17,6 +23,37 @@ public enum PendingOverlay {
     static func dueValue(_ raw: String?) -> String? {
         guard let raw, !raw.isEmpty else { return nil }
         return raw
+    }
+
+    /// Compra: altas pendientes (con el ID temporal, o el real si ya se confirmó y el servidor aún no lo
+    /// trae) y estado marcado/desmarcado/«ya lo tengo» sobre la última foto del servidor. Función pura,
+    /// como `apply`: una recarga no pisa lo pendiente. Las ops de tareas y listas se ignoran.
+    public static func applyShopping(ops: [PendingOp], idMap: [Int: Int], items serverItems: [ShoppingItem]) -> ShoppingOverlayResult {
+        var items = serverItems
+        var pending = Set<Int64>()
+        for op in ops {
+            switch op.kind {
+            case .createShoppingItem(let local, let label, let quantity, let unit, let section, let foodId, let state):
+                let id = Int64(Ref.local(local).displayId(with: idMap))
+                pending.insert(id)
+                guard !items.contains(where: { $0.id == id }) else { continue }
+                items.append(ShoppingItem(
+                    id: id, label: label ?? "", foodId: foodId, quantity: quantity, unit: unit, section: section ?? "otros",
+                    origin: ShoppingOrigin.manual, state: state,
+                    checkedAt: state == ShoppingState.pending ? nil : PHPDateTime.format(op.createdAt),
+                    createdAt: PHPDateTime.format(op.createdAt)))
+            case .checkShoppingItem(let ref), .uncheckShoppingItem(let ref), .haveShoppingItem(let ref):
+                let id = Int64(ref.displayId(with: idMap))
+                guard let index = items.firstIndex(where: { $0.id == id }), let state = op.kind.shoppingState else { continue }
+                pending.insert(id)
+                guard items[index].state != state else { continue }
+                items[index].state = state
+                items[index].checkedAt = state == ShoppingState.pending ? nil : PHPDateTime.format(op.createdAt)
+            default:
+                continue
+            }
+        }
+        return ShoppingOverlayResult(items: items, pendingIds: pending)
     }
 
     public static func apply(ops: [PendingOp], idMap: [Int: Int], tasks serverTasks: [TaskEntry], lists serverLists: [TaskListEntry]) -> OverlayResult {
@@ -93,6 +130,9 @@ public enum PendingOverlay {
                 }
                 tasks.removeAll { $0.id == id }
                 pendingTasks.remove(id)
+
+            case .createShoppingItem, .checkShoppingItem, .uncheckShoppingItem, .haveShoppingItem:
+                continue // Compra: ver `applyShopping`.
             }
         }
 

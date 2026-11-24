@@ -136,4 +136,32 @@ final class OutboxStoreTests: XCTestCase {
         XCTAssertEqual(OutboxStore(userId: 1, homeId: "2", directory: directory).ops.map(\.kind), [rewritten, second.kind])
         XCTAssertEqual(store.ops.first?.id, first.id, "conserva id y clave")
     }
+
+    // MARK: - Compra
+
+    func testDiscardOfShoppingCreateDropsItsMarks() {
+        let store = OutboxStore(userId: 1, homeId: "2", directory: directory)
+        let local = store.makeLocalId()
+        let create = PendingOp(homeId: "2", kind: .createShoppingItem(local: local, label: "Leche", quantity: nil, unit: "ud", section: nil, foodId: nil))
+        store.enqueue(create)
+        store.beginFlight(create.id)
+        store.enqueue(PendingOp(homeId: "2", kind: .checkShoppingItem(ref: .local(local))))
+        store.enqueue(PendingOp(homeId: "2", kind: .checkShoppingItem(ref: .remote(9))))
+        store.endFlight()
+        store.discard(create.id, notice: "no")
+        XCTAssertEqual(store.ops.map(\.kind), [.checkShoppingItem(ref: .remote(9))])
+        XCTAssertEqual(store.notices.count, 1)
+    }
+
+    func testAckOfShoppingCreateStoresMappingAndPersistsShoppingOps() {
+        let store = OutboxStore(userId: 1, homeId: "2", directory: directory)
+        let local = store.makeLocalId()
+        let create = PendingOp(homeId: "2", kind: .createShoppingItem(local: local, label: "Leche", quantity: 2, unit: "l", section: nil, foodId: nil))
+        store.enqueue(create)
+        let reloaded = OutboxStore(userId: 1, homeId: "2", directory: directory)
+        XCTAssertEqual(reloaded.ops, [create])
+        store.ack(create.id, remoteId: 40)
+        XCTAssertEqual(store.ref(for: local), .remote(40))
+        XCTAssertTrue(store.isEmpty)
+    }
 }

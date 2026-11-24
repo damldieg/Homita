@@ -118,6 +118,7 @@ app; el refresco queda para una fase posterior):
 | `migrations/0038_task_create_person_access.sql` | Change `asignar-alta-lista`: `create_task` (misma firma de 5 argumentos, `create or replace`) solo acepta en `p_person_ids` personas con cuenta y con fila en `task_list_user` de la lista; si no, 400 `Invalid person` sin crear la tarea. `update_task` no cambia. Ver «Acceso a la lista al crear (0038)». Reversa: `scripts/supabase/rollback/rollback_0038.sql` (restaura el cuerpo de 0037; sin datos), **antes** que `rollback_0037` (orden LIFO 0038 → 0037 → 0035). Despliegue en `supabase/DEPLOY_0038.md` |
 | `migrations/0039_task_hidden_at.sql` | Change `ocultar-completadas-3-dias` (D-025): columna `task.hidden_at` (`timestamptz` nullable, `completed_at + 3 días` en UTC, CHECK `task_hidden_at_consistent`) con backfill de las completadas; `get_tasks` deja fuera las ocultas y `get_task_detail` y las escrituras sobre una oculta dan `Not Found` (500, como una inexistente). Mismas firmas y shapes; la Edge no cambia. Ver «Ocultar completadas (0039, D-025)». Reversa: `scripts/supabase/rollback/rollback_0039.sql` (solo se pierde `hidden_at`, derivable), **antes** que `rollback_0038` (orden LIFO 0039 → 0038 → 0037 → 0035; `rollback_0038` aborta mientras exista `task.hidden_at`). Despliegue en `supabase/DEPLOY_0039.md` |
 | `migrations/0040_task_list_position.sql` | Change `lista-prioritaria-inicio`: `task_list.position integer null` (check `> 0`, global por hogar), backfill por hogar (`created_at, id`), `get_task_lists` con la clave aditiva `position` y orden `position` asc nulls last, `name`, `id`, y RPC `reorder_task_lists(bigint[])`. Ver «Orden de listas (0040)». Reversa: `scripts/supabase/rollback/rollback_0040.sql` (se pierde el orden elegido) |
+| `migrations/0045_menus_compra.sql` | Change `menus-compra` (fase 3 del planificador): `shopping_item`, `recipe_ingredient.optional`, `meal_plan.shopping_revision`, kinds nuevos de `client_request`, RPC de la compra y sincronización con el menú aceptado. Ver «Compra del menú (0045)». Reversa: `scripts/supabase/rollback/rollback_0045_menus_compra.sql` (**pierde la compra**), **antes** que `rollback_0044` (orden LIFO) |
 
 ## Edge Function `functions/api/`
 
@@ -700,6 +701,44 @@ cargar varias veces sin duplicar.
 
 Errores nuevos de las RPC (la Edge los mapea): `Invalid recipe`, `Invalid food`, `Invalid meal plan`
 (400), `Stale meal plan revision` y `Meal plan exists` (409, ver `_shared/errors.ts`).
+
+## Compra del menú (0045)
+
+`migrations/0045_menus_compra.sql` (change `menus-compra`, fase 3 del planificador) añade la Compra: una
+por hogar, sincronizada con el menú aceptado sin tocar lo marcado, «ya lo tengo», lo manual ni las
+cantidades editadas. Sin permisos nuevos: lectura `menu.view`, escritura `menu.shopping.edit` (adulto,
+niño y familiar sí; invitado no). Toda la lógica (suma con conversiones, despensa básica fuera, redondeo
+comprable, diff) vive en SQL; la Edge solo valida la forma y llama a la RPC. Reversa:
+`scripts/supabase/rollback/rollback_0045_menus_compra.sql` (**pierde la compra** y restaura
+`accept_meal_plan`, `upsert_meal_plan_items` y las RPC de recetas de 0044), antes que `rollback_0044`.
+
+Rutas aditivas (D-008), todas con `auth` y hogar por `X-Home-Id` o `fn_home_for_root_create()`:
+
+| Ruta | RPC | Notas |
+|---|---|---|
+| `GET /shopping` | `list_shopping` | `{revision, items}` sin los ocultos (`cleared`) |
+| `GET /shopping/preview?plan_id=` | `preview_meal_shopping` | solo lectura: lo que entraría desde el plan |
+| `POST /shopping/sync {plan_id, client_request_id?}` | `sync_meal_shopping` | `{added, updated, removed}`; idempotente por `client_request_id` (kind `meal_shopping_sync`) |
+| `POST /shopping/item/create` | `create_shopping_item` | alta a mano; `client_request_id` (kind `shopping_item`); el replay solo devuelve artículos del hogar |
+| `PATCH /shopping/item/check {id, state}` | `set_shopping_item_state` | `pending`, `checked` o `skipped` («ya lo tengo»); sobre un artículo oculto no hace nada |
+| `PATCH /shopping/item/update {id, quantity, unit?}` | `update_shopping_item_qty` | la cantidad editada deja de sincronizarse |
+| `DELETE /shopping/item/delete?id=` | `delete_shopping_item` | manual: se borra; de menú: «ya lo tengo» y oculto |
+| `DELETE /shopping/checked` | `clear_checked_shopping` | vacía solo los comprados; devuelve `{cleared}` |
+
+`accept_meal_plan` devuelve además `shopping_sync` (`{added, updated, removed}`, campo aditivo) y
+`upsert_meal_plan_items` sincroniza la compra en cada edición de un plan que estaba aceptado o que ya
+tiene artículos de menú (la compra refleja la última edición). Los ingredientes de receta aceptan
+`optional` (boolean) en `/recipe/create` y `/recipe/update`; los opcionales no entran en la compra.
+
+**Orden de despliegue de 0045** (nada se ha desplegado): 0044 antes que 0045 (usa `food`, `recipe`,
+`meal_plan`); aplicar la migración (el merge la aplica, D-022) y después desplegar la Edge `api`. Con la
+migración sin la Edge no hay rutas `/shopping*` (las RPC no tienen efecto visible); con la Edge sin la
+migración las rutas darían 500. Los clientes antiguos ignoran `shopping_sync` y `optional`.
+
+**La semilla de alimentos no aplica aquí:** 0045 no carga datos. La despensa básica (sal, aceite, azúcar,
+pimienta, agua) es una función fija (`fn_meal_pantry_basic_names()`); la lista está pendiente de confirmar
+por el usuario (G3) y cambiarla es redefinir esa función. El catálogo de `supabase/seed/food_es.sql` sigue
+siendo el paso manual de 0044.
 
 ## Verificación de contrato (`scripts/supabase/contract_check.py`)
 

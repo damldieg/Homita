@@ -138,7 +138,8 @@ public final class OutboxStore {
         }
         let depends: (PendingOp) -> Bool = { op in
             refs.contains { ref in
-                op.kind.taskRef?.normalized(with: map) == ref || op.kind.listRef.normalized(with: map) == ref
+                op.kind.taskRef?.normalized(with: map) == ref || op.kind.listRef?.normalized(with: map) == ref
+                    || op.kind.shoppingRef?.normalized(with: map) == ref
             }
         }
         // Cierre transitivo: un create descartado arrastra las ops de su temporal, y así sucesivamente.
@@ -220,7 +221,7 @@ public final class OutboxStore {
     private func trimIdMap() {
         guard idMap.count > Self.idMapLimit else { return }
         let inUse = Set(ops.flatMap { op -> [Int] in
-            [op.kind.taskRef, op.kind.listRef].compactMap { ref in
+            [op.kind.taskRef, op.kind.listRef, op.kind.shoppingRef].compactMap { ref in
                 if case .local(let id)? = ref { return id }
                 return nil
             }

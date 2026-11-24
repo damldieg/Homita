@@ -66,6 +66,13 @@ public struct MealRepository {
             as: MealPlan.self)
     }
 
+    /// `GET shopping/preview?plan_id=`: lo que entraría en la Compra al aceptar (solo lectura).
+    public func shoppingPreview(planId: Int64) async throws -> ShoppingPreview {
+        try await client.send(
+            APIRequest(method: .get, path: "shopping/preview", query: [URLQueryItem(name: "plan_id", value: String(planId))]),
+            as: ShoppingPreview.self)
+    }
+
     /// `POST meal/plan/archive`: libera la semana. Con `expectedRevision`, 409 si el plan cambió.
     public func archive(planId: Int64, expectedRevision: Int? = nil) async throws -> MealPlan {
         try await client.send(

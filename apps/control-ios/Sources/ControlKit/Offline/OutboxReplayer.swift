@@ -5,10 +5,34 @@ import Foundation
 struct OutboxSender {
     let tasks: TaskRepository
     let taskLists: TaskListRepository
+    /// Compra (menus-compra). Sin repositorio, una op de la Compra se conserva en la cola (reintento).
+    var shopping: ShoppingRepository?
 
     /// Una referencia temporal sin ID real (su create se descartó o aún no se confirmó).
     enum SendError: Error, Equatable {
         case unresolvedRef
+        /// Op de la Compra sin `ShoppingRepository` configurado: no se descarta, se reintenta.
+        case shoppingUnavailable
+    }
+
+    /// Envía una op de la Compra. El alta lleva `client_request_id = op.id` (reenviarla no duplica); si el
+    /// estado se fundió en el alta, se fija tras crear (misma idea que la fecha de las tareas).
+    static func sendShopping(_ op: PendingOp, idMap: [Int: Int], repo: ShoppingRepository) async throws -> Int? {
+        switch op.kind {
+        case .createShoppingItem(_, let label, let quantity, let unit, let section, let foodId, let state):
+            let created = try await repo.create(label: label, quantity: quantity, unit: unit, section: section,
+                                                foodId: foodId, clientRequestId: op.clientRequestId)
+            if state != ShoppingState.pending {
+                _ = try await repo.setState(id: created.id, state: state)
+            }
+            return Int(created.id)
+        case .checkShoppingItem(let ref), .uncheckShoppingItem(let ref), .haveShoppingItem(let ref):
+            guard let id = ref.resolved(with: idMap), let state = op.kind.shoppingState else { throw SendError.unresolvedRef }
+            _ = try await repo.setState(id: Int64(id), state: state)
+            return nil
+        default:
+            return nil
+        }
     }
 
     /// Envía la op y devuelve el ID real creado (solo en los creates).
@@ -42,6 +66,9 @@ struct OutboxSender {
             _ = try await taskLists.update(UpdateTaskListRequest(id: try id(ref), name: name, color: color, sort: sort, widget: widget, dashboard: dashboard))
         case .deleteList(let ref):
             try await taskLists.delete(id: try id(ref))
+        case .createShoppingItem, .checkShoppingItem, .uncheckShoppingItem, .haveShoppingItem:
+            guard let shopping else { throw SendError.shoppingUnavailable }
+            return try await Self.sendShopping(op, idMap: idMap, repo: shopping)
         }
         return nil
     }
@@ -76,8 +103,9 @@ public final class OutboxReplayer {
 
     /// `persons` habilita la reasignación de P-4; sin él, un `Invalid person` descarta como cualquier 4xx.
     public init(tasks: TaskRepository, taskLists: TaskListRepository, persons: PersonRepository? = nil,
+                shopping: ShoppingRepository? = nil,
                 isOnline: @escaping @MainActor () -> Bool = { !DataFreshness.shared.isOffline }) {
-        self.sender = OutboxSender(tasks: tasks, taskLists: taskLists)
+        self.sender = OutboxSender(tasks: tasks, taskLists: taskLists, shopping: shopping)
         self.taskLists = taskLists
         self.persons = persons
         self.isOnline = isOnline
@@ -174,6 +202,7 @@ public final class OutboxReplayer {
             return nil
         }
         guard let error = error as? APIError else {
+            // Incluye `shoppingUnavailable`: la op se conserva y se reintenta.
             outbox.endFlight()
             outbox.recordAttempt(op.id)
             return .retryable
@@ -303,7 +332,7 @@ public final class OutboxReplayer {
     /// Recurso del que dependen las ops posteriores (los creates ya arrastran su temporal).
     private static func target(of kind: PendingOp.Kind) -> Ref? {
         if kind.isCreate { return nil }
-        return kind.taskRef ?? kind.listRef
+        return kind.taskRef ?? kind.shoppingRef ?? kind.listRef
     }
 
     /// Texto del aviso de descarte.

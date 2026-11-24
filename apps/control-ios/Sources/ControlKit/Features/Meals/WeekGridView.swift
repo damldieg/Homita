@@ -6,6 +6,8 @@ import SwiftUI
 struct WeekGridView: View {
     @Bindable var store: MealsStore
     let services: AppServices
+    /// Avisa a la Compra de lo que entró al aceptar el menú.
+    var onShoppingSync: (ShoppingSyncResult) -> Void = { _ in }
     @State private var slotEditor: SlotEditorRequest?
     @State private var copySource: String?
     @State private var confirmArchive = false
@@ -37,6 +39,21 @@ struct WeekGridView: View {
             NavigationStack {
                 MealSlotSheet(store: store, recipes: services.recipes, day: request.day, slot: request.slot, item: request.item)
             }
+        }
+        .sheet(isPresented: Binding(get: { store.acceptPreview != nil }, set: { if !$0 { store.cancelAccept() } })) {
+            NavigationStack {
+                AcceptShoppingSheet(preview: store.acceptPreview, isWorking: store.isWorking,
+                                    onConfirm: { Task { await store.accept() } }, onCancel: { store.cancelAccept() })
+            }
+        }
+        .alert("Compra actualizada", isPresented: Binding(get: { store.acceptedShopping != nil },
+                                                           set: { if !$0 { store.acceptedShopping = nil } })) {
+            Button("Entendido") { store.acceptedShopping = nil }
+        } message: {
+            Text(Self.acceptedMessage(store.acceptedShopping))
+        }
+        .onChange(of: store.acceptedShopping) { _, result in
+            if let result { onShoppingSync(result) }
         }
         .homitaConfirm("¿Archivar el menú de esta semana?", isPresented: $confirmArchive, confirmTitle: "Archivar") {
             Task { await store.archive() }
@@ -272,7 +289,7 @@ struct WeekGridView: View {
             }
             if store.isDraft, !store.items.isEmpty {
                 HomitaButton(title: "Aceptar menú", kind: store.isDirty ? .secondary : .primary, isLoading: store.isWorking) {
-                    Task { await store.accept() }
+                    Task { await store.prepareAccept() }
                 }
                 .accessibilityIdentifier("menu.aceptar")
             }
@@ -280,6 +297,15 @@ struct WeekGridView: View {
     }
 
     // MARK: Texto
+
+    static func acceptedMessage(_ result: ShoppingSyncResult?) -> String {
+        guard let result, !result.isEmpty else { return "La compra ya estaba al día." }
+        var parts: [String] = []
+        if result.added > 0 { parts.append("\(result.added) \(result.added == 1 ? "artículo nuevo" : "artículos nuevos")") }
+        if result.updated > 0 { parts.append("\(result.updated) \(result.updated == 1 ? "cantidad cambiada" : "cantidades cambiadas")") }
+        if result.removed > 0 { parts.append("\(result.removed) \(result.removed == 1 ? "artículo quitado" : "artículos quitados")") }
+        return parts.joined(separator: ", ").capitalizedFirst + "."
+    }
 
     static func label(_ item: MealPlanItem) -> String {
         switch item.kind {
@@ -316,5 +342,57 @@ struct WeekGridView: View {
         f.timeZone = tz
         f.setLocalizedDateFormatFromTemplate("dMMM")
         return f.string(from: date)
+    }
+}
+
+private extension String {
+    var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
+}
+
+/// Hoja previa a aceptar: lo que entraría en la compra, por sección, y confirmación.
+struct AcceptShoppingSheet: View {
+    let preview: ShoppingPreview?
+    let isWorking: Bool
+    let onConfirm: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        List {
+            Section {
+                if let items = preview?.items, !items.isEmpty {
+                    Text("Esto entra en la compra. Después podrás revisar y marcar lo que ya tengas.")
+                        .font(HomitaFont.inter(14)).foregroundStyle(Palette.inkSoft)
+                    ForEach(items, id: \.aggKey) { item in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.label).font(HomitaFont.inter(16, weight: .medium))
+                                let dishes = Array(Set(item.sources.compactMap(\.name))).sorted()
+                                if !dishes.isEmpty {
+                                    Text("Para: " + dishes.joined(separator: ", "))
+                                        .font(HomitaFont.inter(13)).foregroundStyle(Palette.inkSoft)
+                                }
+                            }
+                            Spacer()
+                            Text(item.quantityText).foregroundStyle(Palette.inkSoft)
+                        }
+                    }
+                } else {
+                    Text("Este menú no añade ingredientes a la compra.")
+                        .font(HomitaFont.inter(15)).foregroundStyle(Palette.inkSoft)
+                }
+            }
+        }
+        .navigationTitle("Aceptar menú")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) { Button("Cancelar", action: onCancel) }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Aceptar", action: onConfirm)
+                    .disabled(isWorking)
+                    .accessibilityIdentifier("menu.aceptar.confirmar")
+            }
+        }
     }
 }

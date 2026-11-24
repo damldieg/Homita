@@ -16,7 +16,12 @@ final class PendingOpTests: XCTestCase {
             .deleteTask(ref: .remote(7), listRef: .remote(2)),
             .createList(local: -3, name: "Compra", color: "#6923E2", sort: "custom", widget: true, dashboard: false),
             .updateList(ref: .remote(2), name: "Súper", color: "#112233", sort: "title", widget: false, dashboard: true),
-            .deleteList(ref: .local(-3))
+            .deleteList(ref: .local(-3)),
+            .createShoppingItem(local: -4, label: "Leche", quantity: 2, unit: "l", section: "lacteos", foodId: 12),
+            .createShoppingItem(local: -5, label: nil, quantity: nil, unit: "ud", section: nil, foodId: 9, state: "checked"),
+            .checkShoppingItem(ref: .remote(30)),
+            .uncheckShoppingItem(ref: .local(-4)),
+            .haveShoppingItem(ref: .remote(31))
         ]
         for kind in kinds {
             let op = PendingOp(createdAt: Date(timeIntervalSince1970: 1_700_000_000), homeId: "1", attempts: 2, kind: kind)
@@ -37,5 +42,23 @@ final class PendingOpTests: XCTestCase {
         let id = UUID()
         let op = PendingOp(id: id, homeId: "1", kind: .deleteList(ref: .remote(1)))
         XCTAssertEqual(op.clientRequestId, id.uuidString.lowercased())
+    }
+
+    func testShoppingKindsExposeRefStateAndSubject() {
+        let create = PendingOp.Kind.createShoppingItem(local: -4, label: "Leche", quantity: nil, unit: "ud", section: nil, foodId: nil)
+        XCTAssertEqual(create.shoppingRef, .local(-4))
+        XCTAssertEqual(create.createdLocal, .local(-4))
+        XCTAssertTrue(create.isCreate)
+        XCTAssertTrue(create.isShoppingOp)
+        XCTAssertFalse(create.isTaskOp)
+        XCTAssertNil(create.listRef)
+        XCTAssertEqual(create.subject, "«Leche»")
+        XCTAssertEqual(PendingOp.Kind.checkShoppingItem(ref: .remote(3)).shoppingState, "checked")
+        XCTAssertEqual(PendingOp.Kind.uncheckShoppingItem(ref: .remote(3)).shoppingState, "pending")
+        XCTAssertEqual(PendingOp.Kind.haveShoppingItem(ref: .remote(3)).shoppingState, "skipped")
+        XCTAssertNil(create.shoppingState)
+        XCTAssertFalse(PendingOp.Kind.checkShoppingItem(ref: .remote(3)).isDelete)
+        XCTAssertTrue(PendingOp.Kind.checkShoppingItem(ref: .remote(3)).references(.remote(3)))
+        XCTAssertNil(PendingOp.Kind.deleteList(ref: .remote(1)).shoppingRef)
     }
 }

@@ -113,13 +113,20 @@ export const handleRecipeDetail = async (req: Request, token: string): Promise<R
     return rpcPassHome(await rpc("get_recipe", { p_id: id }, token));
 };
 
-// POST /recipe/create {name, servings?, minutes?, slots?, steps?, ingredients?}
+// Ingredientes: array cuyos elementos, si son objetos, llevan `optional` booleano cuando viene (0045). El resto
+// de campos los valida la RPC.
+const isIngredientList = (v: unknown): boolean =>
+    Array.isArray(v) && v.every((e) => typeof e !== "object" || e === null || Array.isArray(e)
+        || ((e as Record<string, unknown>).optional ?? false) === false
+        || typeof (e as Record<string, unknown>).optional === "boolean");
+
+// POST /recipe/create {name, servings?, minutes?, slots?, steps?, ingredients?: [{food_id?, label?, quantity?, unit?, optional?}]}
 export const handleRecipeCreate = async (req: Request, token: string): Promise<Response> => {
     const b = await contractBodyOnly(req);
     if (typeof b.name !== "string") return errInvalidRecipe();
     if (b.slots !== undefined && b.slots !== null && !isStringArray(b.slots)) return errInvalidRecipe();
     if (b.steps !== undefined && b.steps !== null && !isSteps(b.steps)) return errInvalidRecipe();
-    if (b.ingredients !== undefined && b.ingredients !== null && !Array.isArray(b.ingredients)) {
+    if (b.ingredients !== undefined && b.ingredients !== null && !isIngredientList(b.ingredients)) {
         return errInvalidRecipe();
     }
     if ((b.servings !== undefined && !isOptInt32(b.servings)) || (b.minutes !== undefined && !isOptInt32(b.minutes))) {
@@ -145,7 +152,7 @@ export const handleRecipeUpdate = async (req: Request, token: string): Promise<R
     }
     if (data.slots !== undefined && data.slots !== null && !isStringArray(data.slots)) return errInvalidRecipe();
     if (data.steps !== undefined && data.steps !== null && !isSteps(data.steps)) return errInvalidRecipe();
-    if (data.ingredients !== undefined && data.ingredients !== null && !Array.isArray(data.ingredients)) {
+    if (data.ingredients !== undefined && data.ingredients !== null && !isIngredientList(data.ingredients)) {
         return errInvalidRecipe();
     }
     return rpcPassHome(await rpc("update_recipe", { p_id: id, p_data: data }, token));

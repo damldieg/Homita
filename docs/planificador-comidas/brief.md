@@ -55,6 +55,16 @@ y `meal_shopping_sync`. Todo con RLS por `fn_my_home_ids()`, RPC `security defin
 1. `menus-perfil-hogar` · 2. `menus-semana` · 3. `menus-compra` · 4. `menus-pantalla-widget` · 5. `kito-menus`.
 Prompts en `prompts/`.
 
+### Estado de las fases
+- Fase 1 `menus-perfil-hogar` (0043) y fase 2 `menus-semana` (0044): en master.
+- Fase 3 `menus-compra` (0045): implementada en la rama `dc/menus-compra`, sin mergear ni desplegar. Hecho:
+  la Compra por hogar (SQL, Edge `/shopping*`, iOS con modo revisión y escritura sin conexión). Límites:
+  editar cantidad, borrar y vaciar comprados requieren red; `recipe_ingredient.optional` se puede poner por
+  `/recipe/create` y `/recipe/update`, pero la app iOS aún no lo expone; lista de despensa (G3) pendiente de
+  confirmar por el usuario; Release y revisión visual en simulador sin ejecutar. Detalle de rutas y orden de
+  despliegue en `supabase/README.md` (sección «Compra del menú (0045)»).
+- Fases 4 `menus-pantalla-widget` y 5 `kito-menus`: pendientes.
+
 ## Reglas
 Flujo dorch (brief/status en `.dorch/changes/<slug>/`, rama `dc/<slug>` desde `origin/master`, worktree
 `../Homita-<slug>`). Nada en producción. Sin push/PR sin `authorized: push pr gh`. Nunca merge.

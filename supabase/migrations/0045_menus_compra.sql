@@ -1,0 +1,829 @@
+-- 0045_menus_compra.sql — change menus-compra (fase 3 de 5 del planificador de comidas):
+-- la Compra del hogar, sincronizada con el menú aceptado. Una sola transacción.
+-- Rutas Edge aditivas (D-008); nada toca 0001–0044 salvo accept_meal_plan y upsert_meal_plan_items
+-- (se redefinen con el cuerpo exacto de 0044 más la llamada a la sincronización). Sin permisos nuevos:
+-- lectura `menu.view`, escritura de artículos `menu.shopping.edit` (28 permisos / 47 defaults).
+--
+-- Contenido:
+-- * recipe_ingredient.optional (decisión 1): los opcionales no entran en la compra.
+-- * shopping_item: una sola Compra por hogar. origin 'manual' | 'menu'; los de origen menu cuelgan de
+--   un plan con `agg_key` (<food_id|n:name_norm>|<familia>) y un índice único parcial (plan_id, agg_key).
+--   state pending | checked | skipped («ya lo tengo» = skipped). `cleared` oculta un artículo de origen
+--   menu ya comprado o borrado a mano sin perder la huella: la sincronización no lo vuelve a crear.
+-- * meal_plan.shopping_revision: sube solo cuando la sincronización cambia algo (no es la `revision`
+--   de concurrencia del menú).
+-- * client_request admite los kinds 'shopping_item' y 'meal_shopping_sync' (resource_id = id del
+--   artículo o del plan) y una columna `result` para devolver el mismo resultado en un reintento.
+-- * Suma en servidor (decisiones 2, 5 y 6): factor = comensales / recipe.servings; g/kg → g, ml/l → ml,
+--   ud aparte (a g con grams_per_unit si el resto de la agregación es g), cda/cdta/pizca en líneas
+--   propias; se excluyen «al gusto», opcionales y la despensa básica (fn_meal_pantry_basic_names);
+--   redondeo comprable (g y ml a múltiplos de 10 hacia arriba, kg y l con 2 decimales hacia arriba, ud
+--   enteras hacia arriba). Comensales = miembros de la casilla; sin miembros, `servings` de la casilla.
+-- * RLS: solo SELECT para authenticated; escribe solo RPC security definer (patrón 0043/0044).
+--
+-- Rollback: scripts/supabase/rollback/rollback_0045_menus_compra.sql (borra la Compra y sus datos).
+
+begin;
+
+-- ─────────────────── (a) Columnas y tabla ───────────────────
+
+alter table recipe_ingredient add column optional boolean not null default false;
+alter table meal_plan add column shopping_revision integer not null default 0 check (shopping_revision >= 0);
+
+-- Ingredientes opcionales (R1-04): fn_meal_recipe_set_ingredients acepta `optional` (boolean, por defecto
+-- false) y fn_meal_recipe_json lo devuelve. Cuerpos de 0044 más ese campo (rollback_0045 restaura los de
+-- 0044). Los grants de 0044 (solo internas) se conservan con create or replace.
+
+create or replace function fn_meal_recipe_json(p_id bigint) returns json
+language sql stable security definer set search_path = public as $$
+    select json_build_object(
+        'id', r.id, 'name', r.name, 'servings', r.servings, 'minutes', r.minutes, 'slots', r.slots,
+        'steps', r.steps, 'created_by', r.created_by, 'updated_at', r.updated_at,
+        'ingredients', (select coalesce(json_agg(json_build_object(
+                'id', i.id, 'position', i.position, 'food_id', i.food_id, 'label', i.label,
+                'quantity', i.quantity, 'unit', i.unit, 'optional', i.optional) order by i.position, i.id), '[]'::json)
+            from recipe_ingredient i where i.recipe_id = r.id),
+        'allergens', (select coalesce(json_agg(a order by a), '[]'::json) from (
+                select distinct unnest(f.allergens) as a from recipe_ingredient i
+                join food f on f.id = i.food_id where i.recipe_id = r.id) x))
+    from recipe r where r.id = p_id
+$$;
+
+create or replace function fn_meal_recipe_set_ingredients(p_home bigint, p_recipe bigint, p_ing jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+    v_e jsonb;
+    v_pos integer := 0;
+    v_food bigint;
+    v_fname text;
+    v_label text;
+    v_qty numeric;
+    v_unit text;
+    v_opt boolean;
+begin
+    if p_ing is null or jsonb_typeof(p_ing) <> 'array' or jsonb_array_length(p_ing) > 60 then
+        raise exception 'Invalid recipe' using errcode = 'P0001';
+    end if;
+    delete from recipe_ingredient where recipe_id = p_recipe;
+    for v_e in select e from jsonb_array_elements(p_ing) e loop
+        if jsonb_typeof(v_e) <> 'object' then
+            raise exception 'Invalid recipe' using errcode = 'P0001';
+        end if;
+        v_food := null;
+        v_fname := null;
+        if coalesce(jsonb_typeof(v_e->'food_id'), 'null') not in ('null', 'number') then
+            raise exception 'Invalid recipe' using errcode = 'P0001';
+        end if;
+        if jsonb_typeof(v_e->'food_id') = 'number' then
+            if (v_e->>'food_id') !~ '^[0-9]{1,18}$' then
+                raise exception 'Invalid recipe' using errcode = 'P0001';
+            end if;
+            -- alimento del catálogo común o del propio hogar; cualquier otro, misma respuesta
+            select f.id, f.name into v_food, v_fname from food f
+            where f.id = (v_e->>'food_id')::bigint and (f.home_id is null or f.home_id = p_home);
+            if v_food is null then
+                raise exception 'Invalid recipe' using errcode = 'P0001';
+            end if;
+        end if;
+        if coalesce(jsonb_typeof(v_e->'label'), 'null') not in ('null', 'string')
+           or coalesce(jsonb_typeof(v_e->'unit'), 'null') not in ('null', 'string')
+           or coalesce(jsonb_typeof(v_e->'quantity'), 'null') not in ('null', 'number')
+           or coalesce(jsonb_typeof(v_e->'optional'), 'null') not in ('null', 'boolean') then
+            raise exception 'Invalid recipe' using errcode = 'P0001';
+        end if;
+        v_label := coalesce(nullif(btrim(v_e->>'label'), ''), v_fname);
+        v_qty := (v_e->>'quantity')::numeric;
+        v_unit := coalesce(v_e->>'unit', 'ud');
+        v_opt := coalesce((v_e->>'optional')::boolean, false);
+        insert into recipe_ingredient (recipe_id, home_id, position, food_id, label, quantity, unit, optional)
+        values (p_recipe, p_home, v_pos, v_food, v_label, v_qty, v_unit, v_opt);
+        v_pos := v_pos + 1;
+    end loop;
+end $$;
+
+
+create table shopping_item (
+    id bigint generated by default as identity primary key,
+    home_id bigint not null references home (id) on delete cascade,
+    label text not null check (btrim(label) <> '' and char_length(label) <= 120),
+    food_id bigint references food (id) on delete set null,
+    quantity numeric(12, 2) check (quantity >= 0),
+    unit text not null default 'ud' check (unit in ('g', 'kg', 'ml', 'l', 'ud', 'cda', 'cdta', 'pizca')),
+    section text not null default 'otros' check (section in (
+        'verdura', 'fruta', 'carne', 'embutido', 'pescado', 'marisco', 'lacteos', 'huevos', 'legumbres',
+        'cereales', 'panaderia', 'despensa', 'aceites', 'especias', 'bebidas', 'congelados', 'otros')),
+    origin text not null default 'manual' check (origin in ('manual', 'menu')),
+    plan_id bigint,
+    agg_key text,
+    sources jsonb not null default '[]'::jsonb check (jsonb_typeof(sources) = 'array'),
+    qty_overridden boolean not null default false,
+    state text not null default 'pending' check (state in ('pending', 'checked', 'skipped')),
+    cleared boolean not null default false,
+    checked_at timestamp without time zone,
+    checked_by bigint references app_user (id) on delete set null,
+    created_by bigint references app_user (id) on delete set null,
+    created_at timestamp without time zone not null default (now() at time zone 'UTC'),
+    updated_at timestamp without time zone not null default (now() at time zone 'UTC'),
+    unique (id, home_id),
+    constraint shopping_item_menu_ck check (origin = 'manual' or (plan_id is not null and agg_key is not null)),
+    constraint shopping_item_plan_fk foreign key (plan_id, home_id)
+        references meal_plan (id, home_id) on delete cascade
+);
+create unique index shopping_item_plan_agg_uq on shopping_item (plan_id, agg_key) where origin = 'menu';
+create index shopping_item_home_idx on shopping_item (home_id);
+
+alter table shopping_item enable row level security;
+revoke all on shopping_item from public, anon, authenticated;
+grant select on shopping_item to authenticated;
+create policy shopping_item_select on shopping_item for select to authenticated
+    using (home_id = any (fn_my_home_ids()) and fn_has_permission(home_id, 'menu.view'));
+
+-- ─────────────────── (b) client_request: kinds nuevos y resultado ───────────────────
+-- El check de `kind` es el autogenerado de 0035 (client_request_kind_check); se localiza por su definición.
+
+do $$
+declare
+    v_c text;
+begin
+    for v_c in select c.conname from pg_constraint c
+               where c.conrelid = 'public.client_request'::regclass and c.contype = 'c'
+                 and pg_get_constraintdef(c.oid) like '%kind%' loop
+        execute format('alter table client_request drop constraint %I', v_c);
+    end loop;
+end $$;
+alter table client_request add constraint client_request_kind_check
+    check (kind in ('task', 'task_list', 'shopping_item', 'meal_shopping_sync'));
+alter table client_request add column result jsonb;
+
+-- ─────────────────── (c) Suma de ingredientes ───────────────────
+
+-- Despensa básica (decisión 2): nombres normalizados que no entran en la compra. Un ingrediente queda
+-- fuera si su nombre es uno de ellos o empieza por él seguido de un espacio («sal gruesa»). Se pueden
+-- añadir a mano como artículo manual. Cambiar la lista es tocar esta función.
+create or replace function fn_meal_pantry_basic_names() returns text[]
+language sql immutable as $$
+    select array['sal', 'aceite', 'azucar', 'pimienta', 'agua']::text[]
+$$;
+
+-- Redondeo comprable (decisión 5) de un total ya sumado en la unidad base (g, ml, ud o la de la línea
+-- aparte). Devuelve (cantidad, unidad): g/ml a múltiplos de 10 hacia arriba y, si llega a 1000, kg/l con
+-- 2 decimales hacia arriba; ud entero hacia arriba; cda/cdta/pizca con 2 decimales hacia arriba.
+create or replace function fn_meal_shopping_round(p_total numeric, p_family text, out quantity numeric, out unit text)
+language plpgsql immutable as $$
+begin
+    if p_family = 'g' or p_family = 'ml' then
+        if ceil(p_total / 10) * 10 >= 1000 then
+            quantity := ceil(p_total / 1000 * 100) / 100;
+            unit := case when p_family = 'g' then 'kg' else 'l' end;
+        else
+            quantity := ceil(p_total / 10) * 10;
+            unit := p_family;
+        end if;
+    elsif p_family = 'ud' then
+        quantity := ceil(p_total);
+        unit := 'ud';
+    else
+        quantity := ceil(p_total * 100) / 100;
+        unit := substr(p_family, 3);
+    end if;
+end $$;
+
+-- Líneas de compra de un plan: una por (alimento o nombre) y familia de unidad. Solo lectura; no mira el
+-- hogar ni los permisos (los llaman funciones que ya los comprueban).
+create or replace function fn_meal_shopping_calc(p_plan_id bigint)
+returns table (agg_key text, label text, food_id bigint, quantity numeric, unit text, section text, sources jsonb)
+language sql stable security definer set search_path = public as $$
+    with lines as (
+        select i.id as plan_item_id, r.id as recipe_id, r.name as recipe_name, ri.food_id, ri.label,
+               f.name as food_name, f.section, f.grams_per_unit, ri.unit,
+               coalesce(f.name_norm, fn_meal_norm(ri.label)) as nn,
+               ri.quantity * coalesce(nullif((select count(*) from meal_plan_item_member m where m.item_id = i.id), 0),
+                                      i.servings, r.servings) / r.servings as q
+        from meal_plan_item i
+        join recipe r on r.id = i.recipe_id
+        join recipe_ingredient ri on ri.recipe_id = r.id
+        left join food f on f.id = ri.food_id
+        where i.plan_id = p_plan_id and i.kind = 'recipe'
+          and not ri.optional and ri.unit <> 'al gusto' and ri.quantity > 0
+    ), keyed as (
+        select l.*, coalesce(l.food_id::text, 'n:' || l.nn) as k0,
+               case l.unit when 'g' then 'g' when 'kg' then 'g' when 'ml' then 'ml' when 'l' then 'ml'
+                    when 'ud' then 'ud' else 'u:' || l.unit end as fam0
+        from lines l
+        where not exists (select 1 from unnest(fn_meal_pantry_basic_names()) b
+                          where l.nn = b or l.nn like b || ' %')
+    ), based as (
+        select k.*, bool_or(k.fam0 = 'g') over (partition by k.k0) as has_g
+        from keyed k
+    ), conv as (
+        select b.*,
+               case when b.fam0 = 'ud' and b.grams_per_unit is not null and b.has_g then 'g' else b.fam0 end as fam,
+               case b.unit when 'kg' then b.q * 1000 when 'l' then b.q * 1000
+                    when 'ud' then case when b.grams_per_unit is not null and b.has_g then b.q * b.grams_per_unit else b.q end
+                    else b.q end as base
+        from based b
+    ), per_item as (
+        select c.k0 || '|' || c.fam as key, c.fam, c.plan_item_id, c.recipe_id, c.recipe_name,
+               sum(c.base) as base, min(case c.fam when 'g' then 'g' when 'ml' then 'ml' when 'ud' then 'ud'
+                                             else substr(c.fam, 3) end) as base_unit
+        from conv c
+        group by c.k0, c.fam, c.plan_item_id, c.recipe_id, c.recipe_name
+    ), agg as (
+        select c.k0 || '|' || c.fam as key, c.fam, max(c.food_id) as food_id,
+               coalesce(max(c.food_name), min(c.label)) as label, coalesce(max(c.section), 'otros') as section,
+               sum(c.base) as total
+        from conv c
+        group by c.k0, c.fam
+    )
+    select a.key, a.label, a.food_id, rd.quantity, rd.unit, a.section,
+           (select jsonb_agg(jsonb_build_object('plan_item_id', p.plan_item_id, 'recipe_id', p.recipe_id,
+                                                'name', p.recipe_name, 'qty', round(p.base, 2),
+                                                'unit', p.base_unit) order by p.plan_item_id)
+            from per_item p where p.key = a.key) as sources
+    from agg a, lateral fn_meal_shopping_round(a.total, a.fam) rd
+    order by a.section, a.label, a.key
+$$;
+
+-- RPC de solo lectura: lo que entraría en la compra del plan (sin guardar nada).
+create or replace function preview_meal_shopping(p_plan_id bigint) returns json
+language plpgsql stable security definer set search_path = public as $$
+declare
+    v_home bigint;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.view');
+    if p_plan_id is null or not exists (select 1 from meal_plan p where p.id = p_plan_id and p.home_id = v_home) then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    return json_build_object('plan_id', p_plan_id, 'items', (
+        select coalesce(json_agg(json_build_object('agg_key', c.agg_key, 'label', c.label, 'food_id', c.food_id,
+                   'quantity', c.quantity, 'unit', c.unit, 'section', c.section, 'sources', c.sources)
+               order by c.section, c.label, c.agg_key), '[]'::json)
+        from fn_meal_shopping_calc(p_plan_id) c));
+end $$;
+
+revoke all on function fn_meal_pantry_basic_names(), fn_meal_shopping_round(numeric, text),
+    fn_meal_shopping_calc(bigint) from public, anon, authenticated;
+revoke all on function preview_meal_shopping(bigint) from public, anon;
+grant execute on function preview_meal_shopping(bigint) to authenticated;
+
+-- ─────────────────── (d) Sincronización ───────────────────
+
+-- Diff de la compra de un plan contra la suma actual, sin comprobar permisos (lo llaman RPC que ya los
+-- comprueban, con el hogar bloqueado). Crea los pendientes que faltan, actualiza cantidad y unidad de los
+-- pendientes sin cantidad editada y borra los pendientes que ya no salen. Nunca toca checked, skipped,
+-- manuales ni cantidades editadas; un artículo existente con la misma agg_key (en cualquier estado) cuenta
+-- como sin cambio. Sube shopping_revision solo si algo cambió. Devuelve {added, updated, removed}.
+create or replace function fn_meal_shopping_sync(p_home bigint, p_plan bigint) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+    v_add integer;
+    v_upd integer;
+    v_del integer;
+begin
+    update shopping_item s set quantity = c.quantity, unit = c.unit, label = c.label, section = c.section,
+        food_id = c.food_id, sources = c.sources, updated_at = (now() at time zone 'UTC')
+    from fn_meal_shopping_calc(p_plan) c
+    where s.plan_id = p_plan and s.home_id = p_home and s.origin = 'menu' and s.agg_key = c.agg_key
+      and s.state = 'pending' and not s.qty_overridden
+      and (s.quantity is distinct from c.quantity or s.unit <> c.unit);
+    get diagnostics v_upd = row_count;
+    -- solo metadatos («para qué plato»): no cuenta como cambio ni sube la revisión
+    update shopping_item s set sources = c.sources
+    from fn_meal_shopping_calc(p_plan) c
+    where s.plan_id = p_plan and s.home_id = p_home and s.origin = 'menu' and s.agg_key = c.agg_key
+      and s.state = 'pending' and not s.qty_overridden and s.sources is distinct from c.sources;
+    delete from shopping_item s
+    where s.plan_id = p_plan and s.home_id = p_home and s.origin = 'menu' and s.state = 'pending'
+      and not exists (select 1 from fn_meal_shopping_calc(p_plan) c where c.agg_key = s.agg_key);
+    get diagnostics v_del = row_count;
+    insert into shopping_item (home_id, label, food_id, quantity, unit, section, origin, plan_id, agg_key,
+                               sources, created_by)
+    select p_home, c.label, c.food_id, c.quantity, c.unit, c.section, 'menu', p_plan, c.agg_key, c.sources,
+           fn_my_user_id()
+    from fn_meal_shopping_calc(p_plan) c
+    on conflict (plan_id, agg_key) where origin = 'menu' do nothing;
+    get diagnostics v_add = row_count;
+    if v_add + v_upd + v_del > 0 then
+        update meal_plan p set shopping_revision = p.shopping_revision + 1 where p.id = p_plan;
+        insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload)
+        values (p_home, fn_my_user_id(), 'shopping.sync', 'meal_plan', p_plan,
+                jsonb_build_object('added', v_add, 'updated', v_upd, 'removed', v_del));
+    end if;
+    return jsonb_build_object('added', v_add, 'updated', v_upd, 'removed', v_del);
+end $$;
+
+-- Sincroniza la compra con el plan. Plan archivado → 'Invalid meal plan'; plan en draft sin compra previa
+-- no genera nada. Con p_client_request_id (kind 'meal_shopping_sync', resource_id = plan) un reintento
+-- devuelve el resultado guardado sin volver a sincronizar.
+create or replace function sync_meal_shopping(p_plan_id bigint, p_client_request_id uuid default null) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_me bigint := fn_my_user_id();
+    v_home bigint;
+    v_plan meal_plan%rowtype;
+    v_kind text;
+    v_rid bigint;
+    v_res jsonb;
+begin
+    if v_me is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.shopping.edit');
+    perform fn_home_write_lock(v_home);
+    if p_client_request_id is not null then
+        perform pg_advisory_xact_lock(hashtextextended('client_request:' || v_me || ':' || p_client_request_id::text, 0));
+        select cr.kind, cr.resource_id, cr.result into v_kind, v_rid, v_res from client_request cr
+        where cr.app_user_id = v_me and cr.client_request_id = p_client_request_id;
+        if found then
+            if v_kind <> 'meal_shopping_sync' or v_rid <> p_plan_id then
+                raise exception 'Invalid client_request_id' using errcode = 'P0001';
+            end if;
+            return coalesce(v_res, jsonb_build_object('added', 0, 'updated', 0, 'removed', 0))::json;
+        end if;
+    end if;
+    select * into v_plan from meal_plan p where p.id = p_plan_id and p.home_id = v_home for update;
+    if not found then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    if v_plan.status = 'archived' then
+        raise exception 'Invalid meal plan' using errcode = 'P0001';
+    end if;
+    if v_plan.status = 'draft' and not exists (
+            select 1 from shopping_item s where s.plan_id = v_plan.id and s.origin = 'menu') then
+        v_res := jsonb_build_object('added', 0, 'updated', 0, 'removed', 0);
+    else
+        v_res := fn_meal_shopping_sync(v_home, v_plan.id);
+    end if;
+    if p_client_request_id is not null then
+        insert into client_request (app_user_id, client_request_id, kind, resource_id, result)
+        values (v_me, p_client_request_id, 'meal_shopping_sync', p_plan_id, v_res);
+    end if;
+    return v_res::json;
+end $$;
+
+revoke all on function fn_meal_shopping_sync(bigint, bigint) from public, anon, authenticated;
+revoke all on function sync_meal_shopping(bigint, uuid) from public, anon;
+grant execute on function sync_meal_shopping(bigint, uuid) to authenticated;
+
+-- Redefinición de upsert_meal_plan_items y accept_meal_plan: cuerpos de 0044 con la llamada a la
+-- sincronización (rollback_0045 restaura los de 0044). Los grants de 0044 se conservan.
+
+create or replace function upsert_meal_plan_items(p_week_start date, p_expected_revision integer,
+    p_items jsonb default null, p_delete_ids bigint[] default null) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_plan meal_plan%rowtype;
+    v_e jsonb;
+    v_item bigint;
+    v_old meal_plan_item%rowtype;
+    v_day date;
+    v_slot text;
+    v_kind text;
+    v_pos integer;
+    v_recipe bigint;
+    v_title text;
+    v_serv integer;
+    v_cook bigint;
+    v_rname text;
+    v_rserv integer;
+    v_members bigint[];
+    v_m jsonb;
+    v_n integer := 0;
+    v_del integer := 0;
+    v_keys text[] := array['id', 'day', 'slot', 'position', 'kind', 'recipe_id', 'title', 'servings',
+        'cook_member_id', 'members'];
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.plan.manage');
+    if p_week_start is null or p_expected_revision is null or p_expected_revision < 0
+       or (p_items is not null and (jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) > 200))
+       or coalesce(cardinality(p_delete_ids), 0) > 200 then
+        raise exception 'Invalid meal plan' using errcode = 'P0001';
+    end if;
+    perform fn_home_write_lock(v_home);
+    perform fn_meal_profile_ensure(v_home);
+    if extract(isodow from p_week_start)::integer <> (select p.week_start_day from meal_profile p where p.home_id = v_home) then
+        raise exception 'Invalid meal plan' using errcode = 'P0001';
+    end if;
+    select * into v_plan from meal_plan p
+    where p.home_id = v_home and p.week_start = p_week_start and p.status <> 'archived' for update;
+    if not found then
+        if p_expected_revision <> 0 then
+            raise exception 'Stale meal plan revision' using errcode = 'P0001';
+        end if;
+        begin
+            insert into meal_plan (home_id, week_start, revision) values (v_home, p_week_start, 0)
+            returning * into v_plan;
+        exception when unique_violation then
+            raise exception 'Stale meal plan revision' using errcode = 'P0001';
+        end;
+    elsif v_plan.revision <> p_expected_revision then
+        raise exception 'Stale meal plan revision' using errcode = 'P0001';
+    end if;
+
+    begin
+        if p_delete_ids is not null then
+            delete from meal_plan_item where plan_id = v_plan.id and id = any (p_delete_ids);
+            get diagnostics v_del = row_count;
+        end if;
+        for v_e in select e from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) e loop
+            if jsonb_typeof(v_e) <> 'object' or exists (select 1 from jsonb_object_keys(v_e) k where k <> all (v_keys))
+               or coalesce(jsonb_typeof(v_e->'day'), '') <> 'string'
+               or coalesce(jsonb_typeof(v_e->'slot'), '') <> 'string'
+               or coalesce(jsonb_typeof(v_e->'kind'), '') <> 'string'
+               or coalesce(jsonb_typeof(v_e->'position'), 'number') <> 'number'
+               or coalesce(jsonb_typeof(v_e->'recipe_id'), 'null') not in ('null', 'number')
+               or coalesce(jsonb_typeof(v_e->'title'), 'null') not in ('null', 'string')
+               or coalesce(jsonb_typeof(v_e->'servings'), 'null') not in ('null', 'number')
+               or coalesce(jsonb_typeof(v_e->'cook_member_id'), 'null') not in ('null', 'number')
+               or coalesce(jsonb_typeof(v_e->'id'), 'number') <> 'number'
+               or (v_e ? 'members' and jsonb_typeof(v_e->'members') <> 'array') then
+                raise exception 'Invalid meal plan' using errcode = 'P0001';
+            end if;
+            v_day := (v_e->>'day')::date;
+            v_slot := v_e->>'slot';
+            v_kind := v_e->>'kind';
+            v_pos := coalesce((v_e->>'position')::integer, 0);
+            v_recipe := (v_e->>'recipe_id')::bigint;
+            v_title := btrim(coalesce(v_e->>'title', ''));
+            v_serv := (v_e->>'servings')::integer;
+            v_cook := (v_e->>'cook_member_id')::bigint;
+            if v_day < p_week_start or v_day > p_week_start + 6
+               or v_kind <> all (array['recipe', 'free_text', 'leftovers', 'eat_out']) then
+                raise exception 'Invalid meal plan' using errcode = 'P0001';
+            end if;
+            -- casilla existente del propio plan (otra o de otro hogar: misma respuesta)
+            v_item := null;
+            if v_e ? 'id' then
+                select * into v_old from meal_plan_item i
+                where i.id = (v_e->>'id')::bigint and i.plan_id = v_plan.id;
+                if not found then
+                    raise exception 'Invalid meal plan' using errcode = 'P0001';
+                end if;
+                v_item := v_old.id;
+            end if;
+            if v_kind = 'recipe' then
+                if v_recipe is not null then
+                    select r.name, r.servings into v_rname, v_rserv from recipe r
+                    where r.id = v_recipe and r.home_id = v_home;
+                    if not found then
+                        raise exception 'Invalid meal plan' using errcode = 'P0001';
+                    end if;
+                    v_title := v_rname;
+                    v_serv := coalesce(v_serv, v_rserv);
+                elsif v_item is not null and v_old.kind = 'recipe' and v_old.recipe_id is null then
+                    -- receta borrada: la casilla conserva su título
+                    v_title := coalesce(nullif(v_title, ''), v_old.title);
+                else
+                    raise exception 'Invalid meal plan' using errcode = 'P0001';
+                end if;
+            elsif v_recipe is not null or (v_kind = 'free_text' and v_title = '') then
+                raise exception 'Invalid meal plan' using errcode = 'P0001';
+            end if;
+            if v_cook is not null and not exists (
+                    select 1 from home_member hm where hm.id = v_cook and hm.home_id = v_home and hm.kind <> 'pet') then
+                raise exception 'Invalid meal plan' using errcode = 'P0001';
+            end if;
+            -- comensales
+            v_members := null;
+            if v_e ? 'members' then
+                v_members := array[]::bigint[];
+                for v_m in select m from jsonb_array_elements(v_e->'members') m loop
+                    if jsonb_typeof(v_m) <> 'number' or (v_m #>> '{}') !~ '^[0-9]{1,18}$' then
+                        raise exception 'Invalid meal plan' using errcode = 'P0001';
+                    end if;
+                    v_members := v_members || (v_m #>> '{}')::bigint;
+                end loop;
+                if exists (select 1 from unnest(v_members) x
+                           where not exists (select 1 from home_member hm
+                                             where hm.id = x and hm.home_id = v_home and hm.kind <> 'pet')) then
+                    raise exception 'Invalid meal plan' using errcode = 'P0001';
+                end if;
+            elsif v_item is null then
+                select coalesce(array_agg(pm.home_member_id order by pm.home_member_id), array[]::bigint[])
+                into v_members from meal_profile_member pm
+                where pm.home_id = v_home
+                  and not exists (select 1 from meal_schedule s
+                                  where s.home_member_id = pm.home_member_id
+                                    and s.weekday = extract(isodow from v_day)::integer
+                                    and s.slot = v_slot and s.status <> 'home');
+            end if;
+            if v_item is null then
+                insert into meal_plan_item (plan_id, home_id, day, slot, position, kind, recipe_id, title, servings, cook_member_id)
+                values (v_plan.id, v_home, v_day, v_slot, v_pos, v_kind, v_recipe, v_title, v_serv, v_cook)
+                returning id into v_item;
+            else
+                update meal_plan_item i set day = v_day, slot = v_slot, position = v_pos, kind = v_kind,
+                    recipe_id = v_recipe, title = v_title, servings = v_serv, cook_member_id = v_cook
+                where i.id = v_item;
+            end if;
+            if v_members is not null then
+                delete from meal_plan_item_member where item_id = v_item;
+                insert into meal_plan_item_member (item_id, home_id, member_id)
+                select v_item, v_home, x from (select distinct unnest(v_members) as x) d;
+            end if;
+            v_n := v_n + 1;
+        end loop;
+        -- la unicidad (plan, día, franja, posición) se difiere para permitir intercambios dentro de la llamada
+        set constraints meal_plan_item_pos_uq immediate;
+        set constraints meal_plan_item_pos_uq deferred;
+    exception when check_violation or not_null_violation or unique_violation or foreign_key_violation
+        or invalid_text_representation or numeric_value_out_of_range or invalid_parameter_value
+        or datatype_mismatch or invalid_datetime_format or datetime_field_overflow then
+        raise exception 'Invalid meal plan' using errcode = 'P0001';
+    end;
+
+    update meal_plan p set status = 'draft', accepted_at = null, accepted_by = null,
+        revision = p.revision + 1, updated_at = (now() at time zone 'UTC')
+    where p.id = v_plan.id;
+    insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload)
+    values (v_home, fn_my_user_id(), 'meal.plan.update', 'meal_plan', v_plan.id,
+            jsonb_build_object('week_start', p_week_start, 'items', v_n, 'deleted', v_del));
+    -- 0045 (decisión 3): si el plan estaba aceptado antes de la edición, la compra refleja el último menú
+    -- aunque el plan vuelva a draft; un plan que no estaba aceptado no genera compra.
+    if v_plan.status = 'accepted' or (v_plan.status = 'draft' and exists (
+            select 1 from shopping_item s where s.plan_id = v_plan.id and s.origin = 'menu')) then
+        perform fn_meal_shopping_sync(v_home, v_plan.id);
+    end if;
+    return fn_meal_plan_json(v_plan.id);
+end $$;
+
+create or replace function accept_meal_plan(p_plan_id bigint, p_expected_revision integer) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_plan meal_plan%rowtype;
+    v_sync jsonb;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.plan.manage');
+    perform fn_home_write_lock(v_home);
+    select * into v_plan from meal_plan p where p.id = p_plan_id and p.home_id = v_home for update;
+    if not found then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    -- R1-02: la revisión va antes que el estado, así una segunda aceptación concurrente (el plan ya
+    -- está accepted y con otra revisión) recibe 'Stale meal plan revision' (409) y no 'Invalid meal plan'.
+    if p_expected_revision is distinct from v_plan.revision then
+        raise exception 'Stale meal plan revision' using errcode = 'P0001';
+    end if;
+    if v_plan.status <> 'draft' then
+        raise exception 'Invalid meal plan' using errcode = 'P0001';
+    end if;
+    if not exists (select 1 from meal_plan_item i where i.plan_id = v_plan.id) then
+        raise exception 'Invalid meal plan' using errcode = 'P0001';
+    end if;
+    update meal_plan p set status = 'accepted', accepted_at = (now() at time zone 'UTC'),
+        accepted_by = fn_my_user_id(), revision = p.revision + 1, updated_at = (now() at time zone 'UTC')
+    where p.id = v_plan.id;
+    insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload)
+    values (v_home, fn_my_user_id(), 'meal.plan.accept', 'meal_plan', v_plan.id,
+            jsonb_build_object('week_start', v_plan.week_start));
+    -- 0045: genera o reconcilia la compra en la misma transacción; el resumen sale como campo aditivo.
+    v_sync := fn_meal_shopping_sync(v_home, v_plan.id);
+    return (fn_meal_plan_json(v_plan.id)::jsonb || jsonb_build_object('shopping_sync', v_sync))::json;
+end $$;
+
+-- ─────────────────── (e) RPC de artículos ───────────────────
+-- Lectura: menu.view. Escritura: menu.shopping.edit (adult, child y relative; no guest). El hogar es el de
+-- X-Home-Id o fn_home_for_root_create(). Errores: 'Invalid shopping item' (P0001), 'Invalid
+-- client_request_id' (P0001), 'Not Found' (P0002), 'Not Allowed' (42501).
+
+create or replace function fn_shopping_item_json(p_id bigint) returns json
+language sql stable security definer set search_path = public as $$
+    select json_build_object('id', s.id, 'label', s.label, 'food_id', s.food_id, 'quantity', s.quantity,
+        'unit', s.unit, 'section', s.section, 'origin', s.origin, 'plan_id', s.plan_id, 'sources', s.sources,
+        'qty_overridden', s.qty_overridden, 'state', s.state, 'checked_at', s.checked_at,
+        'checked_by', s.checked_by, 'created_at', s.created_at, 'updated_at', s.updated_at)
+    from shopping_item s where s.id = p_id
+$$;
+
+-- La Compra del hogar: artículos visibles por sección y `revision` (suma de shopping_revision de sus
+-- planes: monótona, el cliente la compara para avisar de cambios).
+create or replace function list_shopping() returns json
+language plpgsql stable security definer set search_path = public as $$
+declare
+    v_home bigint;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.view');
+    return json_build_object(
+        'revision', (select coalesce(sum(p.shopping_revision), 0)::integer from meal_plan p where p.home_id = v_home),
+        'items', (select coalesce(json_agg(fn_shopping_item_json(s.id) order by s.section, s.id), '[]'::json)
+                  from shopping_item s where s.home_id = v_home and not s.cleared));
+end $$;
+
+-- Alta a mano. p_unit nulo = 'ud'; p_section nula = sección del alimento o 'otros'; p_label nulo con
+-- p_food_id toma el nombre del alimento. Con p_client_request_id (kind 'shopping_item') un reintento
+-- devuelve el mismo artículo sin duplicarlo.
+create or replace function create_shopping_item(p_label text, p_quantity numeric default null,
+    p_unit text default null, p_section text default null, p_food_id bigint default null,
+    p_client_request_id uuid default null) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_me bigint := fn_my_user_id();
+    v_home bigint;
+    v_id bigint;
+    v_kind text;
+    v_fname text;
+    v_fsec text;
+    v_label text;
+    v_unit text := coalesce(p_unit, 'ud');
+    v_section text;
+    v_json json;
+begin
+    if v_me is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.shopping.edit');
+    perform fn_home_write_lock(v_home);
+    if p_client_request_id is not null then
+        perform pg_advisory_xact_lock(hashtextextended('client_request:' || v_me || ':' || p_client_request_id::text, 0));
+        select cr.kind, cr.resource_id into v_kind, v_id from client_request cr
+        where cr.app_user_id = v_me and cr.client_request_id = p_client_request_id;
+        if found then
+            if v_kind <> 'shopping_item' then
+                raise exception 'Invalid client_request_id' using errcode = 'P0001';
+            end if;
+            if exists (select 1 from shopping_item s where s.id = v_id and s.home_id = v_home) then
+                v_json := fn_shopping_item_json(v_id);
+            end if;
+            if v_json is null then
+                raise exception 'Not Found' using errcode = 'P0002';
+            end if;
+            return v_json;
+        end if;
+    end if;
+    if p_food_id is not null then
+        select f.name, f.section into v_fname, v_fsec from food f
+        where f.id = p_food_id and (f.home_id is null or f.home_id = v_home);
+        if not found then
+            raise exception 'Invalid shopping item' using errcode = 'P0001';
+        end if;
+    end if;
+    v_label := coalesce(nullif(btrim(p_label), ''), v_fname);
+    v_section := coalesce(p_section, v_fsec, 'otros');
+    if v_label is null or char_length(v_label) > 120
+       or v_unit <> all (array['g', 'kg', 'ml', 'l', 'ud', 'cda', 'cdta', 'pizca'])
+       or v_section <> all (array['verdura', 'fruta', 'carne', 'embutido', 'pescado', 'marisco', 'lacteos', 'huevos',
+           'legumbres', 'cereales', 'panaderia', 'despensa', 'aceites', 'especias', 'bebidas', 'congelados', 'otros'])
+       or (p_quantity is not null and (p_quantity < 0 or p_quantity >= 10000000000)) then
+        raise exception 'Invalid shopping item' using errcode = 'P0001';
+    end if;
+    insert into shopping_item (home_id, label, food_id, quantity, unit, section, origin, created_by)
+    values (v_home, v_label, p_food_id, p_quantity, v_unit, v_section, 'manual', v_me)
+    returning id into v_id;
+    if p_client_request_id is not null then
+        insert into client_request (app_user_id, client_request_id, kind, resource_id)
+        values (v_me, p_client_request_id, 'shopping_item', v_id);
+    end if;
+    insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload)
+    values (v_home, v_me, 'shopping.item.create', 'shopping_item', v_id, jsonb_build_object('label', v_label));
+    return fn_shopping_item_json(v_id);
+end $$;
+
+-- Marcar (checked), desmarcar (pending) o «ya lo tengo» (skipped). Idempotente.
+create or replace function set_shopping_item_state(p_item_id bigint, p_state text) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_me bigint := fn_my_user_id();
+    v_home bigint;
+    v_item shopping_item%rowtype;
+begin
+    if v_me is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.shopping.edit');
+    perform fn_home_write_lock(v_home);
+    select * into v_item from shopping_item s where s.id = p_item_id and s.home_id = v_home for update;
+    if not found then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    if p_state is null or p_state <> all (array['pending', 'checked', 'skipped']) then
+        raise exception 'Invalid shopping item' using errcode = 'P0001';
+    end if;
+    -- Un artículo oculto (cleared) no reaparece por un cambio de estado (p. ej. el replay de una cola offline).
+    if v_item.cleared then
+        return fn_shopping_item_json(v_item.id);
+    end if;
+    update shopping_item s set state = p_state,
+        checked_at = case when p_state = 'pending' then null else (now() at time zone 'UTC') end,
+        checked_by = case when p_state = 'pending' then null else v_me end,
+        updated_at = (now() at time zone 'UTC')
+    where s.id = v_item.id;
+    return fn_shopping_item_json(v_item.id);
+end $$;
+
+-- Cambia la cantidad (y la unidad si viene); el artículo pasa a qty_overridden y la sincronización ya no
+-- lo toca.
+create or replace function update_shopping_item_qty(p_item_id bigint, p_quantity numeric, p_unit text default null)
+returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_item shopping_item%rowtype;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.shopping.edit');
+    perform fn_home_write_lock(v_home);
+    select * into v_item from shopping_item s where s.id = p_item_id and s.home_id = v_home for update;
+    if not found then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    if p_quantity is null or p_quantity < 0 or p_quantity >= 10000000000
+       or (p_unit is not null and p_unit <> all (array['g', 'kg', 'ml', 'l', 'ud', 'cda', 'cdta', 'pizca'])) then
+        raise exception 'Invalid shopping item' using errcode = 'P0001';
+    end if;
+    update shopping_item s set quantity = p_quantity, unit = coalesce(p_unit, s.unit), qty_overridden = true,
+        updated_at = (now() at time zone 'UTC')
+    where s.id = v_item.id;
+    return fn_shopping_item_json(v_item.id);
+end $$;
+
+-- Borra un artículo manual. Uno de origen menu no se borra de verdad (la sincronización lo volvería a
+-- crear): pasa a «ya lo tengo» y se oculta (cleared).
+create or replace function delete_shopping_item(p_item_id bigint) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_item shopping_item%rowtype;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.shopping.edit');
+    perform fn_home_write_lock(v_home);
+    select * into v_item from shopping_item s where s.id = p_item_id and s.home_id = v_home for update;
+    if not found then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    if v_item.origin = 'menu' then
+        update shopping_item s set state = case when s.state = 'pending' then 'skipped' else s.state end,
+            cleared = true, updated_at = (now() at time zone 'UTC')
+        where s.id = v_item.id;
+    else
+        delete from shopping_item s where s.id = v_item.id;
+    end if;
+    insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload)
+    values (v_home, fn_my_user_id(), 'shopping.item.delete', 'shopping_item', v_item.id,
+            jsonb_build_object('label', v_item.label, 'origin', v_item.origin));
+    return json_build_object('id', v_item.id, 'deleted', true);
+end $$;
+
+-- Vacía los comprados (solo checked; no skipped ni pendientes). Los manuales se borran; los de origen menu
+-- se ocultan (cleared) para que la sincronización no los vuelva a crear. Devuelve cuántos.
+create or replace function clear_checked_shopping() returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_del integer;
+    v_hid integer;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.shopping.edit');
+    perform fn_home_write_lock(v_home);
+    delete from shopping_item s where s.home_id = v_home and s.state = 'checked' and s.origin = 'manual';
+    get diagnostics v_del = row_count;
+    update shopping_item s set cleared = true, updated_at = (now() at time zone 'UTC')
+    where s.home_id = v_home and s.state = 'checked' and s.origin = 'menu' and not s.cleared;
+    get diagnostics v_hid = row_count;
+    if v_del + v_hid > 0 then
+        insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload)
+        values (v_home, fn_my_user_id(), 'shopping.clear', 'home', v_home, jsonb_build_object('cleared', v_del + v_hid));
+    end if;
+    return json_build_object('cleared', v_del + v_hid);
+end $$;
+
+revoke all on function fn_shopping_item_json(bigint) from public, anon, authenticated;
+revoke all on function list_shopping(), create_shopping_item(text, numeric, text, text, bigint, uuid),
+    set_shopping_item_state(bigint, text), update_shopping_item_qty(bigint, numeric, text),
+    delete_shopping_item(bigint), clear_checked_shopping() from public, anon;
+grant execute on function list_shopping(), create_shopping_item(text, numeric, text, text, bigint, uuid),
+    set_shopping_item_state(bigint, text), update_shopping_item_qty(bigint, numeric, text),
+    delete_shopping_item(bigint), clear_checked_shopping() to authenticated;
+
+commit;
