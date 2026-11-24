@@ -25,6 +25,26 @@ final class ReadCacheTests: XCTestCase {
         XCTAssertFalse(ReadCache.isCacheable(APIRequest(method: .get, path: "config", isPublic: true)))
     }
 
+    /// R1-07: lo del plan semanal lleva alergias por comensal (dato de salud): nunca a disco.
+    func testMealPlanPathsAreNeverCached() {
+        for path in ["meal/plan", "meal/plan/check", "meal/today"] {
+            XCTAssertFalse(ReadCache.isCacheable(APIRequest(method: .get, path: path)), path)
+        }
+        XCTAssertFalse(ReadCache.isCacheable(APIRequest(
+            method: .get, path: "meal/plan", query: [URLQueryItem(name: "week_start", value: "2026-11-23")])))
+        XCTAssertFalse(ReadCache.isCacheable(APIRequest(
+            method: .get, path: "meal/plan/check", query: [URLQueryItem(name: "plan_id", value: "9")])))
+    }
+
+    /// El catálogo de recetas y alimentos (sin datos de personas) sigue cacheándose.
+    func testRecipeAndFoodReadsStayCacheable() {
+        for path in ["recipe", "recipe/detail", "food"] {
+            XCTAssertTrue(ReadCache.isCacheable(APIRequest(method: .get, path: path)), path)
+        }
+        XCTAssertFalse(ReadCache.isCacheable(APIRequest(method: .post, path: "recipe/create")))
+        XCTAssertFalse(ReadCache.isCacheable(APIRequest(method: .delete, path: "food/delete")))
+    }
+
     func testKeyDependsOnHomeAndQuery() {
         let request = APIRequest(method: .get, path: "event/index", query: [URLQueryItem(name: "from", value: "2026-11-12")])
         XCTAssertNotEqual(ReadCache.key(for: request, homeId: "1"), ReadCache.key(for: request, homeId: "2"))
