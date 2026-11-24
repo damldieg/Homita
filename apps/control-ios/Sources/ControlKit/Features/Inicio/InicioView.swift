@@ -10,6 +10,11 @@ public enum InicioDestination: Sendable {
     case taskList(Int)
 }
 
+/// Receta tocada en «Comidas de hoy» (para la hoja).
+private struct RecipeRef: Identifiable {
+    let id: Int64
+}
+
 /// Pestaña Inicio (versión mínima): saludo y fecha, Hoy · Eventos, Tareas pendientes, Rutinas de
 /// hoy y accesos rápidos. Solo lee `event`, `task` y `routine`; las rutinas se calculan en cliente.
 /// La casilla de las tareas completa/reabre igual que en la pestaña Tareas.
@@ -26,6 +31,8 @@ public struct InicioView: View {
     @State private var openedItem: InicioItem?
     /// Tipo del último ítem abierto (decide qué sección recargar al cerrar la hoja).
     @State private var lastOpenedKind: InicioItem.Kind?
+    /// Receta abierta desde «Comidas de hoy».
+    @State private var openedRecipe: RecipeRef?
     @State private var showTaskEditor = false
     @State private var showHighPriority = false
     @State private var layoutModel = InicioLayoutModel.shared
@@ -46,7 +53,7 @@ public struct InicioView: View {
         _store = State(initialValue: InicioStore(
             events: services.events, tasks: services.tasks,
             routines: services.routines, taskLists: services.taskLists,
-            persons: services.persons, outbox: outbox
+            persons: services.persons, meals: services.meals, outbox: outbox
         ))
         _eventStore = State(initialValue: EventStore(repo: services.events))
         _calendarStore = State(initialValue: CalendarStore(repo: services.calendars))
@@ -77,6 +84,16 @@ public struct InicioView: View {
             .homitaHiddenNavigationBar()
             .sheet(isPresented: $showInicioSettings) {
                 NavigationStack { InicioSettingsView() }
+            }
+            .sheet(item: $openedRecipe) { ref in
+                NavigationStack {
+                    RecipeDetailView(services: services, recipeId: ref.id)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Cerrar") { openedRecipe = nil }
+                            }
+                        }
+                }
             }
             .sheet(isPresented: $showHighPriority) {
                 HighPriorityTasksSheet(groups: TaskDue.groupedByList(store.highPriorityForMe))
@@ -427,7 +444,11 @@ public struct InicioView: View {
     private func blockView(_ block: InicioBlock) -> some View {
         switch block {
         case .routines: routinesCard.accessibilityIdentifier("inicio.tarjeta.rutinas")
-        case .meals: EmptyView()
+        case .meals:
+            if store.showsMeals {
+                InicioMealsCard(store: store, dateText: dateText, onOpenRecipe: { openedRecipe = RecipeRef(id: $0) })
+                    .accessibilityIdentifier("inicio.tarjeta.comidas")
+            }
         case .events: eventsCard.accessibilityIdentifier("inicio.tarjeta.eventos")
         case .tasks: tasksCard.accessibilityIdentifier("inicio.tarjeta.tareas")
         }

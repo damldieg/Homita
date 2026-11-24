@@ -24,6 +24,12 @@ public final class InicioStore: MainActorWriteFailureReporting {
     public private(set) var eventsState: InicioSectionState = .idle
     public private(set) var tasksState: InicioSectionState = .idle
     public private(set) var routinesState: InicioSectionState = .idle
+    /// «Comidas de hoy» (`GET meal/today`); `nil` hasta la primera carga o si falla sin datos previos.
+    public private(set) var mealsToday: MealsToday?
+    public private(set) var mealsState: InicioSectionState = .idle
+    /// Diferencia entre la hora del hogar que devolvió el servidor y el reloj del dispositivo en ese
+    /// momento: así «ahora» sigue siendo la hora del hogar aunque pase el tiempo o la zona difiera.
+    private var mealsSkew: TimeInterval = 0
     /// Errores de lectura (alerta de la pantalla).
     public var errorMessage: String?
     /// Última escritura fallida (toast con «Reintentar»).
@@ -33,6 +39,7 @@ public final class InicioStore: MainActorWriteFailureReporting {
     private let tasksRepo: TaskRepository
     private let routinesRepo: RoutineRepository
     private let taskListsRepo: TaskListRepository
+    private let mealsRepo: MealRepository?
     private let clock: () -> LocalClock
     /// Cola offline del hogar (nil = sin offline, comportamiento previo).
     @ObservationIgnored public let outbox: OutboxStore?
@@ -47,12 +54,14 @@ public final class InicioStore: MainActorWriteFailureReporting {
 
     public init(events: EventRepository, tasks: TaskRepository, routines: RoutineRepository,
                 taskLists: TaskListRepository, persons: PersonRepository? = nil,
+                meals: MealRepository? = nil,
                 clock: @escaping () -> LocalClock = { LocalClock() },
                 outbox: OutboxStore? = nil, isOnline: @escaping @MainActor () -> Bool = { !DataFreshness.shared.isOffline }) {
         self.eventsRepo = events
         self.tasksRepo = tasks
         self.routinesRepo = routines
         self.taskListsRepo = taskLists
+        self.mealsRepo = meals
         self.clock = clock
         self.outbox = outbox
         self.coordinator = outbox.map { TaskWriteCoordinator(outbox: $0, tasks: tasks, taskLists: taskLists, isOnline: isOnline) }
@@ -232,12 +241,76 @@ public final class InicioStore: MainActorWriteFailureReporting {
         return TodaySummary.routines(routines, on: current.now, timeZone: current.timeZone)
     }
 
-    /// Carga las tres secciones; cada una conserva su propio error.
+    /// Carga las secciones; cada una conserva su propio error.
     public func load() async {
         async let eventsLoad: Void = loadEvents()
         async let tasksLoad: Void = loadTasks()
         async let routinesLoad: Void = loadRoutines()
-        _ = await (eventsLoad, tasksLoad, routinesLoad)
+        async let mealsLoad: Void = loadMeals()
+        _ = await (eventsLoad, tasksLoad, routinesLoad, mealsLoad)
+    }
+
+    // MARK: - Comidas de hoy
+
+    /// Fase de una comida de hoy según su hora: mismas ventanas que las rutinas (aviso de 60 min
+    /// antes y 60 min en curso).
+    public enum MealPhase: Equatable, Sendable {
+        case done, now, soon, later
+    }
+
+    /// Carga `GET meal/today`. Si falla se conserva lo anterior (stale-if-error); sin repo no hace nada.
+    public func loadMeals() async {
+        guard let mealsRepo else { return }
+        mealsState = .loading
+        do {
+            let today = try await mealsRepo.today()
+            mealsToday = today
+            if let home = Self.homeClock(of: today) {
+                mealsSkew = home.now.timeIntervalSince(clock().now)
+            }
+            mealsState = .loaded
+        } catch {
+            mealsState = .failed(message(error))
+        }
+    }
+
+    /// Reloj del hogar: `date` + `now_local` interpretados en la zona del hogar (no la del dispositivo).
+    static func homeClock(of today: MealsToday) -> LocalClock? {
+        guard let zone = TimeZone(identifier: today.timezone),
+              let now = PHPDateTime.parse("\(today.date) \(today.nowLocal):00", timeZone: zone) else { return nil }
+        return LocalClock(now: now, timeZone: zone)
+    }
+
+    /// «Ahora» en el hogar: la hora devuelta por el servidor más el tiempo transcurrido desde la carga.
+    public var mealsClock: LocalClock? {
+        guard let today = mealsToday, let zone = TimeZone(identifier: today.timezone) else { return nil }
+        return LocalClock(now: clock().now.addingTimeInterval(mealsSkew), timeZone: zone)
+    }
+
+    /// El bloque se muestra solo con un menú aceptado (`has_plan`).
+    public var showsMeals: Bool { mealsToday?.hasPlan == true }
+
+    /// Comidas de hoy por hora (y por franja si empatan).
+    public var todayMeals: [MealTodayItem] {
+        (mealsToday?.items ?? []).sorted { lhs, rhs in
+            lhs.time != rhs.time ? lhs.time < rhs.time
+                : (MealSlotKind.order.firstIndex(of: lhs.slot) ?? 0) < (MealSlotKind.order.firstIndex(of: rhs.slot) ?? 0)
+        }
+    }
+
+    /// Minutos hasta la hora de la comida en el hogar (negativo si ya empezó); `nil` sin reloj o hora válida.
+    public func minutesUntil(meal: MealTodayItem) -> Int? {
+        guard let home = mealsClock, let today = mealsToday,
+              let start = PHPDateTime.parse("\(today.date) \(meal.time.prefix(5)):00", timeZone: home.timeZone)
+        else { return nil }
+        return Int((start.timeIntervalSince(home.now) / 60).rounded(.up))
+    }
+
+    public func phase(of meal: MealTodayItem) -> MealPhase {
+        guard let minutes = minutesUntil(meal: meal) else { return .later }
+        if minutes > Int(RoutineStatus.soonWindow / 60) { return .later }
+        if minutes > 0 { return .soon }
+        return minutes > -Int(RoutineStatus.window / 60) ? .now : .done
     }
 
     public func loadEvents() async {
