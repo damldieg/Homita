@@ -163,7 +163,7 @@ private fun ClockColumn(state: UiState, modifier: Modifier) {
         }
         if (next != null) NextCard(next, now)
         // Con el siguiente evento la columna va justa de alto: una sola casilla; sin él caben hasta MAX_ROWS.
-        val meals = MealsTodayState.of(state.meals, today, if (next != null) 1 else MealsTodayState.MAX_ROWS)
+        val meals = MealsTodayState.of(state.meals, now, if (next != null) 1 else MealsTodayState.MAX_ROWS)
         if (state.clockValid && meals != null) {
             Spacer(Modifier.height(16.dp))
             MealsTodayCard(meals)
