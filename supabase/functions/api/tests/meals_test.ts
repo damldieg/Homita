@@ -9,7 +9,8 @@ Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "service");
 
 const {
     handleMealProfileGet, handleMealProfileMemberUpdate, handleMealProfileUpdate, handleMealScheduleSet,
-    handleMealSlotsSet,
+    handleMealSlotsSet, handleMealPlanAccept, handleMealPlanArchive, handleMealPlanCheck, handleMealPlanCopy,
+    handleMealPlanGet, handleMealPlanItems, handleMealToday,
 } = await import("../usecases/meals.ts");
 const { runWithHome } = await import("../_shared/home.ts");
 
@@ -176,4 +177,152 @@ Deno.test("errores de la RPC: Not Allowed 403, Not Found 404, Invalid meal profi
             assertEquals(await res.json(), { error: message });
         });
     }
+});
+
+// ── menú semanal (0044) ──
+const RPC = "http://stub.local/rest/v1/rpc/";
+const getReq = (path: string): Request => new Request(`http://x${path}`, { method: "GET" });
+
+Deno.test("GET /meal/plan valida week_start y llama a get_meal_plan (null pasa tal cual)", async () => {
+    await withFetch(() => jsonRes(200, null), async (calls) => {
+        for (const p of ["/meal/plan", "/meal/plan?week_start=2026-13-01", "/meal/plan?week_start=26-11-23"]) {
+            const bad = await handleMealPlanGet(getReq(p), "tok");
+            assertEquals(bad.status, 400);
+            assertEquals(await bad.json(), { error: "Invalid meal plan" });
+        }
+        assertEquals(calls.length, 0);
+        const res = await handleMealPlanGet(getReq("/meal/plan?week_start=2026-11-23"), "tok");
+        assertEquals(res.status, 200);
+        assertEquals(await res.json(), null);
+        assertEquals(calls[0].url, RPC + "get_meal_plan");
+        assertEquals(calls[0].body, { p_week_start: "2026-11-23" });
+    });
+});
+
+Deno.test("PATCH /meal/plan/items mapea a upsert_meal_plan_items", async () => {
+    await withFetch(ok, async (calls) => {
+        const items = [{ day: "2026-11-23", slot: "lunch", kind: "free_text", title: "Arroz" }];
+        const res = await handleMealPlanItems(
+            req("PATCH", { week_start: "2026-11-23", expected_revision: 0, items, delete_ids: [4, 5] }), "tok");
+        assertEquals(res.status, 200);
+        assertEquals(calls[0].url, RPC + "upsert_meal_plan_items");
+        assertEquals(calls[0].body, {
+            p_week_start: "2026-11-23", p_expected_revision: 0, p_items: items, p_delete_ids: [4, 5],
+        });
+    });
+});
+
+Deno.test("PATCH /meal/plan/items con forma inválida → 400 sin RPC", async () => {
+    await withFetch(ok, async (calls) => {
+        const base = { week_start: "2026-11-23", expected_revision: 1 };
+        for (const b of [
+            {}, { ...base, week_start: "hoy" }, { ...base, expected_revision: "1" }, { ...base, expected_revision: 1.5 },
+            { ...base, expected_revision: -1 }, { ...base, items: {} }, { ...base, delete_ids: ["a"] },
+            { ...base, delete_ids: [0] },
+        ]) {
+            const res = await handleMealPlanItems(req("PATCH", b), "tok");
+            assertEquals(res.status, 400);
+            assertEquals(await res.json(), { error: "Invalid meal plan" });
+        }
+        assertEquals(calls.length, 0);
+    });
+});
+
+Deno.test("PATCH /meal/plan/items: 'Stale meal plan revision' → 409", async () => {
+    await withFetch(() => jsonRes(400, { message: "Stale meal plan revision" }), async () => {
+        const res = await handleMealPlanItems(req("PATCH", { week_start: "2026-11-23", expected_revision: 1 }), "tok");
+        assertEquals(res.status, 409);
+        assertEquals(await res.json(), { error: "Stale meal plan revision" });
+    });
+});
+
+Deno.test("POST /meal/plan/accept: args, 409 de revisión y 400 de plan no draft", async () => {
+    await withFetch(() => jsonRes(200, { id: 3, revision: 2 }), async (calls) => {
+        const res = await handleMealPlanAccept(req("POST", { plan_id: 3, expected_revision: 1 }), "tok");
+        assertEquals(res.status, 200);
+        assertEquals(calls[0].url, RPC + "accept_meal_plan");
+        assertEquals(calls[0].body, { p_plan_id: 3, p_expected_revision: 1 });
+        const bad = await handleMealPlanAccept(req("POST", { expected_revision: 1 }), "tok");
+        assertEquals(await bad.json(), { error: "Meal plan ID is required" });
+        const bad2 = await handleMealPlanAccept(req("POST", { plan_id: 3 }), "tok");
+        assertEquals(await bad2.json(), { error: "Invalid meal plan" });
+        assertEquals(calls.length, 1);
+    });
+    await withFetch(() => jsonRes(400, { message: "Invalid meal plan" }), async () => {
+        const res = await handleMealPlanAccept(req("POST", { plan_id: 3, expected_revision: 1 }), "tok");
+        assertEquals(res.status, 400);
+    });
+    await withFetch(() => jsonRes(400, { message: "Stale meal plan revision" }), async () => {
+        const res = await handleMealPlanAccept(req("POST", { plan_id: 3, expected_revision: 0 }), "tok");
+        assertEquals(res.status, 409);
+    });
+});
+
+Deno.test("POST /meal/plan/archive exige plan_id; Not Found → 404", async () => {
+    await withFetch(() => jsonRes(404, { message: "Not Found" }), async (calls) => {
+        const bad = await handleMealPlanArchive(req("POST", {}), "tok");
+        assertEquals(bad.status, 400);
+        assertEquals(calls.length, 0);
+        const res = await handleMealPlanArchive(req("POST", { plan_id: 8 }), "tok");
+        assertEquals(res.status, 404);
+        assertEquals(calls[0].url, RPC + "archive_meal_plan");
+        assertEquals(calls[0].body, { p_plan_id: 8 });
+    });
+});
+
+Deno.test("POST /meal/plan/copy: args, 400 de fechas y 409 'Meal plan exists'", async () => {
+    await withFetch(() => jsonRes(400, { message: "Meal plan exists" }), async (calls) => {
+        const bad = await handleMealPlanCopy(req("POST", { from_week: "2026-11-16" }), "tok");
+        assertEquals(bad.status, 400);
+        assertEquals(calls.length, 0);
+        const res = await handleMealPlanCopy(req("POST", { from_week: "2026-11-16", to_week: "2026-11-23" }), "tok");
+        assertEquals(res.status, 409);
+        assertEquals(await res.json(), { error: "Meal plan exists" });
+        assertEquals(calls[0].url, RPC + "copy_meal_plan_week");
+        assertEquals(calls[0].body, { p_from_week: "2026-11-16", p_to_week: "2026-11-23" });
+    });
+    await withFetch(() => jsonRes(200, { id: 9 }), async () => {
+        const res = await handleMealPlanCopy(req("POST", { from_week: "2026-11-16", to_week: "2026-11-23" }), "tok");
+        assertEquals(res.status, 201);
+    });
+});
+
+Deno.test("GET /meal/plan/check exige plan_id entero", async () => {
+    await withFetch(() => jsonRes(200, []), async (calls) => {
+        for (const p of ["/meal/plan/check", "/meal/plan/check?plan_id=x"]) {
+            const bad = await handleMealPlanCheck(getReq(p), "tok");
+            assertEquals(bad.status, 400);
+        }
+        assertEquals(calls.length, 0);
+        const res = await handleMealPlanCheck(getReq("/meal/plan/check?plan_id=7"), "tok");
+        assertEquals(res.status, 200);
+        assertEquals(calls[0].url, RPC + "check_meal_plan");
+        assertEquals(calls[0].body, { p_plan_id: 7 });
+    });
+});
+
+Deno.test("GET /meal/today: sin date no manda p_date; con date lo valida; Invalid timezone → 400", async () => {
+    await withFetch(() => jsonRes(200, { has_plan: false }), async (calls) => {
+        await handleMealToday(getReq("/meal/today"), "tok");
+        assertEquals(calls[0].url, RPC + "get_meals_today");
+        assertEquals(calls[0].body, {});
+        await handleMealToday(getReq("/meal/today?date=2026-11-24"), "tok");
+        assertEquals(calls[1].body, { p_date: "2026-11-24" });
+        const bad = await handleMealToday(getReq("/meal/today?date=mañana"), "tok");
+        assertEquals(bad.status, 400);
+        assertEquals(calls.length, 2);
+    });
+    await withFetch(() => jsonRes(400, { message: "Invalid timezone" }), async () => {
+        const res = await handleMealToday(getReq("/meal/today"), "tok");
+        assertEquals(res.status, 400);
+    });
+});
+
+Deno.test("X-Home-Id se propaga en las rutas del plan", async () => {
+    await withFetch(() => jsonRes(200, {}), async (calls) => {
+        await runWithHome("42", () => handleMealToday(getReq("/meal/today"), "tok"));
+        await runWithHome("42", () => handleMealPlanGet(getReq("/meal/plan?week_start=2026-11-23"), "tok"));
+        assertEquals(calls[0].headers.get("X-Home-Id"), "42");
+        assertEquals(calls[1].headers.get("X-Home-Id"), "42");
+    });
 });
