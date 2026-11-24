@@ -523,4 +523,228 @@ begin
     return (fn_meal_plan_json(v_plan.id)::jsonb || jsonb_build_object('shopping_sync', v_sync))::json;
 end $$;
 
+-- ─────────────────── (e) RPC de artículos ───────────────────
+-- Lectura: menu.view. Escritura: menu.shopping.edit (adult, child y relative; no guest). El hogar es el de
+-- X-Home-Id o fn_home_for_root_create(). Errores: 'Invalid shopping item' (P0001), 'Invalid
+-- client_request_id' (P0001), 'Not Found' (P0002), 'Not Allowed' (42501).
+
+create or replace function fn_shopping_item_json(p_id bigint) returns json
+language sql stable security definer set search_path = public as $$
+    select json_build_object('id', s.id, 'label', s.label, 'food_id', s.food_id, 'quantity', s.quantity,
+        'unit', s.unit, 'section', s.section, 'origin', s.origin, 'plan_id', s.plan_id, 'sources', s.sources,
+        'qty_overridden', s.qty_overridden, 'state', s.state, 'checked_at', s.checked_at,
+        'checked_by', s.checked_by, 'created_at', s.created_at, 'updated_at', s.updated_at)
+    from shopping_item s where s.id = p_id
+$$;
+
+-- La Compra del hogar: artículos visibles por sección y `revision` (suma de shopping_revision de sus
+-- planes: monótona, el cliente la compara para avisar de cambios).
+create or replace function list_shopping() returns json
+language plpgsql stable security definer set search_path = public as $$
+declare
+    v_home bigint;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.view');
+    return json_build_object(
+        'revision', (select coalesce(sum(p.shopping_revision), 0)::integer from meal_plan p where p.home_id = v_home),
+        'items', (select coalesce(json_agg(fn_shopping_item_json(s.id) order by s.section, s.id), '[]'::json)
+                  from shopping_item s where s.home_id = v_home and not s.cleared));
+end $$;
+
+-- Alta a mano. p_unit nulo = 'ud'; p_section nula = sección del alimento o 'otros'; p_label nulo con
+-- p_food_id toma el nombre del alimento. Con p_client_request_id (kind 'shopping_item') un reintento
+-- devuelve el mismo artículo sin duplicarlo.
+create or replace function create_shopping_item(p_label text, p_quantity numeric default null,
+    p_unit text default null, p_section text default null, p_food_id bigint default null,
+    p_client_request_id uuid default null) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_me bigint := fn_my_user_id();
+    v_home bigint;
+    v_id bigint;
+    v_kind text;
+    v_fname text;
+    v_fsec text;
+    v_label text;
+    v_unit text := coalesce(p_unit, 'ud');
+    v_section text;
+    v_json json;
+begin
+    if v_me is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.shopping.edit');
+    perform fn_home_write_lock(v_home);
+    if p_client_request_id is not null then
+        perform pg_advisory_xact_lock(hashtextextended('client_request:' || v_me || ':' || p_client_request_id::text, 0));
+        select cr.kind, cr.resource_id into v_kind, v_id from client_request cr
+        where cr.app_user_id = v_me and cr.client_request_id = p_client_request_id;
+        if found then
+            if v_kind <> 'shopping_item' then
+                raise exception 'Invalid client_request_id' using errcode = 'P0001';
+            end if;
+            v_json := fn_shopping_item_json(v_id);
+            if v_json is null then
+                raise exception 'Not Found' using errcode = 'P0002';
+            end if;
+            return v_json;
+        end if;
+    end if;
+    if p_food_id is not null then
+        select f.name, f.section into v_fname, v_fsec from food f
+        where f.id = p_food_id and (f.home_id is null or f.home_id = v_home);
+        if not found then
+            raise exception 'Invalid shopping item' using errcode = 'P0001';
+        end if;
+    end if;
+    v_label := coalesce(nullif(btrim(p_label), ''), v_fname);
+    v_section := coalesce(p_section, v_fsec, 'otros');
+    if v_label is null or char_length(v_label) > 120
+       or v_unit <> all (array['g', 'kg', 'ml', 'l', 'ud', 'cda', 'cdta', 'pizca'])
+       or v_section <> all (array['verdura', 'fruta', 'carne', 'embutido', 'pescado', 'marisco', 'lacteos', 'huevos',
+           'legumbres', 'cereales', 'panaderia', 'despensa', 'aceites', 'especias', 'bebidas', 'congelados', 'otros'])
+       or (p_quantity is not null and (p_quantity < 0 or p_quantity >= 10000000000)) then
+        raise exception 'Invalid shopping item' using errcode = 'P0001';
+    end if;
+    insert into shopping_item (home_id, label, food_id, quantity, unit, section, origin, created_by)
+    values (v_home, v_label, p_food_id, p_quantity, v_unit, v_section, 'manual', v_me)
+    returning id into v_id;
+    if p_client_request_id is not null then
+        insert into client_request (app_user_id, client_request_id, kind, resource_id)
+        values (v_me, p_client_request_id, 'shopping_item', v_id);
+    end if;
+    insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload)
+    values (v_home, v_me, 'shopping.item.create', 'shopping_item', v_id, jsonb_build_object('label', v_label));
+    return fn_shopping_item_json(v_id);
+end $$;
+
+-- Marcar (checked), desmarcar (pending) o «ya lo tengo» (skipped). Idempotente.
+create or replace function set_shopping_item_state(p_item_id bigint, p_state text) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_me bigint := fn_my_user_id();
+    v_home bigint;
+    v_item shopping_item%rowtype;
+begin
+    if v_me is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.shopping.edit');
+    perform fn_home_write_lock(v_home);
+    select * into v_item from shopping_item s where s.id = p_item_id and s.home_id = v_home for update;
+    if not found then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    if p_state is null or p_state <> all (array['pending', 'checked', 'skipped']) then
+        raise exception 'Invalid shopping item' using errcode = 'P0001';
+    end if;
+    update shopping_item s set state = p_state, cleared = false,
+        checked_at = case when p_state = 'pending' then null else (now() at time zone 'UTC') end,
+        checked_by = case when p_state = 'pending' then null else v_me end,
+        updated_at = (now() at time zone 'UTC')
+    where s.id = v_item.id;
+    return fn_shopping_item_json(v_item.id);
+end $$;
+
+-- Cambia la cantidad (y la unidad si viene); el artículo pasa a qty_overridden y la sincronización ya no
+-- lo toca.
+create or replace function update_shopping_item_qty(p_item_id bigint, p_quantity numeric, p_unit text default null)
+returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_item shopping_item%rowtype;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.shopping.edit');
+    perform fn_home_write_lock(v_home);
+    select * into v_item from shopping_item s where s.id = p_item_id and s.home_id = v_home for update;
+    if not found then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    if p_quantity is null or p_quantity < 0 or p_quantity >= 10000000000
+       or (p_unit is not null and p_unit <> all (array['g', 'kg', 'ml', 'l', 'ud', 'cda', 'cdta', 'pizca'])) then
+        raise exception 'Invalid shopping item' using errcode = 'P0001';
+    end if;
+    update shopping_item s set quantity = p_quantity, unit = coalesce(p_unit, s.unit), qty_overridden = true,
+        updated_at = (now() at time zone 'UTC')
+    where s.id = v_item.id;
+    return fn_shopping_item_json(v_item.id);
+end $$;
+
+-- Borra un artículo manual. Uno de origen menu no se borra de verdad (la sincronización lo volvería a
+-- crear): pasa a «ya lo tengo» y se oculta (cleared).
+create or replace function delete_shopping_item(p_item_id bigint) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_item shopping_item%rowtype;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.shopping.edit');
+    perform fn_home_write_lock(v_home);
+    select * into v_item from shopping_item s where s.id = p_item_id and s.home_id = v_home for update;
+    if not found then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    if v_item.origin = 'menu' then
+        update shopping_item s set state = case when s.state = 'pending' then 'skipped' else s.state end,
+            cleared = true, updated_at = (now() at time zone 'UTC')
+        where s.id = v_item.id;
+    else
+        delete from shopping_item s where s.id = v_item.id;
+    end if;
+    insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload)
+    values (v_home, fn_my_user_id(), 'shopping.item.delete', 'shopping_item', v_item.id,
+            jsonb_build_object('label', v_item.label, 'origin', v_item.origin));
+    return json_build_object('id', v_item.id, 'deleted', true);
+end $$;
+
+-- Vacía los comprados (solo checked; no skipped ni pendientes). Los manuales se borran; los de origen menu
+-- se ocultan (cleared) para que la sincronización no los vuelva a crear. Devuelve cuántos.
+create or replace function clear_checked_shopping() returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_del integer;
+    v_hid integer;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.shopping.edit');
+    perform fn_home_write_lock(v_home);
+    delete from shopping_item s where s.home_id = v_home and s.state = 'checked' and s.origin = 'manual';
+    get diagnostics v_del = row_count;
+    update shopping_item s set cleared = true, updated_at = (now() at time zone 'UTC')
+    where s.home_id = v_home and s.state = 'checked' and s.origin = 'menu' and not s.cleared;
+    get diagnostics v_hid = row_count;
+    if v_del + v_hid > 0 then
+        insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload)
+        values (v_home, fn_my_user_id(), 'shopping.clear', 'home', v_home, jsonb_build_object('cleared', v_del + v_hid));
+    end if;
+    return json_build_object('cleared', v_del + v_hid);
+end $$;
+
+revoke all on function fn_shopping_item_json(bigint) from public, anon, authenticated;
+revoke all on function list_shopping(), create_shopping_item(text, numeric, text, text, bigint, uuid),
+    set_shopping_item_state(bigint, text), update_shopping_item_qty(bigint, numeric, text),
+    delete_shopping_item(bigint), clear_checked_shopping() from public, anon;
+grant execute on function list_shopping(), create_shopping_item(text, numeric, text, text, bigint, uuid),
+    set_shopping_item_state(bigint, text), update_shopping_item_qty(bigint, numeric, text),
+    delete_shopping_item(bigint), clear_checked_shopping() to authenticated;
+
 commit;
