@@ -588,7 +588,9 @@ begin
             if v_kind <> 'shopping_item' then
                 raise exception 'Invalid client_request_id' using errcode = 'P0001';
             end if;
-            v_json := fn_shopping_item_json(v_id);
+            if exists (select 1 from shopping_item s where s.id = v_id and s.home_id = v_home) then
+                v_json := fn_shopping_item_json(v_id);
+            end if;
             if v_json is null then
                 raise exception 'Not Found' using errcode = 'P0002';
             end if;

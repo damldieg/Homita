@@ -17,8 +17,10 @@
 --      skipped («ya lo tengo»), manuales ni cantidades editadas.
 -- SH5  volver a aceptar reconcilia con {0,0,0}; archivar el plan no borra la compra y no se sincroniza.
 -- SH6  permisos: niño lee, marca, «ya lo tengo» y añade; invitado → Not Allowed en todo.
--- SH7  RLS y cross-tenant: Y no lee ni escribe la compra de H (RPC → Not Found; tablas → vacío o denegado).
--- SH8  vaciar comprados y borrar: manuales se borran, los de origen menu se ocultan sin que vuelvan.
+-- SH7  RLS y cross-tenant: Y no lee ni escribe la compra de H (RPC → Not Found; tablas → vacío o denegado),
+--      ni recupera un artículo ajeno repitiendo un client_request_id.
+-- SH8  vaciar comprados y borrar: manuales se borran, los de origen menu se ocultan sin que vuelvan
+--      (ni por la sync ni por set_shopping_item_state, p. ej. el replay de una cola offline).
 -- SH9  client_request admite los kinds nuevos y rechaza uno inválido.
 -- SH10 grants: solo SELECT sobre la tabla, RPC solo para authenticated, helpers cerrados.
 -- SH11 0 filas scratch al terminar.
@@ -477,6 +479,12 @@ begin
     perform pg_temp.fails('SH7 borrado ajeno', format('select delete_shopping_item(%s)', v_item), 'P0002', 'Not Found');
     perform pg_temp.fails('SH7 preview ajeno', format('select preview_meal_shopping(%s)', v_plan), 'P0002', 'Not Found');
     perform pg_temp.fails('SH7 sync ajena', format('select sync_meal_shopping(%s)', v_plan), 'P0002', 'Not Found');
+    -- replay de create_shopping_item con una clave que apunta a un artículo de otro hogar
+    insert into client_request (app_user_id, client_request_id, kind, resource_id)
+    values (994005, '00000000-0000-4000-8000-00000000e701', 'shopping_item', v_item);
+    perform pg_temp.fails('SH7 replay ajeno',
+        'select create_shopping_item(''ZZSH x'', 1, ''ud'', null, null, ''00000000-0000-4000-8000-00000000e701'')',
+        'P0002', 'Not Found');
     -- X-Home-Id de H sin ser miembro
     perform pg_temp.as_user(5, 994001);
     perform pg_temp.fails('SH7 lista con cabecera', 'select list_shopping()', 'P0002', 'Not Found');
