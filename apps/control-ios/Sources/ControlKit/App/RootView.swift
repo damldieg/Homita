@@ -105,11 +105,12 @@ public struct RootView: View {
 
 struct MainTabView: View {
     let services: AppServices
-    @State private var selectedTab = 0 // 0 Inicio, 1 Tareas, 2 Calendario, 3 Hogar, 4 Perfil
+    @State private var selectedTab = 0 // 0 Inicio, 1 Tareas, 2 Calendario, 3 Menú, 4 Hogar (Ajustes: hoja desde el engranaje de Inicio)
     @State private var taskListRequest: Int? // lista pedida desde Inicio
     @State private var calendarSegment = 0 // 0 Eventos, 1 Rutinas, 2 Calendarios
     @State private var kito: KitoStore? // chat de Kito del usuario y hogar activos (nil sin hogar)
     @State private var showingKito = false
+    @State private var showingSettings = false // Ajustes (`ProfileView`) en hoja
     private let deepLinks = DeepLinkCenter.shared
 
     /// Cambia al cambiar de usuario u hogar: el chat de Kito se recrea con su historial.
@@ -140,7 +141,8 @@ struct MainTabView: View {
                     case .taskList(let id): taskListRequest = id; selectedTab = 1
                     case .routines: calendarSegment = 1; selectedTab = 2
                     case .events: calendarSegment = 0; selectedTab = 2
-                    case .home: selectedTab = 3
+                    case .home: selectedTab = 4
+                    case .settings: showingSettings = true
                     }
                 }
             }
@@ -160,16 +162,19 @@ struct MainTabView: View {
             .tabItem { Label("Calendario", systemImage: "calendar") }
             .tag(2)
             HomeGate(services: services, state: state) {
+                MealsView(services: services)
+            }
+            .id(homeKey)
+            .tabItem { Label("Menú", systemImage: "fork.knife") }
+            .tag(3)
+            HomeGate(services: services, state: state) {
                 if case .ready(let home) = state {
                     HogarView(services: services, home: home)
                 }
             }
             .id(homeKey)
             .tabItem { Label("Hogar", systemImage: "person.2") }
-            .tag(3)
-            ProfileView(services: services, onOpenHome: { selectedTab = 3 })
-                .tabItem { Label("Ajustes", systemImage: "gearshape") }
-                .tag(4)
+            .tag(4)
         }
         .tint(Palette.accent)
         .safeAreaInset(edge: .top) {
@@ -177,9 +182,23 @@ struct MainTabView: View {
                 Task { await services.replayOutbox() }
             }
         }
-        // Kito: botón flotante en todas las pestañas menos Ajustes (4); abre el chat en una hoja.
+        // Sin hogar activo Inicio no se instancia: el engranaje sigue dando salida a Ajustes (invitación, cerrar sesión).
+        .overlay(alignment: .topTrailing) {
+            if case .ready = state {} else {
+                Button { showingSettings = true } label: { HomitaHeaderIcon(systemImage: "gearshape") }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Ajustes")
+                    .accessibilityIdentifier("sin-hogar.ajustes")
+                    .padding(.trailing, 20)
+                    .padding(.top, 8)
+            }
+        }
+        .sheet(isPresented: $showingSettings) {
+            ProfileView(services: services, onOpenHome: { showingSettings = false; selectedTab = 4 })
+        }
+        // Kito: botón flotante en todas las pestañas; abre el chat en una hoja.
         .overlay(alignment: .bottomTrailing) {
-            if selectedTab != 4, kito != nil {
+            if kito != nil {
                 KitoButton { showingKito = true }
                     .padding(.trailing, 16)
                     .padding(.bottom, 84)
@@ -226,7 +245,10 @@ struct MainTabView: View {
         case .tareas:
             taskListRequest = nil; selectedTab = 1; deepLinks.consume(link)
         case .ajustesNotificaciones:
-            selectedTab = 4
+            // Ajustes ya no es pestaña: la hoja lo abre y `ProfileView` consume el enlace.
+            showingSettings = true
+        case .menu:
+            selectedTab = 3; deepLinks.consume(link)
         }
     }
 }

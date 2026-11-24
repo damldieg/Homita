@@ -4,6 +4,8 @@ import HomitaShared
 /// Destino de las flechas de las tarjetas de Inicio.
 public enum InicioDestination: Sendable {
     case tasks, routines, events, home
+    /// Ajustes: hoja con `ProfileView` desde el engranaje de la cabecera.
+    case settings
     /// Pestaña Tareas filtrada por esta lista.
     case taskList(Int)
 }
@@ -193,7 +195,8 @@ public struct InicioView: View {
             }
             .accessibilityLabel("Crear")
             .accessibilityIdentifier("inicio.accesos")
-            HomitaHeaderButton(systemImage: "house", label: "Ir a Hogar") { onOpen(.home) }
+            HomitaHeaderButton(systemImage: "gearshape", label: "Ajustes") { onOpen(.settings) }
+                .accessibilityIdentifier("inicio.ajustes")
         }
     }
 
