@@ -51,6 +51,14 @@ final class MealProfileTests: XCTestCase {
         XCTAssertFalse(StubURLProtocol.requests.contains { $0.url?.path.contains("/home/member") == true })
     }
 
+    /// Sin `menu.view` el servidor responde 403: mensaje claro en vez del genérico.
+    func testStoreShowsClearMessageOn403() async throws {
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(status: 403, json: #"{"error":"Not Allowed"}"#) }
+        let store = MealProfileStore(meals: MealRepository(client: makeTestClient()), activeHomeId: { "7" })
+        await store.load()
+        XCTAssertEqual(store.state, .failed("No tienes permiso para ver el menú de este hogar. Pídele acceso a un administrador."))
+    }
+
     func testMealRequestsShapeAndHeader() async throws {
         StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: #"{"success":true}"#) }
         let client = APIClient(baseURL: URL(string: "https://test.supabase.co/functions/v1/api")!,
