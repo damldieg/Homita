@@ -18,6 +18,18 @@ public enum APIError: Error, Equatable {
         return false
     }
 
+    /// 409 `Stale meal plan revision`: alguien cambió el menú; hay que releer y reintentar.
+    public var isStaleRevision: Bool {
+        if case .http(let status, let message) = self { return status == 409 && message == "Stale meal plan revision" }
+        return false
+    }
+
+    /// 409 `Meal plan exists`: la semana de destino ya tiene menú.
+    public var isMealPlanExists: Bool {
+        if case .http(let status, let message) = self { return status == 409 && message == "Meal plan exists" }
+        return false
+    }
+
     /// 403 `Not Allowed` = solo propietario (owner-only): mostrar aviso, no reintentar.
     public var isOwnerOnly: Bool {
         if case .http(let status, let message) = self {
@@ -106,6 +118,12 @@ public enum APIError: Error, Equatable {
             case "Invalid person": return "Alguna persona elegida no se puede asignar en esta lista"
             case "Name is required (max 50 characters)": return "El nombre es obligatorio (máx. 50 caracteres)"
             case "Color must be #RRGGBB": return "El color debe ser #RRGGBB"
+            // 0044: menú semanal, recetas y catálogo (409 = conflicto, el resto 400)
+            case "Stale meal plan revision": return "El menú ha cambiado en otro dispositivo. Se ha recargado."
+            case "Meal plan exists": return "Esa semana ya tiene un menú"
+            case "Invalid meal plan": return "El menú no es válido. Revisa las casillas."
+            case "Invalid recipe": return "Revisa la receta: nombre, raciones e ingredientes"
+            case "Invalid food": return "Revisa el alimento"
             case "Member ID is required": return "Falta el identificador del miembro"
             default: return message
             }

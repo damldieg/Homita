@@ -10,6 +10,7 @@ public enum HomitaDeepLink: String, CaseIterable, Equatable, Sendable {
     case tareas = "tareas"
     case calendario = "calendario"
     case ajustesNotificaciones = "ajustes-notificaciones"
+    case menu = "menu"
 
     public var url: URL {
         // El esquema y el destino son constantes ASCII: la URL siempre es válida.

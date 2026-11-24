@@ -44,6 +44,20 @@ final class RequestBuilderTests: XCTestCase {
         XCTAssertNil(try header(APIRequest(method: .get, path: "mealplan")))
     }
 
+    func testRecipeAndFoodRoutesCarryHeader() throws {
+        // 0044 (menus-semana): /recipe* y /food* cuelgan de la raíz y operan sobre el hogar activo
+        for path in ["recipe", "recipe/detail", "recipe/create", "recipe/update", "recipe/delete",
+                     "food", "food/create", "food/update", "food/delete"] {
+            XCTAssertEqual(try header(APIRequest(method: .get, path: path)), "7", path)
+            XCTAssertNil(try header(APIRequest(method: .get, path: path, isPublic: true)), path)
+            XCTAssertNil(try header(APIRequest(method: .get, path: path), homeId: nil), path)
+        }
+        XCTAssertNil(try header(APIRequest(method: .get, path: "recipes")))
+        XCTAssertNil(try header(APIRequest(method: .get, path: "foodstuff")))
+        XCTAssertEqual(try header(APIRequest(method: .get, path: "meal/plan")), "7")
+        XCTAssertEqual(try header(APIRequest(method: .get, path: "meal/today")), "7")
+    }
+
     func testPutCarriesBodyAndMethod() throws {
         let request = try RequestBuilder.urlRequest(
             baseURL: base, apiRequest: APIRequest(method: .put, path: "meal/slots", body: Data("{\"slots\":[]}".utf8)),

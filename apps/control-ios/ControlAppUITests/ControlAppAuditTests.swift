@@ -134,7 +134,7 @@ final class ControlAppAuditTests: XCTestCase {
 
     func test03_Pestanas() {
         ensureLoggedIn()
-        for (index, name) in ["Inicio", "Tareas", "Calendario", "Hogar", "Ajustes"].enumerated() {
+        for (index, name) in ["Inicio", "Tareas", "Calendario", "Menú", "Hogar"].enumerated() {
             openTab(name)
             shot(String(format: "1%02d-pestana-%@", index, name.lowercased()))
         }
@@ -228,7 +228,12 @@ final class ControlAppAuditTests: XCTestCase {
 
     func test09_PerfilYAjustes() {
         ensureLoggedIn()
-        openTab("Ajustes")
+        // Ajustes ya no es pestaña: se abre con el engranaje de Inicio (hoja).
+        openTab("Inicio")
+        let gear = app.buttons["inicio.ajustes"]
+        XCTAssertTrue(gear.waitForExistence(timeout: 10), "Falta el engranaje de Ajustes en Inicio")
+        gear.tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(1.0))
         shot("60-perfil")
         tap("Personas", timeout: 4)
         shot("61-personas")

@@ -295,10 +295,11 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 302  # 266 + 3 de prioridad (0037) + 4 XT-AL de acceso a la lista (0038)
+EXPECTED_CASES = 332  # 266 + 3 de prioridad (0037) + 4 XT-AL de acceso a la lista (0038)
                       # + 9 XH de ocultas (0039: 6 XH-B, 1 XH-A-lista, 2 XH-V)
                       # + 7 de PATCH /task-list/order (0040)
                       # + 13 XM de /meal/* (0043, menus-perfil-hogar)
+                      # + 30 XR de recetas, catálogo y menú semanal (0044, menus-semana)
 A12_ITERS = int(os.environ.get("A12_ITERS", "20"))
 # F1_ITERS: carreras de solape real por bloque F1/F2 (R1-06; el solape expone el 40P01 de 0020)
 F1_ITERS = int(os.environ.get("F1_ITERS", "10"))
@@ -2240,6 +2241,105 @@ state = psql(f"select (select diet from meal_profile_member where home_member_id
              f"(select shopping_day from meal_profile where home_id = {home_a})")
 check("XM13 el perfil de A sigue intacto tras los intentos de B (vegetarian 14:00, sin horario, sábado)",
       state == "vegetarian 14:00 0 6", f"psql: {state!r}")
+XT_BLOCK = "BASE"
+
+# ── XR (0044, menus-semana): recetas, catálogo y menú semanal — B no lee ni escribe lo de A ──
+# A crea un alimento propio, una receta con ese alimento y un plan con una casilla (semana del lunes
+# 2026-11-23). B (sin membresía en home(A)) recibe 404 en todas las rutas con la cabecera de A y por id
+# de A sin cabecera (Not Found de la RPC), no ve nada de A en sus propias lecturas, no escribe ni usa el
+# catálogo común como propio, y el estado de A no cambia. PostgREST directo: solo lectura bajo RLS.
+XT_BLOCK = "XR"
+XR_WEEK = "2026-11-23"
+xr1 = edge("POST", "/food/create", {"name": "XT-Alimento", "section": "otros", "allergens": ["gluten"]}, a_tok)
+xr_food = (parse(xr1[1]) or {}).get("id") if xr1[0] == 201 else None
+check("XR1 A crea un alimento propio por la Edge → 201 con id", xr1[0] == 201 and isinstance(xr_food, int), repr(xr1)[:200])
+xr2 = edge("POST", "/recipe/create",
+           {"name": "XT-Receta", "servings": 2, "minutes": 20, "slots": ["lunch"],
+            "ingredients": [{"food_id": xr_food, "label": "XT-Alimento", "quantity": 100, "unit": "g"}]}, a_tok)
+xr_recipe = (parse(xr2[1]) or {}).get("id") if xr2[0] == 201 else None
+check("XR2 A crea una receta con ese alimento → 201 con id", xr2[0] == 201 and isinstance(xr_recipe, int), repr(xr2)[:200])
+xr3 = edge("PATCH", "/meal/plan/items",
+           {"week_start": XR_WEEK, "expected_revision": 0,
+            "items": [{"day": "2026-11-24", "slot": "lunch", "kind": "recipe", "recipe_id": xr_recipe}]}, a_tok)
+xr3_body = parse(xr3[1]) if xr3[0] == 200 else {}
+xr_plan = xr3_body.get("id") if isinstance(xr3_body, dict) else None
+xr_item = (xr3_body.get("items") or [{}])[0].get("id") if isinstance(xr3_body, dict) else None
+check("XR3 A crea el plan con una casilla → 200, revision 1", isinstance(xr_plan, int) and xr3_body.get("revision") == 1
+      and isinstance(xr_item, int), repr(xr3)[:200])
+xr4 = edge("GET", "/recipe", None, b_tok)
+check("XR4 B GET /recipe sin cabecera → 200 sin la receta de A",
+      xr4[0] == 200 and "XT-Receta" not in xr4[1], repr(xr4)[:200])
+expect("XR5 B GET /recipe/detail con la receta de A → 404",
+       edge("GET", f"/recipe/detail?id={xr_recipe}", None, b_tok), HOME_NOT_FOUND)
+expect("XR6 B GET /recipe con X-Home-Id de A → 404", edge("GET", "/recipe", None, b_tok, home=home_a), HOME_NOT_FOUND)
+xr7 = edge("GET", "/food?q=XT-Alimento", None, b_tok)
+check("XR7 B GET /food?q= → 200 sin el alimento de A", xr7[0] == 200 and "XT-Alimento" not in xr7[1], repr(xr7)[:200])
+expect("XR8 B PATCH /food/update del alimento de A → 404",
+       edge("PATCH", "/food/update", {"id": xr_food, "name": "XT-Robado"}, b_tok), HOME_NOT_FOUND)
+expect("XR9 B DELETE /food/delete del alimento de A → 404",
+       edge("DELETE", f"/food/delete?id={xr_food}", None, b_tok), HOME_NOT_FOUND)
+expect("XR10 B PATCH /recipe/update de la receta de A → 404",
+       edge("PATCH", "/recipe/update", {"id": xr_recipe, "name": "XT-Robada"}, b_tok), HOME_NOT_FOUND)
+expect("XR11 B DELETE /recipe/delete de la receta de A → 404",
+       edge("DELETE", f"/recipe/delete?id={xr_recipe}", None, b_tok), HOME_NOT_FOUND)
+expect("XR12 B GET /meal/plan de la semana de A sin cabecera → 200 null (su hogar no tiene plan)",
+       edge("GET", f"/meal/plan?week_start={XR_WEEK}", None, b_tok), (200, "null"))
+expect("XR13 B GET /meal/plan con X-Home-Id de A → 404",
+       edge("GET", f"/meal/plan?week_start={XR_WEEK}", None, b_tok, home=home_a), HOME_NOT_FOUND)
+expect("XR14 B PATCH /meal/plan/items con X-Home-Id de A → 404",
+       edge("PATCH", "/meal/plan/items", {"week_start": XR_WEEK, "expected_revision": 1, "delete_ids": [xr_item]},
+            b_tok, home=home_a), HOME_NOT_FOUND)
+expect("XR15 B POST /meal/plan/accept del plan de A → 404",
+       edge("POST", "/meal/plan/accept", {"plan_id": xr_plan, "expected_revision": 1}, b_tok), HOME_NOT_FOUND)
+expect("XR16 B POST /meal/plan/archive del plan de A → 404",
+       edge("POST", "/meal/plan/archive", {"plan_id": xr_plan}, b_tok), HOME_NOT_FOUND)
+expect("XR17 B GET /meal/plan/check del plan de A → 404",
+       edge("GET", f"/meal/plan/check?plan_id={xr_plan}", None, b_tok), HOME_NOT_FOUND)
+expect("XR18 B POST /meal/plan/copy con X-Home-Id de A → 404",
+       edge("POST", "/meal/plan/copy", {"from_week": XR_WEEK, "to_week": "2026-11-30"}, b_tok, home=home_a), HOME_NOT_FOUND)
+expect("XR19 B GET /meal/today con X-Home-Id de A → 404", edge("GET", "/meal/today", None, b_tok, home=home_a), HOME_NOT_FOUND)
+xr20 = edge("GET", "/meal/today", None, b_tok)
+check("XR20 B GET /meal/today sin cabecera → has_plan false (nada de A)",
+      xr20[0] == 200 and (parse(xr20[1]) or {}).get("has_plan") is False, repr(xr20)[:200])
+xr21 = edge("POST", "/recipe/create",
+            {"name": "XT-RecetaB", "ingredients": [{"food_id": xr_food, "label": "robado", "quantity": 1, "unit": "g"}]}, b_tok)
+check("XR21 B crea una receta con el alimento propio de A como ingrediente → rechazado",
+      xr21[0] in (400, 404) and "XT-RecetaB" not in psql("select coalesce(string_agg(name, ','), '') from recipe"),
+      repr(xr21)[:200])
+xr_common = psql("select id from food where home_id is null order by id limit 1")
+check("XR22 hay catálogo común cargado (seed) para las pruebas de solo lectura", xr_common != "", f"psql: {xr_common!r}")
+if xr_common != "":
+    expect("XR23 B PATCH /food/update de un alimento común → 404",
+           edge("PATCH", "/food/update", {"id": int(xr_common), "name": "XT-Comun"}, b_tok), HOME_NOT_FOUND)
+    expect("XR24 A DELETE /food/delete de un alimento común → 404",
+           edge("DELETE", f"/food/delete?id={xr_common}", None, a_tok), HOME_NOT_FOUND)
+expect_err("XR25 B rpc upsert_meal_plan_items con X-Home-Id de A → Not Found",
+           request(URL, "POST", "/rest/v1/rpc/upsert_meal_plan_items",
+                   {"p_week_start": XR_WEEK, "p_expected_revision": 1}, b_tok, apikey=ANON, home=home_a), "Not Found")
+expect_err("XR26 B rpc update_recipe de la receta de A → Not Found",
+           rpc_direct("update_recipe", {"p_id": xr_recipe, "p_data": {"name": "XT-Robada"}}, b_tok), "Not Found")
+xr27 = [request(URL, "GET", f"/rest/v1/{t}?select=id&home_id=eq.{home_a}", None, b_tok, apikey=ANON)
+        for t in ("food", "recipe", "recipe_ingredient", "meal_plan", "meal_plan_item")]
+xr27.append(request(URL, "GET", f"/rest/v1/meal_plan_item_member?select=item_id&item_id=eq.{xr_item}", None, b_tok, apikey=ANON))
+check("XR27 B SELECT directo de food/recipe/recipe_ingredient/meal_plan/meal_plan_item/meal_plan_item_member de A → 200 y vacío",
+      all(r[0] == 200 and parse(r[1]) == [] for r in xr27), repr(xr27)[:300])
+xr28 = [request(URL, "POST", "/rest/v1/food", {"home_id": home_a, "name": "XT-Directo"}, b_tok, apikey=ANON),
+        request(URL, "POST", "/rest/v1/recipe", {"home_id": home_a, "name": "XT-Directo", "servings": 2}, b_tok, apikey=ANON),
+        request(URL, "PATCH", f"/rest/v1/meal_plan?id=eq.{xr_plan}", {"status": "archived"}, b_tok, apikey=ANON),
+        request(URL, "DELETE", f"/rest/v1/meal_plan?id=eq.{xr_plan}", None, b_tok, apikey=ANON)]
+check("XR28 B INSERT/UPDATE/DELETE directos en food, recipe y meal_plan → rechazados (sin privilegio de escritura)",
+      all(r[0] in (401, 403) for r in xr28), repr(xr28)[:300])
+xr29 = request(URL, "POST", "/rest/v1/food", {"home_id": home_a, "name": "XT-DirectoA"}, a_tok, apikey=ANON)
+check("XR29 ni el propietario escribe food directo por PostgREST (solo por RPC)", xr29[0] in (401, 403), repr(xr29)[:200])
+state = psql(f"select (select count(*) from food where home_id = {home_a}) || ' ' || "
+             f"(select count(*) from recipe where home_id = {home_a}) || ' ' || "
+             f"(select revision from meal_plan where id = {xr_plan}) || ' ' || "
+             f"(select status from meal_plan where id = {xr_plan}) || ' ' || "
+             f"(select count(*) from meal_plan_item where plan_id = {xr_plan}) || ' ' || "
+             f"(select name from food where id = {xr_food}) || ' ' || "
+             f"(select count(*) from food where name in ('XT-Robado', 'XT-Comun', 'XT-Directo', 'XT-DirectoA'))")
+check("XR30 el estado de A sigue intacto (1 alimento, 1 receta, plan revision 1 draft con 1 casilla, nada robado)",
+      state == "1 1 1 draft 1 XT-Alimento 0", f"psql: {state!r}")
 XT_BLOCK = "BASE"
 
 # ── K21 (1.5, plan §8.2) y §8.3: cascada app_user → person → home_member (trigger 0014c, I5) ──

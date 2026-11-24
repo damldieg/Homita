@@ -68,8 +68,13 @@ import {
 } from "./usecases/homes.ts";
 import {
     handleMealProfileGet, handleMealProfileMemberUpdate, handleMealProfileUpdate, handleMealScheduleSet,
-    handleMealSlotsSet,
+    handleMealSlotsSet, handleMealPlanAccept, handleMealPlanArchive, handleMealPlanCheck, handleMealPlanCopy,
+    handleMealPlanGet, handleMealPlanItems, handleMealToday,
 } from "./usecases/meals.ts";
+import {
+    handleFoodCreate, handleFoodDelete, handleFoodSearch, handleFoodUpdate, handleRecipeCreate,
+    handleRecipeDelete, handleRecipeDetail, handleRecipeIndex, handleRecipeUpdate,
+} from "./usecases/recipes.ts";
 
 type Handler = (req: Request, token: string, uid: string) => Promise<Response> | Response;
 
@@ -158,6 +163,25 @@ const ROUTES: Record<string, { auth: boolean; home?: boolean; homeContext?: bool
     "PATCH /meal/profile/member": { auth: true, home: true, handler: (req, t) => handleMealProfileMemberUpdate(req, t) },
     "PUT /meal/schedule": { auth: true, home: true, handler: (req, t) => handleMealScheduleSet(req, t) },
     "PUT /meal/slots": { auth: true, home: true, handler: (req, t) => handleMealSlotsSet(req, t) },
+
+    // change menus-semana (0044): recetas, catálogo de alimentos y menú semanal (rutas aditivas D-008);
+    // X-Home-Id o regla de fn_home_for_root_create. 409 solo en 'Stale meal plan revision' y 'Meal plan exists'.
+    "GET /recipe": { auth: true, home: true, handler: (req, t) => handleRecipeIndex(req, t) },
+    "GET /recipe/detail": { auth: true, home: true, handler: (req, t) => handleRecipeDetail(req, t) },
+    "POST /recipe/create": { auth: true, home: true, handler: (req, t) => handleRecipeCreate(req, t) },
+    "PATCH /recipe/update": { auth: true, home: true, handler: (req, t) => handleRecipeUpdate(req, t) },
+    "DELETE /recipe/delete": { auth: true, home: true, handler: (req, t) => handleRecipeDelete(req, t) },
+    "GET /food": { auth: true, home: true, handler: (req, t) => handleFoodSearch(req, t) },
+    "POST /food/create": { auth: true, home: true, handler: (req, t) => handleFoodCreate(req, t) },
+    "PATCH /food/update": { auth: true, home: true, handler: (req, t) => handleFoodUpdate(req, t) },
+    "DELETE /food/delete": { auth: true, home: true, handler: (req, t) => handleFoodDelete(req, t) },
+    "GET /meal/plan": { auth: true, home: true, handler: (req, t) => handleMealPlanGet(req, t) },
+    "PATCH /meal/plan/items": { auth: true, home: true, handler: (req, t) => handleMealPlanItems(req, t) },
+    "POST /meal/plan/accept": { auth: true, home: true, handler: (req, t) => handleMealPlanAccept(req, t) },
+    "POST /meal/plan/archive": { auth: true, home: true, handler: (req, t) => handleMealPlanArchive(req, t) },
+    "POST /meal/plan/copy": { auth: true, home: true, handler: (req, t) => handleMealPlanCopy(req, t) },
+    "GET /meal/plan/check": { auth: true, home: true, handler: (req, t) => handleMealPlanCheck(req, t) },
+    "GET /meal/today": { auth: true, home: true, handler: (req, t) => handleMealToday(req, t) },
 
     // change control-ios-feedback: ruta aditiva (D-008), fuera de las 43 legacy; sin X-Home-Id.
     "POST /feedback": { auth: true, handler: (req, t) => handleFeedbackCreate(req, t) },

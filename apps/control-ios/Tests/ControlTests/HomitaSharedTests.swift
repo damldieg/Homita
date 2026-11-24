@@ -50,6 +50,16 @@ final class HomitaSharedTests: XCTestCase {
         XCTAssertEqual(HomitaDeepLink.nuevaRutina.url.absoluteString, "homita://nueva-rutina")
     }
 
+    func testMenuDeepLink() {
+        XCTAssertEqual(HomitaDeepLink(string: "homita://menu"), .menu)
+        XCTAssertEqual(HomitaDeepLink.menu.url.absoluteString, "homita://menu")
+        let center = DeepLinkCenter()
+        XCTAssertTrue(center.open(url: HomitaDeepLink.menu.url))
+        XCTAssertEqual(center.pending, .menu)
+        center.consume(.menu)
+        XCTAssertNil(center.pending)
+    }
+
     // MARK: Preferencias
 
     func testPreferencesDefaultsAndRoundTrip() throws {
