@@ -177,4 +177,367 @@ create policy meal_plan_item_member_select on meal_plan_item_member for select t
 revoke all on function fn_meal_norm(text), fn_meal_food_allergens_valid(text[]), fn_meal_food_before()
     from public, anon, authenticated;
 
+-- ─────────────────── (d) RPC de catálogo y recetas ───────────────────
+-- Hogar por X-Home-Id o fn_home_for_root_create(). Lectura: menu.view. Escritura: menu.plan.manage.
+-- Errores: 'Invalid food' / 'Invalid recipe' (P0001), 'Not Found' (P0002), 'Not Allowed' (42501).
+
+-- Alimento como json. Los del catálogo común llevan home_id nulo.
+create or replace function fn_meal_food_json(p_id bigint) returns json
+language sql stable security definer set search_path = public as $$
+    select json_build_object('id', f.id, 'home_id', f.home_id, 'name', f.name, 'section', f.section,
+        'allergens', f.allergens, 'default_unit', f.default_unit, 'grams_per_unit', f.grams_per_unit)
+    from food f where f.id = p_id
+$$;
+
+-- Receta con ingredientes y alérgenos derivados de los ingredientes con food_id.
+create or replace function fn_meal_recipe_json(p_id bigint) returns json
+language sql stable security definer set search_path = public as $$
+    select json_build_object(
+        'id', r.id, 'name', r.name, 'servings', r.servings, 'minutes', r.minutes, 'slots', r.slots,
+        'steps', r.steps, 'created_by', r.created_by, 'updated_at', r.updated_at,
+        'ingredients', (select coalesce(json_agg(json_build_object(
+                'id', i.id, 'position', i.position, 'food_id', i.food_id, 'label', i.label,
+                'quantity', i.quantity, 'unit', i.unit) order by i.position, i.id), '[]'::json)
+            from recipe_ingredient i where i.recipe_id = r.id),
+        'allergens', (select coalesce(json_agg(a order by a), '[]'::json) from (
+                select distinct unnest(f.allergens) as a from recipe_ingredient i
+                join food f on f.id = i.food_id where i.recipe_id = r.id) x))
+    from recipe r where r.id = p_id
+$$;
+
+-- Valida y reemplaza los ingredientes de una receta. [{food_id?, label?, quantity?, unit?}] en orden.
+create or replace function fn_meal_recipe_set_ingredients(p_home bigint, p_recipe bigint, p_ing jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+    v_e jsonb;
+    v_pos integer := 0;
+    v_food bigint;
+    v_fname text;
+    v_label text;
+    v_qty numeric;
+    v_unit text;
+begin
+    if p_ing is null or jsonb_typeof(p_ing) <> 'array' or jsonb_array_length(p_ing) > 60 then
+        raise exception 'Invalid recipe' using errcode = 'P0001';
+    end if;
+    delete from recipe_ingredient where recipe_id = p_recipe;
+    for v_e in select e from jsonb_array_elements(p_ing) e loop
+        if jsonb_typeof(v_e) <> 'object' then
+            raise exception 'Invalid recipe' using errcode = 'P0001';
+        end if;
+        v_food := null;
+        v_fname := null;
+        if coalesce(jsonb_typeof(v_e->'food_id'), 'null') not in ('null', 'number') then
+            raise exception 'Invalid recipe' using errcode = 'P0001';
+        end if;
+        if jsonb_typeof(v_e->'food_id') = 'number' then
+            if (v_e->>'food_id') !~ '^[0-9]{1,18}$' then
+                raise exception 'Invalid recipe' using errcode = 'P0001';
+            end if;
+            -- alimento del catálogo común o del propio hogar; cualquier otro, misma respuesta
+            select f.id, f.name into v_food, v_fname from food f
+            where f.id = (v_e->>'food_id')::bigint and (f.home_id is null or f.home_id = p_home);
+            if v_food is null then
+                raise exception 'Invalid recipe' using errcode = 'P0001';
+            end if;
+        end if;
+        if coalesce(jsonb_typeof(v_e->'label'), 'null') not in ('null', 'string')
+           or coalesce(jsonb_typeof(v_e->'unit'), 'null') not in ('null', 'string')
+           or coalesce(jsonb_typeof(v_e->'quantity'), 'null') not in ('null', 'number') then
+            raise exception 'Invalid recipe' using errcode = 'P0001';
+        end if;
+        v_label := coalesce(nullif(btrim(v_e->>'label'), ''), v_fname);
+        v_qty := (v_e->>'quantity')::numeric;
+        v_unit := coalesce(v_e->>'unit', 'ud');
+        insert into recipe_ingredient (recipe_id, home_id, position, food_id, label, quantity, unit)
+        values (p_recipe, p_home, v_pos, v_food, v_label, v_qty, v_unit);
+        v_pos := v_pos + 1;
+    end loop;
+end $$;
+
+-- ── Catálogo ──
+
+-- Común + del hogar, por prefijo y luego por contiene sobre name_norm (sin acentos ni mayúsculas).
+create or replace function search_food(p_q text default null, p_limit integer default 20) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_q text := fn_meal_norm(coalesce(p_q, ''));
+    v_limit integer := least(greatest(coalesce(p_limit, 20), 1), 50);
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.view');
+    return (select coalesce(json_agg(fn_meal_food_json(x.id) order by x.rank, x.name_norm, x.id), '[]'::json)
+        from (select f.id, f.name_norm,
+                     case when v_q = '' or left(f.name_norm, char_length(v_q)) = v_q then 0 else 1 end as rank
+              from food f
+              where (f.home_id is null or f.home_id = v_home)
+                and (v_q = '' or position(v_q in f.name_norm) > 0)
+              order by 3, f.name_norm, f.id
+              limit v_limit) x);
+end $$;
+
+create or replace function create_food(p_name text, p_section text default null, p_allergens jsonb default null,
+    p_default_unit text default null, p_grams_per_unit numeric default null) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_id bigint;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.plan.manage');
+    if p_name is null or p_allergens is not null and jsonb_typeof(p_allergens) <> 'array' then
+        raise exception 'Invalid food' using errcode = 'P0001';
+    end if;
+    perform fn_home_write_lock(v_home);
+    begin
+        insert into food (home_id, name, section, allergens, default_unit, grams_per_unit)
+        values (v_home, btrim(p_name), coalesce(p_section, 'otros'),
+                case when p_allergens is null then array[]::text[] else fn_meal_jsonb_to_text_array(p_allergens) end,
+                coalesce(p_default_unit, 'g'), p_grams_per_unit)
+        returning id into v_id;
+    exception when check_violation or not_null_violation or unique_violation or invalid_text_representation
+        or numeric_value_out_of_range or invalid_parameter_value or datatype_mismatch then
+        raise exception 'Invalid food' using errcode = 'P0001';
+    end;
+    insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload)
+    values (v_home, fn_my_user_id(), 'meal.food.create', 'food', v_id, '{}'::jsonb);
+    return fn_meal_food_json(v_id);
+end $$;
+
+-- p_data: name, section, allergens, default_unit, grams_per_unit (solo las claves presentes).
+create or replace function update_food(p_id bigint, p_data jsonb) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_keys text[] := array['name', 'section', 'allergens', 'default_unit', 'grams_per_unit'];
+    v_found bigint;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.plan.manage');
+    if p_data is null or jsonb_typeof(p_data) <> 'object'
+       or exists (select 1 from jsonb_object_keys(p_data) k where k <> all (v_keys))
+       or (p_data ? 'allergens' and jsonb_typeof(p_data->'allergens') <> 'array') then
+        raise exception 'Invalid food' using errcode = 'P0001';
+    end if;
+    perform fn_home_write_lock(v_home);
+    -- solo alimentos del propio hogar: el común y los de otro hogar responden Not Found
+    select f.id into v_found from food f where f.id = p_id and f.home_id = v_home for update;
+    if v_found is null then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    begin
+        update food f set
+            name = case when p_data ? 'name' then btrim(p_data->>'name') else f.name end,
+            section = case when p_data ? 'section' then p_data->>'section' else f.section end,
+            allergens = case when p_data ? 'allergens' then fn_meal_jsonb_to_text_array(p_data->'allergens') else f.allergens end,
+            default_unit = case when p_data ? 'default_unit' then p_data->>'default_unit' else f.default_unit end,
+            grams_per_unit = case when p_data ? 'grams_per_unit' then (p_data->>'grams_per_unit')::numeric else f.grams_per_unit end
+        where f.id = p_id;
+    exception when check_violation or not_null_violation or unique_violation or invalid_text_representation
+        or numeric_value_out_of_range or invalid_parameter_value or datatype_mismatch then
+        raise exception 'Invalid food' using errcode = 'P0001';
+    end;
+    insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload)
+    values (v_home, fn_my_user_id(), 'meal.food.update', 'food', p_id,
+            jsonb_build_object('fields', (select coalesce(jsonb_agg(k order by k), '[]'::jsonb)
+                                          from jsonb_object_keys(p_data) k)));
+    return fn_meal_food_json(p_id);
+end $$;
+
+create or replace function delete_food(p_id bigint) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_found bigint;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.plan.manage');
+    perform fn_home_write_lock(v_home);
+    select f.id into v_found from food f where f.id = p_id and f.home_id = v_home for update;
+    if v_found is null then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    delete from food where id = p_id;       -- los ingredientes conservan su label (food_id → null)
+    insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload)
+    values (v_home, fn_my_user_id(), 'meal.food.delete', 'food', p_id, '{}'::jsonb);
+    return json_build_object('success', true);
+end $$;
+
+-- ── Recetas ──
+
+-- p_slot: recetas sugeridas para esa franja o sin franja indicada. p_max_minutes: solo las que
+-- declaran un tiempo <= p_max_minutes.
+create or replace function list_recipes(p_q text default null, p_slot text default null,
+    p_max_minutes integer default null) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_q text := fn_meal_norm(coalesce(p_q, ''));
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.view');
+    if p_slot is not null and p_slot <> all (array['breakfast', 'midmorning', 'lunch', 'snack', 'dinner']) then
+        raise exception 'Invalid recipe' using errcode = 'P0001';
+    end if;
+    return (select coalesce(json_agg(json_build_object(
+            'id', r.id, 'name', r.name, 'servings', r.servings, 'minutes', r.minutes, 'slots', r.slots)
+            order by fn_meal_norm(r.name), r.id), '[]'::json)
+        from recipe r
+        where r.home_id = v_home
+          and (v_q = '' or position(v_q in fn_meal_norm(r.name)) > 0)
+          and (p_slot is null or cardinality(r.slots) = 0 or p_slot = any (r.slots))
+          and (p_max_minutes is null or r.minutes <= p_max_minutes));
+end $$;
+
+create or replace function get_recipe(p_id bigint) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.view');
+    if not exists (select 1 from recipe where id = p_id and home_id = v_home) then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    return fn_meal_recipe_json(p_id);
+end $$;
+
+create or replace function create_recipe(p_name text, p_servings integer default 2, p_minutes integer default null,
+    p_slots jsonb default null, p_steps jsonb default null, p_ingredients jsonb default null) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_id bigint;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.plan.manage');
+    if p_name is null or (p_slots is not null and jsonb_typeof(p_slots) <> 'array')
+       or (p_steps is not null and jsonb_typeof(p_steps) <> 'array') then
+        raise exception 'Invalid recipe' using errcode = 'P0001';
+    end if;
+    perform fn_home_write_lock(v_home);
+    begin
+        insert into recipe (home_id, name, servings, minutes, slots, steps, created_by)
+        values (v_home, btrim(p_name), coalesce(p_servings, 2), p_minutes,
+                case when p_slots is null then array[]::text[] else fn_meal_jsonb_to_text_array(p_slots) end,
+                case when p_steps is null then null else fn_meal_jsonb_to_text_array(p_steps) end,
+                fn_my_user_id())
+        returning id into v_id;
+        perform fn_meal_recipe_set_ingredients(v_home, v_id, coalesce(p_ingredients, '[]'::jsonb));
+    exception when check_violation or not_null_violation or unique_violation or invalid_text_representation
+        or numeric_value_out_of_range or invalid_parameter_value or datatype_mismatch then
+        raise exception 'Invalid recipe' using errcode = 'P0001';
+    end;
+    insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload)
+    values (v_home, fn_my_user_id(), 'meal.recipe.create', 'recipe', v_id, '{}'::jsonb);
+    return fn_meal_recipe_json(v_id);
+end $$;
+
+-- p_data: name, servings, minutes, slots, steps, ingredients (si viene, reemplaza la lista completa).
+create or replace function update_recipe(p_id bigint, p_data jsonb) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_keys text[] := array['name', 'servings', 'minutes', 'slots', 'steps', 'ingredients'];
+    v_found bigint;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.plan.manage');
+    if p_data is null or jsonb_typeof(p_data) <> 'object'
+       or exists (select 1 from jsonb_object_keys(p_data) k where k <> all (v_keys))
+       or (p_data ? 'slots' and jsonb_typeof(p_data->'slots') <> 'array')
+       or (p_data ? 'steps' and jsonb_typeof(p_data->'steps') not in ('array', 'null'))
+       or (p_data ? 'ingredients' and jsonb_typeof(p_data->'ingredients') <> 'array') then
+        raise exception 'Invalid recipe' using errcode = 'P0001';
+    end if;
+    perform fn_home_write_lock(v_home);
+    select r.id into v_found from recipe r where r.id = p_id and r.home_id = v_home for update;
+    if v_found is null then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    begin
+        update recipe r set
+            name = case when p_data ? 'name' then btrim(p_data->>'name') else r.name end,
+            servings = case when p_data ? 'servings' then (p_data->>'servings')::integer else r.servings end,
+            minutes = case when p_data ? 'minutes' then (p_data->>'minutes')::integer else r.minutes end,
+            slots = case when p_data ? 'slots' then fn_meal_jsonb_to_text_array(p_data->'slots') else r.slots end,
+            steps = case when p_data ? 'steps' then
+                        (case when jsonb_typeof(p_data->'steps') = 'null' then null
+                              else fn_meal_jsonb_to_text_array(p_data->'steps') end)
+                     else r.steps end,
+            updated_at = (now() at time zone 'UTC')
+        where r.id = p_id;
+        if p_data ? 'ingredients' then
+            perform fn_meal_recipe_set_ingredients(v_home, p_id, p_data->'ingredients');
+        end if;
+    exception when check_violation or not_null_violation or unique_violation or invalid_text_representation
+        or numeric_value_out_of_range or invalid_parameter_value or datatype_mismatch then
+        raise exception 'Invalid recipe' using errcode = 'P0001';
+    end;
+    insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload)
+    values (v_home, fn_my_user_id(), 'meal.recipe.update', 'recipe', p_id,
+            jsonb_build_object('fields', (select coalesce(jsonb_agg(k order by k), '[]'::jsonb)
+                                          from jsonb_object_keys(p_data) k)));
+    return fn_meal_recipe_json(p_id);
+end $$;
+
+-- Borra la receta; las casillas de menús que la usan conservan su `title` (recipe_id → null).
+create or replace function delete_recipe(p_id bigint) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+    v_home bigint;
+    v_found bigint;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.plan.manage');
+    perform fn_home_write_lock(v_home);
+    select r.id into v_found from recipe r where r.id = p_id and r.home_id = v_home for update;
+    if v_found is null then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    delete from recipe where id = p_id;
+    insert into audit_log (home_id, actor_app_user_id, action, target_type, target_id, payload)
+    values (v_home, fn_my_user_id(), 'meal.recipe.delete', 'recipe', p_id, '{}'::jsonb);
+    return json_build_object('success', true);
+end $$;
+
+revoke all on function fn_meal_food_json(bigint), fn_meal_recipe_json(bigint),
+    fn_meal_recipe_set_ingredients(bigint, bigint, jsonb) from public, anon, authenticated;
+revoke all on function search_food(text, integer), create_food(text, text, jsonb, text, numeric),
+    update_food(bigint, jsonb), delete_food(bigint), list_recipes(text, text, integer), get_recipe(bigint),
+    create_recipe(text, integer, integer, jsonb, jsonb, jsonb), update_recipe(bigint, jsonb),
+    delete_recipe(bigint) from public, anon;
+grant execute on function search_food(text, integer), create_food(text, text, jsonb, text, numeric),
+    update_food(bigint, jsonb), delete_food(bigint), list_recipes(text, text, integer), get_recipe(bigint),
+    create_recipe(text, integer, integer, jsonb, jsonb, jsonb), update_recipe(bigint, jsonb),
+    delete_recipe(bigint) to authenticated;
+
 commit;
