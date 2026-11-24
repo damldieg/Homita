@@ -71,7 +71,6 @@ public struct ProfileView: View {
                     invitationsCard
                     notificationsCard
                     inicioCard
-                    mealCard
                     feedbackCard
                     HomitaCard {
                         HomitaToggle(title: "Modo oscuro", isOn: darkModeBinding)
@@ -171,24 +170,6 @@ public struct ProfileView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("ajustes.inicio")
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: 24))
-        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Palette.cardBorder, lineWidth: 1))
-    }
-
-    /// Perfil de hogar del planificador de comidas (0043).
-    private var mealCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HomitaSectionHeader(title: "Comidas", systemImage: "fork.knife")
-            NavigationLink {
-                MealProfileView(services: services)
-            } label: {
-                linkRow(title: "Perfil de hogar", systemImage: "list.clipboard", tint: Palette.accentHex)
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("ajustes.perfil-hogar")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
