@@ -334,3 +334,20 @@ Deno.test("X-Home-Id se propaga en las rutas del plan", async () => {
         assertEquals(calls[1].headers.get("X-Home-Id"), "42");
     });
 });
+
+Deno.test("R1-03: expected_revision fuera de int32 o plan_id gigante → 400 sin RPC (no 500)", async () => {
+    await withFetch(() => jsonRes(200, {}), async (calls) => {
+        for (const rev of [1e12, 2147483648, -1, 1.5, "1", true]) {
+            const a = await handleMealPlanItems(req("PATCH", { week_start: "2026-11-23", expected_revision: rev }), "tok");
+            assertEquals(a.status, 400, String(rev));
+            assertEquals(await a.json(), { error: "Invalid meal plan" });
+            const b = await handleMealPlanAccept(req("POST", { plan_id: 1, expected_revision: rev }), "tok");
+            assertEquals(b.status, 400, String(rev));
+            const c = await handleMealPlanArchive(req("POST", { plan_id: 1, expected_revision: rev }), "tok");
+            assertEquals(c.status, 400, String(rev));
+        }
+        const d = await handleMealPlanArchive(req("POST", { plan_id: 1e20 }), "tok");
+        assertEquals(d.status, 400);
+        assertEquals(calls.length, 0);
+    });
+});

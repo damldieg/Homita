@@ -10,7 +10,7 @@ import {
 } from "../_shared/errors.ts";
 import { rpc } from "../_shared/supabase.ts";
 
-const isIntId = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v > 0;
+const isIntId = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v > 0 && v <= Number.MAX_SAFE_INTEGER;
 
 // GET /meal/profile — perfil, franjas, fichas de quienes comen y horario del hogar
 export const handleMealProfileGet = async (_req: Request, token: string): Promise<Response> =>
@@ -56,7 +56,9 @@ const isDate = (v: unknown): v is string => {
 
 const queryParam = (req: Request, key: string): string | null => new URL(req.url).searchParams.get(key);
 
-const isNonNegInt = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0;
+// Entero >= 0 que cabe en un `integer` de Postgres (expected_revision): sin tope, 1e12 llegaría a la RPC
+// como parámetro tipado y el error de cast saldría como 500.
+const isNonNegInt = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 2147483647;
 
 // GET /meal/plan?week_start=YYYY-MM-DD — plan completo o null si no hay
 export const handleMealPlanGet = async (req: Request, token: string): Promise<Response> => {

@@ -217,3 +217,44 @@ Deno.test("X-Home-Id del contexto se propaga a recetas y alimentos", async () =>
         assertEquals(calls[1].headers.get("X-Home-Id"), "42");
     });
 });
+
+Deno.test("R1-03: tipos o rangos inválidos en recetas y alimentos → 400 sin RPC (no 500)", async () => {
+    await withFetch(ok, async (calls) => {
+        const recipeBodies = [
+            { name: "a", servings: "abc" }, { name: "a", servings: 1.5 }, { name: "a", servings: 1e12 },
+            { name: "a", minutes: "10" }, { name: "a", minutes: -1 }, { name: "a", minutes: true },
+        ];
+        for (const b of recipeBodies) {
+            const res = await handleRecipeCreate(req("POST", b), "tok");
+            assertEquals(res.status, 400, JSON.stringify(b));
+            assertEquals(await res.json(), { error: "Invalid recipe" });
+        }
+        for (const data of [{ servings: "abc" }, { minutes: 1e12 }, { name: 5 }, { steps: [1] }, { slots: "x" }]) {
+            const res = await handleRecipeUpdate(req("PATCH", { id: 3, ...data }), "tok");
+            assertEquals(res.status, 400, JSON.stringify(data));
+            assertEquals(await res.json(), { error: "Invalid recipe" });
+        }
+        const idx = await handleRecipeIndex(req("GET", undefined, "/recipe?max_minutes=99999999999"), "tok");
+        assertEquals(idx.status, 400);
+        for (const b of [{ name: "a", grams_per_unit: "x" }, { name: "a", section: {} }, { name: "a", default_unit: 3 }]) {
+            const res = await handleFoodCreate(req("POST", b), "tok");
+            assertEquals(res.status, 400, JSON.stringify(b));
+            assertEquals(await res.json(), { error: "Invalid food" });
+        }
+        for (const data of [{ grams_per_unit: "x" }, { name: 1 }, { allergens: [1] }]) {
+            const res = await handleFoodUpdate(req("PATCH", { id: 3, ...data }), "tok");
+            assertEquals(res.status, 400, JSON.stringify(data));
+        }
+        const lim = await handleFoodSearch(req("GET", undefined, "/food?limit=99999999999"), "tok");
+        assertEquals(lim.status, 400);
+        assertEquals(calls.length, 0);
+    });
+});
+
+Deno.test("R1-03: valores válidos límite (int32, null, decimales en grams_per_unit) sí llegan a la RPC", async () => {
+    await withFetch(ok, async (calls) => {
+        await handleRecipeCreate(req("POST", { name: "a", servings: 2147483647, minutes: null }), "tok");
+        await handleFoodCreate(req("POST", { name: "a", grams_per_unit: 12.5 }), "tok");
+        assertEquals(calls.length, 2);
+    });
+});

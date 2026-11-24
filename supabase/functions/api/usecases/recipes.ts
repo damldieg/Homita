@@ -9,13 +9,21 @@ import {
 } from "../_shared/errors.ts";
 import { rpc } from "../_shared/supabase.ts";
 
-const isIntId = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v > 0;
+const isIntId = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v > 0 && v <= Number.MAX_SAFE_INTEGER;
 
 // id por query string o body (DELETE y PATCH); ausente o no entero positivo → null
 const queryId = (req: Request, key = "id"): number | null => {
     const raw = new URL(req.url).searchParams.get(key);
     return raw !== null && /^[0-9]+$/.test(raw) && Number(raw) > 0 ? Number(raw) : null;
 };
+
+// Entero que cabe en un `integer` de Postgres; un valor fuera de rango o de otro tipo llegaría a la RPC
+// como parámetro tipado y el error de cast saldría como 500 con el texto del motor.
+const MAX_INT32 = 2147483647;
+const isInt32 = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= MAX_INT32;
+const isOptInt32 = (v: unknown): boolean => v === null || isInt32(v);
+const isOptNumber = (v: unknown): boolean => v === null || (typeof v === "number" && Number.isFinite(v));
+const isOptString = (v: unknown): boolean => v === null || typeof v === "string";
 
 const isStringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === "string");
 
@@ -28,7 +36,10 @@ export const handleFoodSearch = async (req: Request, token: string): Promise<Res
     const q = inputString(input, "q");
     if (q !== null) args.p_q = q;
     const limit = inputInt(input, "limit");
-    if (limit !== null) args.p_limit = limit;
+    if (limit !== null) {
+        if (limit > MAX_INT32) return errInvalidFood();
+        args.p_limit = limit;
+    }
     return rpcPassHome(await rpc("search_food", args, token));
 };
 
@@ -36,6 +47,9 @@ export const handleFoodSearch = async (req: Request, token: string): Promise<Res
 export const handleFoodCreate = async (req: Request, token: string): Promise<Response> => {
     const b = await contractBodyOnly(req);
     if (typeof b.name !== "string") return errInvalidFood();
+    if (b.section !== undefined && !isOptString(b.section)) return errInvalidFood();
+    if (b.default_unit !== undefined && !isOptString(b.default_unit)) return errInvalidFood();
+    if (b.grams_per_unit !== undefined && !isOptNumber(b.grams_per_unit)) return errInvalidFood();
     const args: Record<string, unknown> = { p_name: b.name };
     if (b.section !== undefined) args.p_section = b.section;
     if (b.allergens !== undefined) {
@@ -51,6 +65,13 @@ export const handleFoodCreate = async (req: Request, token: string): Promise<Res
 export const handleFoodUpdate = async (req: Request, token: string): Promise<Response> => {
     const { id, ...data } = await contractBodyOnly(req);
     if (!isIntId(id)) return errFoodIdRequired();
+    if ((data.name !== undefined && typeof data.name !== "string")
+        || (data.section !== undefined && !isOptString(data.section))
+        || (data.default_unit !== undefined && !isOptString(data.default_unit))
+        || (data.grams_per_unit !== undefined && !isOptNumber(data.grams_per_unit))
+        || (data.allergens !== undefined && data.allergens !== null && !isStringArray(data.allergens))) {
+        return errInvalidFood();
+    }
     return rpcPassHome(await rpc("update_food", { p_id: id, p_data: data }, token));
 };
 
@@ -73,7 +94,7 @@ export const handleRecipeIndex = async (req: Request, token: string): Promise<Re
     if (slot !== null) args.p_slot = slot;
     if (input.max_minutes !== undefined) {
         const m = inputInt(input, "max_minutes");
-        if (m === null) return errInvalidRecipe();
+        if (m === null || m > MAX_INT32) return errInvalidRecipe();
         args.p_max_minutes = m;
     }
     return rpcPassHome(await rpc("list_recipes", args, token));
@@ -96,6 +117,9 @@ export const handleRecipeCreate = async (req: Request, token: string): Promise<R
     if (b.ingredients !== undefined && b.ingredients !== null && !Array.isArray(b.ingredients)) {
         return errInvalidRecipe();
     }
+    if ((b.servings !== undefined && !isOptInt32(b.servings)) || (b.minutes !== undefined && !isOptInt32(b.minutes))) {
+        return errInvalidRecipe();
+    }
     const args: Record<string, unknown> = { p_name: b.name };
     if (b.servings !== undefined) args.p_servings = b.servings;
     if (b.minutes !== undefined) args.p_minutes = b.minutes;
@@ -109,6 +133,14 @@ export const handleRecipeCreate = async (req: Request, token: string): Promise<R
 export const handleRecipeUpdate = async (req: Request, token: string): Promise<Response> => {
     const { id, ...data } = await contractBodyOnly(req);
     if (!isIntId(id)) return errRecipeIdRequired();
+    if ((data.name !== undefined && typeof data.name !== "string")
+        || (data.servings !== undefined && !isOptInt32(data.servings))
+        || (data.minutes !== undefined && !isOptInt32(data.minutes))) {
+        return errInvalidRecipe();
+    }
+    for (const k of ["slots", "steps"] as const) {
+        if (data[k] !== undefined && data[k] !== null && !isStringArray(data[k])) return errInvalidRecipe();
+    }
     if (data.ingredients !== undefined && data.ingredients !== null && !Array.isArray(data.ingredients)) {
         return errInvalidRecipe();
     }
