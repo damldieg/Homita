@@ -224,10 +224,14 @@ public struct MealPlan: Codable, Equatable, Sendable, Identifiable {
     public var acceptedBy: Int64?
     public var updatedAt: String?
     public var items: [MealPlanItem]
+    /// Casillas guardadas que el check de alergias no puede evaluar (texto libre, sobras, ingredientes
+    /// sin alimento del catálogo). `nil` si el servidor no lo informa.
+    public var uncheckedItemIds: [Int64]?
 
     enum CodingKeys: String, CodingKey {
         case id, weekStart = "week_start", status, revision, acceptedAt = "accepted_at"
         case acceptedBy = "accepted_by", updatedAt = "updated_at", items
+        case uncheckedItemIds = "unchecked_item_ids"
     }
 
     public var isAccepted: Bool { status == MealPlanStatus.accepted }

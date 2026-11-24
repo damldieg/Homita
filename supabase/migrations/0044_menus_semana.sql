@@ -576,7 +576,17 @@ language sql stable security definer set search_path = public as $$
                             from meal_plan_item_member m where m.item_id = i.id))
                 order by i.day, array_position(array['breakfast', 'midmorning', 'lunch', 'snack', 'dinner'], i.slot),
                          i.position, i.id), '[]'::json)
-            from meal_plan_item i where i.plan_id = p.id))
+            from meal_plan_item i where i.plan_id = p.id),
+        -- casillas que check_meal_plan no puede evaluar (R1-05): texto libre, sobras, receta borrada,
+        -- sin ingredientes o con alguno sin food_id. «Sin avisos» solo vale para las demás.
+        'unchecked_item_ids', (select coalesce(json_agg(i.id order by i.id), '[]'::json)
+            from meal_plan_item i
+            where i.plan_id = p.id
+              and (i.kind in ('free_text', 'leftovers')
+                   or (i.kind = 'recipe'
+                       and (i.recipe_id is null
+                            or not exists (select 1 from recipe_ingredient g where g.recipe_id = i.recipe_id)
+                            or exists (select 1 from recipe_ingredient g where g.recipe_id = i.recipe_id and g.food_id is null))))))
     from meal_plan p where p.id = p_id
 $$;
 

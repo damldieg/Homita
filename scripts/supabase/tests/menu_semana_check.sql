@@ -675,6 +675,22 @@ begin
         raise exception 'menu_semana MS9: W4 no debía tener avisos %', check_meal_plan(pg_temp.plan_id('2030-01-28'));
     end if;
     perform pg_temp.fails('MS9 plan inexistente', $q$select check_meal_plan(999999999)$q$, 'P0002', 'Not Found');
+    -- R1-05: el plan declara qué casillas no se pudieron comprobar (texto libre, ingrediente sin food_id)
+    if json_array_length(v->'unchecked_item_ids') <> 3 then
+        raise exception 'menu_semana MS9: se esperaban 3 casillas sin comprobar y hay %', v->'unchecked_item_ids';
+    end if;
+    v_recipe := create_recipe('ZZMS Catalogada', 2, 10, '["dinner"]'::jsonb, null, jsonb_build_array(
+        jsonb_build_object('food_id', pg_temp.food_id('ZZMS Pollo'), 'quantity', 100, 'unit', 'g')));
+    v := upsert_meal_plan_items('2030-02-04', (v->>'revision')::integer, jsonb_build_array(
+        jsonb_build_object('day', '2030-02-07', 'slot', 'dinner', 'kind', 'recipe', 'recipe_id', (v_recipe->>'id')::bigint,
+                           'members', jsonb_build_array(993001)),
+        jsonb_build_object('day', '2030-02-07', 'slot', 'lunch', 'kind', 'leftovers', 'members', jsonb_build_array(993001))));
+    if json_array_length(v->'unchecked_item_ids') <> 4
+       or exists (select 1 from json_array_elements(v->'items') e
+                  where e->>'day' = '2030-02-07' and e->>'slot' = 'dinner'
+                    and (e->>'id')::bigint in (select (u)::bigint from json_array_elements_text(v->'unchecked_item_ids') u)) then
+        raise exception 'menu_semana MS9: la receta con todo el catálogo debía quedar comprobada, sobras sin comprobar %', v->'unchecked_item_ids';
+    end if;
     -- el audit de perfil no copia los datos de salud
     raise notice 'ok MS9: member_out, allergen (B1), intolerance (B2) y diet (B5) detectados; sin avisos donde no hay conflicto';
 end $$;

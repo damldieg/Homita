@@ -61,6 +61,40 @@ final class MealsStoreTests: XCTestCase {
         XCTAssertEqual(calls("/meal/plan").first?.url?.query, "week_start=2026-11-23")
     }
 
+    /// R1-05: «sin avisos (comprobado)» solo para casillas evaluables; texto libre, sobras e ingredientes
+    /// sin catálogo quedan «sin comprobar», y con cambios locales nada está comprobado.
+    func testCheckStatusDistinguishesCleanFromUnchecked() async throws {
+        let extra = """
+        ,{"id":12,"day":"2026-11-23","slot":"dinner","position":0,"kind":"recipe","recipe_id":5,
+          "title":"Lentejas","servings":2,"cook_member_id":null,"members":[3]},
+         {"id":13,"day":"2026-11-24","slot":"dinner","position":0,"kind":"recipe","recipe_id":6,
+          "title":"Con sal","servings":2,"cook_member_id":null,"members":[3]},
+         {"id":14,"day":"2026-11-25","slot":"dinner","position":0,"kind":"eat_out","recipe_id":null,
+          "title":"","servings":null,"cook_member_id":null,"members":[3]}
+        """
+        let json = planJSON(revision: 2, extra: extra).replacingOccurrences(
+            of: #""items":"#, with: #""unchecked_item_ids":[11,13],"items":"#)
+        route { _ in StubURLProtocol.Stub(json: json) }
+        let store = makeStore()
+        await store.load()
+        let byId = Dictionary(uniqueKeysWithValues: store.items.compactMap { item in item.id.map { ($0, item) } })
+        XCTAssertEqual(store.checkStatus(for: try XCTUnwrap(byId[11])), .unchecked)
+        XCTAssertEqual(store.checkStatus(for: try XCTUnwrap(byId[12])), .clean)
+        XCTAssertEqual(store.checkStatus(for: try XCTUnwrap(byId[13])), .unchecked)
+        XCTAssertEqual(store.checkStatus(for: try XCTUnwrap(byId[14])), .notApplicable)
+        XCTAssertEqual(store.uncheckedCount, 2)
+        store.add(MealPlanItem(day: "2026-11-26", slot: "lunch", kind: "recipe", recipeId: 5))
+        XCTAssertEqual(store.checkStatus(for: try XCTUnwrap(byId[12])), .unchecked)
+        XCTAssertEqual(store.uncheckedCount, 4)
+    }
+
+    func testPlanWithoutUncheckedListIsNeverCleanByDefault() async throws {
+        route { _ in StubURLProtocol.Stub(json: self.planJSON(revision: 2)) }
+        let store = makeStore()
+        await store.load()
+        XCTAssertEqual(store.checkStatus(for: try XCTUnwrap(store.items.first)), .unchecked)
+    }
+
     func testNoPlanStartsWithRevisionZero() async throws {
         route { req in
             if req.httpMethod == "PATCH" { return StubURLProtocol.Stub(json: self.planJSON(revision: 1)) }

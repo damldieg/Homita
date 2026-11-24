@@ -67,6 +67,7 @@ struct MealSlotSheet: View {
                     }
                 }
             }
+            if let item { checkSection(item) }
             if item != nil {
                 Section {
                     Button("Quitar de la casilla", role: .destructive) {
@@ -87,6 +88,30 @@ struct MealSlotSheet: View {
             }
         }
         .task { await recipes.load() }
+    }
+
+    /// Ficha de comprobación: avisos de la casilla, «sin avisos (comprobado)» o «sin comprobar» (R1-05).
+    @ViewBuilder private func checkSection(_ item: MealPlanItem) -> some View {
+        switch store.checkStatus(for: item) {
+        case .notApplicable: EmptyView()
+        case .clean:
+            Section("Comprobación") {
+                Label("Sin avisos (comprobado)", systemImage: "checkmark.circle.fill").foregroundStyle(Palette.ok)
+            }
+        case .unchecked:
+            Section("Comprobación") {
+                Label("Sin comprobar", systemImage: "questionmark.circle").foregroundStyle(Palette.warn)
+                Text("Solo se revisan alergias, intolerancias y dieta de recetas con ingredientes del catálogo. Guarda los cambios y revisa a mano el texto libre, las sobras y los ingredientes escritos a mano.")
+                    .font(.caption).foregroundStyle(Palette.inkSoft)
+            }
+        case .issues:
+            Section("Comprobación") {
+                ForEach(Array(store.issues(for: item).enumerated()), id: \.offset) { _, issue in
+                    Label(WeekGridView.issueDescription(issue, members: store.profile?.members ?? []),
+                          systemImage: "exclamationmark.triangle.fill").foregroundStyle(Palette.err)
+                }
+            }
+        }
     }
 
     private var recipeSection: some View {

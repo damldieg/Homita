@@ -65,6 +65,30 @@ public final class MealsStore {
         } ?? false
     }
 
+    /// Resultado del check de alergias y dieta para una casilla (R1-05).
+    public enum CheckStatus: Equatable, Sendable {
+        /// Comer fuera: no hay nada que comprobar.
+        case notApplicable
+        /// Comprobada y con avisos.
+        case issues
+        /// Comprobada y sin avisos.
+        case clean
+        /// No comprobable (texto libre, sobras, ingredientes sin catálogo) o aún sin guardar: no es «segura».
+        case unchecked
+    }
+
+    /// Distingue «sin avisos (comprobado)» de «sin comprobar». Con cambios locales nada está comprobado.
+    public func checkStatus(for item: MealPlanItem) -> CheckStatus {
+        if item.kind == "eat_out" { return .notApplicable }
+        guard !isDirty, let id = item.id, let unchecked = plan?.uncheckedItemIds, !unchecked.contains(id) else { return .unchecked }
+        return issues(for: item).isEmpty ? .clean : .issues
+    }
+
+    /// Casillas del plan visible sin comprobar (para el resumen de la semana).
+    public var uncheckedCount: Int {
+        items.filter { checkStatus(for: $0) == .unchecked }.count
+    }
+
     /// Avisos de una casilla guardada.
     public func issues(for item: MealPlanItem) -> [MealIssue] {
         guard let id = item.id else { return [] }
