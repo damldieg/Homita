@@ -74,38 +74,49 @@ public enum MealRules {
             && profile.slots.contains(where: \.enabled)
     }
 
-    /// D2 simple: «¿qué días coméis fuera?» → todas las personas, `out` en las franjas activas de esos días.
-    /// Los días no marcados vuelven a `home` (solo los que ya estaban fuera, para no inundar de filas).
-    public static func outSchedule(days: Set<Int>, eaters: [Int], slots: [MealSlot],
+    /// D2: por día, qué franjas se comen fuera. Todas las personas, `out` en las franjas que marca el modo;
+    /// las filas que estaban `out` y dejan de estarlo vuelven a `home`. Solo se emiten las filas que cambian.
+    /// Los días sin modo cuentan como `.none`.
+    public static func outSchedule(modes: [Int: OutMode], eaters: [Int], slots: [MealSlot],
                                    current: [MealScheduleEntry]) -> [MealScheduleEntry] {
         let active = slots.filter(\.enabled).map(\.slot)
         var entries: [MealScheduleEntry] = []
         for member in eaters {
             for day in 1...7 {
-                if days.contains(day) {
-                    entries += active.map { MealScheduleEntry(homeMemberId: member, weekday: day, slot: $0, status: "out") }
-                } else {
-                    entries += current.filter { $0.homeMemberId == member && $0.weekday == day && $0.status == "out" }
-                        .map { MealScheduleEntry(homeMemberId: member, weekday: day, slot: $0.slot, status: "home") }
-                }
+                let wanted = (modes[day] ?? .none).slots(active: active)
+                let outNow = Set(current.filter {
+                    $0.homeMemberId == member && $0.weekday == day && $0.status == "out"
+                }.map(\.slot))
+                entries += active.filter { wanted.contains($0) && !outNow.contains($0) }
+                    .map { MealScheduleEntry(homeMemberId: member, weekday: day, slot: $0, status: "out") }
+                entries += current.filter {
+                    $0.homeMemberId == member && $0.weekday == day && $0.status == "out" && !wanted.contains($0.slot)
+                }.map { MealScheduleEntry(homeMemberId: member, weekday: day, slot: $0.slot, status: "home") }
             }
         }
         return entries
     }
 
-    /// Días en los que todas las personas están fuera en todas las franjas activas (para pintar D2 simple).
-    public static func outDays(_ profile: MealProfile) -> Set<Int> {
+    /// Modo de cada día para pintar D2: una franja cuenta como fuera si todas las personas están `out` en ella.
+    /// Los patrones no representables (p. ej. solo desayuno fuera) se muestran como `.none`.
+    public static func outModes(_ profile: MealProfile) -> [Int: OutMode] {
         let active = profile.slots.filter(\.enabled).map(\.slot)
-        guard !profile.members.isEmpty, !active.isEmpty else { return [] }
-        return Set((1...7).filter { day in
+        guard !profile.members.isEmpty, !active.isEmpty else { return [:] }
+        func isOut(_ day: Int, _ slot: String) -> Bool {
             profile.members.allSatisfy { member in
-                active.allSatisfy { slot in
-                    profile.schedule.contains {
-                        $0.homeMemberId == member.homeMemberId && $0.weekday == day && $0.slot == slot && $0.status == "out"
-                    }
+                profile.schedule.contains {
+                    $0.homeMemberId == member.homeMemberId && $0.weekday == day && $0.slot == slot && $0.status == "out"
                 }
             }
-        })
+        }
+        var result: [Int: OutMode] = [:]
+        for day in 1...7 {
+            let out = Set(active.filter { isOut(day, $0) })
+            if out.count == active.count { result[day] = .full }
+            else if out == ["lunch"] { result[day] = .lunch }
+            else if out == ["dinner"] { result[day] = .dinner }
+        }
+        return result
     }
 
     /// `HH:mm` ↔ minutos desde medianoche para el selector de hora; nil si no es válida.
@@ -119,5 +130,29 @@ public enum MealRules {
 
     public static func time(fromMinutes minutes: Int) -> String {
         String(format: "%02d:%02d", (minutes / 60) % 24, minutes % 60)
+    }
+}
+
+/// D2: qué se come fuera un día concreto.
+public enum OutMode: CaseIterable, Equatable, Sendable {
+    case none, full, lunch, dinner
+
+    public var label: String {
+        switch self {
+        case .none: return "Ninguno"
+        case .full: return "Día completo"
+        case .lunch: return "Solo comida"
+        case .dinner: return "Solo cena"
+        }
+    }
+
+    /// Franjas `out` de este modo dadas las franjas activas.
+    func slots(active: [String]) -> Set<String> {
+        switch self {
+        case .none: return []
+        case .full: return Set(active)
+        case .lunch: return active.contains("lunch") ? ["lunch"] : []
+        case .dinner: return active.contains("dinner") ? ["dinner"] : []
+        }
     }
 }

@@ -111,18 +111,50 @@ final class MealProfileTests: XCTestCase {
         XCTAssertFalse(MealRules.startComplete(profile))
     }
 
-    func testOutScheduleAndOutDays() throws {
+    private func out(_ day: Int, _ slot: String) -> MealScheduleEntry {
+        MealScheduleEntry(homeMemberId: 3, weekday: day, slot: slot, status: "out")
+    }
+    private func home(_ day: Int, _ slot: String) -> MealScheduleEntry {
+        MealScheduleEntry(homeMemberId: 3, weekday: day, slot: slot, status: "home")
+    }
+
+    func testOutScheduleModes() throws {
+        let profile = try JSONCoding.decoder().decode(MealProfile.self, from: Data(profileJSON.utf8))
+        func run(_ modes: [Int: OutMode], _ current: [MealScheduleEntry]) -> [MealScheduleEntry] {
+            MealRules.outSchedule(modes: modes, eaters: [3], slots: profile.slots, current: current)
+        }
+        // (a) día completo
+        XCTAssertEqual(run([3: .full], []), [out(3, "lunch"), out(3, "dinner")])
+        // (b) solo comida: la cena que estaba fuera vuelve a casa
+        XCTAssertEqual(run([3: .lunch], [out(3, "lunch"), out(3, "dinner")]), [home(3, "dinner")])
+        XCTAssertEqual(run([3: .lunch], []), [out(3, "lunch")])
+        // (c) solo cena
+        XCTAssertEqual(run([3: .dinner], [out(3, "lunch"), out(3, "dinner")]), [home(3, "lunch")])
+        XCTAssertEqual(run([3: .dinner], []), [out(3, "dinner")])
+        // (d) ninguno: todo lo que estaba fuera vuelve a casa
+        XCTAssertEqual(run([:], [out(3, "lunch"), out(3, "dinner")]), [home(3, "lunch"), home(3, "dinner")])
+        // (e) sin cambios
+        XCTAssertEqual(run([3: .full], [out(3, "lunch"), out(3, "dinner")]), [])
+        XCTAssertEqual(run([:], []), [])
+    }
+
+    func testOutModesReadsSchedule() throws {
         var profile = try JSONCoding.decoder().decode(MealProfile.self, from: Data(profileJSON.utf8))
-        let entries = MealRules.outSchedule(days: [3], eaters: [3], slots: profile.slots, current: profile.schedule)
-        // miércoles fuera en comida y cena + martes (antes fuera) vuelve a casa en la comida
-        XCTAssertEqual(entries.filter { $0.status == "out" }.map(\.slot).sorted(), ["dinner", "lunch"])
-        XCTAssertEqual(entries.filter { $0.status == "home" }, [MealScheduleEntry(homeMemberId: 3, weekday: 2, slot: "lunch", status: "home")])
         profile.schedule = [
-            MealScheduleEntry(homeMemberId: 3, weekday: 3, slot: "lunch", status: "out"),
-            MealScheduleEntry(homeMemberId: 3, weekday: 3, slot: "dinner", status: "out"),
-            MealScheduleEntry(homeMemberId: 3, weekday: 4, slot: "lunch", status: "out"),
+            out(1, "lunch"), out(1, "dinner"), out(2, "lunch"), out(3, "dinner"),
+            MealScheduleEntry(homeMemberId: 3, weekday: 4, slot: "breakfast", status: "out"),
         ]
-        XCTAssertEqual(MealRules.outDays(profile), [3])
+        XCTAssertEqual(MealRules.outModes(profile), [1: .full, 2: .lunch, 3: .dinner])
+        // día mixto: otro comensal sin `out` → ninguno
+        var two = profile
+        two.members.append(two.members[0])
+        two.members[1].homeMemberId = 9
+        XCTAssertEqual(MealRules.outModes(two), [:])
+        // franja inactiva: con solo la cena activa, cena fuera = día completo
+        profile.slots[0].enabled = false
+        XCTAssertEqual(MealRules.outModes(profile)[1], .full)
+        XCTAssertEqual(MealRules.outModes(profile)[3], .full)
+        XCTAssertNil(MealRules.outModes(profile)[2])
     }
 
     func testMealGetIsNotCached() {
