@@ -72,6 +72,10 @@ import {
     handleMealPlanGet, handleMealPlanItems, handleMealToday,
 } from "./usecases/meals.ts";
 import {
+    handleShoppingClearChecked, handleShoppingItemCheck, handleShoppingItemCreate, handleShoppingItemDelete,
+    handleShoppingItemQty, handleShoppingList, handleShoppingPreview, handleShoppingSync,
+} from "./usecases/shopping.ts";
+import {
     handleFoodCreate, handleFoodDelete, handleFoodSearch, handleFoodUpdate, handleRecipeCreate,
     handleRecipeDelete, handleRecipeDetail, handleRecipeIndex, handleRecipeUpdate,
 } from "./usecases/recipes.ts";
@@ -182,6 +186,17 @@ const ROUTES: Record<string, { auth: boolean; home?: boolean; homeContext?: bool
     "POST /meal/plan/copy": { auth: true, home: true, handler: (req, t) => handleMealPlanCopy(req, t) },
     "GET /meal/plan/check": { auth: true, home: true, handler: (req, t) => handleMealPlanCheck(req, t) },
     "GET /meal/today": { auth: true, home: true, handler: (req, t) => handleMealToday(req, t) },
+
+    // change menus-compra (0045): la Compra del hogar (rutas aditivas D-008); X-Home-Id o regla de
+    // fn_home_for_root_create. Lectura con menu.view; escrituras con menu.shopping.edit (guest → 403).
+    "GET /shopping": { auth: true, home: true, handler: (req, t) => handleShoppingList(req, t) },
+    "GET /shopping/preview": { auth: true, home: true, handler: (req, t) => handleShoppingPreview(req, t) },
+    "POST /shopping/sync": { auth: true, home: true, handler: (req, t) => handleShoppingSync(req, t) },
+    "POST /shopping/item/create": { auth: true, home: true, handler: (req, t) => handleShoppingItemCreate(req, t) },
+    "PATCH /shopping/item/check": { auth: true, home: true, handler: (req, t) => handleShoppingItemCheck(req, t) },
+    "PATCH /shopping/item/update": { auth: true, home: true, handler: (req, t) => handleShoppingItemQty(req, t) },
+    "DELETE /shopping/item/delete": { auth: true, home: true, handler: (req, t) => handleShoppingItemDelete(req, t) },
+    "DELETE /shopping/checked": { auth: true, home: true, handler: (req, t) => handleShoppingClearChecked(req, t) },
 
     // change control-ios-feedback: ruta aditiva (D-008), fuera de las 43 legacy; sin X-Home-Id.
     "POST /feedback": { auth: true, handler: (req, t) => handleFeedbackCreate(req, t) },
