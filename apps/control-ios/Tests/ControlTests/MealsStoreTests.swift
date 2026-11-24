@@ -61,6 +61,40 @@ final class MealsStoreTests: XCTestCase {
         XCTAssertEqual(calls("/meal/plan").first?.url?.query, "week_start=2026-11-23")
     }
 
+    private func profileJSON(enabled: [String: Bool]) -> String {
+        let slots = ["breakfast", "lunch", "snack", "dinner"].map {
+            "{\"slot\":\"\($0)\",\"enabled\":\(enabled[$0] ?? false),\"time\":\"12:00\"}"
+        }.joined(separator: ",")
+        return profileJSON.replacingOccurrences(
+            of: #"(?s)\"slots\":\[.*?\}\],"#, with: "\"slots\":[\(slots)],", options: .regularExpression)
+    }
+
+    /// El perfil cambia por otro camino (`MealProfileView`) y la Semana, al volver a entrar, lo refleja.
+    func testReloadsProfileSoDisabledSlotsDisappearAndReturn() async throws {
+        var current = profileJSON(enabled: ["breakfast": true, "lunch": true, "dinner": true])
+        StubURLProtocol.reset { req in
+            let path = req.url?.path ?? ""
+            if path.hasSuffix("/meal/profile") { return StubURLProtocol.Stub(json: current) }
+            if path.hasSuffix("/meal/plan/check") { return StubURLProtocol.Stub(json: "[]") }
+            return StubURLProtocol.Stub(json: self.planJSON(revision: 2))
+        }
+        let store = makeStore()
+        await store.load()
+        XCTAssertEqual(store.enabledSlots.map(\.slot), ["breakfast", "lunch", "dinner"])
+
+        current = profileJSON(enabled: ["breakfast": true, "dinner": true])
+        await store.load()
+        XCTAssertEqual(store.enabledSlots.map(\.slot), ["breakfast", "dinner"])
+
+        current = profileJSON(enabled: ["dinner": true])
+        await store.load()
+        XCTAssertEqual(store.enabledSlots.map(\.slot), ["dinner"])
+
+        current = profileJSON(enabled: ["breakfast": true, "lunch": true, "dinner": true])
+        await store.load()
+        XCTAssertEqual(store.enabledSlots.map(\.slot), ["breakfast", "lunch", "dinner"])
+    }
+
     /// R1-05: «sin avisos (comprobado)» solo para casillas evaluables; texto libre, sobras e ingredientes
     /// sin catálogo quedan «sin comprobar», y con cambios locales nada está comprobado.
     func testCheckStatusDistinguishesCleanFromUnchecked() async throws {
