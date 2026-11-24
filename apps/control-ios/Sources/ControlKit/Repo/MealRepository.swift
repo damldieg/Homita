@@ -66,10 +66,10 @@ public struct MealRepository {
             as: MealPlan.self)
     }
 
-    /// `POST meal/plan/archive`: libera la semana.
-    public func archive(planId: Int64) async throws -> MealPlan {
+    /// `POST meal/plan/archive`: libera la semana. Con `expectedRevision`, 409 si el plan cambió.
+    public func archive(planId: Int64, expectedRevision: Int? = nil) async throws -> MealPlan {
         try await client.send(
-            APIRequest(method: .post, path: "meal/plan/archive", body: try client.encode(MealPlanArchiveBody(planId: planId))),
+            APIRequest(method: .post, path: "meal/plan/archive", body: try client.encode(MealPlanArchiveBody(planId: planId, expectedRevision: expectedRevision))),
             as: MealPlan.self)
     }
 

@@ -311,7 +311,8 @@ struct MealPlanAcceptBody: Encodable {
 
 struct MealPlanArchiveBody: Encodable {
     let planId: Int64
-    enum CodingKeys: String, CodingKey { case planId = "plan_id" }
+    let expectedRevision: Int?
+    enum CodingKeys: String, CodingKey { case planId = "plan_id", expectedRevision = "expected_revision" }
 }
 
 struct MealPlanCopyBody: Encodable {

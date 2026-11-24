@@ -20,14 +20,14 @@
 #      G5-md5 (solo ADVERTENCIA, no falla: md5 del gate G5 de DEPLOY_0039.md = stack local),
 #      feedback_trello_check B1-B8 (0033) y feedback_trigger_check F1-F12 (0031/0034); trigger inerte en
 #      local: sin feedback_webhook_url en Vault no se encola ninguna petición),
-#      meal_profile_check MP1-MP11 (0043) y menu_semana_check MS1-MS15 (0044, con la semilla
+#      meal_profile_check MP1-MP11 (0043) y menu_semana_check MS1-MS16 (0044, con la semilla
 #      supabase/seed/food_es.sql cargada justo tras aplicar las migraciones),
 #      task_priority_rollback_guard_check G0-G3 (guardas LIFO de rollback_0035/0029 con 0037 aplicada),
 #      task_person_access_rollback_guard_check G38-1 (guarda LIFO de rollback_0037 con 0038 aplicada),
 #      task_hidden_rollback_guard_check G39-1 (guarda LIFO de rollback_0038 con 0039 aplicada),
 #      contract_check.py (502 + prioridad + ocultas + orden de listas) y cross_tenant_check.py.
 #   5a. Ida y vuelta 0044 → rollback_0044_menus_semana → 0044 + semilla (menus-semana): RM4-RM6, RA3-RA4 y
-#      menu_semana_check MS1-MS15 otra vez. Va ANTES de la de 0043 (orden LIFO: 0044 usa lo de 0043).
+#      menu_semana_check MS1-MS16 otra vez. Va ANTES de la de 0043 (orden LIFO: 0044 usa lo de 0043).
 #   5b. Ida y vuelta exterior 0039 → rollback_0039 → [paso 6] → 0039 (ocultar-completadas-3-dias):
 #      task_hidden_rollback_check RBH1-5; sobre el esquema sin 0039: task_priority_check,
 #      task_person_access_check, client_request_check, acl_can_edit_check y contract_check en modo
@@ -228,7 +228,7 @@ expect_log "SQL meal_profile_check" sql-meal-profile "${mp_pat[@]}"
 
 # 0044 (menus-semana): catálogo, recetas y menú semanal; RLS entre hogares, revisión, ciclo del plan, check y comidas de hoy.
 run "SQL menu_semana_check" sql-menu-semana sql "$HERE/scripts/supabase/tests/menu_semana_check.sql"
-ms_pat=(); for i in $(seq 1 15); do ms_pat+=("ok MS$i([^0-9a-z]|\$)"); done
+ms_pat=(); for i in $(seq 1 16); do ms_pat+=("ok MS$i([^0-9a-z]|\$)"); done
 expect_log "SQL menu_semana_check" sql-menu-semana "${ms_pat[@]}"
 
 run "SQL client_request_check" sql-client-request sql "$HERE/scripts/supabase/tests/client_request_check.sql"
@@ -628,4 +628,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10, task_person_access A1-A9, get_persons GP1-GP4, task_hidden H1-H12, task_list_position TP1-TP8, meal_profile MP1-MP11, menu_semana MS1-MS15, guardas de rollback G0-G3, G38-1 y G39-1, feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta 0039 → rollback → [0038 → rollback → (0037 → rollback → (0035 → rollback → 0035) → 0037) → 0038] → 0039 con RBH1-5, contract pre-0039 ${contract_pre39}/${contract_pre39}, RB38-1..5, PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, guarda 0030 E0-E2, RA1-RA2, PA1-PA3, P1-P10, C1-C9, RA38-1, A1-A9, GP1-GP4, RAH1-3 y H1-H12; ida y vuelta 0040 con TR1-TR3, contract ${contract_nopos}/${contract_nopos} sin position, TA1-TA2 y TP1-TP8; ida y vuelta 0044 con RM4-RM6, RA3-RA4 y MS1-MS15; ida y vuelta 0043 con RM1-RM3, RA1-RA2 y MP1-MP11)"
+echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10, task_person_access A1-A9, get_persons GP1-GP4, task_hidden H1-H12, task_list_position TP1-TP8, meal_profile MP1-MP11, menu_semana MS1-MS16, guardas de rollback G0-G3, G38-1 y G39-1, feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta 0039 → rollback → [0038 → rollback → (0037 → rollback → (0035 → rollback → 0035) → 0037) → 0038] → 0039 con RBH1-5, contract pre-0039 ${contract_pre39}/${contract_pre39}, RB38-1..5, PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, guarda 0030 E0-E2, RA1-RA2, PA1-PA3, P1-P10, C1-C9, RA38-1, A1-A9, GP1-GP4, RAH1-3 y H1-H12; ida y vuelta 0040 con TR1-TR3, contract ${contract_nopos}/${contract_nopos} sin position, TA1-TA2 y TP1-TP8; ida y vuelta 0044 con RM4-RM6, RA3-RA4 y MS1-MS16; ida y vuelta 0043 con RM1-RM3, RA1-RA2 y MP1-MP11)"

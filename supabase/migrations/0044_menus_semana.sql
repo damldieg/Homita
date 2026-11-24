@@ -792,11 +792,13 @@ begin
     if not found then
         raise exception 'Not Found' using errcode = 'P0002';
     end if;
-    if v_plan.status <> 'draft' then
-        raise exception 'Invalid meal plan' using errcode = 'P0001';
-    end if;
+    -- R1-02: la revisión va antes que el estado, así una segunda aceptación concurrente (el plan ya
+    -- está accepted y con otra revisión) recibe 'Stale meal plan revision' (409) y no 'Invalid meal plan'.
     if p_expected_revision is distinct from v_plan.revision then
         raise exception 'Stale meal plan revision' using errcode = 'P0001';
+    end if;
+    if v_plan.status <> 'draft' then
+        raise exception 'Invalid meal plan' using errcode = 'P0001';
     end if;
     if not exists (select 1 from meal_plan_item i where i.plan_id = v_plan.id) then
         raise exception 'Invalid meal plan' using errcode = 'P0001';
@@ -811,7 +813,8 @@ begin
 end $$;
 
 -- draft | accepted → archived: libera la semana para un plan nuevo. Un plan archivado no se edita.
-create or replace function archive_meal_plan(p_plan_id bigint) returns json
+-- p_expected_revision (R1-02, opcional): si viene y no coincide, 'Stale meal plan revision' (409).
+create or replace function archive_meal_plan(p_plan_id bigint, p_expected_revision integer default null) returns json
 language plpgsql security definer set search_path = public as $$
 declare
     v_home bigint;
@@ -826,6 +829,9 @@ begin
     select * into v_plan from meal_plan p where p.id = p_plan_id and p.home_id = v_home for update;
     if not found then
         raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    if p_expected_revision is not null and p_expected_revision <> v_plan.revision then
+        raise exception 'Stale meal plan revision' using errcode = 'P0001';
     end if;
     if v_plan.status = 'archived' then
         raise exception 'Invalid meal plan' using errcode = 'P0001';
@@ -893,10 +899,10 @@ end $$;
 
 revoke all on function fn_meal_week_of(bigint, date), fn_meal_plan_json(bigint) from public, anon, authenticated;
 revoke all on function get_meal_plan(date), upsert_meal_plan_items(date, integer, jsonb, bigint[]),
-    accept_meal_plan(bigint, integer), archive_meal_plan(bigint), copy_meal_plan_week(date, date)
+    accept_meal_plan(bigint, integer), archive_meal_plan(bigint, integer), copy_meal_plan_week(date, date)
     from public, anon;
 grant execute on function get_meal_plan(date), upsert_meal_plan_items(date, integer, jsonb, bigint[]),
-    accept_meal_plan(bigint, integer), archive_meal_plan(bigint), copy_meal_plan_week(date, date)
+    accept_meal_plan(bigint, integer), archive_meal_plan(bigint, integer), copy_meal_plan_week(date, date)
     to authenticated;
 
 -- ─────────────────── (f) check del plan y comidas de hoy ───────────────────

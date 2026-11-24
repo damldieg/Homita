@@ -268,6 +268,14 @@ Deno.test("POST /meal/plan/archive exige plan_id; Not Found → 404", async () =
         assertEquals(calls[0].url, RPC + "archive_meal_plan");
         assertEquals(calls[0].body, { p_plan_id: 8 });
     });
+    await withFetch(() => jsonRes(400, { message: "Stale meal plan revision" }), async (calls) => {
+        const res = await handleMealPlanArchive(req("POST", { plan_id: 8, expected_revision: 3 }), "tok");
+        assertEquals(res.status, 409);
+        assertEquals(calls[0].body, { p_plan_id: 8, p_expected_revision: 3 });
+        const bad = await handleMealPlanArchive(req("POST", { plan_id: 8, expected_revision: "x" }), "tok");
+        assertEquals(bad.status, 400);
+        assertEquals(calls.length, 1);
+    });
 });
 
 Deno.test("POST /meal/plan/copy: args, 400 de fechas y 409 'Meal plan exists'", async () => {

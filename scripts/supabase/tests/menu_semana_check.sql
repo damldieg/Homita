@@ -24,6 +24,7 @@
 -- MS13 receta borrada: la casilla conserva el título.
 -- MS14 0 filas scratch al terminar.
 -- MS15 week_start_day bloqueado con planes no archivados (corre antes de MS14; R1-01).
+-- MS16 accept y archive respetan expected_revision; accept doble → Stale (R1-02).
 
 \set ON_ERROR_STOP 1
 do $$
@@ -824,7 +825,7 @@ begin
             'delete_food(bigint)', 'list_recipes(text,text,integer)', 'get_recipe(bigint)',
             'create_recipe(text,integer,integer,jsonb,jsonb,jsonb)', 'update_recipe(bigint,jsonb)', 'delete_recipe(bigint)',
             'get_meal_plan(date)', 'upsert_meal_plan_items(date,integer,jsonb,bigint[])', 'accept_meal_plan(bigint,integer)',
-            'archive_meal_plan(bigint)', 'copy_meal_plan_week(date,date)', 'check_meal_plan(bigint)', 'get_meals_today(date)'] loop
+            'archive_meal_plan(bigint,integer)', 'copy_meal_plan_week(date,date)', 'check_meal_plan(bigint)', 'get_meals_today(date)'] loop
         if has_function_privilege('anon', t, 'execute') or not has_function_privilege('authenticated', t, 'execute') then
             raise exception 'menu_semana MS12: EXECUTE incorrecto en %', t;
         end if;
@@ -909,6 +910,38 @@ begin
     end if;
     perform update_meal_profile('{"week_start_day":1}'::jsonb);
     raise notice 'ok MS15: week_start_day solo cambia sin planes no archivados';
+end $$;
+
+-- ── MS16: revisión esperada en accept y archive (R1-02) ──
+do $$
+declare
+    v json;
+    v_id bigint;
+begin
+    perform pg_temp.as_user(1);
+    v := upsert_meal_plan_items('2030-03-04', 0, jsonb_build_array(jsonb_build_object(
+        'day', '2030-03-04', 'slot', 'lunch', 'kind', 'free_text', 'title', 'ZZMS rev')));
+    v_id := (v->>'id')::bigint;
+    perform pg_temp.fails('MS16 archive revisión vieja', format('select archive_meal_plan(%s, 0)', v_id),
+        'P0001', 'Stale meal plan revision');
+    v := accept_meal_plan(v_id, 1);
+    if v->>'status' <> 'accepted' or (v->>'revision')::int <> 2 then
+        raise exception 'menu_semana MS16: accept %', v;
+    end if;
+    -- segunda aceptación con la revisión vieja: Stale (409), no Invalid
+    perform pg_temp.fails('MS16 accept doble', format('select accept_meal_plan(%s, 1)', v_id),
+        'P0001', 'Stale meal plan revision');
+    perform pg_temp.fails('MS16 archive tras otra escritura', format('select archive_meal_plan(%s, 1)', v_id),
+        'P0001', 'Stale meal plan revision');
+    if (select status from meal_plan where id = v_id) <> 'accepted' then
+        raise exception 'menu_semana MS16: un archive stale cambió el plan';
+    end if;
+    v := archive_meal_plan(v_id, 2);
+    if v->>'status' <> 'archived' or (v->>'revision')::int <> 3 then
+        raise exception 'menu_semana MS16: archive con revisión vigente %', v;
+    end if;
+    -- sin expected_revision sigue valiendo (compatibilidad)
+    raise notice 'ok MS16: accept y archive respetan expected_revision';
 end $$;
 
 -- ── MS14: limpieza ──

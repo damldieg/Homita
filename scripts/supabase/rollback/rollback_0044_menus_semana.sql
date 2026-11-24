@@ -24,7 +24,7 @@ drop function if exists delete_recipe(bigint);
 drop function if exists get_meal_plan(date);
 drop function if exists upsert_meal_plan_items(date, integer, jsonb, bigint[]);
 drop function if exists accept_meal_plan(bigint, integer);
-drop function if exists archive_meal_plan(bigint);
+drop function if exists archive_meal_plan(bigint, integer);
 drop function if exists copy_meal_plan_week(date, date);
 drop function if exists check_meal_plan(bigint);
 drop function if exists get_meals_today(date);

@@ -50,7 +50,7 @@ final class MealPlanTests: XCTestCase {
                                 servings: 2, members: [])
         _ = try await repo.saveItems(weekStart: "2026-11-23", expectedRevision: 0, items: [new, edit], deleteIds: [12])
         _ = try await repo.accept(planId: 9, expectedRevision: 3)
-        _ = try await repo.archive(planId: 9)
+        _ = try await repo.archive(planId: 9, expectedRevision: 4)
         _ = try await repo.copyWeek(from: "2026-11-16", to: "2026-11-23")
         let sent = StubURLProtocol.requests
         XCTAssertEqual(sent.map { $0.httpMethod ?? "" }, ["PATCH", "POST", "POST", "POST"])
@@ -59,7 +59,7 @@ final class MealPlanTests: XCTestCase {
         XCTAssertEqual(body(sent[0]),
             #"{"delete_ids":[12],"expected_revision":0,"items":[{"day":"2026-11-23","kind":"free_text","position":0,"slot":"lunch","title":"Pasta"},{"day":"2026-11-23","id":11,"kind":"recipe","members":[],"position":0,"recipe_id":5,"servings":2,"slot":"dinner","title":"X"}],"week_start":"2026-11-23"}"#)
         XCTAssertEqual(body(sent[1]), #"{"expected_revision":3,"plan_id":9}"#)
-        XCTAssertEqual(body(sent[2]), #"{"plan_id":9}"#)
+        XCTAssertEqual(body(sent[2]), #"{"expected_revision":4,"plan_id":9}"#)
         XCTAssertEqual(body(sent[3]), #"{"from_week":"2026-11-16","to_week":"2026-11-23"}"#)
     }
 

@@ -87,11 +87,16 @@ export const handleMealPlanAccept = async (req: Request, token: string): Promise
     return rpcPassHome(await rpc("accept_meal_plan", { p_plan_id: b.plan_id, p_expected_revision: b.expected_revision }, token));
 };
 
-// POST /meal/plan/archive {plan_id}
+// POST /meal/plan/archive {plan_id, expected_revision?} — con expected_revision, 409 si el plan cambió
 export const handleMealPlanArchive = async (req: Request, token: string): Promise<Response> => {
     const b = await contractBodyOnly(req);
     if (!isIntId(b.plan_id)) return errMealPlanIdRequired();
-    return rpcPassHome(await rpc("archive_meal_plan", { p_plan_id: b.plan_id }, token));
+    const args: Record<string, unknown> = { p_plan_id: b.plan_id };
+    if (b.expected_revision !== undefined && b.expected_revision !== null) {
+        if (!isNonNegInt(b.expected_revision)) return errInvalidMealPlan();
+        args.p_expected_revision = b.expected_revision;
+    }
+    return rpcPassHome(await rpc("archive_meal_plan", args, token));
 };
 
 // POST /meal/plan/copy {from_week, to_week}

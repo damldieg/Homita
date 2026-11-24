@@ -228,7 +228,7 @@ public final class MealsStore {
     /// Libera la semana para rehacerla.
     public func archive() async {
         guard let plan else { return }
-        await write { try await $0.archive(planId: plan.id) }
+        await write { try await $0.archive(planId: plan.id, expectedRevision: plan.revision) }
         if self.plan?.status == MealPlanStatus.archived { apply(nil); issues = [] }
     }
 
