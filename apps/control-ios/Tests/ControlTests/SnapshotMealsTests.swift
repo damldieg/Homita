@@ -53,3 +53,39 @@ final class SnapshotMealsTests: XCTestCase {
         XCTAssertEqual(none.visibleItems(at: date("2026-11-09 08:00:00")), [])
     }
 }
+
+final class SnapshotBuilderMealsTests: XCTestCase {
+    private let utc = TimeZone(identifier: "UTC")!
+
+    private func today() throws -> MealsToday {
+        try JSONDecoder().decode(MealsToday.self, from: Data("""
+        {"has_plan":true,"date":"2026-11-09","timezone":"UTC","now_local":"2026-11-09 07:00:00","items":[
+         {"item_id":2,"slot":"dinner","time":"21:00:00","kind":"free","title":"Tortilla","members":[1,2]},
+         {"item_id":1,"slot":"breakfast","time":"08:00","kind":"free","title":"Tostadas","members":[]}]}
+        """.utf8))
+    }
+
+    func testBuilderFillsMealsSortedWithoutMembers() throws {
+        let snap = SnapshotBuilder.build(
+            events: [], routines: [], tasks: [], homeName: nil, now: Date(timeIntervalSince1970: 1_794_000_000),
+            timeZone: utc, meals: try today())
+        XCTAssertEqual(snap.meals?.items.map(\.title), ["Tostadas", "Tortilla"])
+        XCTAssertEqual(snap.meals?.items.map(\.time), ["08:00", "21:00"])
+        XCTAssertEqual(snap.meals?.hasPlan, true)
+        XCTAssertNil(SnapshotBuilder.build(events: [], routines: [], tasks: [], homeName: nil, now: Date()).meals)
+    }
+
+    func testFetchFailurePolicy() throws {
+        let previous = try today()
+        struct Offline: Error {}
+        XCTAssertEqual(SnapshotBuilder.mealsAfterFetch(previous: previous, result: .failure(Offline())), previous)
+        XCTAssertEqual(
+            SnapshotBuilder.mealsAfterFetch(previous: previous, result: .failure(APIError.http(status: 500, message: "x"))),
+            previous)
+        XCTAssertNil(SnapshotBuilder.mealsAfterFetch(
+            previous: previous, result: .failure(APIError.http(status: 403, message: "Not Allowed"))))
+        XCTAssertNil(SnapshotBuilder.mealsAfterFetch(
+            previous: previous, result: .failure(APIError.http(status: 400, message: "Home header required"))))
+        XCTAssertEqual(SnapshotBuilder.mealsAfterFetch(previous: nil, result: .success(previous)), previous)
+    }
+}

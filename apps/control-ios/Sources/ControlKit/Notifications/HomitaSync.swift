@@ -23,6 +23,7 @@ public final class HomitaSync {
     private var routines: [RoutineEntry] = []
     private var tasks: [TaskEntry] = []
     private var people: [PersonEntry] = []
+    private var mealsToday: MealsToday?
     private var userId: Int?
     private var homeName: String?
     private var hasData = false
@@ -82,6 +83,7 @@ public final class HomitaSync {
         routines = []
         tasks = []
         people = []
+        mealsToday = nil
         userId = nil
         homeName = nil
         hasData = false
@@ -109,6 +111,11 @@ public final class HomitaSync {
         let newRoutines = try? await services.routines.index(timezone: timezone)
         let newTasks = try? await services.tasks.index(taskListId: nil)
         let newPeople = try? await services.persons.index()
+        do {
+            mealsToday = SnapshotBuilder.mealsAfterFetch(previous: mealsToday, result: .success(try await services.meals.today()))
+        } catch {
+            mealsToday = SnapshotBuilder.mealsAfterFetch(previous: mealsToday, result: .failure(error))
+        }
         if let newPeople { people = newPeople }
         if let newEvents { events = newEvents }
         if let newRoutines { routines = newRoutines }
@@ -152,7 +159,7 @@ public final class HomitaSync {
         // 2. Widgets: el snapshot solo se escribe con el toggle activo.
         let snapshot = SnapshotBuilder.build(
             events: events, routines: routines, tasks: tasks, homeName: homeName, now: now, timeZone: timeZone,
-            myPersonIds: myPersonIds
+            myPersonIds: myPersonIds, meals: mealsToday
         )
         if prefs.widgets {
             snapshotStore.save(snapshot)

@@ -8,7 +8,8 @@ public enum SnapshotBuilder {
 
     public static func build(
         events: [EventEntry], routines: [RoutineEntry], tasks: [TaskEntry],
-        homeName: String?, now: Date, timeZone: TimeZone = .current, myPersonIds: Set<Int> = []
+        homeName: String?, now: Date, timeZone: TimeZone = .current, myPersonIds: Set<Int> = [],
+        meals: MealsToday? = nil
     ) -> HomitaSnapshot {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
@@ -37,8 +38,33 @@ public enum SnapshotBuilder {
                     id: $0.id, title: $0.title, listName: $0.task_list_name ?? "Tareas",
                     colorHex: $0.task_list_color ?? Palette.accentHex
                 )
-            }
+            },
+            meals: meals.map(snapshotMeals)
         )
+    }
+
+    /// Menú de hoy para el widget: solo franja, hora y título (sin miembros ni datos de salud).
+    static func snapshotMeals(_ today: MealsToday) -> HomitaSnapshot.Meals {
+        let items = today.items.sorted { lhs, rhs in
+            lhs.time != rhs.time ? lhs.time < rhs.time
+                : (MealSlotKind.order.firstIndex(of: lhs.slot) ?? 0) < (MealSlotKind.order.firstIndex(of: rhs.slot) ?? 0)
+        }.map { HomitaSnapshot.Meals.Item(slot: $0.slot, time: String($0.time.prefix(5)), title: $0.title) }
+        return HomitaSnapshot.Meals(date: today.date, timezone: today.timezone, hasPlan: today.hasPlan, items: items)
+    }
+
+    /// Qué menú conserva el snapshot tras intentar leer `/meal/today`: el nuevo si llegó; sin permiso
+    /// (403, `menu.view`) o con varios hogares sin predeterminado (400 `Home header required`) se
+    /// oculta (`nil`); con cualquier otro fallo (red, 5xx) se conserva el anterior.
+    static func mealsAfterFetch(previous: MealsToday?, result: Result<MealsToday, Error>) -> MealsToday? {
+        switch result {
+        case .success(let today): return today
+        case .failure(let error):
+            if case APIError.http(let status, let message) = error,
+               status == 403 || (status == 400 && message == "Home header required") {
+                return nil
+            }
+            return previous
+        }
     }
 
     private static func snapshotRoutine(
