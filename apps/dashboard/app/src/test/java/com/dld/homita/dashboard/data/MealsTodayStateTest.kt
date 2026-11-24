@@ -33,11 +33,11 @@ class MealsTodayStateTest {
     @Test
     fun currentSlotIsTheFirstNotPassed() {
         val view = of(menu("12:00"), at("12:00"))!!
-        assertEquals(listOf("14:00", "17:30", "21:00"), view.rows.map { it.time })
+        assertEquals(listOf("14:00", "17:30"), view.rows.map { it.time })
         assertTrue(view.rows[0].current)
         assertFalse(view.rows[1].current)
         assertTrue(view.rows.none { it.past })
-        assertEquals(1, view.more)
+        assertEquals(2, view.more)
     }
 
     @Test
@@ -51,9 +51,10 @@ class MealsTodayStateTest {
     @Test
     fun allPassedShowsTheLastOnesDimmed() {
         val view = of(menu("22:30"), at("22:30"))!!
-        assertEquals(listOf("14:00", "17:30", "21:00"), view.rows.map { it.time })
+        assertEquals(listOf("17:30", "21:00"), view.rows.map { it.time })
         assertTrue(view.rows.all { it.past && !it.current })
-        assertEquals(1, view.more)
+        assertEquals(2, view.more)
+        assertEquals(2, MealsTodayState.MAX_ROWS)
     }
 
     @Test

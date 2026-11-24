@@ -18,7 +18,7 @@ data class MealsTodayView(val rows: List<MealRow>, val more: Int)
  * actual; si ya han pasado todas, las últimas.
  */
 object MealsTodayState {
-    const val MAX_ROWS = 3
+    const val MAX_ROWS = 2
 
     /** null = ocultar la tarjeta: sin dato, de otro día, sin plan aceptado o sin casillas con título. */
     fun of(

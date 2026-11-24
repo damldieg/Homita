@@ -162,7 +162,9 @@ private fun ClockColumn(state: UiState, modifier: Modifier) {
             )
         }
         if (next != null) NextCard(next, now)
-        // Con el siguiente evento la columna va justa de alto: una sola casilla; sin él caben hasta MAX_ROWS.
+        // Altura estimada de la tarjeta (padding 2x14 + cabecera 24 + filas de 30 + separación 4 entre elementos):
+        // con 1 casilla ~86 dp, con 2 ~120 dp (antes, con 20 dp de padding: 100 y 166 con 3). Con el siguiente evento
+        // la columna va justa: 1 casilla; sin él, hasta MAX_ROWS (2). Lo que sobra va al «+N».
         val meals = MealsTodayState.of(state.meals, now, if (next != null) 1 else MealsTodayState.MAX_ROWS)
         if (state.clockValid && meals != null) {
             Spacer(Modifier.height(16.dp))
@@ -179,11 +181,11 @@ private fun ClockColumn(state: UiState, modifier: Modifier) {
 @Composable
 private fun MealsTodayCard(view: MealsTodayView) {
     Column(
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier
             .fillMaxWidth()
             .background(Palette.Card, RoundedCornerShape(32.dp))
-            .padding(horizontal = 34.dp, vertical = 20.dp)
+            .padding(horizontal = 34.dp, vertical = 14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("HOY SE COME", style = Type.Label, maxLines = 1, modifier = Modifier.weight(1f))
