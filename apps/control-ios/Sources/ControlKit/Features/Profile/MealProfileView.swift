@@ -138,11 +138,9 @@ struct MealProfileView: View {
                 ForEach(MealRules.weekdays, id: \.0) { Text($0.1).tag($0.0) }
             }
             .disabled(!profile.canEdit)
-            VStack(alignment: .leading) {
-                Text("Días que coméis fuera").font(.footnote).foregroundStyle(Palette.inkSoft)
-                MealDayChips(selected: MealRules.outDays(profile), enabled: profile.canEdit) { days in
-                    Task { await store.setOutDays(days) }
-                }
+            Text("Días que coméis fuera").font(.footnote).foregroundStyle(Palette.inkSoft)
+            MealOutModes(selected: MealRules.outModes(profile), slots: profile.slots, enabled: profile.canEdit) { modes in
+                Task { await store.setOutModes(modes) }
             }
         } header: {
             Text("D. Semana tipo")
@@ -249,26 +247,35 @@ struct MealProfileView: View {
     }
 }
 
-/// Días de la semana como casillas (D2 simple).
-private struct MealDayChips: View {
-    let selected: Set<Int>
+/// Un selector por día: día completo, solo comida, solo cena o ninguno (D2).
+/// Las opciones de una franja no activa quedan ocultas.
+private struct MealOutModes: View {
+    let selected: [Int: OutMode]
+    let slots: [MealSlot]
     let enabled: Bool
-    let onChange: (Set<Int>) -> Void
+    let onChange: ([Int: OutMode]) -> Void
+
+    private func options(current: OutMode) -> [OutMode] {
+        let active = Set(slots.filter(\.enabled).map(\.slot))
+        return OutMode.allCases.filter {
+            current == $0 || ($0 != .lunch || active.contains("lunch")) && ($0 != .dinner || active.contains("dinner"))
+        }
+    }
 
     var body: some View {
-        HStack(spacing: 6) {
-            ForEach(MealRules.weekdays, id: \.0) { day in
-                let on = selected.contains(day.0)
-                Button(String(day.1.prefix(1))) {
+        ForEach(MealRules.weekdays, id: \.0) { day in
+            let current = selected[day.0] ?? .none
+            Picker(day.1, selection: Binding(
+                get: { current },
+                set: { mode in
                     var next = selected
-                    if on { next.remove(day.0) } else { next.insert(day.0) }
+                    next[day.0] = mode
                     onChange(next)
-                }
-                .buttonStyle(.bordered)
-                .tint(on ? Palette.accent : .gray)
-                .disabled(!enabled)
-                .accessibilityLabel(day.1)
+                })) {
+                ForEach(options(current: current), id: \.self) { Text($0.label) }
             }
+            .pickerStyle(.menu)
+            .disabled(!enabled)
         }
     }
 }
@@ -416,7 +423,8 @@ struct MealStartView: View {
     let profile: MealProfile
     let onClose: () -> Void
     @State private var step = 0
-    @State private var outDays: Set<Int> = []
+    @State private var outModes: [Int: OutMode] = [:]
+    @State private var outModesLoaded = false
 
     private static let titles = [
         "¿Quién come en casa?", "¿Qué edad tiene cada uno?", "¿Alguna alergia?", "¿Qué dieta sigue cada uno?",
@@ -454,7 +462,7 @@ struct MealStartView: View {
     }
 
     private func advance() {
-        if step == 5, !outDays.isEmpty { Task { await store.setOutDays(outDays) } }
+        if step == 5, outModesLoaded { Task { await store.setOutModes(outModes) } }
         if step == Self.titles.count - 1 { onClose() } else { step += 1 }
     }
 
@@ -498,7 +506,10 @@ struct MealStartView: View {
                     set: { v in var c = s; c.enabled = v; Task { await store.setSlots([c]) } }))
             }
         case 5:
-            MealDayChips(selected: outDays, enabled: true) { outDays = $0 }
+            MealOutModes(selected: outModesLoaded ? outModes : MealRules.outModes(live), slots: live.slots, enabled: true) {
+                outModes = $0
+                outModesLoaded = true
+            }
         default:
             Picker("Entre semana", selection: Binding<Int?>(
                 get: { live.profile.cookMinutesWeekday },

@@ -59,10 +59,10 @@ public final class MealProfileStore {
         await run { try await $0.setSlots(slots) }
     }
 
-    /// D2 simple: días en los que se come fuera.
-    public func setOutDays(_ days: Set<Int>) async {
+    /// D2: modo «fuera» de cada día (día completo, solo comida, solo cena, ninguno).
+    public func setOutModes(_ modes: [Int: OutMode]) async {
         guard let profile else { return }
-        let entries = MealRules.outSchedule(days: days, eaters: profile.members.map(\.homeMemberId),
+        let entries = MealRules.outSchedule(modes: modes, eaters: profile.members.map(\.homeMemberId),
                                             slots: profile.slots, current: profile.schedule)
         guard !entries.isEmpty else { return }
         await run { try await $0.setSchedule(entries) }
