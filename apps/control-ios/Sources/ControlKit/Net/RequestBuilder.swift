@@ -35,11 +35,18 @@ public enum RequestBuilder {
     /// código). `GET home` (path `home`) tampoco la lleva porque no empieza por `home/`.
     static let homeHeaderExcludedPaths: Set<String> = ["home/create", "home/default", "home/invitation/accept"]
 
+    /// `recipe`, `recipe/*`, `food` y `food/*` (no `recipes` ni `foodstuff`).
+    static func isMealCatalogPath(_ path: String) -> Bool {
+        ["recipe", "food"].contains { path == $0 || path.hasPrefix($0 + "/") }
+    }
+
     /// Regla de envío de `X-Home-Id`: ruta autenticada bajo `home/` (fuera de las excluidas), `meal/*` y el asistente.
     static func sendsHomeHeader(for apiRequest: APIRequest) -> Bool {
         if apiRequest.path == "asistente" { return !apiRequest.isPublic } // Kito opera siempre sobre el hogar activo
         // Planificador de comidas (0043): `meal/*` opera sobre el hogar activo (amplía D-012)
         if apiRequest.path.hasPrefix("meal/") { return !apiRequest.isPublic }
+        // Recetas y catálogo (0044): cuelgan de la raíz, no de `meal/*`, y operan sobre el hogar activo
+        if isMealCatalogPath(apiRequest.path) { return !apiRequest.isPublic }
         return !apiRequest.isPublic
             && apiRequest.path.hasPrefix("home/")
             && !homeHeaderExcludedPaths.contains(apiRequest.path)

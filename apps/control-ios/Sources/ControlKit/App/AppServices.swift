@@ -14,6 +14,7 @@ public struct AppServices {
     public let homes: HomeRepository
     public let feedback: FeedbackRepository
     public let meals: MealRepository
+    public let recipes: RecipeRepository
     public let homeContext: HomeContextStore
     /// Kito (asistente): cliente de la Edge `asistente` e historial local por usuario y hogar.
     public let kitoAPI: KitoAPI
@@ -70,6 +71,7 @@ public struct AppServices {
         homes = HomeRepository(client: client)
         feedback = FeedbackRepository(client: client)
         meals = MealRepository(client: client)
+        recipes = RecipeRepository(client: client)
         outboxReplayer = OutboxReplayer(tasks: tasks, taskLists: taskLists, persons: persons)
     }
 
