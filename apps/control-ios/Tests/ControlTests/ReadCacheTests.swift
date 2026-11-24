@@ -21,6 +21,7 @@ final class ReadCacheTests: XCTestCase {
         XCTAssertFalse(ReadCache.isCacheable(APIRequest(method: .post, path: "event/create")))
         XCTAssertFalse(ReadCache.isCacheable(APIRequest(method: .get, path: "home/invitation/list")))
         XCTAssertFalse(ReadCache.isCacheable(APIRequest(method: .get, path: "user/me")))
+        XCTAssertFalse(ReadCache.isCacheable(APIRequest(method: .get, path: "meal/profile")))
         XCTAssertFalse(ReadCache.isCacheable(APIRequest(method: .get, path: "config", isPublic: true)))
     }
 

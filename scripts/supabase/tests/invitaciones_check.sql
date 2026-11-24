@@ -238,6 +238,7 @@ begin
                || coalesce(qual, '') || ':' || coalesce(with_check, ''), ',' order by tablename, policyname))
         from pg_policies where schemaname = 'public'
           and tablename <> 'feedback' -- 0032 (control-ios-feedback) añade su propia política
+          and tablename not like 'meal\_%' -- 0043 (menus-perfil-hogar) añade 4 policies SELECT; las cubre meal_profile_check MP10
           -- 0039 (ocultar-completadas-3-dias) redefine task.task_select con el predicado de ocultas;
           -- la cubre task_hidden_check H12. Baseline de las otras 14 (15 de 0021 menos task_select).
           and not (tablename = 'task' and policyname = 'task_select'))

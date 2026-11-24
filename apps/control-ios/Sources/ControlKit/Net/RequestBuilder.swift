@@ -4,6 +4,7 @@ public enum HTTPMethod: String, Sendable {
     case get = "GET"
     case post = "POST"
     case patch = "PATCH"
+    case put = "PUT"
     case delete = "DELETE"
 }
 
@@ -34,9 +35,11 @@ public enum RequestBuilder {
     /// código). `GET home` (path `home`) tampoco la lleva porque no empieza por `home/`.
     static let homeHeaderExcludedPaths: Set<String> = ["home/create", "home/default", "home/invitation/accept"]
 
-    /// Regla de envío de `X-Home-Id`: ruta autenticada bajo `home/` y fuera de las excluidas.
+    /// Regla de envío de `X-Home-Id`: ruta autenticada bajo `home/` (fuera de las excluidas), `meal/*` y el asistente.
     static func sendsHomeHeader(for apiRequest: APIRequest) -> Bool {
         if apiRequest.path == "asistente" { return !apiRequest.isPublic } // Kito opera siempre sobre el hogar activo
+        // Planificador de comidas (0043): `meal/*` opera sobre el hogar activo (amplía D-012)
+        if apiRequest.path.hasPrefix("meal/") { return !apiRequest.isPublic }
         return !apiRequest.isPublic
             && apiRequest.path.hasPrefix("home/")
             && !homeHeaderExcludedPaths.contains(apiRequest.path)

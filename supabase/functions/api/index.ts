@@ -28,7 +28,7 @@
 // config flag desde ALLOW_REGISTRATION (default false).
 //
 // Layout: entrypoint fino (routing + guard Bearer + dispatch) + usecases/{auth,calendars,persons,
-// routines,events,task-lists,tasks}.ts + _shared/{supabase,contract,errors,validate}.ts.
+// routines,events,task-lists,tasks,homes,meals}.ts + _shared/{supabase,contract,errors,validate}.ts.
 
 import { error, errInvalidHome, errNotFound500, errRouteHomeNotFound, errRouteNotFound, errUnauthorized } from "./_shared/errors.ts";
 import { checkHomeMember, parseHomeHeader, runWithHome } from "./_shared/home.ts";
@@ -66,6 +66,10 @@ import {
     handleHomeInvitationAccept, handleHomeInvitationCreate, handleHomeInvitationIndex,
     handleHomeInvitationRevoke,
 } from "./usecases/homes.ts";
+import {
+    handleMealProfileGet, handleMealProfileMemberUpdate, handleMealProfileUpdate, handleMealScheduleSet,
+    handleMealSlotsSet,
+} from "./usecases/meals.ts";
 
 type Handler = (req: Request, token: string, uid: string) => Promise<Response> | Response;
 
@@ -146,6 +150,14 @@ const ROUTES: Record<string, { auth: boolean; home?: boolean; homeContext?: bool
     "POST /home/invitation/create": { auth: true, home: true, handler: (req, t) => handleHomeInvitationCreate(req, t) },
     "POST /home/invitation/accept": { auth: true, homeContext: false, handler: (req, t) => handleHomeInvitationAccept(req, t) },
     "POST /home/invitation/revoke": { auth: true, home: true, handler: (req, t) => handleHomeInvitationRevoke(req, t) },
+
+    // change menus-perfil-hogar (0043): rutas aditivas (D-008) del perfil de comidas; X-Home-Id o regla de
+    // fn_home_for_root_create (404 si la cabecera no es de un hogar propio).
+    "GET /meal/profile": { auth: true, home: true, handler: (req, t) => handleMealProfileGet(req, t) },
+    "PATCH /meal/profile": { auth: true, home: true, handler: (req, t) => handleMealProfileUpdate(req, t) },
+    "PATCH /meal/profile/member": { auth: true, home: true, handler: (req, t) => handleMealProfileMemberUpdate(req, t) },
+    "PUT /meal/schedule": { auth: true, home: true, handler: (req, t) => handleMealScheduleSet(req, t) },
+    "PUT /meal/slots": { auth: true, home: true, handler: (req, t) => handleMealSlotsSet(req, t) },
 
     // change control-ios-feedback: ruta aditiva (D-008), fuera de las 43 legacy; sin X-Home-Id.
     "POST /feedback": { auth: true, handler: (req, t) => handleFeedbackCreate(req, t) },

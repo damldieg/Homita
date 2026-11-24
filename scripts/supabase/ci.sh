@@ -185,6 +185,11 @@ expect_log "deno test api task-list/order" deno-test-api-order '^ok \| [0-9]+ pa
 run "deno test api task-due" deno-test-api-due env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/task_due_test.ts"
 expect_log "deno test api task-due" deno-test-api-due '^ok \| [0-9]+ passed \| 0 failed'
 
+# Tests de /meal/* (0043): fetch falso; forma de la petición, args de cada RPC, mapeo de errores y X-Home-Id.
+run "deno test api meals" deno-test-api-meals env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/meals_test.ts"
+expect_log "deno test api meals" deno-test-api-meals '^ok \| [0-9]+ passed \| 0 failed'
+run "deno check api" deno-check-api env NO_COLOR=1 deno check "$API_FN/index.ts"
+
 run "SQL invitaciones_check" sql-invitaciones sql "$HERE/scripts/supabase/tests/invitaciones_check.sql"
 n_pat=(); for i in $(seq 1 22); do n_pat+=("ok N$i([^0-9]|\$)"); done
 expect_log "SQL invitaciones_check" sql-invitaciones "${n_pat[@]}"
@@ -201,6 +206,11 @@ run "SQL permisos_matriz_check" sql-permisos-matriz sql "$HERE/scripts/supabase/
 # M1, M1b, M2..M27 y M8b (29 avisos): el cierre ([^0-9a-z]|$) evita que M1 case con M10 o M1b.
 m_pat=("ok M1([^0-9a-z]|\$)" "ok M1b([^0-9a-z]|\$)" "ok M8b([^0-9a-z]|\$)"); for i in $(seq 2 27); do m_pat+=("ok M$i([^0-9a-z]|\$)"); done
 expect_log "SQL permisos_matriz_check" sql-permisos-matriz "${m_pat[@]}"
+
+# 0043 (menus-perfil-hogar): perfil de hogar y franjas; defaults, mascotas, RLS entre hogares, matriz menu.*, backfill, bloque C.
+run "SQL meal_profile_check" sql-meal-profile sql "$HERE/scripts/supabase/tests/meal_profile_check.sql"
+mp_pat=(); for i in $(seq 1 11); do mp_pat+=("ok MP$i([^0-9a-z]|\$)"); done
+expect_log "SQL meal_profile_check" sql-meal-profile "${mp_pat[@]}"
 
 run "SQL client_request_check" sql-client-request sql "$HERE/scripts/supabase/tests/client_request_check.sql"
 c_pat=(); for i in $(seq 1 9); do c_pat+=("ok C$i([^0-9a-z]|\$)"); done
@@ -323,10 +333,10 @@ expect_log "SQL task_hidden_rollback_guard_check" sql-rbguard0039 'ok G39-1([^0-
 # pre-0038 (sin el bloque de ocultas), 549; en pre-0037 (BD revertida por rollback_0037) sin el bloque de
 # prioridad, 519. Con CONTRACT_POSITION=0 (esquema sin 0040) se restan los 17 (contract_nopos).
 CONTRACT_PY="$HERE/scripts/supabase/contract_check.py"
-contract_full=581
-contract_nopos=564
-contract_pre39=549
-contract_pre=519
+contract_full=595
+contract_nopos=578
+contract_pre39=563
+contract_pre=533
 run "contract_check.py" contract python3 "$CONTRACT_PY"
 expect_log "contract_check.py" contract "^${contract_full}/${contract_full} casos ok"
 
@@ -551,6 +561,28 @@ else
     FAILED+=("ida y vuelta 0041 (rollback_0041 no quedó en verde; repetir ci.sh)")
 fi
 
+# Ida y vuelta 0043 → rollback_0043_meal_profile.sql → 0043 (menus-perfil-hogar): el último cambio, en serie tras 0041/0042.
+# El rollback borra las tablas meal_* y deja el catálogo en 23/37; luego se reaplica 0043 (el backfill vuelve a dar los
+# menu.* a las membresías existentes) y se repiten meal_profile_check y contract_check. contract_check no corre sobre el
+# esquema revertido (cuenta 28/47). Si el rollback falla no se sigue: la BD local queda a medias, repetir ci.sh.
+run "SQL meal_profile_rollback_check" sql-rb0043 sql_expanded "$HERE/scripts/supabase/tests/meal_profile_rollback_check.sql"
+expect_log "SQL meal_profile_rollback_check" sql-rb0043 'ok RM1([^0-9]|$)' 'ok RM2([^0-9]|$)' 'ok RM3([^0-9]|$)'
+if grep -Eq 'ok RM1([^0-9]|$)' "$OUT/sql-rb0043.log" && grep -Eq 'ok RM2([^0-9]|$)' "$OUT/sql-rb0043.log" \
+    && grep -Eq 'ok RM3([^0-9]|$)' "$OUT/sql-rb0043.log"; then
+    run "SQL 0043 reaplicada" sql-ra0043 sql "$HERE/supabase/migrations/0043_meal_profile.sql"
+    sleep 1 # notify pgrst: PostgREST recarga el esquema antes de contract_check
+    run "SQL meal_profile_reapply_check" sql-ra0043-chk sql "$HERE/scripts/supabase/tests/meal_profile_reapply_check.sql"
+    expect_log "SQL meal_profile_reapply_check" sql-ra0043-chk 'ok RA1([^0-9]|$)' 'ok RA2([^0-9]|$)'
+    run "SQL meal_profile_check (tras reaplicar 0043)" sql-ra0043-mp sql "$HERE/scripts/supabase/tests/meal_profile_check.sql"
+    expect_log "SQL meal_profile_check (tras reaplicar 0043)" sql-ra0043-mp "${mp_pat[@]}"
+    run "SQL limpieza de client_request huérfanas (tras reaplicar 0043)" sql-ra0043-crclean "${PSQL_CMD[@]}" -v ON_ERROR_STOP=1 -c \
+        "delete from client_request cr where cr.kind = 'task' and not exists (select 1 from task t where t.id = cr.resource_id)"
+    run "contract_check.py (tras reaplicar 0043)" sql-ra0043-contract python3 "$CONTRACT_PY"
+    expect_log "contract_check.py (tras reaplicar 0043)" sql-ra0043-contract "^${contract_full}/${contract_full} casos ok"
+else
+    FAILED+=("ida y vuelta 0043 (rollback_0043 no quedó en verde; no se reaplica 0043: la BD local queda a medias, repetir ci.sh)")
+fi
+
 if [ "${#FAILED[@]}" -gt 0 ]; then
     echo
     echo "FALLARON ${#FAILED[@]} paso(s):"
@@ -558,4 +590,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10, task_person_access A1-A9, get_persons GP1-GP4, task_hidden H1-H12, task_list_position TP1-TP8, guardas de rollback G0-G3, G38-1 y G39-1, feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta 0039 → rollback → [0038 → rollback → (0037 → rollback → (0035 → rollback → 0035) → 0037) → 0038] → 0039 con RBH1-5, contract pre-0039 ${contract_pre39}/${contract_pre39}, RB38-1..5, PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, guarda 0030 E0-E2, RA1-RA2, PA1-PA3, P1-P10, C1-C9, RA38-1, A1-A9, GP1-GP4, RAH1-3 y H1-H12; ida y vuelta 0040 con TR1-TR3, contract ${contract_nopos}/${contract_nopos} sin position, TA1-TA2 y TP1-TP8)"
+echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10, task_person_access A1-A9, get_persons GP1-GP4, task_hidden H1-H12, task_list_position TP1-TP8, meal_profile MP1-MP11, guardas de rollback G0-G3, G38-1 y G39-1, feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta 0039 → rollback → [0038 → rollback → (0037 → rollback → (0035 → rollback → 0035) → 0037) → 0038] → 0039 con RBH1-5, contract pre-0039 ${contract_pre39}/${contract_pre39}, RB38-1..5, PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, guarda 0030 E0-E2, RA1-RA2, PA1-PA3, P1-P10, C1-C9, RA38-1, A1-A9, GP1-GP4, RAH1-3 y H1-H12; ida y vuelta 0040 con TR1-TR3, contract ${contract_nopos}/${contract_nopos} sin position, TA1-TA2 y TP1-TP8; ida y vuelta 0043 con RM1-RM3, RA1-RA2 y MP1-MP11)"
