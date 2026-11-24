@@ -21,11 +21,14 @@ public final class MealsStore {
     public var eventCounts: [String: Int] = [:]
 
     private let meals: MealRepository
+    private let events: EventRepository?
     private let activeHomeId: () -> String?
     private let now: () -> Date
 
-    public init(meals: MealRepository, activeHomeId: @escaping () -> String?, now: @escaping () -> Date = Date.init) {
+    public init(meals: MealRepository, events: EventRepository? = nil, activeHomeId: @escaping () -> String?,
+                now: @escaping () -> Date = Date.init) {
         self.meals = meals
+        self.events = events
         self.activeHomeId = activeHomeId
         self.now = now
         weekStart = MealWeek.weekStart(containing: now(), weekStartDay: 1, timeZone: .current)
@@ -94,6 +97,29 @@ public final class MealsStore {
         guard activeHomeId() == requested else { return }
         apply(loaded)
         await refreshIssues()
+        await loadEventCounts()
+    }
+
+    /// Eventos de calendario por día de la semana visible (best-effort: si falla, sin contadores).
+    public func loadEventCounts() async {
+        guard let events, let first = days.first, let last = days.last,
+              let start = MealWeek.date(first, timeZone: timeZone), let end = MealWeek.date(last, timeZone: timeZone) else {
+            eventCounts = [:]
+            return
+        }
+        let calendar = MealWeek.calendar(timeZone)
+        let from = calendar.startOfDay(for: start)
+        let to = calendar.startOfDay(for: end).addingTimeInterval(86_399)
+        let filters = EventFilters(
+            startDate: LocalClock.epochString(for: from, timeZone: timeZone),
+            endDate: LocalClock.epochString(for: to, timeZone: timeZone), routine: false, timezone: timeZone.identifier)
+        guard let list = try? await events.index(filters) else { eventCounts = [:]; return }
+        var counts: [String: Int] = [:]
+        for event in list {
+            let day = String(event.date_at.prefix(10))
+            if days.contains(day) { counts[day, default: 0] += 1 }
+        }
+        eventCounts = counts
     }
 
     private func apply(_ loaded: MealPlan?) {
