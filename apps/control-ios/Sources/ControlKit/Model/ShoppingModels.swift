@@ -176,6 +176,11 @@ public struct ShoppingPreview: Decodable, Equatable, Sendable {
     public var planId: Int64
     public var items: [ShoppingPreviewItem]
 
+    public init(planId: Int64, items: [ShoppingPreviewItem]) {
+        self.planId = planId
+        self.items = items
+    }
+
     enum CodingKeys: String, CodingKey {
         case planId = "plan_id", items
     }

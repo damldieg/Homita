@@ -227,6 +227,44 @@ final class MealsStoreTests: XCTestCase {
         XCTAssertEqual(store.plan?.revision, 4)
     }
 
+    func testPrepareAcceptLoadsPreviewThenAcceptKeepsShoppingSummary() async throws {
+        let previewJSON = #"{"plan_id":9,"items":[{"agg_key":"f1|g","label":"Arroz","food_id":1,"quantity":250,"unit":"g","section":"cereales","sources":[{"plan_item_id":11,"recipe_id":2,"name":"Paella","qty":250,"unit":"g"}]}]}"#
+        route { req in
+            let path = req.url?.path ?? ""
+            if path.hasSuffix("/shopping/preview") { return StubURLProtocol.Stub(json: previewJSON) }
+            if path.hasSuffix("/accept") {
+                return StubURLProtocol.Stub(json: self.planJSON(revision: 4, status: "accepted")
+                    .replacingOccurrences(of: #""revision":4,"#, with: #""revision":4,"shopping_sync":{"added":3,"updated":1,"removed":0},"#))
+            }
+            return StubURLProtocol.Stub(json: self.planJSON(revision: 2))
+        }
+        let store = makeStore()
+        await store.load()
+        await store.prepareAccept()
+        XCTAssertEqual(store.acceptPreview?.items.first?.label, "Arroz")
+        XCTAssertEqual(calls("/shopping/preview").first?.url?.query, "plan_id=9")
+        XCTAssertTrue(calls("/accept").isEmpty, "mostrar el resumen no acepta")
+        store.cancelAccept()
+        XCTAssertNil(store.acceptPreview)
+
+        await store.prepareAccept()
+        await store.accept()
+        XCTAssertNil(store.acceptPreview)
+        XCTAssertTrue(store.isAccepted)
+        XCTAssertEqual(store.acceptedShopping, ShoppingSyncResult(added: 3, updated: 1, removed: 0))
+    }
+
+    func testPrepareAcceptOpensEmptySheetWhenPreviewFails() async throws {
+        route { req in
+            if req.url?.path.hasSuffix("/shopping/preview") == true { return StubURLProtocol.Stub(status: 500, json: "{}") }
+            return StubURLProtocol.Stub(json: self.planJSON(revision: 2))
+        }
+        let store = makeStore()
+        await store.load()
+        await store.prepareAccept()
+        XCTAssertEqual(store.acceptPreview?.items.count, 0)
+    }
+
     func testCopyDayReplacesTargetWithCloneWithoutIds() async throws {
         let extra = #",{"id":12,"day":"2026-11-24","slot":"dinner","position":0,"kind":"eat_out","recipe_id":null,"title":"","servings":null,"cook_member_id":null,"members":[]}"#
         route { _ in StubURLProtocol.Stub(json: self.planJSON(revision: 2, extra: extra)) }

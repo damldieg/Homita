@@ -27,7 +27,7 @@ struct MealsView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 switch section {
-                case .week: WeekGridView(store: store, services: services)
+                case .week: WeekGridView(store: store, services: services, onShoppingSync: { shopping.noteSync($0) })
                 case .shopping: ShoppingView(store: shopping)
                 case .recipes: RecipesView(services: services)
                 }
