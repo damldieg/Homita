@@ -31,7 +31,7 @@ struct WeekGridView: View {
                 content
             }
         }
-        .task { if store.state == .idle { await store.load() } }
+        .task { await store.load() }
         .errorAlert($store.errorMessage)
         .sheet(item: $slotEditor) { request in
             NavigationStack {

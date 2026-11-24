@@ -97,16 +97,18 @@ public final class MealsStore {
 
     // MARK: Carga
 
+    /// Carga perfil y plan. El perfil se pide siempre (puede haber cambiado en `MealProfileView`); la
+    /// semana visible se conserva en recargas y, con ediciones locales sin guardar, el plan no se relee.
     public func load() async {
         let requested = activeHomeId()
-        state = .loading
+        let firstLoad = profile == nil
+        if firstLoad || !isDirty { state = .loading }
         do {
-            if profile == nil {
-                let loaded = try await meals.profile()
-                guard activeHomeId() == requested else { return }
-                profile = loaded
-                weekStart = currentWeekStart
-            }
+            let loaded = try await meals.profile()
+            guard activeHomeId() == requested else { return }
+            profile = loaded
+            if firstLoad { weekStart = currentWeekStart }
+            if isDirty { state = .loaded; return }
             try await loadPlan(requested: requested)
             state = .loaded
         } catch {

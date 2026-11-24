@@ -95,6 +95,24 @@ final class MealsStoreTests: XCTestCase {
         XCTAssertEqual(store.enabledSlots.map(\.slot), ["breakfast", "lunch", "dinner"])
     }
 
+    func testReloadKeepsLocalEditsButRefreshesProfile() async throws {
+        var current = profileJSON(enabled: ["lunch": true, "dinner": true])
+        StubURLProtocol.reset { req in
+            let path = req.url?.path ?? ""
+            if path.hasSuffix("/meal/profile") { return StubURLProtocol.Stub(json: current) }
+            if path.hasSuffix("/meal/plan/check") { return StubURLProtocol.Stub(json: "[]") }
+            return StubURLProtocol.Stub(json: self.planJSON(revision: 2))
+        }
+        let store = makeStore()
+        await store.load()
+        store.add(MealPlanItem(day: "2026-11-24", slot: "dinner", kind: "free_text", title: "Sopa"))
+        current = profileJSON(enabled: ["dinner": true])
+        await store.load()
+        XCTAssertEqual(store.enabledSlots.map(\.slot), ["dinner"])
+        XCTAssertTrue(store.isDirty)
+        XCTAssertEqual(store.items(day: "2026-11-24", slot: "dinner").map(\.title), ["Sopa"])
+    }
+
     /// R1-05: «sin avisos (comprobado)» solo para casillas evaluables; texto libre, sobras e ingredientes
     /// sin catálogo quedan «sin comprobar», y con cambios locales nada está comprobado.
     func testCheckStatusDistinguishesCleanFromUnchecked() async throws {
