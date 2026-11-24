@@ -17,6 +17,14 @@ public protocol NotificationCenterProtocol {
 
 extension UNUserNotificationCenter: NotificationCenterProtocol {}
 
+/// Centro sin efecto para procesos sin bundle de app (tests).
+private struct NoopNotificationCenter: NotificationCenterProtocol {
+    func add(_ request: UNNotificationRequest) async throws {}
+    func pendingNotificationRequests() async -> [UNNotificationRequest] { [] }
+    func removePendingNotificationRequests(withIdentifiers identifiers: [String]) {}
+    func removeAllDeliveredNotifications() {}
+}
+
 /// Envoltorio de `UNUserNotificationCenter`: pide permiso, sustituye los avisos pendientes por los
 /// nuevos y los borra al cerrar sesión. Solo toca las notificaciones propias (`homita.*`).
 public struct NotificationScheduler {
@@ -29,7 +37,15 @@ public struct NotificationScheduler {
         self.injected = center
     }
 
-    private var center: NotificationCenterProtocol { injected ?? UNUserNotificationCenter.current() }
+    /// Fuera de un `.app`/`.appex` (p. ej. el host `xctest` de `swift test`) `UNUserNotificationCenter.current()`
+    /// lanza una `NSInternalInconsistencyException` (bundleProxy nil) que, desde un `Task` suelto
+    /// (`signOut` → `HomitaSync.reset`), aborta el proceso. Allí se usa un centro vacío.
+    private var center: NotificationCenterProtocol {
+        if let injected { return injected }
+        let ext = Bundle.main.bundleURL.pathExtension
+        guard ext == "app" || ext == "appex" else { return NoopNotificationCenter() }
+        return UNUserNotificationCenter.current()
+    }
 
     public func permission() async -> NotificationPermission {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
