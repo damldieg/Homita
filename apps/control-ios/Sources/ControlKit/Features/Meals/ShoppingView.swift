@@ -24,22 +24,16 @@ struct ShoppingView: View {
                 }
                 .accessibilityIdentifier("compra.aviso")
             }
-            addSection
-            if case .failed(let message) = store.state {
-                Text(message).foregroundStyle(Palette.inkSoft)
-            } else if store.isEmpty, store.state == .loaded {
-                Text("La compra está vacía. Acepta el menú de la semana o añade algo a mano.")
-                    .font(HomitaFont.inter(15)).foregroundStyle(Palette.inkSoft)
-            }
-            ForEach(store.sections, id: \.section) { group in
-                Section(ShoppingFormat.sectionTitle(group.section)) {
-                    ForEach(group.items) { item in row(item) }
+            if store.showsReviewBanner {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Revisa los ingredientes y marca los que ya tengas")
+                        .font(HomitaFont.inter(15, weight: .semibold)).foregroundStyle(Palette.ink)
+                    HomitaButton(title: "Revisar ahora") { store.startReview() }
+                        .accessibilityIdentifier("compra.revisar")
                 }
+                .accessibilityIdentifier("compra.banner")
             }
-            if store.checkedCount > 0 {
-                Button("Vaciar comprados (\(store.checkedCount))", role: .destructive) { Task { await store.clearChecked() } }
-                    .accessibilityIdentifier("compra.vaciar")
-            }
+            if store.isReviewing { reviewSection } else { listBody }
         }
         .scrollContentBackground(.hidden)
         .accessibilityIdentifier("menu.compra")
@@ -60,6 +54,49 @@ struct ShoppingView: View {
             Button("Cancelar", role: .cancel) { quantityEditing = nil }
         } message: {
             Text(quantityEditing.map { "\($0.label) (\($0.unit))" } ?? "")
+        }
+    }
+
+    // MARK: Lista y revisión
+
+    @ViewBuilder private var listBody: some View {
+        addSection
+            if case .failed(let message) = store.state {
+                Text(message).foregroundStyle(Palette.inkSoft)
+            } else if store.isEmpty, store.state == .loaded {
+                Text("La compra está vacía. Acepta el menú de la semana o añade algo a mano.")
+                    .font(HomitaFont.inter(15)).foregroundStyle(Palette.inkSoft)
+            }
+            ForEach(store.sections, id: \.section) { group in
+                Section(ShoppingFormat.sectionTitle(group.section)) {
+                    ForEach(group.items) { item in row(item) }
+                }
+            }
+            if store.checkedCount > 0 {
+                Button("Vaciar comprados (\(store.checkedCount))", role: .destructive) { Task { await store.clearChecked() } }
+                    .accessibilityIdentifier("compra.vaciar")
+            }
+    }
+
+    /// Modo revisión: lo que viene del menú, con «Ya lo tengo» por artículo.
+    @ViewBuilder private var reviewSection: some View {
+        Section {
+            Text("Revisa los ingredientes y marca los que ya tengas").font(HomitaFont.inter(15, weight: .semibold))
+            ForEach(store.reviewItems) { item in
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.label).font(HomitaFont.inter(16, weight: .medium)).foregroundStyle(Palette.ink)
+                        Text([item.quantityText, Self.detail(item) ?? ""].filter { !$0.isEmpty }.joined(separator: " · "))
+                            .font(HomitaFont.inter(13)).foregroundStyle(Palette.inkSoft)
+                    }
+                    Spacer()
+                    Button(item.isSkipped ? "Lo necesito" : "Ya lo tengo") { Task { await store.haveIt(item) } }
+                        .buttonStyle(.bordered)
+                        .accessibilityIdentifier("compra.yalotengo.\(item.id)")
+                }
+            }
+            HomitaButton(title: "Terminar revisión") { store.finishReview() }
+                .accessibilityIdentifier("compra.revision.fin")
         }
     }
 

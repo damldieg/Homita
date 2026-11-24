@@ -15,13 +15,20 @@ public final class ShoppingStore {
     /// Sugerencias del catálogo para el alta a mano.
     public private(set) var suggestions: [Food] = []
 
+    /// Hay una compra recién generada por revisar (persistente por hogar hasta cerrar la revisión).
+    public private(set) var reviewPending = false
+    /// Modo revisión abierto: solo lo que viene del menú, con «ya lo tengo» por artículo.
+    public private(set) var isReviewing = false
+
     private let repo: ShoppingRepository
+    private let defaults: UserDefaults
     private let searchFoods: (String) async throws -> [Food]
     private let activeHomeId: () -> String?
 
     public init(repo: ShoppingRepository, searchFoods: @escaping (String) async throws -> [Food] = { _ in [] },
-                activeHomeId: @escaping () -> String?) {
+                defaults: UserDefaults = .standard, activeHomeId: @escaping () -> String?) {
         self.repo = repo
+        self.defaults = defaults
         self.searchFoods = searchFoods
         self.activeHomeId = activeHomeId
     }
@@ -43,6 +50,37 @@ public final class ShoppingStore {
     public var pendingCount: Int { items.filter(\.isPending).count }
     public var checkedCount: Int { items.filter(\.isChecked).count }
     public var isEmpty: Bool { items.isEmpty }
+
+    // MARK: Revisión («ya lo tengo»)
+
+    private var reviewKey: String { "shopping.reviewPending.\(activeHomeId() ?? "-")" }
+
+    /// Artículos del menú que se pueden revisar (pendientes o ya marcados «ya lo tengo»).
+    public var reviewItems: [ShoppingItem] {
+        items.filter { $0.origin == ShoppingOrigin.menu && ($0.isPending || $0.isSkipped) }
+            .sorted { ($0.section, $0.label.lowercased(), $0.id) < ($1.section, $1.label.lowercased(), $1.id) }
+    }
+
+    /// El banner «Revisa los ingredientes…» se ve con revisión pendiente y algo que revisar.
+    public var showsReviewBanner: Bool {
+        (reviewPending || defaults.bool(forKey: reviewKey)) && !isReviewing && reviewItems.contains(where: \.isPending)
+    }
+
+    /// Se acaba de generar compra (aceptar el menú añadió artículos): pide revisar.
+    public func markGenerated(_ result: ShoppingSyncResult) {
+        guard result.added > 0 else { return }
+        reviewPending = true
+        defaults.set(true, forKey: reviewKey)
+    }
+
+    public func startReview() { isReviewing = true }
+
+    /// Cierra la revisión y limpia el estado pendiente.
+    public func finishReview() {
+        isReviewing = false
+        reviewPending = false
+        defaults.removeObject(forKey: reviewKey)
+    }
 
     // MARK: Carga
 
@@ -85,6 +123,7 @@ public final class ShoppingStore {
     /// Aviso con el resultado de una sincronización conocida (p. ej. al aceptar el menú).
     public func noteSync(_ result: ShoppingSyncResult) {
         changeNotice = result.isEmpty ? nil : "Lista de la compra actualizada: \(result.summary)"
+        markGenerated(result)
     }
 
     // MARK: Escrituras
