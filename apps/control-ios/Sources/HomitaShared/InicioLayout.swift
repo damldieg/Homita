@@ -2,7 +2,7 @@ import Foundation
 
 /// Bloques de Inicio que se pueden ordenar y ocultar (tarjeta [12]). El saludo y la cabecera siempre se ven.
 public enum InicioBlock: String, Codable, CaseIterable, Sendable, Identifiable {
-    case routines, events, tasks
+    case routines, meals, events, tasks
 
     public var id: String { rawValue }
 
@@ -10,6 +10,7 @@ public enum InicioBlock: String, Codable, CaseIterable, Sendable, Identifiable {
     public var title: String {
         switch self {
         case .routines: return "Rutinas de hoy"
+        case .meals: return "Comidas de hoy"
         case .events: return "Hoy · Eventos"
         case .tasks: return "Tareas pendientes"
         }
@@ -18,7 +19,7 @@ public enum InicioBlock: String, Codable, CaseIterable, Sendable, Identifiable {
 
 /// Orden y visibilidad de los bloques de Inicio. Se guarda en este iPhone, no en la cuenta.
 public struct InicioLayout: Codable, Equatable, Sendable {
-    /// Orden de los tres bloques; siempre contiene cada bloque una vez.
+    /// Orden de los bloques; siempre contiene cada bloque una vez.
     public private(set) var order: [InicioBlock]
     public private(set) var hidden: Set<InicioBlock>
 
@@ -54,9 +55,15 @@ public struct InicioLayout: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey { case order, hidden }
 
     /// Quita duplicados y añade los bloques que falten al final, en el orden por defecto.
+    /// Excepción: `.meals` se inserta justo tras `.routines` (migración del orden guardado antes de
+    /// que existiera «Comidas de hoy»); si no hay `.routines`, va al final como los demás.
     static func normalized(_ order: [InicioBlock]) -> [InicioBlock] {
         var seen = Set<InicioBlock>()
         var result = order.filter { seen.insert($0).inserted }
+        if !seen.contains(.meals), let routines = result.firstIndex(of: .routines) {
+            result.insert(.meals, at: routines + 1)
+            seen.insert(.meals)
+        }
         result += InicioBlock.allCases.filter { !seen.contains($0) }
         return result
     }

@@ -427,6 +427,7 @@ public struct InicioView: View {
     private func blockView(_ block: InicioBlock) -> some View {
         switch block {
         case .routines: routinesCard.accessibilityIdentifier("inicio.tarjeta.rutinas")
+        case .meals: EmptyView()
         case .events: eventsCard.accessibilityIdentifier("inicio.tarjeta.eventos")
         case .tasks: tasksCard.accessibilityIdentifier("inicio.tarjeta.tareas")
         }
