@@ -83,4 +83,119 @@ alter table client_request add constraint client_request_kind_check
     check (kind in ('task', 'task_list', 'shopping_item', 'meal_shopping_sync'));
 alter table client_request add column result jsonb;
 
+-- ─────────────────── (c) Suma de ingredientes ───────────────────
+
+-- Despensa básica (decisión 2): nombres normalizados que no entran en la compra. Un ingrediente queda
+-- fuera si su nombre es uno de ellos o empieza por él seguido de un espacio («sal gruesa»). Se pueden
+-- añadir a mano como artículo manual. Cambiar la lista es tocar esta función.
+create or replace function fn_meal_pantry_basic_names() returns text[]
+language sql immutable as $$
+    select array['sal', 'aceite', 'azucar', 'pimienta', 'agua']::text[]
+$$;
+
+-- Redondeo comprable (decisión 5) de un total ya sumado en la unidad base (g, ml, ud o la de la línea
+-- aparte). Devuelve (cantidad, unidad): g/ml a múltiplos de 10 hacia arriba y, si llega a 1000, kg/l con
+-- 2 decimales hacia arriba; ud entero hacia arriba; cda/cdta/pizca con 2 decimales hacia arriba.
+create or replace function fn_meal_shopping_round(p_total numeric, p_family text, out quantity numeric, out unit text)
+language plpgsql immutable as $$
+begin
+    if p_family = 'g' or p_family = 'ml' then
+        if ceil(p_total / 10) * 10 >= 1000 then
+            quantity := ceil(p_total / 1000 * 100) / 100;
+            unit := case when p_family = 'g' then 'kg' else 'l' end;
+        else
+            quantity := ceil(p_total / 10) * 10;
+            unit := p_family;
+        end if;
+    elsif p_family = 'ud' then
+        quantity := ceil(p_total);
+        unit := 'ud';
+    else
+        quantity := ceil(p_total * 100) / 100;
+        unit := substr(p_family, 3);
+    end if;
+end $$;
+
+-- Líneas de compra de un plan: una por (alimento o nombre) y familia de unidad. Solo lectura; no mira el
+-- hogar ni los permisos (los llaman funciones que ya los comprueban).
+create or replace function fn_meal_shopping_calc(p_plan_id bigint)
+returns table (agg_key text, label text, food_id bigint, quantity numeric, unit text, section text, sources jsonb)
+language sql stable security definer set search_path = public as $$
+    with lines as (
+        select i.id as plan_item_id, r.id as recipe_id, r.name as recipe_name, ri.food_id, ri.label,
+               f.name as food_name, f.section, f.grams_per_unit, ri.unit,
+               coalesce(f.name_norm, fn_meal_norm(ri.label)) as nn,
+               ri.quantity * coalesce(nullif((select count(*) from meal_plan_item_member m where m.item_id = i.id), 0),
+                                      i.servings, r.servings) / r.servings as q
+        from meal_plan_item i
+        join recipe r on r.id = i.recipe_id
+        join recipe_ingredient ri on ri.recipe_id = r.id
+        left join food f on f.id = ri.food_id
+        where i.plan_id = p_plan_id and i.kind = 'recipe'
+          and not ri.optional and ri.unit <> 'al gusto' and ri.quantity > 0
+    ), keyed as (
+        select l.*, coalesce(l.food_id::text, 'n:' || l.nn) as k0,
+               case l.unit when 'g' then 'g' when 'kg' then 'g' when 'ml' then 'ml' when 'l' then 'ml'
+                    when 'ud' then 'ud' else 'u:' || l.unit end as fam0
+        from lines l
+        where not exists (select 1 from unnest(fn_meal_pantry_basic_names()) b
+                          where l.nn = b or l.nn like b || ' %')
+    ), based as (
+        select k.*, bool_or(k.fam0 = 'g') over (partition by k.k0) as has_g
+        from keyed k
+    ), conv as (
+        select b.*,
+               case when b.fam0 = 'ud' and b.grams_per_unit is not null and b.has_g then 'g' else b.fam0 end as fam,
+               case b.unit when 'kg' then b.q * 1000 when 'l' then b.q * 1000
+                    when 'ud' then case when b.grams_per_unit is not null and b.has_g then b.q * b.grams_per_unit else b.q end
+                    else b.q end as base
+        from based b
+    ), per_item as (
+        select c.k0 || '|' || c.fam as key, c.fam, c.plan_item_id, c.recipe_id, c.recipe_name,
+               sum(c.base) as base, min(case c.fam when 'g' then 'g' when 'ml' then 'ml' when 'ud' then 'ud'
+                                             else substr(c.fam, 3) end) as base_unit
+        from conv c
+        group by c.k0, c.fam, c.plan_item_id, c.recipe_id, c.recipe_name
+    ), agg as (
+        select c.k0 || '|' || c.fam as key, c.fam, max(c.food_id) as food_id,
+               coalesce(max(c.food_name), min(c.label)) as label, coalesce(max(c.section), 'otros') as section,
+               sum(c.base) as total
+        from conv c
+        group by c.k0, c.fam
+    )
+    select a.key, a.label, a.food_id, rd.quantity, rd.unit, a.section,
+           (select jsonb_agg(jsonb_build_object('plan_item_id', p.plan_item_id, 'recipe_id', p.recipe_id,
+                                                'name', p.recipe_name, 'qty', round(p.base, 2),
+                                                'unit', p.base_unit) order by p.plan_item_id)
+            from per_item p where p.key = a.key) as sources
+    from agg a, lateral fn_meal_shopping_round(a.total, a.fam) rd
+    order by a.section, a.label, a.key
+$$;
+
+-- RPC de solo lectura: lo que entraría en la compra del plan (sin guardar nada).
+create or replace function preview_meal_shopping(p_plan_id bigint) returns json
+language plpgsql stable security definer set search_path = public as $$
+declare
+    v_home bigint;
+begin
+    if fn_my_user_id() is null then
+        raise exception 'Not Allowed' using errcode = '42501';
+    end if;
+    v_home := fn_home_for_root_create();
+    perform fn_require_permission(v_home, 'menu.view');
+    if p_plan_id is null or not exists (select 1 from meal_plan p where p.id = p_plan_id and p.home_id = v_home) then
+        raise exception 'Not Found' using errcode = 'P0002';
+    end if;
+    return json_build_object('plan_id', p_plan_id, 'items', (
+        select coalesce(json_agg(json_build_object('agg_key', c.agg_key, 'label', c.label, 'food_id', c.food_id,
+                   'quantity', c.quantity, 'unit', c.unit, 'section', c.section, 'sources', c.sources)
+               order by c.section, c.label, c.agg_key), '[]'::json)
+        from fn_meal_shopping_calc(p_plan_id) c));
+end $$;
+
+revoke all on function fn_meal_pantry_basic_names(), fn_meal_shopping_round(numeric, text),
+    fn_meal_shopping_calc(bigint) from public, anon, authenticated;
+revoke all on function preview_meal_shopping(bigint) from public, anon;
+grant execute on function preview_meal_shopping(bigint) to authenticated;
+
 commit;
