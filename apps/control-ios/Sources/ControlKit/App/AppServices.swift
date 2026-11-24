@@ -74,7 +74,7 @@ public struct AppServices {
         meals = MealRepository(client: client)
         recipes = RecipeRepository(client: client)
         shopping = ShoppingRepository(client: client)
-        outboxReplayer = OutboxReplayer(tasks: tasks, taskLists: taskLists, persons: persons)
+        outboxReplayer = OutboxReplayer(tasks: tasks, taskLists: taskLists, persons: persons, shopping: shopping)
     }
 
     /// Cola offline del usuario en el hogar activo; nil sin sesión o sin hogar.

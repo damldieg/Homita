@@ -539,4 +539,132 @@ final class OutboxReplayerTests: XCTestCase {
         XCTAssertEqual(OutboxReplayer.assigneeNotice(title: "Pan", removedNames: ["Ana", "Beto", "Luz"]),
                        "«Pan» se sincronizó sin asignar a Ana, Beto y Luz: ya no tienen acceso a la lista.")
     }
+
+    // MARK: - Compra
+
+    private static let shoppingItem = ##"{"id":40,"label":"Leche","unit":"ud","section":"lacteos","origin":"manual","state":"pending"}"##
+
+    private func makeShoppingReplayer(_ overrides: [String: StubURLProtocol.Stub] = [:]) -> OutboxReplayer {
+        StubURLProtocol.reset { request in
+            overrides[Self.route(request)] ?? ContractFixtures.response(for: request)
+        }
+        let client = makeTestClient()
+        return OutboxReplayer(tasks: TaskRepository(client: client), taskLists: TaskListRepository(client: client),
+                              shopping: ShoppingRepository(client: client), isOnline: { true })
+    }
+
+    func testShoppingCreateSendsClientRequestIdAndMarkUsesRemoteId() async {
+        let replayer = makeShoppingReplayer([
+            "shopping/item/create": StubURLProtocol.Stub(status: 201, json: Self.shoppingItem),
+            "shopping/item/check": StubURLProtocol.Stub(json: Self.shoppingItem)
+        ])
+        let outbox = makeOutbox([
+            .createShoppingItem(local: -1, label: "Leche", quantity: 2, unit: "l", section: "lacteos", foodId: nil),
+            .createShoppingItem(local: -2, label: "Pan", quantity: nil, unit: "ud", section: nil, foodId: nil)
+        ])
+        outbox.enqueue(PendingOp(homeId: "2", kind: .checkShoppingItem(ref: .local(-1))))
+        let createOp = outbox.ops[0]
+        XCTAssertEqual(outbox.ops.count, 2, "el marcar se funde en el alta pendiente")
+        XCTAssertEqual(outbox.ops[0].kind, .createShoppingItem(local: -1, label: "Leche", quantity: 2, unit: "l", section: "lacteos",
+                                                               foodId: nil, state: "checked"))
+
+        let summary = await replayer.replay(outbox)
+
+        XCTAssertEqual(summary, ReplaySummary(acked: 2, discarded: 0, stop: .drained))
+        XCTAssertEqual(routes, ["shopping/item/create", "shopping/item/check", "shopping/item/create"])
+        let requests = StubURLProtocol.requests
+        XCTAssertEqual(body(requests[0])["client_request_id"] as? String, createOp.clientRequestId)
+        XCTAssertEqual(body(requests[0])["label"] as? String, "Leche")
+        XCTAssertEqual(body(requests[1])["id"] as? Int, 40)
+        XCTAssertEqual(body(requests[1])["state"] as? String, "checked")
+        XCTAssertEqual(outbox.idMap[-1], 40)
+    }
+
+    func testShoppingMarkAfterCreateConfirmedUsesIdMap() async {
+        let replayer = makeShoppingReplayer([
+            "shopping/item/create": StubURLProtocol.Stub(status: 201, json: Self.shoppingItem),
+            "shopping/item/check": StubURLProtocol.Stub(json: Self.shoppingItem)
+        ])
+        let outbox = makeOutbox([.createShoppingItem(local: -1, label: "Leche", quantity: nil, unit: "ud", section: nil, foodId: nil)])
+        let inFlightOp = outbox.ops[0]
+        outbox.beginFlight(inFlightOp.id)
+        // Llega durante el vuelo del alta: no se funde, va detrás y se resuelve con el idMap al ack.
+        outbox.enqueue(PendingOp(homeId: "2", kind: .haveShoppingItem(ref: .local(-1))))
+        outbox.endFlight()
+
+        await replayer.replay(outbox)
+
+        XCTAssertEqual(routes, ["shopping/item/create", "shopping/item/check"])
+        XCTAssertEqual(body(StubURLProtocol.requests[1])["id"] as? Int, 40)
+        XCTAssertEqual(body(StubURLProtocol.requests[1])["state"] as? String, "skipped")
+        XCTAssertTrue(outbox.isEmpty)
+    }
+
+    func testShoppingCreateRetryKeepsSameClientRequestId() async {
+        let replayer = makeShoppingReplayer(["shopping/item/create": .offline])
+        let outbox = makeOutbox([.createShoppingItem(local: -1, label: "Leche", quantity: nil, unit: "ud", section: nil, foodId: nil)])
+        let key = outbox.ops[0].clientRequestId
+        let first = await replayer.replay(outbox)
+        XCTAssertEqual(first.stop, .retryable)
+        XCTAssertEqual(outbox.ops.count, 1)
+        XCTAssertEqual(outbox.ops[0].attempts, 1)
+        XCTAssertEqual(body(StubURLProtocol.requests[0])["client_request_id"] as? String, key)
+
+        let replayer2 = makeShoppingReplayer(["shopping/item/create": StubURLProtocol.Stub(status: 201, json: Self.shoppingItem)])
+        let second = await replayer2.replay(outbox)
+        XCTAssertEqual(second.stop, .drained)
+        XCTAssertEqual(body(StubURLProtocol.requests[0])["client_request_id"] as? String, key, "el reintento reusa la clave")
+        XCTAssertEqual(outbox.idMap[-1], 40)
+    }
+
+    func testShoppingMarkNotFoundDiscardsWithNotice() async {
+        let replayer = makeShoppingReplayer([
+            "shopping/item/check": StubURLProtocol.Stub(status: 404, json: #"{"error":"Not Found"}"#),
+            "shopping/item/create": StubURLProtocol.Stub(status: 201, json: Self.shoppingItem)
+        ])
+        let outbox = makeOutbox([
+            .checkShoppingItem(ref: .remote(77)),
+            .createShoppingItem(local: -1, label: "Pan", quantity: nil, unit: "ud", section: nil, foodId: nil)
+        ])
+        let summary = await replayer.replay(outbox)
+        XCTAssertEqual(summary.discarded, 1)
+        XCTAssertEqual(summary.acked, 1)
+        XCTAssertEqual(outbox.notices.count, 1)
+        XCTAssertTrue(outbox.notices[0].message.contains("ya no existe"))
+        XCTAssertTrue(outbox.isEmpty)
+    }
+
+    func testShoppingMarkNotFoundCascadesToLaterOpsOfSameItem() async {
+        let replayer = makeShoppingReplayer(["shopping/item/check": StubURLProtocol.Stub(status: 404, json: #"{"error":"Not Found"}"#)])
+        let outbox = makeOutbox([.checkShoppingItem(ref: .remote(77))])
+        let first = outbox.ops[0]
+        outbox.beginFlight(first.id)
+        outbox.enqueue(PendingOp(homeId: "2", kind: .uncheckShoppingItem(ref: .remote(77))))
+        outbox.endFlight()
+        XCTAssertEqual(outbox.ops.count, 2)
+        let summary = await replayer.replay(outbox)
+        XCTAssertEqual(summary.discarded, 1)
+        XCTAssertTrue(outbox.isEmpty, "la marca posterior del mismo artículo cae con la primera")
+        XCTAssertEqual(routes, ["shopping/item/check"])
+    }
+
+    func testShoppingDispositions() {
+        let check = PendingOp.Kind.checkShoppingItem(ref: .remote(1))
+        let create = PendingOp.Kind.createShoppingItem(local: -1, label: "A", quantity: nil, unit: "ud", section: nil, foodId: nil)
+        XCTAssertEqual(OutboxReplayer.disposition(for: .http(status: 404, message: "Not Found"), kind: check), .discard(cascade: true))
+        XCTAssertEqual(OutboxReplayer.disposition(for: .http(status: 403, message: "Not Allowed"), kind: check), .discard(cascade: false))
+        XCTAssertEqual(OutboxReplayer.disposition(for: .network("x"), kind: create), .retry)
+        XCTAssertEqual(OutboxReplayer.disposition(for: .decoding("x"), kind: create), .retry, "el alta es idempotente: se reenvía")
+        XCTAssertEqual(OutboxReplayer.disposition(for: .decoding("x"), kind: check), .ack)
+        XCTAssertEqual(OutboxReplayer.notice(for: create, error: .http(status: 403, message: "x")).hasPrefix("No se pudo sincronizar «A»"), true)
+    }
+
+    func testShoppingOpWithoutRepositoryIsKeptAndRetried() async {
+        let replayer = makeReplayer()
+        let outbox = makeOutbox([.checkShoppingItem(ref: .remote(5))])
+        let summary = await replayer.replay(outbox)
+        XCTAssertEqual(summary.stop, .retryable)
+        XCTAssertEqual(outbox.ops.count, 1)
+        XCTAssertTrue(StubURLProtocol.requests.isEmpty)
+    }
 }
