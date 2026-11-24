@@ -575,6 +575,12 @@ begin
        or exists (select 1 from json_array_elements(list_shopping()->'items') e where (e->>'id')::bigint = v_l2) then
         raise exception 'shopping SH8: la sync recreó lo borrado: %', v;
     end if;
+    -- un cambio de estado sobre un artículo oculto (replay offline) no lo hace reaparecer
+    v := set_shopping_item_state(v_l2, 'checked');
+    if not exists (select 1 from shopping_item where id = v_l2 and cleared and state = 'skipped')
+       or exists (select 1 from json_array_elements(list_shopping()->'items') e where (e->>'id')::bigint = v_l2) then
+        raise exception 'shopping SH8: un artículo oculto reapareció por set_shopping_item_state: %', v;
+    end if;
     perform pg_temp.fails('SH8 borrar dos veces', format('select delete_shopping_item(%s)', v_ninio), 'P0002', 'Not Found');
     -- validación
     perform pg_temp.fails('SH8 estado', format('select set_shopping_item_state(%s, ''hecho'')', v_t2), 'P0001', 'Invalid shopping item');

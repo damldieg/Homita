@@ -644,7 +644,11 @@ begin
     if p_state is null or p_state <> all (array['pending', 'checked', 'skipped']) then
         raise exception 'Invalid shopping item' using errcode = 'P0001';
     end if;
-    update shopping_item s set state = p_state, cleared = false,
+    -- Un artículo oculto (cleared) no reaparece por un cambio de estado (p. ej. el replay de una cola offline).
+    if v_item.cleared then
+        return fn_shopping_item_json(v_item.id);
+    end if;
+    update shopping_item s set state = p_state,
         checked_at = case when p_state = 'pending' then null else (now() at time zone 'UTC') end,
         checked_by = case when p_state = 'pending' then null else v_me end,
         updated_at = (now() at time zone 'UTC')
