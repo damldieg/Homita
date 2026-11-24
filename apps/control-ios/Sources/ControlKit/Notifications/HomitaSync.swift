@@ -76,6 +76,13 @@ public final class HomitaSync {
         }
     }
 
+    /// El menú cambió (aceptado, editado o archivado): vuelve a leer `/meal/today`, reescribe el
+    /// snapshot y recarga el widget «Hoy se come».
+    public func menuChanged() async {
+        await refresh(force: true, allowPrompt: false)
+        reloadMealWidget()
+    }
+
     /// Cierre de sesión o cambio de cuenta: borra avisos, datos de widgets y Live Activity.
     public func reset() async {
         services = nil
@@ -211,6 +218,12 @@ public final class HomitaSync {
     private var myPersonIds: Set<Int> {
         guard let userId else { return [] }
         return Set(people.filter { $0.app_user_id == userId }.map(\.id))
+    }
+
+    private func reloadMealWidget() {
+        #if canImport(WidgetKit)
+        WidgetCenter.shared.reloadTimelines(ofKind: HomitaShared.mealWidgetKind)
+        #endif
     }
 
     private func reloadWidgets() {

@@ -11,8 +11,10 @@ struct MealsView: View {
 
     init(services: AppServices) {
         self.services = services
-        _store = State(initialValue: MealsStore(
-            meals: services.meals, events: services.events, activeHomeId: { services.homeContext.activeHomeId }))
+        let mealsStore = MealsStore(
+            meals: services.meals, events: services.events, activeHomeId: { services.homeContext.activeHomeId })
+        mealsStore.onMenuChanged = { Task { await HomitaSync.shared.menuChanged() } }
+        _store = State(initialValue: mealsStore)
         _shopping = State(initialValue: ShoppingStore(
             repo: services.shopping, searchFoods: { try await services.recipes.searchFood($0, limit: 8) },
             outbox: services.activeOutbox, activeHomeId: { services.homeContext.activeHomeId }))

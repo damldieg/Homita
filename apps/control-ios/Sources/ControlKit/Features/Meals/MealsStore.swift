@@ -25,6 +25,10 @@ public final class MealsStore {
     /// Resumen `{added, updated, removed}` de la compra tras aceptar; la vista lo muestra una vez.
     public var acceptedShopping: ShoppingSyncResult?
 
+    /// Se llama tras una escritura que cambia el menú visible fuera de la app (plan aceptado o archivado):
+    /// la app lo usa para refrescar el widget «Hoy se come». Un borrador no lo dispara.
+    public var onMenuChanged: (() -> Void)?
+
     private let meals: MealRepository
     private let events: EventRepository?
     private let activeHomeId: () -> String?
@@ -297,6 +301,7 @@ public final class MealsStore {
             guard activeHomeId() == requested else { return false }
             apply(updated)
             errorMessage = nil
+            if updated.status != MealPlanStatus.draft { onMenuChanged?() }
             await refreshIssues()
             return true
         } catch let error as APIError where error.isStaleRevision || error.isMealPlanExists {

@@ -227,6 +227,24 @@ final class MealsStoreTests: XCTestCase {
         XCTAssertEqual(store.plan?.revision, 4)
     }
 
+    func testMenuChangedHookFiresOnAcceptNotOnDraftSave() async throws {
+        route { req in
+            let path = req.url?.path ?? ""
+            if path.hasSuffix("/items") { return StubURLProtocol.Stub(json: self.planJSON(revision: 3)) }
+            if path.hasSuffix("/accept") { return StubURLProtocol.Stub(json: self.planJSON(revision: 4, status: "accepted")) }
+            return StubURLProtocol.Stub(json: self.planJSON(revision: 2))
+        }
+        let store = makeStore()
+        var fired = 0
+        store.onMenuChanged = { fired += 1 }
+        await store.load()
+        store.add(MealPlanItem(day: "2026-11-26", slot: "lunch", kind: "leftovers"))
+        await store.save()
+        XCTAssertEqual(fired, 0, "guardar un borrador no toca el widget")
+        await store.accept()
+        XCTAssertEqual(fired, 1)
+    }
+
     func testPrepareAcceptLoadsPreviewThenAcceptKeepsShoppingSummary() async throws {
         let previewJSON = #"{"plan_id":9,"items":[{"agg_key":"f1|g","label":"Arroz","food_id":1,"quantity":250,"unit":"g","section":"cereales","sources":[{"plan_item_id":11,"recipe_id":2,"name":"Paella","qty":250,"unit":"g"}]}]}"#
         route { req in
