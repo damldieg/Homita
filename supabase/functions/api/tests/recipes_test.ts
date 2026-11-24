@@ -277,3 +277,22 @@ Deno.test("R1-04: steps con más de 50 pasos o pasos de más de 500 caracteres �
         assertEquals(calls.length, 1);
     });
 });
+
+Deno.test("recipe create/update propagan optional en los ingredientes y rechazan uno no booleano (0045)", async () => {
+    await withFetch(ok, async (calls) => {
+        const ingredients = [{ label: "Perejil", quantity: 1, unit: "ud", optional: true }, { label: "Sal" }];
+        const c = await handleRecipeCreate(req("POST", { name: "Sopa", ingredients }), "tok");
+        assertEquals(c.status, 201);
+        assertEquals((calls[0].body as { p_ingredients: unknown }).p_ingredients, ingredients);
+        const u = await handleRecipeUpdate(req("PATCH", { id: 3, ingredients }), "tok");
+        assertEquals(u.status, 200);
+        assertEquals((calls[1].body as { p_data: { ingredients: unknown } }).p_data.ingredients, ingredients);
+        for (const bad of [{ label: "x", optional: "si" }, { label: "x", optional: 1 }]) {
+            const rc = await handleRecipeCreate(req("POST", { name: "Sopa", ingredients: [bad] }), "tok");
+            assertEquals(rc.status, 400);
+            const ru = await handleRecipeUpdate(req("PATCH", { id: 3, ingredients: [bad] }), "tok");
+            assertEquals(await ru.json(), { error: "Invalid recipe" });
+        }
+        assertEquals(calls.length, 2);
+    });
+});

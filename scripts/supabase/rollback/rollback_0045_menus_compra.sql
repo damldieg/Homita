@@ -11,6 +11,71 @@
 begin;
 
 -- Cuerpos de 0044 (los grants de 0044 se conservan con create or replace).
+-- Las recetas se restauran antes de borrar la columna optional (fn_meal_recipe_json la lee).
+create or replace function fn_meal_recipe_json(p_id bigint) returns json
+language sql stable security definer set search_path = public as $$
+    select json_build_object(
+        'id', r.id, 'name', r.name, 'servings', r.servings, 'minutes', r.minutes, 'slots', r.slots,
+        'steps', r.steps, 'created_by', r.created_by, 'updated_at', r.updated_at,
+        'ingredients', (select coalesce(json_agg(json_build_object(
+                'id', i.id, 'position', i.position, 'food_id', i.food_id, 'label', i.label,
+                'quantity', i.quantity, 'unit', i.unit) order by i.position, i.id), '[]'::json)
+            from recipe_ingredient i where i.recipe_id = r.id),
+        'allergens', (select coalesce(json_agg(a order by a), '[]'::json) from (
+                select distinct unnest(f.allergens) as a from recipe_ingredient i
+                join food f on f.id = i.food_id where i.recipe_id = r.id) x))
+    from recipe r where r.id = p_id
+$$;
+
+create or replace function fn_meal_recipe_set_ingredients(p_home bigint, p_recipe bigint, p_ing jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+    v_e jsonb;
+    v_pos integer := 0;
+    v_food bigint;
+    v_fname text;
+    v_label text;
+    v_qty numeric;
+    v_unit text;
+begin
+    if p_ing is null or jsonb_typeof(p_ing) <> 'array' or jsonb_array_length(p_ing) > 60 then
+        raise exception 'Invalid recipe' using errcode = 'P0001';
+    end if;
+    delete from recipe_ingredient where recipe_id = p_recipe;
+    for v_e in select e from jsonb_array_elements(p_ing) e loop
+        if jsonb_typeof(v_e) <> 'object' then
+            raise exception 'Invalid recipe' using errcode = 'P0001';
+        end if;
+        v_food := null;
+        v_fname := null;
+        if coalesce(jsonb_typeof(v_e->'food_id'), 'null') not in ('null', 'number') then
+            raise exception 'Invalid recipe' using errcode = 'P0001';
+        end if;
+        if jsonb_typeof(v_e->'food_id') = 'number' then
+            if (v_e->>'food_id') !~ '^[0-9]{1,18}$' then
+                raise exception 'Invalid recipe' using errcode = 'P0001';
+            end if;
+            -- alimento del catálogo común o del propio hogar; cualquier otro, misma respuesta
+            select f.id, f.name into v_food, v_fname from food f
+            where f.id = (v_e->>'food_id')::bigint and (f.home_id is null or f.home_id = p_home);
+            if v_food is null then
+                raise exception 'Invalid recipe' using errcode = 'P0001';
+            end if;
+        end if;
+        if coalesce(jsonb_typeof(v_e->'label'), 'null') not in ('null', 'string')
+           or coalesce(jsonb_typeof(v_e->'unit'), 'null') not in ('null', 'string')
+           or coalesce(jsonb_typeof(v_e->'quantity'), 'null') not in ('null', 'number') then
+            raise exception 'Invalid recipe' using errcode = 'P0001';
+        end if;
+        v_label := coalesce(nullif(btrim(v_e->>'label'), ''), v_fname);
+        v_qty := (v_e->>'quantity')::numeric;
+        v_unit := coalesce(v_e->>'unit', 'ud');
+        insert into recipe_ingredient (recipe_id, home_id, position, food_id, label, quantity, unit)
+        values (p_recipe, p_home, v_pos, v_food, v_label, v_qty, v_unit);
+        v_pos := v_pos + 1;
+    end loop;
+end $$;
+
 create or replace function upsert_meal_plan_items(p_week_start date, p_expected_revision integer,
     p_items jsonb default null, p_delete_ids bigint[] default null) returns json
 language plpgsql security definer set search_path = public as $$

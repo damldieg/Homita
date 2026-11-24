@@ -156,6 +156,7 @@ do $$
 declare
     v_r1 json;
     v_r2 json;
+    v_r3 json;
 begin
     perform pg_temp.as_user(1);
     perform create_food('ZZSH Harina', 'cereales', '[]'::jsonb, 'g', null);
@@ -173,7 +174,7 @@ begin
         jsonb_build_object('label', 'ZZSH Vinagre', 'quantity', 1, 'unit', 'cda'),
         jsonb_build_object('label', 'sal', 'quantity', 1, 'unit', 'pizca'),
         jsonb_build_object('label', 'ZZSH Perejil', 'unit', 'al gusto'),
-        jsonb_build_object('label', 'ZZSH Opcional', 'quantity', 100, 'unit', 'g'),
+        jsonb_build_object('label', 'ZZSH Opcional', 'quantity', 100, 'unit', 'g', 'optional', true),
         jsonb_build_object('label', 'Aceite de oliva', 'quantity', 30, 'unit', 'ml')));
     v_r2 := create_recipe('ZZSH R2', 4, 45, '["dinner"]'::jsonb, '["Paso 1"]'::jsonb, jsonb_build_array(
         jsonb_build_object('food_id', pg_temp.food_id('ZZSH Harina'), 'quantity', 0.5, 'unit', 'kg'),
@@ -184,7 +185,28 @@ begin
         jsonb_build_object('food_id', pg_temp.food_id('ZZSH Arroz'), 'quantity', 333, 'unit', 'g'),
         jsonb_build_object('label', 'ZZSH Vinagre', 'quantity', 1, 'unit', 'cdta'),
         jsonb_build_object('label', 'agua', 'quantity', 200, 'unit', 'ml')));
-    update recipe_ingredient set optional = true where label = 'ZZSH Opcional';
+    -- optional entra por create_recipe, sale en el JSON y update_recipe lo cambia
+    if (select count(*) from recipe_ingredient where recipe_id = (v_r1->>'id')::bigint and optional) <> 1
+       or not exists (select 1 from json_array_elements(v_r1->'ingredients') e
+                      where e->>'label' = 'ZZSH Opcional' and (e->>'optional')::boolean)
+       or exists (select 1 from json_array_elements(v_r1->'ingredients') e
+                  where e->>'label' <> 'ZZSH Opcional' and (e->>'optional')::boolean) then
+        raise exception 'shopping SH1: optional por create_recipe %', v_r1;
+    end if;
+    perform pg_temp.fails('SH1 optional no booleano',
+        'select create_recipe(''ZZSH Mala'', 1, 1, null, null, ''[{"label":"x","optional":"si"}]''::jsonb)',
+        'P0001', 'Invalid recipe');
+    v_r3 := create_recipe('ZZSH Tmp', 1, 1, null, null, '[{"label":"ZZSH Tmp","quantity":1,"unit":"g"}]'::jsonb);
+    if (v_r3->'ingredients'->0->>'optional')::boolean then
+        raise exception 'shopping SH1: optional debe ser false por defecto %', v_r3;
+    end if;
+    v_r3 := update_recipe((v_r3->>'id')::bigint, jsonb_build_object('ingredients', jsonb_build_array(
+        jsonb_build_object('label', 'ZZSH Tmp', 'quantity', 1, 'unit', 'g', 'optional', true))));
+    if not (v_r3->'ingredients'->0->>'optional')::boolean then
+        raise exception 'shopping SH1: optional por update_recipe %', v_r3;
+    end if;
+    delete from recipe_ingredient where recipe_id = (v_r3->>'id')::bigint;
+    delete from recipe where id = (v_r3->>'id')::bigint;
     perform upsert_meal_plan_items('2030-01-07', 0, jsonb_build_array(
         jsonb_build_object('day', '2030-01-07', 'slot', 'lunch', 'kind', 'recipe',
             'recipe_id', (v_r1->>'id')::bigint, 'members', jsonb_build_array(994001, 994002, 994003, 994006)),
