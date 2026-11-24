@@ -48,6 +48,14 @@ const RPC_STATUS: Record<string, number> = {
     "Invalid due_at": 400,
     // 0043 (menus-perfil-hogar): campo, valor o forma del perfil de comidas no válido
     "Invalid meal profile": 400,
+    // 0044 (menus-semana): recetas, catálogo de alimentos y menú semanal. Las dos últimas son 409
+    // (el contrato PHP no tenía ninguno; solo aplica a rutas nuevas): el cliente distingue «relee y
+    // reintenta» de un 400 de validación sin parsear el mensaje.
+    "Invalid recipe": 400,
+    "Invalid food": 400,
+    "Invalid meal plan": 400,
+    "Stale meal plan revision": 409,
+    "Meal plan exists": 409,
 };
 
 // Router::error de PHP: InvalidArgumentException → 400; el resto → 500 con el mensaje
@@ -93,6 +101,15 @@ export const errHomeMemberIdRequired = (): Response => error("Member ID is requi
 
 // meal (0043, menus-perfil-hogar): forma de la petición del perfil de comidas (la RPC valida los valores)
 export const errInvalidMealProfile = (): Response => error("Invalid meal profile", 400);
+
+// /recipe, /food y /meal/plan* (0044, menus-semana): forma de la petición; los valores los valida la RPC
+// y sus mensajes salen por RPC_STATUS (mismos textos que lanza la RPC).
+export const errInvalidRecipe = (): Response => error("Invalid recipe", 400);
+export const errInvalidFood = (): Response => error("Invalid food", 400);
+export const errInvalidMealPlan = (): Response => error("Invalid meal plan", 400);
+export const errRecipeIdRequired = (): Response => error("Recipe ID is required", 400);
+export const errFoodIdRequired = (): Response => error("Food ID is required", 400);
+export const errMealPlanIdRequired = (): Response => error("Meal plan ID is required", 400);
 
 // home/membership (1.6 §6.1): id de home_membership (lo devuelve GET /home/membership) y role
 export const errHomeMembershipIdRequired = (): Response => error("Membership ID is required", 400);
