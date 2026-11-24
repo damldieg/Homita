@@ -1,6 +1,7 @@
 package com.dld.homita.dashboard.data.repository
 
 import com.dld.homita.dashboard.data.Api
+import com.dld.homita.dashboard.data.HttpError
 import com.dld.homita.dashboard.data.MealsToday
 import com.dld.homita.dashboard.data.bodyOrThrow
 import com.dld.homita.dashboard.data.cache.CachedResource
@@ -31,7 +32,11 @@ class MealRepository(
             ?.let { latest -> _meals.value = resource(latest).data.value?.value }
     }
 
-    fun isStale(today: LocalDate) = resource(today).isStale()
+    /** Día en que el servidor negó el menú (403 sin `menu.view`, 400 sin hogar): no se reintenta hasta otro día o `clear()`. */
+    private var deniedDay: LocalDate? = null
+
+    /** Si hay que volver a pedirlo. Con el menú denegado hoy, nunca (el bucle de 60 s no repite la petición). */
+    fun isStale(today: LocalDate) = deniedDay != today && resource(today).isStale()
 
     suspend fun refresh(token: String, today: LocalDate): Result<MealsToday> {
         val result = resource(today).refresh { api.mealsToday(bearer(token)).bodyOrThrow() }
@@ -42,10 +47,23 @@ class MealRepository(
             }
             cache.keys(PREFIX).filter { it != PREFIX + today }.forEach { cache.remove(it) }
         }
+        result.onFailure { error ->
+            if (error is HttpError && (error.code == 403 || error.code == 400)) deny(today)
+        }
         return result
     }
 
+    /** Sin permiso o sin hogar: se olvida la copia (la tarjeta se oculta, como en iOS) y se recuerda el día. */
+    private fun deny(today: LocalDate) {
+        deniedDay = today
+        _meals.value = null
+        resources.values.forEach { it.clear() }
+        resources.clear()
+        cache.keys(PREFIX).forEach { cache.remove(it) }
+    }
+
     fun clear() {
+        deniedDay = null
         resources.values.forEach { it.clear() }
         resources.clear()
         cache.keys(PREFIX).forEach { cache.remove(it) }

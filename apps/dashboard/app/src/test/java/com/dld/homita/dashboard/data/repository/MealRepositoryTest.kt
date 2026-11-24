@@ -86,13 +86,31 @@ class MealRepositoryTest {
     }
 
     @Test
-    fun forbiddenIsAFailureWithoutDroppingTheCopy() = runBlocking {
+    fun forbiddenHidesTheCopyAndStopsRetrying() = runBlocking {
         val repository = repository()
         repository.refresh("token", today)
+        clock += MealRepository.MAX_AGE_MS
+        assertTrue(repository.isStale(today))
         api.status = 403
         val error = repository.refresh("token", today).exceptionOrNull()
         assertTrue(error != null && !error.isUnauthorized)
-        assertEquals("Lentejas", repository.meals.value?.items?.single()?.title)
+        assertNull(repository.meals.value)
+        assertNull(repository().meals.value)
+        // El bucle de 60 s no vuelve a pedirlo ese día, ni mucho tiempo después
+        clock += 10 * MealRepository.MAX_AGE_MS
+        assertFalse(repository.isStale(today))
+        // Otro día sí
+        assertTrue(repository.isStale(today.plusDays(1)))
+    }
+
+    @Test
+    fun missingHomeHeaderStopsRetryingUntilClear() = runBlocking {
+        val repository = repository()
+        api.status = 400
+        repository.refresh("token", today)
+        assertFalse(repository.isStale(today))
+        repository.clear()
+        assertTrue(repository.isStale(today))
     }
 
     @Test
