@@ -102,6 +102,14 @@ public enum APIError: Error, Equatable {
         return userMessage
     }
 
+    /// Mensaje al cargar el perfil de comidas: `GET meal/profile` responde 403 sin `menu.view`.
+    public var mealViewMessage: String {
+        if case .http(let status, _) = self, status == 403 {
+            return "No tienes permiso para ver el menú de este hogar. Pídele acceso a un administrador."
+        }
+        return homeAdminMessage
+    }
+
     /// Mensaje en español para la UI.
     public var userMessage: String {
         switch self {

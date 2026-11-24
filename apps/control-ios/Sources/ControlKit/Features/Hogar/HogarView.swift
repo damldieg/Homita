@@ -38,6 +38,7 @@ public struct HogarView: View {
                     if store.canInvite {
                         inviteCard
                     }
+                    mealCard
                     adminCard
                 }
                 .padding(20)
@@ -203,6 +204,18 @@ public struct HogarView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("hogar.invitaciones-pendientes")
+        }
+    }
+
+    private var mealCard: some View {
+        card {
+            NavigationLink {
+                MealProfileView(services: services)
+            } label: {
+                linkRow(title: "Comidas", systemImage: "fork.knife", tint: Palette.accentHex)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("hogar.comidas")
         }
     }
 

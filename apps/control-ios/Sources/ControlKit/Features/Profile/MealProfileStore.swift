@@ -30,7 +30,7 @@ public final class MealProfileStore {
             state = .loaded
         } catch {
             guard activeHomeId() == requested else { return }
-            state = .failed(homeAdminMessage(error))
+            state = .failed((error as? APIError)?.mealViewMessage ?? error.localizedDescription)
         }
     }
 
