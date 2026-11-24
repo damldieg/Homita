@@ -9,6 +9,9 @@
 
 begin;
 
+drop trigger if exists meal_profile_week_guard on meal_profile;
+drop function if exists fn_meal_profile_week_guard();
+
 drop function if exists search_food(text, integer);
 drop function if exists create_food(text, text, jsonb, text, numeric);
 drop function if exists update_food(bigint, jsonb);

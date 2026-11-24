@@ -23,6 +23,7 @@
 -- MS12 grants y RLS: solo SELECT, RPC solo para authenticated, helpers cerrados.
 -- MS13 receta borrada: la casilla conserva el título.
 -- MS14 0 filas scratch al terminar.
+-- MS15 week_start_day bloqueado con planes no archivados (corre antes de MS14; R1-01).
 
 \set ON_ERROR_STOP 1
 do $$
@@ -882,6 +883,32 @@ begin
         format('select upsert_meal_plan_items(''2030-02-11'', %s, ''[{"day":"2030-02-12","slot":"dinner","kind":"recipe"}]''::jsonb)', v->>'revision'),
         'P0001', 'Invalid meal plan');
     raise notice 'ok MS13: borrar una receta conserva el título de sus casillas';
+end $$;
+
+-- ── MS15: week_start_day bloqueado con planes no archivados (R1-01) ──
+do $$
+declare
+    v_id bigint;
+begin
+    perform pg_temp.as_user(1);
+    if (select count(*) from meal_plan where home_id = 993001 and status <> 'archived') = 0 then
+        raise exception 'menu_semana MS15: el fixture no tiene planes vivos';
+    end if;
+    perform pg_temp.fails('MS15 cambio con planes', $q$select update_meal_profile('{"week_start_day":7}'::jsonb)$q$,
+        'P0001', 'Invalid meal profile');
+    perform update_meal_profile('{"week_start_day":1}'::jsonb);   -- mismo valor: sin efecto
+    if (select week_start_day from meal_profile where home_id = 993001) <> 1 then
+        raise exception 'menu_semana MS15: week_start_day cambió con planes vivos';
+    end if;
+    for v_id in select id from meal_plan where home_id = 993001 and status <> 'archived' loop
+        perform archive_meal_plan(v_id);
+    end loop;
+    perform update_meal_profile('{"week_start_day":7}'::jsonb);
+    if (select week_start_day from meal_profile where home_id = 993001) <> 7 then
+        raise exception 'menu_semana MS15: no cambió sin planes vivos';
+    end if;
+    perform update_meal_profile('{"week_start_day":1}'::jsonb);
+    raise notice 'ok MS15: week_start_day solo cambia sin planes no archivados';
 end $$;
 
 -- ── MS14: limpieza ──

@@ -1018,4 +1018,21 @@ end $$;
 revoke all on function check_meal_plan(bigint), get_meals_today(date) from public, anon;
 grant execute on function check_meal_plan(bigint), get_meals_today(date) to authenticated;
 
+-- R1-01: week_start_day no cambia mientras el hogar tenga planes no archivados. get_meal_plan y
+-- get_meals_today buscan el plan por la semana calculada con ese día; cambiarlo con planes vivos los
+-- dejaría invisibles y permitiría planes solapados. Opción más simple y segura: rechazar el cambio
+-- ('Invalid meal profile', 400); se archivan los planes y luego se cambia. Mismo valor: sin efecto.
+create or replace function fn_meal_profile_week_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+    if new.week_start_day is distinct from old.week_start_day
+       and exists (select 1 from meal_plan p where p.home_id = old.home_id and p.status <> 'archived') then
+        raise exception 'Invalid meal profile' using errcode = 'P0001';
+    end if;
+    return new;
+end $$;
+create trigger meal_profile_week_guard before update of week_start_day on meal_profile
+    for each row execute function fn_meal_profile_week_guard();
+revoke all on function fn_meal_profile_week_guard() from public, anon, authenticated;
+
 commit;

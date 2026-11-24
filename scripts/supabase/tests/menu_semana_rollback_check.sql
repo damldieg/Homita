@@ -36,7 +36,7 @@ begin
                                'copy_meal_plan_week', 'check_meal_plan', 'get_meals_today',
                                'fn_meal_norm', 'fn_meal_food_allergens_valid', 'fn_meal_food_before',
                                'fn_meal_food_json', 'fn_meal_recipe_json', 'fn_meal_recipe_set_ingredients',
-                               'fn_meal_plan_json', 'fn_meal_week_of')) then
+                               'fn_meal_plan_json', 'fn_meal_week_of', 'fn_meal_profile_week_guard')) then
         return 'RM4 siguen existiendo funciones de 0044';
     end if;
     if to_regclass('public.meal_profile') is null or to_regclass('public.meal_profile_member') is null
