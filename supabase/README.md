@@ -676,6 +676,31 @@ desde Ajustes («Enviar feedback») para reportar un bug o proponer una mejora.
   `contract_check.py` (8 casos propios, `FEEDBACK_EXPECTED`; no cuentan en el 502/502) y bloque `FB` de `cross_tenant_check.py`
   (4 casos: no suplantar `user_id`, no leer feedback ajeno).
 
+## Menús de la semana (0044) y semilla de alimentos
+
+`migrations/0044_menus_semana.sql` (change `menus-semana`, fase 2 del planificador de comidas) crea el
+catálogo de alimentos (`food`), las recetas (`recipe`, `recipe_ingredient`) y el menú semanal
+(`meal_plan`, `meal_plan_item`, `meal_plan_item_member`), con RPC para todo (lectura `menu.view`,
+escritura `menu.plan.manage`; sin permisos nuevos). RLS solo de lectura: toda escritura pasa por RPC.
+Reversa: `scripts/supabase/rollback/rollback_0044_menus_semana.sql` (**pierde recetas, menús y
+catálogo**), **antes** que `rollback_0043_meal_profile.sql` (orden LIFO).
+
+**El catálogo común NO va en la migración.** Está en `supabase/seed/food_es.sql` (~300 alimentos en
+español con `home_id` nulo, sección, alérgenos de la UE y unidad por defecto; una fila por línea para
+revisarlo a mano). Es idempotente (`on conflict … do nothing` contra `food_common_name_uq`): se puede
+cargar varias veces sin duplicar.
+
+- **CI / local:** `scripts/supabase/ci.sh` lo carga justo después de aplicar las migraciones y antes de
+  los checks del menú (`menu_semana_check.sql`).
+- **Producción (paso manual, no se ha ejecutado nada):** tras aplicar 0044, cargar el seed una vez con
+  `psql "$DATABASE_URL" -f supabase/seed/food_es.sql`. Sin él la migración funciona igual, pero el
+  catálogo común queda vacío: las recetas se pueden escribir con texto libre y el autocompletar de
+  ingredientes no devuelve nada hasta cargarlo. Recordarlo al desplegar. El rollback de 0044 borra las
+  tablas y con ellas el catálogo: tras reaplicar 0044 hay que volver a cargar el seed.
+
+Errores nuevos de las RPC (la Edge los mapea): `Invalid recipe`, `Invalid food`, `Invalid meal plan`
+(400), `Stale meal plan revision` y `Meal plan exists` (409, ver `_shared/errors.ts`).
+
 ## Verificación de contrato (`scripts/supabase/contract_check.py`)
 
 Smoke Edge-solo: aserciones de estado/valor/forma esperada por ruta contra el contrato documentado
