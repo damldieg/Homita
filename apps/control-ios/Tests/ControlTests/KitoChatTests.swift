@@ -295,8 +295,9 @@ final class KitoChatTests: XCTestCase {
         XCTAssertEqual(KitoGreeting.text(name: nil), "¡Hola! Soy Kito.")
     }
 
-    func testSuggestionsAreFour() {
-        XCTAssertEqual(KitoSuggestions.all.count, 4)
+    func testSuggestionsAreFive() {
+        XCTAssertEqual(KitoSuggestions.all.count, 5)
+        XCTAssertEqual(KitoSuggestions.all.last, "¿Cómo comparto una lista?")
     }
 
     func testDayLabels() {
