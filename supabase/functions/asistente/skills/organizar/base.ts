@@ -4,6 +4,7 @@
 // Regla: crear o editar un solo elemento se ejecuta al momento. Borrar siempre, y cualquier escritura que no
 // sea la única de la petición, se deja en una única tarjeta `confirmacion` con todas las acciones pendientes.
 // Sin secreto de firma no se puede confirmar: los borrados se niegan y las altas siguen ejecutándose.
+import { AsyncLocalStorage } from "node:async_hooks";
 import { conEfectos } from "../../core.ts";
 import type { Leer, Tool, ToolCtx } from "../../core.ts";
 import { ejecutarAccion, esAlta, esBorrado, fraseDe } from "./acciones.ts";
@@ -61,7 +62,12 @@ export const PROPUESTA = "propuesta enviada al usuario para confirmar";
 interface Pendiente {
     accion: Accion;
     frase: string;
+    /** Posición del tool_use en la petición: las acciones se confirman en el orden que pidió el modelo. */
+    orden: number;
 }
+
+/** Posición del tool_use que se está ejecutando (varias herramientas de una vuelta corren en paralelo). */
+const ejecucion = new AsyncLocalStorage<{ orden: number }>();
 interface Estado {
     pendientes: Pendiente[];
     /** Escrituras ya ejecutadas en esta petición. */
@@ -121,7 +127,8 @@ export const despachar = async (ctx: ToolCtx, accion: Accion, op: OpcionesDespac
     if (esBorrado(accion.op) || (!unica && secreto)) {
         if (!secreto) return { ok: false, error: NO_PUEDO_BORRAR };
         if (e.pendientes.length >= MAX_ACCIONES) return { ok: false, error: "Son demasiadas acciones a la vez; pídemelas en grupos más pequeños." };
-        e.pendientes.push({ accion, frase: op.frase ?? fraseDe(accion) });
+        e.pendientes.push({ accion, frase: op.frase ?? fraseDe(accion), orden: ejecucion.getStore()?.orden ?? e.pendientes.length });
+        e.pendientes.sort((a, b) => a.orden - b.orden);
         await actualizarTarjeta(ctx, e);
         return conEfectos({ ok: true, estado: PROPUESTA, acciones_pendientes: e.pendientes.length }, { tarjeta: e.tarjeta });
     }
@@ -137,7 +144,12 @@ export const despachar = async (ctx: ToolCtx, accion: Accion, op: OpcionesDespac
 };
 
 /** Herramienta de escritura (marca `escritura` y desactiva `strict`: el servidor revalida todo). */
-export const herramienta = (t: Omit<Tool, "escritura" | "strict">): Tool => ({ ...t, escritura: true, strict: false });
+export const herramienta = (t: Omit<Tool, "escritura" | "strict">): Tool => ({
+    ...t,
+    escritura: true,
+    strict: false,
+    run: (input, ctx, extra) => ejecucion.run({ orden: extra?.orden ?? 0 }, () => t.run(input, ctx, extra)),
+});
 
 /** Esquema de entrada: indispensables en `required`; los opcionales son propiedades simples (sin uniones con null). */
 export const esquema = (properties: Record<string, unknown>, required: string[] = []): Tool["input_schema"] =>

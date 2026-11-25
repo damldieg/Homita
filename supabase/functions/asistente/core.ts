@@ -82,8 +82,8 @@ export interface Tool {
     name: string;
     description: string;
     input_schema: { type: "object"; properties: Record<string, unknown>; required?: string[]; additionalProperties?: boolean };
-    /** `toolUseId` es el id del bloque tool_use (estable dentro del bucle); sirve para idempotencia. */
-    run: (input: Record<string, unknown>, ctx: ToolCtx, extra?: { toolUseId: string }) => Promise<unknown>;
+    /** `toolUseId` es el id del bloque tool_use (estable dentro del bucle); sirve para idempotencia. `orden` es su posición en la petición (para mantener el orden de las acciones aunque las herramientas terminen en otro). */
+    run: (input: Record<string, unknown>, ctx: ToolCtx, extra?: { toolUseId: string; orden?: number }) => Promise<unknown>;
     /** La herramienta escribe datos: el núcleo cuenta cuántas pide el modelo en una vuelta (`ctx.turno`). */
     escritura?: boolean;
     /** Por defecto `true`. Las herramientas con muchos parámetros opcionales lo desactivan (límites de la API) y revalidan en servidor. */
@@ -311,15 +311,17 @@ export const runKito = async (args: RunArgs): Promise<RunResult> => {
     };
 
     /** Ejecuta una herramienta; sus errores vuelven al modelo como is_error, nunca abortan. */
+    let siguienteOrden = 0;
     const ejecutar = async (
         b: Record<string, unknown>,
+        orden: number,
     ): Promise<{ resultado: Record<string, unknown>; efectos?: Efectos }> => {
         const id = String(b.id ?? "");
         const tool = tools.get(String(b.name ?? ""));
         if (!tool) return { resultado: { type: "tool_result", tool_use_id: id, is_error: true, content: "herramienta desconocida" } };
         const input = (b.input && typeof b.input === "object" ? b.input : {}) as Record<string, unknown>;
         try {
-            const crudo = await tool.run(input, args.ctx, { toolUseId: id });
+            const crudo = await tool.run(input, args.ctx, { toolUseId: id, orden });
             const con = efectosDe(crudo);
             const valor = con ? con.valor : crudo;
             return { resultado: { type: "tool_result", tool_use_id: id, content: resultadoTexto(valor) }, efectos: con?.efectos };
@@ -362,7 +364,7 @@ export const runKito = async (args: RunArgs): Promise<RunResult> => {
         const usos = res.content.filter((b) => b.type === "tool_use");
         herramientasUsadas += usos.length;
         args.ctx.turno = { escrituras: usos.filter((b) => tools.get(String(b.name ?? ""))?.escritura === true).length };
-        const hechos = await Promise.all(usos.map(ejecutar));
+        const hechos = await Promise.all(usos.map((b) => ejecutar(b, siguienteOrden++)));
         for (const h of hechos) {
             if (h.efectos?.tarjeta) guardarTarjeta(h.efectos.tarjeta);
             if (h.efectos?.cambios) cambios.push(...h.efectos.cambios);
