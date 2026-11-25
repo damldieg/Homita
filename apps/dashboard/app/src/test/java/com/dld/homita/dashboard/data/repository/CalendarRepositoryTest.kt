@@ -5,6 +5,7 @@ import com.dld.homita.dashboard.data.AuthRequest
 import com.dld.homita.dashboard.data.Event
 import com.dld.homita.dashboard.data.Forecast
 import com.dld.homita.dashboard.data.GeoResponse
+import com.dld.homita.dashboard.data.MealsToday
 import com.dld.homita.dashboard.data.Task
 import com.dld.homita.dashboard.data.UserResponse
 import com.dld.homita.dashboard.data.cache.DiskCache
@@ -38,6 +39,7 @@ class CalendarRepositoryTest {
 
         override suspend fun auth(request: AuthRequest): Response<UserResponse> = error("no se usa")
         override suspend fun tasks(auth: String, dashboard: Boolean): Response<List<Task>> = error("no se usa")
+        override suspend fun mealsToday(auth: String): Response<MealsToday> = error("no se usa")
         override suspend fun forecast(url: String): Response<Forecast> = error("no se usa")
         override suspend fun geocode(url: String): Response<GeoResponse> = error("no se usa")
     }

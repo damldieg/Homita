@@ -57,6 +57,8 @@ import com.dld.homita.dashboard.data.Event
 import com.dld.homita.dashboard.data.Person
 import com.dld.homita.dashboard.data.partitionEvents
 import com.dld.homita.dashboard.data.Task
+import com.dld.homita.dashboard.data.MealsTodayState
+import com.dld.homita.dashboard.data.MealsTodayView
 import com.dld.homita.dashboard.data.TaskDue
 import com.dld.homita.dashboard.data.TaskPriority
 import com.dld.homita.dashboard.data.priorityValue
@@ -160,6 +162,47 @@ private fun ClockColumn(state: UiState, modifier: Modifier) {
             )
         }
         if (next != null) NextCard(next, now)
+        // Altura estimada de la tarjeta (padding 2x14 + cabecera 24 + filas de 30 + separación 4 entre elementos):
+        // con 1 casilla ~86 dp, con 2 ~120 dp (antes, con 20 dp de padding: 100 y 166 con 3). Con el siguiente evento
+        // la columna va justa: 1 casilla; sin él, hasta MAX_ROWS (2). Lo que sobra va al «+N».
+        val meals = MealsTodayState.of(state.meals, now, if (next != null) 1 else MealsTodayState.MAX_ROWS)
+        if (state.clockValid && meals != null) {
+            Spacer(Modifier.height(16.dp))
+            MealsTodayCard(meals)
+        }
+    }
+}
+
+/**
+ * «Hoy se come»: las casillas del menú aceptado de hoy, una línea cada una ("14:00 Comida · Lentejas"). La franja actual
+ * (la primera que no ha pasado) en destacado y las pasadas atenuadas; lo que no cabe, en un «+N». Solo se pinta con
+ * plan aceptado (la lógica está en [MealsTodayState]).
+ */
+@Composable
+private fun MealsTodayCard(view: MealsTodayView) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Palette.Card, RoundedCornerShape(32.dp))
+            .padding(horizontal = 34.dp, vertical = 14.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("HOY SE COME", style = Type.Label, maxLines = 1, modifier = Modifier.weight(1f))
+            if (view.more > 0) Text("+${view.more}", style = Type.Tiny.copy(color = Palette.InkMuted), maxLines = 1)
+        }
+        view.rows.forEach { row ->
+            val label = if (row.label.isEmpty()) "" else "${row.label} · "
+            Text(
+                "${row.time}  $label${row.title}",
+                style = Type.Small.copy(
+                    color = if (row.past) Palette.InkMuted else Palette.Ink,
+                    fontWeight = if (row.current) FontWeight.SemiBold else FontWeight.Normal
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 

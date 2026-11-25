@@ -35,6 +35,10 @@ interface Api {
     @GET("task")
     suspend fun tasks(@Header("Authorization") auth: String, @Query("dashboard") dashboard: Boolean = true): Response<List<Task>>
 
+    /** Menú de hoy del hogar del marco: sin `X-Home-Id` (el servidor usa el hogar por defecto de la cuenta). */
+    @GET("meal/today")
+    suspend fun mealsToday(@Header("Authorization") auth: String): Response<MealsToday>
+
     @GET
     suspend fun forecast(@Url url: String): Response<Forecast>
 

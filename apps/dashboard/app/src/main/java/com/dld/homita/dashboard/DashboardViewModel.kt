@@ -12,6 +12,7 @@ import com.dld.homita.dashboard.data.Content
 import com.dld.homita.dashboard.data.Forecast
 import com.dld.homita.dashboard.data.GeoResult
 import com.dld.homita.dashboard.data.Location
+import com.dld.homita.dashboard.data.MealsToday
 import com.dld.homita.dashboard.data.ReferenceClock
 import com.dld.homita.dashboard.data.Schedule
 import com.dld.homita.dashboard.data.Store
@@ -22,6 +23,7 @@ import com.dld.homita.dashboard.data.cache.DiskCache
 import com.dld.homita.dashboard.data.isUnauthorized
 import com.dld.homita.dashboard.data.repository.CalendarRepository
 import com.dld.homita.dashboard.data.repository.ContentRepository
+import com.dld.homita.dashboard.data.repository.MealRepository
 import com.dld.homita.dashboard.data.repository.WeatherRepository
 import com.dld.homita.dashboard.power.ScreenSchedule
 import kotlinx.coroutines.delay
@@ -41,6 +43,8 @@ data class UiState(
     val clockValid: Boolean = false,
     val content: Content? = null,
     val forecast: Forecast? = null,
+    /** Menú de hoy (`/meal/today`); null si no hay copia. La tarjeta lo oculta si es de otro día o no hay plan. */
+    val meals: MealsToday? = null,
     val location: Location? = null,
     val schedule: Schedule = Schedule(),
     val brightness: Float? = null,
@@ -79,6 +83,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val contentRepository = ContentRepository(api, cache)
     private val weatherRepository = WeatherRepository(api, cache)
     private val calendarRepository = CalendarRepository(api, cache)
+    private val mealRepository = MealRepository(api, cache)
     private val clock = ReferenceClock(BuildConfig.BUILD_TIME, { store.lastValidTime }, { store.lastValidTime = it })
 
     private val _state = MutableStateFlow(
@@ -90,6 +95,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 clockValid = time.valid,
                 content = contentRepository.content.value?.value,
                 forecast = weatherRepository.forecast.value?.value,
+                meals = mealRepository.meals.value,
                 weeks = calendarRepository.weeks.value,
                 location = store.location,
                 schedule = store.schedule,
@@ -113,6 +119,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         // Los repositorios publican la copia en disco y cada descarga buena: la pantalla siempre tiene lo último.
         viewModelScope.launch { contentRepository.content.collect { c -> _state.update { it.copy(content = c?.value) } } }
         viewModelScope.launch { weatherRepository.forecast.collect { f -> _state.update { it.copy(forecast = f?.value) } } }
+        viewModelScope.launch { mealRepository.meals.collect { m -> _state.update { it.copy(meals = m) } } }
         viewModelScope.launch { calendarRepository.weeks.collect { w -> _state.update { it.copy(weeks = w) } } }
         setConnected(connectivity.getNetworkCapabilities(connectivity.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true)
         connectivity.registerDefaultNetworkCallback(networkCallback)
@@ -136,6 +143,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             if (_state.value.clockValid) {
                 if (contentRepository.isStale()) refreshContent()
                 if (weatherRepository.isStale()) refreshWeather()
+                if (mealRepository.isStale(_state.value.now.toLocalDate())) refreshMeals()
             }
             delay(60_000 - System.currentTimeMillis() % 60_000 + 50)
         }
@@ -153,6 +161,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             if (!_state.value.clockValid) return@launch
             refreshContent()
             refreshWeather()
+            refreshMeals()
         }
     }
 
@@ -160,6 +169,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private suspend fun refreshContent() {
         val token = _state.value.token ?: return
         report(contentRepository.refresh(token, LocalDate.now()))
+    }
+
+    /**
+     * El menú es opcional: si falla (sin permiso `menu.view`, hogar ambiguo, red) la tarjeta se queda con la copia o se
+     * oculta, sin marcar el dashboard como sin conexión. Solo un 401 cierra la sesión.
+     */
+    private suspend fun refreshMeals() {
+        val token = _state.value.token ?: return
+        if (mealRepository.refresh(token, _state.value.now.toLocalDate()).exceptionOrNull()?.isUnauthorized == true) logout()
     }
 
     private suspend fun refreshWeather() {
@@ -200,6 +218,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 refreshContent()
                 _state.value.token?.let { token -> calendarRepository.loaded().forEach { report(calendarRepository.refresh(token, it)) } }
                 refreshWeather()
+                refreshMeals()
             }
             delay((1000 - (System.currentTimeMillis() - started)).coerceAtLeast(0))
             _state.update { it.copy(syncing = false) }
@@ -240,6 +259,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         store.logout()
         contentRepository.clear()
         calendarRepository.clear()
+        mealRepository.clear()
         _state.update { it.copy(token = null) }
     }
 

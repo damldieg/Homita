@@ -66,6 +66,28 @@ data class Content(
 /** Una semana del calendario (lunes a domingo), descargada al navegar hasta ella. */
 data class Week(val events: List<Event>, val sessions: List<Event>)
 
+/**
+ * Menú de hoy (`GET /meal/today`). `now_local` (HH:mm) y `timezone` son los del hogar según el servidor. Sin plan
+ * aceptado (`has_plan` false) no hay casillas. Los datos de miembros de la respuesta no se leen en el dashboard.
+ */
+data class MealsToday(
+    val has_plan: Boolean = false,
+    val date: String? = null,
+    val timezone: String? = null,
+    val now_local: String? = null,
+    val items: List<MealItem>? = null
+)
+
+/** Una casilla del menú de hoy: `slot` (breakfast, midmorning, lunch, snack, dinner), `time` HH:mm y `title`. */
+data class MealItem(
+    val item_id: Int = 0,
+    val slot: String? = null,
+    val time: String? = null,
+    val kind: String? = null,
+    val title: String? = null,
+    val servings: Double? = null
+)
+
 val SQL_DATE_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
 // --- Open-Meteo ---

@@ -89,6 +89,79 @@ public struct HomitaSnapshot: Codable, Equatable, Sendable {
         }
     }
 
+    /// Menú de hoy («Hoy se come»). Sin datos de salud: solo franja, hora y título.
+    public struct Meals: Codable, Equatable, Sendable {
+        public struct Item: Codable, Equatable, Sendable, Identifiable {
+            /// Clave de la franja (`breakfast`, `lunch`…).
+            public let slot: String
+            /// Hora local del hogar, `HH:mm`.
+            public let time: String
+            public let title: String
+            public var id: String { "\(slot)-\(time)-\(title)" }
+
+            public init(slot: String, time: String, title: String) {
+                self.slot = slot
+                self.time = time
+                self.title = title
+            }
+        }
+
+        /// Día al que pertenecen las casillas, `yyyy-MM-dd` en la zona del hogar.
+        public let date: String
+        /// Identificador de la zona horaria del hogar.
+        public let timezone: String
+        public let hasPlan: Bool
+        /// Casillas de hoy ordenadas por hora.
+        public let items: [Item]
+
+        public init(date: String, timezone: String, hasPlan: Bool, items: [Item]) {
+            self.date = date
+            self.timezone = timezone
+            self.hasPlan = hasPlan
+            self.items = items
+        }
+
+        private var zone: TimeZone { TimeZone(identifier: timezone) ?? .current }
+
+        /// Instante de inicio de una casilla en el día del menú; `nil` si la hora no es válida.
+        public func start(of item: Item) -> Date? {
+            let dayParts = date.split(separator: "-").compactMap { Int($0) }
+            let timeParts = item.time.split(separator: ":").compactMap { Int($0) }
+            guard dayParts.count == 3, timeParts.count >= 2 else { return nil }
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = zone
+            return calendar.date(from: DateComponents(
+                year: dayParts[0], month: dayParts[1], day: dayParts[2], hour: timeParts[0], minute: timeParts[1]
+            ))
+        }
+
+        /// ¿El menú es del día de `now` en la zona del hogar?
+        public func isCurrentDay(at now: Date) -> Bool {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = zone
+            let parts = calendar.dateComponents([.year, .month, .day], from: now)
+            guard let year = parts.year, let month = parts.month, let day = parts.day else { return false }
+            return date == String(format: "%04d-%02d-%02d", year, month, day)
+        }
+
+        /// Casillas visibles (hay menú aceptado y casillas) solo si el menú es del día de `now`.
+        public func visibleItems(at now: Date) -> [Item] {
+            hasPlan && isCurrentDay(at: now) ? items : []
+        }
+
+        /// Franja actual: la primera casilla que no ha empezado antes de `now` (mismo criterio que la
+        /// pantalla de pared); si ya pasaron todas, `nil`.
+        public func currentIndex(at now: Date) -> Int? {
+            let visible = visibleItems(at: now)
+            return visible.firstIndex { item in start(of: item).map { $0 >= now } ?? false }
+        }
+
+        /// Instantes de inicio de casilla posteriores a `now` (donde cambia lo que se destaca).
+        public func boundaries(after now: Date) -> [Date] {
+            Array(Set(items.compactMap { start(of: $0) }.filter { $0 > now })).sorted()
+        }
+    }
+
     public var generatedAt: Date
     /// Medianoche local del día al que pertenecen las rutinas y eventos.
     public var dayStart: Date
@@ -100,10 +173,13 @@ public struct HomitaSnapshot: Codable, Equatable, Sendable {
     public var events: [Event]
     public var pendingTaskCount: Int
     public var tasks: [TaskItem]
+    /// Menú de hoy; `nil` si no hay dato (sin permiso, sin red al construir o snapshot antiguo).
+    public var meals: Meals?
 
     public init(
         generatedAt: Date, dayStart: Date, homeName: String? = nil, signedIn: Bool = true,
-        routines: [Routine] = [], events: [Event] = [], pendingTaskCount: Int = 0, tasks: [TaskItem] = []
+        routines: [Routine] = [], events: [Event] = [], pendingTaskCount: Int = 0, tasks: [TaskItem] = [],
+        meals: Meals? = nil
     ) {
         self.generatedAt = generatedAt
         self.dayStart = dayStart
@@ -113,6 +189,25 @@ public struct HomitaSnapshot: Codable, Equatable, Sendable {
         self.events = events
         self.pendingTaskCount = pendingTaskCount
         self.tasks = tasks
+        self.meals = meals
+    }
+
+    // `meals` es posterior a la primera versión del fichero: un snapshot viejo se sigue leyendo.
+    private enum CodingKeys: String, CodingKey {
+        case generatedAt, dayStart, homeName, signedIn, routines, events, pendingTaskCount, tasks, meals
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        generatedAt = try container.decode(Date.self, forKey: .generatedAt)
+        dayStart = try container.decode(Date.self, forKey: .dayStart)
+        homeName = try container.decodeIfPresent(String.self, forKey: .homeName)
+        signedIn = try container.decode(Bool.self, forKey: .signedIn)
+        routines = try container.decode([Routine].self, forKey: .routines)
+        events = try container.decode([Event].self, forKey: .events)
+        pendingTaskCount = try container.decode(Int.self, forKey: .pendingTaskCount)
+        tasks = try container.decode([TaskItem].self, forKey: .tasks)
+        meals = try container.decodeIfPresent(Meals.self, forKey: .meals)
     }
 
     /// Foto vacía de «sin sesión».

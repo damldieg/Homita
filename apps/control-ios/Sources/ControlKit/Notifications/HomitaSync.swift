@@ -23,6 +23,7 @@ public final class HomitaSync {
     private var routines: [RoutineEntry] = []
     private var tasks: [TaskEntry] = []
     private var people: [PersonEntry] = []
+    private var mealsToday: MealsToday?
     private var userId: Int?
     private var homeName: String?
     private var hasData = false
@@ -75,6 +76,13 @@ public final class HomitaSync {
         }
     }
 
+    /// El menú cambió (aceptado, editado o archivado): vuelve a leer `/meal/today`, reescribe el
+    /// snapshot y recarga el widget «Hoy se come».
+    public func menuChanged() async {
+        await refresh(force: true, allowPrompt: false)
+        reloadMealWidget()
+    }
+
     /// Cierre de sesión o cambio de cuenta: borra avisos, datos de widgets y Live Activity.
     public func reset() async {
         services = nil
@@ -82,6 +90,7 @@ public final class HomitaSync {
         routines = []
         tasks = []
         people = []
+        mealsToday = nil
         userId = nil
         homeName = nil
         hasData = false
@@ -109,6 +118,11 @@ public final class HomitaSync {
         let newRoutines = try? await services.routines.index(timezone: timezone)
         let newTasks = try? await services.tasks.index(taskListId: nil)
         let newPeople = try? await services.persons.index()
+        do {
+            mealsToday = SnapshotBuilder.mealsAfterFetch(previous: mealsToday, result: .success(try await services.meals.today()))
+        } catch {
+            mealsToday = SnapshotBuilder.mealsAfterFetch(previous: mealsToday, result: .failure(error))
+        }
         if let newPeople { people = newPeople }
         if let newEvents { events = newEvents }
         if let newRoutines { routines = newRoutines }
@@ -152,7 +166,7 @@ public final class HomitaSync {
         // 2. Widgets: el snapshot solo se escribe con el toggle activo.
         let snapshot = SnapshotBuilder.build(
             events: events, routines: routines, tasks: tasks, homeName: homeName, now: now, timeZone: timeZone,
-            myPersonIds: myPersonIds
+            myPersonIds: myPersonIds, meals: mealsToday
         )
         if prefs.widgets {
             snapshotStore.save(snapshot)
@@ -204,6 +218,12 @@ public final class HomitaSync {
     private var myPersonIds: Set<Int> {
         guard let userId else { return [] }
         return Set(people.filter { $0.app_user_id == userId }.map(\.id))
+    }
+
+    private func reloadMealWidget() {
+        #if canImport(WidgetKit)
+        WidgetCenter.shared.reloadTimelines(ofKind: HomitaShared.mealWidgetKind)
+        #endif
     }
 
     private func reloadWidgets() {

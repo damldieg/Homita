@@ -12,6 +12,7 @@ public enum HomitaShared {
 
     /// Identificadores de los widgets (`kind`), para recargar solo los nuestros.
     public static let routinesWidgetKind = "com.dld.homita.control.ios.widget.routines"
+    public static let mealWidgetKind = "com.dld.homita.control.ios.widget.meal"
     public static let quickActionsWidgetKind = "com.dld.homita.control.ios.widget.quick"
     public static let newTaskWidgetKind = "com.dld.homita.control.ios.widget.new-task"
     public static let newEventWidgetKind = "com.dld.homita.control.ios.widget.new-event"
