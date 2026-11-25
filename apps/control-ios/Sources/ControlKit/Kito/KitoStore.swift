@@ -2,19 +2,24 @@ import Foundation
 
 /// Estado del chat de Kito para un usuario y un hogar. Guarda cada mensaje en el móvil (`KitoHistoryStore`)
 /// y envía el historial reciente a la Edge `asistente`. Si la petición falla, el mensaje del usuario se
-/// conserva y `errorText` explica el motivo; el usuario puede volver a enviarlo.
+/// conserva y `failure` explica el motivo y `retry()` lo reenvía sin duplicarlo.
 @MainActor
 @Observable
 public final class KitoStore {
     public private(set) var messages: [KitoMessage]
     public private(set) var isSending = false
-    public private(set) var errorText: String?
+    public private(set) var failure: KitoFailure?
+    /// Último cupo diario que informó la Edge (solo en memoria).
+    public private(set) var usage: KitoReply.Usage?
+    public var errorText: String? { failure?.text }
 
     private let api: KitoAPI
     private let historyStore: KitoHistoryStore
     private let userId: Int
     private let homeId: String
     private let timezone: () -> String
+    /// Sube al borrar la conversación; una respuesta en vuelo de otra época se descarta.
+    private var epoch = 0
 
     public init(
         api: KitoAPI,
@@ -36,40 +41,51 @@ public final class KitoStore {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isSending else { return }
         guard text.count <= KitoLimits.maxChars else {
-            errorText = "El mensaje es demasiado largo (máximo \(KitoLimits.maxChars) caracteres)."
+            failure = KitoFailure(text: KitoErrorCopy.tooLong(), retryable: false)
             return
         }
 
         messages.append(KitoMessage(role: .user, text: text))
         persist()
+        await ask()
+    }
+
+    /// Reenvía el historial actual tras un fallo, sin añadir otro mensaje del usuario.
+    public func retry() async {
+        guard !isSending, let failure, failure.retryable, messages.last?.role == .user else { return }
+        await ask()
+    }
+
+    /// Borra la conversación del usuario y hogar activos (los demás hogares y usuarios no cambian).
+    public func clearConversation() {
+        epoch += 1
+        messages = []
+        failure = nil
+        usage = nil
+        persist()
+    }
+
+    private func ask() async {
         isSending = true
-        errorText = nil
+        failure = nil
+        let startEpoch = epoch
         defer { isSending = false }
 
         do {
             let reply = try await api.ask(history: messages, timezone: timezone())
-            messages.append(KitoMessage(role: .assistant, text: reply.texto))
+            guard startEpoch == epoch else { return }
+            messages.append(KitoMessage(role: .assistant, text: reply.texto, cards: reply.tarjetas.isEmpty ? nil : reply.tarjetas))
+            usage = reply.uso ?? usage
             persist()
         } catch {
-            errorText = Self.message(for: error)
+            guard startEpoch == epoch else { return }
+            failure = KitoFailure(text: KitoErrorCopy.text(for: error), retryable: KitoErrorCopy.isRetryable(error))
         }
     }
 
     /// Mensaje para el usuario según el error de la Edge (429 límite, 502 modelo, red, sesión).
     public static func message(for error: Error) -> String {
-        guard let apiError = error as? APIError else { return "Algo ha fallado. Inténtalo de nuevo." }
-        switch apiError {
-        case .http(let status, _):
-            switch status {
-            case 429: return "Has llegado al límite de mensajes de hoy. Podrás volver a escribirme mañana."
-            case 502: return "Kito no puede responder ahora. Inténtalo de nuevo en un momento."
-            case 404: return "No encuentro el hogar activo. Vuelve a seleccionarlo."
-            default: return "Kito no está disponible ahora. Inténtalo más tarde."
-            }
-        case .network: return "Sin conexión. Inténtalo cuando vuelva la red."
-        case .sessionExpired: return "Tu sesión ha caducado. Vuelve a entrar."
-        case .decoding: return "La respuesta de Kito no se ha entendido. Inténtalo de nuevo."
-        }
+        KitoErrorCopy.text(for: error)
     }
 
     private func persist() {

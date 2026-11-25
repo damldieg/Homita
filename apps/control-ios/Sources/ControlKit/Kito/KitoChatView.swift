@@ -1,89 +1,113 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
-/// Hoja del chat de Kito: historial en el móvil, entrada de texto y estado de envío.
+/// Hoja del chat de Kito: historial en el móvil, bienvenida, entrada de texto y estado de envío.
 struct KitoChatView: View {
     let store: KitoStore
+    var userName: String?
     @State private var draft = ""
+    @State private var confirmingClear = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 10) {
-                            if store.messages.isEmpty {
-                                Text("Hola, soy Kito. Pregúntame por tus eventos, rutinas, tareas o personas del hogar.")
-                                    .foregroundStyle(.secondary)
-                                    .padding(.top, 24)
-                            }
-                            ForEach(store.messages) { message in
-                                bubble(message).id(message.id)
-                            }
-                            if store.isSending {
-                                ProgressView().padding(.leading, 4).id("sending")
-                            }
+        VStack(spacing: 0) {
+            KitoHeader(canClear: !store.messages.isEmpty, onClear: { confirmingClear = true }, onClose: { dismiss() })
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: Spacing.s1) {
+                        if store.messages.isEmpty && !store.isSending {
+                            KitoWelcomeView(userName: userName) { suggestion in send(suggestion) }
                         }
-                        .padding(16)
+                        ForEach(Array(store.messages.enumerated()), id: \.element.id) { index, message in
+                            if startsNewDay(index) {
+                                dayLabel(message.date)
+                            }
+                            KitoMessageBubble(message: message, isLastInGroup: isLastInGroup(index))
+                                .padding(.top, startsGroup(index) ? Spacing.s2 : 0)
+                                .transition(entryTransition)
+                                .id(message.id)
+                        }
+                        if store.isSending {
+                            KitoTypingBubble().padding(.top, Spacing.s2).transition(entryTransition).id("typing")
+                        }
+                        if let failure = store.failure, !store.isSending {
+                            KitoErrorBubble(failure: failure) { Task { await store.retry() } }
+                                .padding(.top, Spacing.s2)
+                                .transition(entryTransition)
+                                .id("failure")
+                        }
+                        Color.clear.frame(height: 1).id("bottom")
                     }
-                    .onChange(of: store.messages.count) { _, _ in
-                        if let last = store.messages.last { proxy.scrollTo(last.id, anchor: .bottom) }
-                    }
+                    .padding(Spacing.gutter)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: store.messages.count)
                 }
-
-                if let error = store.errorText {
-                    Text(error)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 4)
-                }
-
-                HStack(spacing: 8) {
-                    TextField("Escribe a Kito", text: $draft, axis: .vertical)
-                        .lineLimit(1...4)
-                        .textFieldStyle(.roundedBorder)
-                        .submitLabel(.send)
-                        .onSubmit(send)
-                    Button(action: send) {
-                        Image(systemName: "arrow.up.circle.fill").font(.title2)
-                    }
-                    .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isSending)
-                    .accessibilityLabel("Enviar")
-                }
-                .padding(12)
+                .onChange(of: store.messages.count) { _, _ in scrollToBottom(proxy) }
+                .onChange(of: store.isSending) { _, _ in scrollToBottom(proxy) }
+                .onChange(of: store.failure) { _, _ in scrollToBottom(proxy) }
             }
-            .navigationTitle("Kito")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cerrar") { dismiss() }
-                }
-            }
+            KitoInputBar(
+                draft: $draft,
+                isSending: store.isSending,
+                notice: KitoQuota.remainingNotice(store.usage),
+                noticeIsSoft: KitoQuota.isExhausted(store.usage),
+                onSend: { send(draft); draft = "" }
+            )
+        }
+        .background(Palette.background.ignoresSafeArea())
+        .onChange(of: store.messages.last?.id) { _, _ in lightHaptic() }
+        .confirmationDialog("¿Borrar la conversación?", isPresented: $confirmingClear, titleVisibility: .visible) {
+            Button("Borrar conversación", role: .destructive) { store.clearConversation() }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Se borra el historial de este hogar en tu móvil. No se puede deshacer.")
         }
     }
 
-    private func bubble(_ message: KitoMessage) -> some View {
-        HStack {
-            if message.role == .user { Spacer(minLength: 40) }
-            Text(message.text)
-                .padding(10)
-                .background(
-                    message.role == .user ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.12),
-                    in: RoundedRectangle(cornerRadius: 12)
-                )
-                .textSelection(.enabled)
-            if message.role == .assistant { Spacer(minLength: 40) }
-        }
-        .frame(maxWidth: .infinity, alignment: message.role == .user ? .trailing : .leading)
+    // MARK: - Agrupación
+
+    private var entryTransition: AnyTransition {
+        reduceMotion ? .identity : .opacity.combined(with: .offset(y: 8))
     }
 
-    private func send() {
-        let text = draft
-        draft = ""
+    private func startsGroup(_ index: Int) -> Bool {
+        index == 0 || store.messages[index - 1].role != store.messages[index].role
+    }
+
+    private func isLastInGroup(_ index: Int) -> Bool {
+        index == store.messages.count - 1 || store.messages[index + 1].role != store.messages[index].role
+    }
+
+    private func startsNewDay(_ index: Int) -> Bool {
+        index == 0 || !Calendar.current.isDate(store.messages[index - 1].date, inSameDayAs: store.messages[index].date)
+    }
+
+    private func dayLabel(_ date: Date) -> some View {
+        Text(KitoGreeting.dayLabel(for: date))
+            .font(HomitaFont.inter(12, weight: .medium, relativeTo: .caption))
+            .foregroundStyle(Palette.inkSoft)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Spacing.s2)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    // MARK: - Acciones
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) }
+    }
+
+    private func lightHaptic() {
+        #if canImport(UIKit)
+        if store.messages.last?.role == .assistant {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+        #endif
+    }
+
+    private func send(_ text: String) {
         Task { await store.send(text) }
     }
 }

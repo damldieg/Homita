@@ -205,7 +205,7 @@ struct MainTabView: View {
             }
         }
         .sheet(isPresented: $showingKito) {
-            if let kito { KitoChatView(store: kito) }
+            if let kito { KitoChatView(store: kito, userName: services.session.session?.name) }
         }
         .task(id: kitoKey) { makeKito() }
         // Avisos de cambios descartados al sincronizar (4xx o «ya no existe»).

@@ -131,9 +131,9 @@ final class KitoTests: XCTestCase {
 
     @MainActor
     func testErrorMessagesAreClear() {
-        XCTAssertTrue(KitoStore.message(for: APIError.http(status: 429, message: "Límite diario alcanzado")).contains("límite"))
-        XCTAssertTrue(KitoStore.message(for: APIError.http(status: 502, message: "Kito no puede responder ahora")).contains("responder"))
-        XCTAssertTrue(KitoStore.message(for: APIError.network("offline")).contains("Sin conexión"))
+        XCTAssertTrue(KitoStore.message(for: APIError.http(status: 429, message: "Límite diario alcanzado")).contains("hablado mucho"))
+        XCTAssertTrue(KitoStore.message(for: APIError.http(status: 502, message: "Kito no puede responder ahora")).contains("despistado"))
+        XCTAssertTrue(KitoStore.message(for: APIError.network("offline")).contains("no tengo conexión"))
         XCTAssertTrue(KitoStore.message(for: APIError.sessionExpired).contains("sesión"))
         XCTAssertTrue(KitoStore.message(for: URLError(.badURL)).contains("Algo ha fallado"))
     }
@@ -164,7 +164,7 @@ final class KitoTests: XCTestCase {
 
         XCTAssertEqual(store.messages.map(\.role), [.user])
         XCTAssertEqual(store.errorText, KitoStore.message(for: APIError.http(status: 429, message: "x")))
-        XCTAssertTrue(store.errorText?.contains("límite") == true)
+        XCTAssertTrue(store.errorText?.contains("hablado mucho") == true)
     }
 
     @MainActor
