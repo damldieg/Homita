@@ -353,8 +353,9 @@ export const GUIA: Seccion[] = [
         palabras: ["kito", "asistente", "chat", "ayudante", "limite", "limite diario", "cupo", "voz", "dictar", "hablar", "que puede hacer kito", "borrar conversacion"],
         texto:
             "Kito es el ayudante de casa: el botón flotante en cualquier pestaña abre el chat. Le puedes escribir o " +
-            "dictar. Por ahora responde preguntas (eventos, rutinas, tareas, listas, calendarios y personas) y explica " +
-            "cómo se hace algo en la app; todavía no crea ni borra cosas. Tiene un límite de mensajes al día: al " +
+            "dictar. Responde preguntas (eventos, rutinas, tareas, listas, calendarios y personas), explica cómo se " +
+            "hace algo en la app y también puede crear, editar o completar cosas si se lo pides; los borrados, y varios " +
+            "cambios a la vez, te los deja para confirmar. Tiene un límite de mensajes al día: al " +
             "agotarlo, vuelve al día siguiente. En «Más opciones» puedes borrar la conversación o elegir cuándo habla con voz.",
     },
     {

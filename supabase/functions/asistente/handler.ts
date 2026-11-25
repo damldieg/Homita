@@ -7,7 +7,7 @@
 //   5. Modelo configurado (ANTHROPIC_API_KEY) → 500 sin consumir (falla cerrada).
 //   6. Usuario de app (app_user) → 404. 7. Límite diario: consume antes de llamar al modelo → 429 sin llamar.
 //   8. Bucle con el modelo dentro del hogar activo. Fallo del modelo → refund del mensaje y 502.
-//   9. Tokens sumados (assistant_record_usage) → 200 {texto, tarjetas, uso}. Un `refusal` del modelo devuelve el mensaje.
+//   9. Tokens sumados (assistant_record_usage) → 200 {texto, tarjetas, cambios, uso}. Un `refusal` del modelo devuelve el mensaje.
 // Logs: solo operación y estado; nunca texto de usuario, tokens de sesión ni cabeceras.
 
 import { CallModel, Leer, ModelError, MAX_CHARS, MAX_HISTORY, Mensaje, runKito, Skill, Tokens } from "./core.ts";
@@ -166,6 +166,7 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
                 return json(200, {
                     texto: res.texto,
                     tarjetas: res.tarjetas,
+                    cambios: res.cambios,
                     uso: { usados: uso.used, limite: uso.limit },
                 });
             } catch (e) {

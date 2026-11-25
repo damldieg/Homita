@@ -180,3 +180,13 @@ Deno.test("refusal del modelo → 200 con mensaje neutro y el mensaje no cuenta 
     assertEquals(registros.modelo, 1);
     assertEquals(registros.records, [{ tokens: { input: 9, output: 1, cacheRead: 0, cacheWrite: 0 }, refund: true }]);
 });
+
+Deno.test("200 incluye tarjetas y cambios (aditivo) además de texto y uso", async () => {
+    const { d } = deps();
+    const res = await createHandler(d)(peticion());
+    assertEquals(res.status, 200);
+    const body = await res.json();
+    assertEquals(Object.keys(body).sort(), ["cambios", "tarjetas", "texto", "uso"]);
+    assertEquals(body.cambios, []);
+    assertEquals(body.tarjetas, []);
+});
