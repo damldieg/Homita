@@ -10,6 +10,7 @@
 //   9. Tokens sumados (assistant_record_usage) → 200 {texto, tarjetas, cambios, uso}. Un `refusal` del modelo devuelve el mensaje.
 // Logs: solo operación y estado; nunca texto de usuario, tokens de sesión ni cabeceras.
 
+import { confirmar } from "./skills/organizar/confirmar.ts";
 import { CallModel, Escribir, Leer, ModelError, MAX_CHARS, MAX_HISTORY, Mensaje, runKito, Skill, Tokens } from "./core.ts";
 
 export interface UsoResultado {
@@ -90,25 +91,43 @@ const bearer = (req: Request): string | null => {
     return m ? m[1] : null;
 };
 
+/** Resultado de autenticar: sesión, usuario y hogar activo ya comprobados. */
+export interface Autenticado {
+    token: string;
+    who: { uid: string };
+    homeId: string;
+}
+
+/**
+ * Tramo común de Kito y de /confirmar, en este orden: 405 si no es POST, 401 sin Bearer válido, 400 si
+ * X-Home-Id no es válido y 404 si el usuario no es miembro del hogar.
+ */
+export const autenticar = async (req: Request, deps: HandlerDeps): Promise<Autenticado | Response> => {
+    if (req.method !== "POST") return json(405, { error: "Método no permitido" });
+    const token = bearer(req);
+    if (token === null) return json(401, { error: "No autorizado" });
+    const who = await deps.verifyUser(token);
+    if (who === null) return json(401, { error: "No autorizado" });
+    // Hogar activo: obligatorio (las consultas y las acciones son del hogar).
+    const hogarRaw = req.headers.get("X-Home-Id") ?? "";
+    if (!HOME_RE.test(hogarRaw)) return json(400, { error: "Cabecera X-Home-Id no válida" });
+    const homeId = BigInt(hogarRaw).toString();
+    if (!(await deps.checkHomeMember(homeId, token))) return json(404, { error: "Hogar no encontrado" });
+    return { token, who, homeId };
+};
+
 export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Response> {
     const log = deps.log ?? ((m: string) => console.error(m));
 
     return async (req: Request): Promise<Response> => {
         try {
-            // 1. Método.
-            if (req.method !== "POST") return json(405, { error: "Método no permitido" });
+            // 1-3. Método, sesión y hogar activo (común a Kito y a /confirmar).
+            const auth = await autenticar(req, deps);
+            if (auth instanceof Response) return auth;
+            const { token, who, homeId } = auth;
 
-            // 2. Sesión.
-            const token = bearer(req);
-            if (token === null) return json(401, { error: "No autorizado" });
-            const who = await deps.verifyUser(token);
-            if (who === null) return json(401, { error: "No autorizado" });
-
-            // 3. Hogar activo: obligatorio para Kito (las consultas son del hogar).
-            const hogarRaw = req.headers.get("X-Home-Id") ?? "";
-            if (!HOME_RE.test(hogarRaw)) return json(400, { error: "Cabecera X-Home-Id no válida" });
-            const homeId = BigInt(hogarRaw).toString();
-            if (!(await deps.checkHomeMember(homeId, token))) return json(404, { error: "Hogar no encontrado" });
+            // POST /asistente/confirmar: ejecuta lo que firmó una tarjeta; sin modelo ni cupo.
+            if (new URL(req.url).pathname.endsWith("/confirmar")) return await confirmar(req, deps, auth, log);
 
             // 4. Body.
             let raw: unknown;
