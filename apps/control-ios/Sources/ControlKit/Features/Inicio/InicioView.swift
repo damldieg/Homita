@@ -356,6 +356,16 @@ public struct InicioView: View {
                 }
                 .frame(maxWidth: .infinity, minHeight: InicioTaskPaging.pageMinHeight, alignment: .top)
                 .clipped()
+                // «Ver más» fuera de la página: queda debajo de todo el contenido (y de la altura mínima
+                // de la página), no pegado al último item.
+                HStack {
+                    Spacer()
+                    Button("Ver más") { onOpen(.taskList(page.id)) }
+                        .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
+                        .foregroundStyle(Palette.accent)
+                }
+                // Hueco para el botón flotante (perro) abajo a la derecha: «Ver más» no queda debajo.
+                .padding(.trailing, 72)
             } else {
                 emptyText(HomitaEmptyNoteText.pendingTasks)
             }
@@ -392,14 +402,6 @@ public struct InicioView: View {
                     }
                 }
             }
-            HStack {
-                Spacer()
-                Button("Ver más") { onOpen(.taskList(page.id)) }
-                    .font(HomitaFont.inter(15, weight: .semibold, relativeTo: .subheadline))
-                    .foregroundStyle(Palette.accent)
-            }
-            // Hueco para el botón flotante (perro) abajo a la derecha: «Ver más» no queda debajo.
-            .padding(.trailing, 72)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
