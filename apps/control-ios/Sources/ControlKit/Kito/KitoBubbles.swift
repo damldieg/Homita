@@ -62,14 +62,14 @@ struct KitoMessageBubble: View {
                     }
                 if !isUser { Spacer(minLength: 48) }
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(isUser ? "Tú" : "Kito"), \(spokenTime): \(String(KitoMarkdown.attributed(message.text).characters))")
             if let cards = message.cards, !cards.isEmpty {
                 KitoCardRenderer(cards: cards)
                     .padding(.leading, 28 + Spacing.s2)
             }
         }
         .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(isUser ? "Tú" : "Kito"), \(spokenTime): \(String(KitoMarkdown.attributed(message.text).characters))")
     }
 }
 

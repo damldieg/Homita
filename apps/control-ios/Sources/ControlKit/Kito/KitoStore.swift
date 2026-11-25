@@ -18,6 +18,8 @@ public final class KitoStore {
     private let userId: Int
     private let homeId: String
     private let timezone: () -> String
+    /// Sube al borrar la conversación; una respuesta en vuelo de otra época se descarta.
+    private var epoch = 0
 
     public init(
         api: KitoAPI,
@@ -56,6 +58,7 @@ public final class KitoStore {
 
     /// Borra la conversación del usuario y hogar activos (los demás hogares y usuarios no cambian).
     public func clearConversation() {
+        epoch += 1
         messages = []
         failure = nil
         usage = nil
@@ -65,14 +68,17 @@ public final class KitoStore {
     private func ask() async {
         isSending = true
         failure = nil
+        let startEpoch = epoch
         defer { isSending = false }
 
         do {
             let reply = try await api.ask(history: messages, timezone: timezone())
+            guard startEpoch == epoch else { return }
             messages.append(KitoMessage(role: .assistant, text: reply.texto, cards: reply.tarjetas.isEmpty ? nil : reply.tarjetas))
             usage = reply.uso ?? usage
             persist()
         } catch {
+            guard startEpoch == epoch else { return }
             failure = KitoFailure(text: KitoErrorCopy.text(for: error), retryable: KitoErrorCopy.isRetryable(error))
         }
     }

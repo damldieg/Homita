@@ -164,6 +164,25 @@ final class KitoChatTests: XCTestCase {
         XCTAssertEqual(h.load(userId: 2, homeId: "7").map(\.text), ["c"])
     }
 
+    @MainActor
+    func testClearWhileSendingDiscardsTheLateReply() async throws {
+        StubURLProtocol.reset { _ in
+            Thread.sleep(forTimeInterval: 0.4)
+            return StubURLProtocol.Stub(json: #"{"texto":"tarde"}"#)
+        }
+        let store = makeStore()
+        let task = Task { await store.send("hola") }
+        while !store.isSending { try await Task.sleep(nanoseconds: 10_000_000) }
+
+        store.clearConversation()
+        await task.value
+
+        XCTAssertTrue(store.messages.isEmpty)
+        XCTAssertNil(store.failure)
+        XCTAssertFalse(store.isSending)
+        XCTAssertEqual(history().load(userId: 1, homeId: "7"), [])
+    }
+
     // MARK: - Cupo
 
     func testQuotaNoticeThreshold() {

@@ -16,6 +16,7 @@ struct KitoInputBar: View {
         VStack(spacing: Spacing.s1) {
             HStack(alignment: .bottom, spacing: Spacing.s2) {
                 TextField("", text: $draft, prompt: Text("Escribe a Kito").foregroundStyle(Palette.inkMuted), axis: .vertical)
+                    .accessibilityLabel("Escribe a Kito")
                     .lineLimit(1...4)
                     .font(HomitaFont.inter(16))
                     .foregroundStyle(Palette.ink)
