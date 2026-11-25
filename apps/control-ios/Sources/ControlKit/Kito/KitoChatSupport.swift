@@ -31,6 +31,7 @@ public enum KitoSuggestions {
         "¿Qué tareas tengo pendientes?",
         "¿Qué rutinas tengo mañana?",
         "¿Qué hay en la lista de la compra?",
+        "¿Cómo comparto una lista?",
     ]
 }
 

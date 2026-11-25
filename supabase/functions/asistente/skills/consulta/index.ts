@@ -272,7 +272,10 @@ Eventos y rutinas son cosas distintas y la gente las distingue: un evento ocurre
 
 Cuando el usuario diga «mis…», «lo mío» o «lo que tengo yo», usa solo_mias=true. Si la herramienta avisa de que su cuenta no está vinculada a ninguna persona del hogar, díselo tal cual y ofrécele ver lo de todo el hogar si quiere; no enseñes datos de otras personas como si fueran suyos. Si algo no tiene a nadie asignado, dilo («sin asignar»).
 
-Si dos listas o calendarios encajan con lo que pide, pregunta cuál quiere nombrando las opciones. Si no hay resultados, dilo y sugiere otra búsqueda (otro día, otro calendario, otra lista). Si la herramienta indica que hay más resultados (hay_mas), cuenta los que has visto y ofrécete a acotar. Las tareas se piden pendientes por defecto; usa estado, vencidas o prioridad cuando la pregunta lo pida.`,    herramientas: [verEventos, verRutinas, verTareas, verCalendarios, verListas, verPersonas],
+Si dos listas o calendarios encajan con lo que pide, pregunta cuál quiere nombrando las opciones. Si no hay resultados, dilo y sugiere otra búsqueda (otro día, otro calendario, otra lista). Si la herramienta indica que hay más resultados (hay_mas), cuenta los que has visto y ofrécete a acotar. Las tareas se piden pendientes por defecto; usa estado, vencidas o prioridad cuando la pregunta lo pida.
+
+Si te piden crear, cambiar o borrar algo (una lista, un evento, una tarea…), no lo haces tú todavía: llama a guia_app con el tema y dile dónde se hace en la app con lo que devuelva (pantalla y botón), sin inventar pasos.`,
+    herramientas: [verEventos, verRutinas, verTareas, verCalendarios, verListas, verPersonas],
     tarjetas: [],
     disponible: () => true,
 };
