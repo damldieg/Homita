@@ -153,8 +153,8 @@ export const GUIA: Seccion[] = [
         titulo: "Rutinas",
         palabras: ["rutinas", "ver rutinas", "habitos", "repetir", "repeticion", "proxima", "hecha", "pausada"],
         texto:
-            "Calendario › segmento «Rutinas» lista las rutinas con su próxima vez («PRÓXIMA») y si están Activas o " +
-            "Pausadas. Una rutina es algo que se repite (por ejemplo, sacar al perro cada mañana); un evento ocurre " +
+            "Calendario › segmento «Rutinas» lista las rutinas con su próxima vez («PRÓXIMA») y si están «Activa» o " +
+            "«Pausada». Una rutina es algo que se repite (por ejemplo, sacar al perro cada mañana); un evento ocurre " +
             "una vez en una fecha. En Inicio, «Rutinas de hoy» muestra las de hoy.",
     },
     {

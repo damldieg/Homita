@@ -16,7 +16,7 @@ Las capturas salen del simulador iPhone 17 contra el stack **local** (cuenta dem
 | Actor | Qué ve |
 |---|---|
 | Visitante | Bienvenida, login y registro |
-| Miembro | Pestañas con sus datos. Ve Administración del hogar en solo lectura (configuración y administradores) |
+| Miembro | Pestañas con sus datos. Ve Administración del hogar en solo lectura (configuración, administradores y miembros) y, con el permiso `home.invite`, Invitaciones (`HomeAdminAccess.swift:221-231`) |
 | Admin del hogar | Todo: edición de configuración, miembros, invitaciones, accesos y auditoría |
 
 El cliente solo oculta; el servidor decide (403 con mensaje de administrador).
@@ -84,7 +84,7 @@ El botón «Registrarse» solo se muestra si el backend tiene el registro activo
 |---|---|
 | ![](images/ios-auditoria/10-inicio.png) | Secciones «Hoy · Eventos», «Tareas pendientes», «Rutinas de hoy» y «ACCESOS RÁPIDOS». Tarjetas con «Ver más» |
 
-El botón «+ Evento» del Inicio no apareció en el recorrido automático; la acción de alta de evento queda cubierta desde el segmento Eventos.
+El «+» de la cabecera de Inicio abre el menú «Crear» con «Tarea» y «Evento» (`InicioView.swift:208-213`).
 
 ### 4.4 Tareas
 
@@ -171,9 +171,9 @@ Persistencia local: el token de sesión y el hogar activo van en Keychain (`acti
 - **Permisos.** Hay ocultamiento en cliente y validación en servidor. Un miembro no ve acciones de administración.
 - **Hogar personal.** Se puede renombrar. Transferir, quitar y salir no se ofrecen.
 - **Cierre de sesión.** Pasa por `AppServices.signOut()`, que limpia el hogar activo.
-- **Notificaciones.** No hay avisos en v1: las alarmas se guardan en el servidor pero el iPhone no avisa.
+- **Notificaciones.** Hay ajustes de avisos (Eventos, Rutinas, resumen de tareas pendientes y resumen diario), pantalla de bloqueo («Rutinas en tiempo real») y widgets (`NotificationSettingsView.swift:51-87`).
 - **Eventos del calendario por día:** cabecera con flechas y selector de fecha, tira de la semana y lista del día; solo eventos (las sesiones de rutina se ven en el segmento Rutinas). Sin vista de mes.
-- **Sin widgets, push ni iPad.** Distribución por side-load (firma gratuita, caduca a los 7 días).
+- **Sin iPad.** Distribución por side-load (firma gratuita, caduca a los 7 días).
 
 ## 8. Límites de esta captura
 
