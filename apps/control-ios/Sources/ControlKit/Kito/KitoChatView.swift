@@ -7,10 +7,19 @@ import UIKit
 struct KitoChatView: View {
     let store: KitoStore
     var userName: String?
+    @State private var dictation: KitoDictation
     @State private var draft = ""
     @State private var confirmingClear = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+
+    @MainActor
+    init(store: KitoStore, userName: String? = nil, dictation: KitoDictation? = nil) {
+        self.store = store
+        self.userName = userName
+        _dictation = State(initialValue: dictation ?? KitoDictation(recognizer: makeLiveKitoRecognizer()))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,6 +59,7 @@ struct KitoChatView: View {
             }
             KitoInputBar(
                 draft: $draft,
+                dictation: dictation,
                 isSending: store.isSending,
                 notice: KitoQuota.remainingNotice(store.usage),
                 noticeIsSoft: KitoQuota.isExhausted(store.usage),
@@ -58,6 +68,14 @@ struct KitoChatView: View {
         }
         .background(Palette.background.ignoresSafeArea())
         .onChange(of: store.messages.last?.id) { _, _ in lightHaptic() }
+        .onAppear {
+            dictation.onFinish = { text in Task { await store.send(text, origen: .voz) } }
+            dictation.recheckIfDenied()
+        }
+        .onDisappear { dictation.cancel() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { dictation.recheckIfDenied() } else { dictation.cancel() }
+        }
         .confirmationDialog("¿Borrar la conversación?", isPresented: $confirmingClear, titleVisibility: .visible) {
             Button("Borrar conversación", role: .destructive) { store.clearConversation() }
             Button("Cancelar", role: .cancel) {}

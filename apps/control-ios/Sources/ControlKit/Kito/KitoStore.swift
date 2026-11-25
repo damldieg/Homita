@@ -37,7 +37,8 @@ public final class KitoStore {
     }
 
     /// Envía un mensaje del usuario y añade la respuesta de Kito. Ignora textos vacíos y envíos en curso.
-    public func send(_ raw: String) async {
+    /// `origen` dice si se escribió o se dictó.
+    public func send(_ raw: String, origen: KitoOrigen = .texto) async {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isSending else { return }
         guard text.count <= KitoLimits.maxChars else {
@@ -45,7 +46,7 @@ public final class KitoStore {
             return
         }
 
-        messages.append(KitoMessage(role: .user, text: text))
+        messages.append(KitoMessage(role: .user, text: text, origen: origen))
         persist()
         await ask()
     }
