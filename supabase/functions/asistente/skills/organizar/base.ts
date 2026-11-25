@@ -7,6 +7,7 @@
 import { conEfectos } from "../../core.ts";
 import type { Leer, Tool, ToolCtx } from "../../core.ts";
 import { ejecutarAccion, esAlta, esBorrado, fraseDe } from "./acciones.ts";
+import { esNoExiste, traducir } from "./errores.ts";
 import { firmar, MAX_ACCIONES, TTL_SEGUNDOS } from "./confirmacion.ts";
 import type { Accion } from "./confirmacion.ts";
 
@@ -103,6 +104,8 @@ const actualizarTarjeta = async (ctx: ToolCtx, e: Estado): Promise<void> => {
 export interface OpcionesDespacho {
     /** Frase en primera persona para la tarjeta (por defecto, `fraseDe`). */
     frase?: string;
+    /** Datos extra para el modelo en el resultado de una ejecución directa (p. ej. la lista de la tarea). */
+    extra?: Obj;
 }
 
 /**
@@ -128,7 +131,7 @@ export const despachar = async (ctx: ToolCtx, accion: Accion, op: OpcionesDespac
     if (!r.ok) return { ok: false, error: r.texto };
     e.ejecutadas++;
     return conEfectos(
-        { ok: true, hecho: r.texto, id: r.id, ...(r.avisos.length ? { avisos: r.avisos } : {}) },
+        { ok: true, hecho: r.texto, id: r.id, ...(op.extra ?? {}), ...(r.avisos.length ? { avisos: r.avisos } : {}) },
         { cambios: r.cambios },
     );
 };
@@ -139,3 +142,20 @@ export const herramienta = (t: Omit<Tool, "escritura" | "strict">): Tool => ({ .
 /** Esquema de entrada: indispensables en `required`; los opcionales son propiedades simples (sin uniones con null). */
 export const esquema = (properties: Record<string, unknown>, required: string[] = []): Tool["input_schema"] =>
     ({ type: "object", properties, required, additionalProperties: false });
+
+/** Una fila de una lista del api por id, o `null` si ya no existe. Lanza si no hay lector o falla la lectura. */
+export const filaPorId = async (ctx: ToolCtx, ruta: string, id: number): Promise<Obj | null> => {
+    const todas = await filas(ctx.leer, ruta);
+    if (todas === null) throw new Error("No he podido leer los datos ahora mismo.");
+    return todas.find((f) => Number(f.id) === id) ?? null;
+};
+
+export const YA_NO_EXISTE = { ok: false, error: "Ya no existe." };
+
+/** Lee el detalle de un elemento con el escritor (GET). `null` si ya no existe; lanza ante otros fallos. */
+export const detalle = async (ctx: ToolCtx, ruta: string, id: number): Promise<Obj | null> => {
+    const r = await ctx.escribir!("GET", ruta, { id });
+    if (r.ok) return objeto(r.data);
+    if (esNoExiste(r.status, r.error)) return null;
+    throw new Error(traducir(r.status, r.error));
+};

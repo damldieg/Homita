@@ -48,7 +48,7 @@ export const esBorrado = (op: string): boolean => OPS[op]?.op === "borrar";
 export const esAlta = (op: string): boolean => OPS[op]?.op === "crear";
 
 const etiqueta = (a: Accion): string => {
-    const e = a.nombre ?? a.args.title ?? a.args.name;
+    const e = a.args.title ?? a.args.name ?? a.nombre;
     return typeof e === "string" && e !== "" ? `«${e}»` : "";
 };
 
@@ -96,7 +96,10 @@ const idDeArgs = (v: unknown): number | string | null => (typeof v === "number" 
 export const ejecutarAccion = async (esc: Escribir, a: Accion): Promise<ResultadoAccion> => {
     const d = OPS[a.op];
     if (!d) return { ok: false, id: null, cambios: [], texto: "Acción no permitida.", avisos: [] };
-    const { due_at: dueAt, compartir, ...cuerpo } = a.args;
+    // Claves propias de las altas compuestas: no van al caso de uso de alta.
+    const compuesta = a.op === "crear_tarea" || a.op === "crear_calendario";
+    const { due_at: dueAt, compartir, ...sinExtras } = a.args;
+    const cuerpo = compuesta ? sinExtras : a.args;
     const r = await esc(d.metodo, d.ruta, cuerpo);
     if (!r.ok) {
         if (d.op === "borrar" && esNoExiste(r.status, r.error)) {
