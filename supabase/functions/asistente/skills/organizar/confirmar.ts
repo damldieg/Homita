@@ -9,7 +9,7 @@ import type { Autenticado, HandlerDeps } from "../../handler.ts";
 import { validTimezone } from "../../handler.ts";
 import type { Cambio } from "../../core.ts";
 import { ejecutarAccion } from "./acciones.ts";
-import { verificar } from "./confirmacion.ts";
+import { secretoDe, verificar } from "./confirmacion.ts";
 
 const json = (status: number, body: unknown): Response =>
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json; charset=utf-8" } });
@@ -20,8 +20,8 @@ export const confirmar = async (
     auth: Autenticado,
     log: (m: string) => void,
 ): Promise<Response> => {
-    const secreto = (deps.env("KITO_CONFIRM_SECRET") ?? "").trim();
-    if (secreto === "") {
+    const secreto = secretoDe((k) => deps.env(k));
+    if (secreto === undefined) {
         log("asistente: KITO_CONFIRM_SECRET no configurado");
         return json(503, { error: "Las confirmaciones no están disponibles" });
     }
@@ -49,7 +49,14 @@ export const confirmar = async (
     let fallo: string | null = null;
     await deps.runInHome(auth.homeId, async () => {
         for (const accion of v.payload.acciones) {
-            const r = await ejecutarAccion(escribir, accion);
+            let r;
+            try {
+                r = await ejecutarAccion(escribir, accion);
+            } catch {
+                log("asistente: excepción al ejecutar una acción confirmada");
+                fallo = "No he podido hacerlo ahora mismo.";
+                return;
+            }
             if (!r.ok) {
                 fallo = r.texto;
                 return;

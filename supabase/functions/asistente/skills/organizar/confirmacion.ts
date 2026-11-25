@@ -13,7 +13,11 @@ export const OPS_PERMITIDAS = [
 ] as const;
 
 export const MAX_ACCIONES = 20;
-export const TTL_SEGUNDOS = 600;
+export const TTL_SEGUNDOS = 120;
+
+/** Secreto de firma normalizado: sin espacios en los extremos; vacío = no configurado. Único punto de lectura. */
+export const secretoDe = (env: (k: string) => string | undefined): string | undefined =>
+    ((env("KITO_CONFIRM_SECRET") ?? "").trim()) || undefined;
 
 type Obj = Record<string, unknown>;
 

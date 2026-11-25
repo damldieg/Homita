@@ -1,4 +1,5 @@
 // Herramientas de rutinas: crear_rutina, editar_rutina, borrar_rutina.
+import { fraseEdicion } from "./acciones.ts";
 import type { Tool } from "../../core.ts";
 import {
     booleano, despachar, detalle, entero, enteroNoNeg, esquema, falta, herramienta, ids, lista, resolverDestino, texto, YA_NO_EXISTE,
@@ -147,7 +148,14 @@ const editarRutina: Tool = herramienta({
             end_date: input.hasta === "" ? null : (hasta ?? cur.end_date ?? null),
             active: activa ?? cur.active !== false,
         };
-        return despachar(ctx, { op: "editar_rutina", args, nombre: String(cur.title) }, { frase: `Edito la rutina «${cur.title}»` });
+        return despachar(ctx, { op: "editar_rutina", args, nombre: String(cur.title) }, {
+            frase: fraseEdicion(`Edito la rutina «${cur.title}»`, [
+                ["título", cur.title, titulo], ["hora", String(cur.time).slice(0, 5), hora], ["frecuencia", cur.frequency, fTxt === undefined ? undefined : frecuencia],
+                ["días", cur.days, d ?? undefined], ["intervalo", cur.interval, intervalo], ["desde", cur.start_date, desde ?? undefined],
+                ["hasta", cur.end_date, input.hasta === "" ? null : (hasta ?? undefined)],
+                ["activa", cur.active !== false ? "sí" : "no", activa === undefined ? undefined : activa ? "sí" : "no"],
+            ]),
+        });
     },
 });
 

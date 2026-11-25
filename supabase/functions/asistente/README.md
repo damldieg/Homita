@@ -57,8 +57,11 @@ calendarios).
   La app muestra `texto` y, si el usuario acepta, envía el token a `/asistente/confirmar`; cancelar es solo de la app.
 - El modelo no ve nunca el token ni las acciones (solo «propuesta enviada al usuario para confirmar»).
 - Token: `payload = JSON canónico {acciones, exp, home_id, uid, v: 1}` (claves ordenadas), firmado con
-  HMAC-SHA256 y `KITO_CONFIRM_SECRET`; vale 10 minutos, para ese usuario y ese hogar, máximo 20 acciones de una
-  lista blanca de operaciones.
+  HMAC-SHA256 y `KITO_CONFIRM_SECRET`; vale 2 minutos, para ese usuario y ese hogar, máximo 20 acciones de una
+  lista blanca de operaciones. Limitación conocida: el token no es de un solo uso; puede reusarse dentro de esa
+  ventana (un doble toque o un reintento puede duplicar altas de evento, rutina o calendario, o reaplicar ediciones).
+  El uso único requeriría una tabla (fuera de alcance). La app debe deshabilitar Aceptar tras el primer toque y no
+  reintentar un 5xx sin pedir una confirmación nueva.
 
 ### `POST /asistente/confirmar`
 
@@ -72,7 +75,7 @@ cupo. Ejecuta las acciones en orden dentro del hogar activo.
 | `400` | Sin JSON, sin `token` o `timezone` no válida |
 | `401` / `404` / `405` | Sesión, hogar y método, igual que Kito |
 | `403 {error, motivo}` | Firma no válida, caducado, de otro usuario o de otro hogar: no se ejecuta nada |
-| `409 {error, texto, cambios}` | Una acción ha fallado (permiso, ya no existe…): se para ahí; `texto` y `cambios` dicen lo que sí se hizo |
+| `409 {error, texto, cambios}` | Una acción ha fallado (permiso, ya no existe, error interno del api…): se para ahí; `texto` y `cambios` dicen lo que sí se hizo |
 | `503` | Falta `KITO_CONFIRM_SECRET` |
 
 ### Qué hace Kito por su cuenta (defaults)

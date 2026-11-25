@@ -1,4 +1,5 @@
 // Herramientas de eventos: crear_evento, editar_evento, borrar_evento.
+import { fraseEdicion } from "./acciones.ts";
 import type { Tool } from "../../core.ts";
 import {
     despachar, detalle, entero, enteroNoNeg, esquema, falta, herramienta, ids, resolverDestino, texto, YA_NO_EXISTE,
@@ -100,7 +101,13 @@ const editarEvento: Tool = herramienta({
         };
         if (fin) args.end_date = fin;
         if (personas) args.person_ids = personas;
-        return despachar(ctx, { op: "editar_evento", args, nombre: String(cur.title) }, { frase: `Edito el evento «${cur.title}»${cuando(dateAtActual)}` });
+        return despachar(ctx, { op: "editar_evento", args, nombre: String(cur.title) }, {
+            frase: fraseEdicion(`Edito el evento «${cur.title}»${cuando(dateAtActual)}`, [
+                ["título", cur.title, titulo], ["inicio", dateAtActual, pared ? args.date_at : undefined],
+                ["último día", cur.end_date, fin ?? undefined], ["personas", cur.person_ids, personas ?? undefined],
+                ["alarma (min)", cur.alarm, alarma],
+            ]),
+        });
     },
 });
 

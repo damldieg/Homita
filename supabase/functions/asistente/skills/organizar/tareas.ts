@@ -1,4 +1,5 @@
 // Herramientas de tareas: crear_tarea, editar_tarea, completar_tarea, borrar_tarea.
+import { fraseEdicion } from "./acciones.ts";
 import type { Tool, ToolCtx } from "../../core.ts";
 import { booleano, despachar, detalle, entero, esquema, falta, filas, herramienta, ids, texto, YA_NO_EXISTE } from "./base.ts";
 import type { Input, Obj } from "./base.ts";
@@ -99,7 +100,11 @@ const editarTarea: Tool = herramienta({
         if (prioridad) args.priority = prioridad;
         if (personas) args.person_ids = personas;
         if (vence !== undefined) args.due_at = vence;
-        return despachar(ctx, { op: "editar_tarea", args, nombre: String(cur.title) });
+        const frase = fraseEdicion(`Edito la tarea «${cur.title}»`, [
+            ["título", cur.title, titulo], ["prioridad", cur.priority, prioridad], ["personas", cur.person_ids, personas ?? undefined],
+            ["fecha límite", cur.due_at, vence],
+        ]);
+        return despachar(ctx, { op: "editar_tarea", args, nombre: String(cur.title) }, { frase });
     },
 });
 

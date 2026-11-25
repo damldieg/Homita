@@ -11,6 +11,7 @@
 // Logs: solo operación y estado; nunca texto de usuario, tokens de sesión ni cabeceras.
 
 import { confirmar } from "./skills/organizar/confirmar.ts";
+import { secretoDe } from "./skills/organizar/confirmacion.ts";
 import { CallModel, Escribir, Leer, ModelError, MAX_CHARS, MAX_HISTORY, Mensaje, runKito, Skill, Tokens } from "./core.ts";
 
 export interface UsoResultado {
@@ -170,7 +171,7 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
                             token, uid: who.uid, homeId, timezone: parsed.timezone, now: deps.now(),
                             appUserId, nombreUsuario, leer: deps.crearLector?.(token, who.uid, parsed.timezone),
                             escribir: deps.crearEscritor?.(token, who.uid, parsed.timezone, homeId),
-                            secretoConfirmacion: (deps.env("KITO_CONFIRM_SECRET") ?? "") || undefined,
+                            secretoConfirmacion: secretoDe((k) => deps.env(k)),
                         },
                         skills: deps.skills,
                         callModel: deps.callModel,

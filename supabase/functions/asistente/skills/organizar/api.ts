@@ -72,5 +72,10 @@ async (metodo, ruta, cuerpo = {}) => {
             body: JSON.stringify({ timezone: tz, ...cuerpo }),
         });
     }
-    return await respuesta(await manejador(req, token, uid));
+    try {
+        return await respuesta(await manejador(req, token, uid));
+    } catch {
+        // En proceso no hay capa superior que convierta la excepción en 500: se devuelve como fallo del api.
+        return { ok: false, status: 500, data: null };
+    }
 };

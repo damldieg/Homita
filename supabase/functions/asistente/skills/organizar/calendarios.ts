@@ -3,6 +3,7 @@
 // «De quién es» un calendario = con quién se comparte: crear_calendario pregunta con quién (o «solo yo»).
 // Se comparte por persona del hogar con `PATCH /calendar/user` (0029: agrega a la cuenta vinculada a esa
 // persona, sin email): la persona debe tener cuenta en Homita. Por defecto el permiso es solo lectura.
+import { fraseEdicion } from "./acciones.ts";
 import type { Tool } from "../../core.ts";
 import { personasDelHogar } from "../consulta/personas.ts";
 import {
@@ -105,7 +106,8 @@ const editarCalendario: Tool = herramienta({
             widget: Number(cur.widget) === 1 || cur.widget === true,
             dashboard: Number(cur.dashboard) === 1 || cur.dashboard === true,
         };
-        return despachar(ctx, { op: "editar_calendario", args, nombre: String(cur.name) });
+        const frase = fraseEdicion(`Edito el calendario «${cur.name}»`, [["nombre", cur.name, nombre], ["color", cur.color, color]]);
+        return despachar(ctx, { op: "editar_calendario", args, nombre: String(cur.name) }, { frase });
     },
 });
 

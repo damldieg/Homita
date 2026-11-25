@@ -1,4 +1,5 @@
 // Herramientas de listas de tareas: crear_lista, editar_lista, borrar_lista.
+import { fraseEdicion } from "./acciones.ts";
 import type { Tool } from "../../core.ts";
 import { despachar, entero, esquema, falta, filaPorId, herramienta, texto, YA_NO_EXISTE } from "./base.ts";
 import type { Obj } from "./base.ts";
@@ -54,7 +55,8 @@ const editarLista: Tool = herramienta({
             widget: Number(cur.widget) === 1 || cur.widget === true,
             dashboard: Number(cur.dashboard) === 1 || cur.dashboard === true,
         };
-        return despachar(ctx, { op: "editar_lista", args, nombre: String(cur.name) });
+        const frase = fraseEdicion(`Edito la lista «${cur.name}»`, [["nombre", cur.name, nombre], ["color", cur.color, color]]);
+        return despachar(ctx, { op: "editar_lista", args, nombre: String(cur.name) }, { frase });
     },
 });
 
