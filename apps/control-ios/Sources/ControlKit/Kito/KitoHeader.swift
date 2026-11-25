@@ -5,6 +5,14 @@ struct KitoHeader: View {
     let canClear: Bool
     let onClear: () -> Void
     let onClose: () -> Void
+    @AppStorage(KitoVoiceSettings.key) private var voiceModeRaw = KitoVoiceMode.standard.rawValue
+
+    private var voiceMode: Binding<KitoVoiceMode> {
+        Binding(
+            get: { KitoVoiceMode(rawValue: voiceModeRaw) ?? .standard },
+            set: { voiceModeRaw = $0.rawValue }
+        )
+    }
 
     var body: some View {
         HStack(spacing: Spacing.s3) {
@@ -20,6 +28,9 @@ struct KitoHeader: View {
             .accessibilityElement(children: .combine)
             Spacer(minLength: Spacing.s2)
             Menu {
+                Picker("Kito responde con voz", selection: voiceMode) {
+                    ForEach(KitoVoiceMode.allCases) { mode in Text(mode.title).tag(mode) }
+                }
                 Button(role: .destructive, action: onClear) {
                     Label("Borrar conversación", systemImage: "trash")
                 }
@@ -31,7 +42,7 @@ struct KitoHeader: View {
                     .frame(minWidth: 44, minHeight: 44)
             }
             .accessibilityLabel("Más opciones")
-            .accessibilityHint("Incluye borrar la conversación")
+            .accessibilityHint("Incluye borrar la conversación y elegir cuándo Kito responde con voz")
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 16, weight: .semibold))

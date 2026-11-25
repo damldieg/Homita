@@ -120,10 +120,15 @@ struct MainTabView: View {
 
     private func makeKito() {
         guard let userId = services.session.session?.id, let homeId = services.homeContext.activeHomeId else {
+            kito?.stopSpeaking()
             kito = nil
             return
         }
-        kito = KitoStore(api: services.kitoAPI, historyStore: services.kitoHistory, userId: userId, homeId: homeId)
+        kito?.stopSpeaking()
+        kito = KitoStore(
+            api: services.kitoAPI, historyStore: services.kitoHistory, userId: userId, homeId: homeId,
+            speaker: makeLiveKitoSpeaker()
+        )
     }
 
     var body: some View {

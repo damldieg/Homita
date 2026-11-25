@@ -48,6 +48,63 @@ final class KitoChatTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(KitoMessage.self, from: data), message)
     }
 
+    // MARK: - Origen (texto | voz)
+
+    private func decodeMessage(extra: String) throws -> KitoMessage {
+        let json = #"{"id":"\#(UUID().uuidString)","role":"user","text":"hola","date":0\#(extra)}"#
+        return try JSONDecoder().decode(KitoMessage.self, from: Data(json.utf8))
+    }
+
+    func testOriginDefaultsToTextWhenMissingOrNull() throws {
+        XCTAssertEqual(try decodeMessage(extra: "").origen, .texto)
+        XCTAssertEqual(try decodeMessage(extra: #","origen":null"#).origen, .texto)
+    }
+
+    func testOriginVoiceDecodes() throws {
+        XCTAssertEqual(try decodeMessage(extra: #","origen":"voz""#).origen, .voz)
+    }
+
+    func testUnknownOrWrongTypeOriginFallsBackToTextKeepingTheMessage() throws {
+        for extra in [#","origen":"telepatia""#, #","origen":7"#, #","origen":{"a":1}"#] {
+            let message = try decodeMessage(extra: extra)
+            XCTAssertEqual(message.origen, .texto)
+            XCTAssertEqual(message.text, "hola")
+            XCTAssertEqual(message.role, .user)
+        }
+    }
+
+    func testOriginSurvivesHistoryRoundTrip() throws {
+        let store = history()
+        let messages = [KitoMessage(role: .user, text: "dictado", origen: .voz), KitoMessage(role: .user, text: "escrito")]
+        try store.save(messages, userId: 1, homeId: "7")
+        XCTAssertEqual(store.load(userId: 1, homeId: "7").map(\.origen), [.voz, .texto])
+    }
+
+    func testOldHistoryWithUnknownOriginDoesNotLoseMessages() throws {
+        let store = history()
+        try store.save([KitoMessage(role: .user, text: "semilla")], userId: 1, homeId: "7")
+        let json = #"[{"id":"\#(UUID().uuidString)","role":"user","text":"a","date":0},{"id":"\#(UUID().uuidString)","role":"user","text":"b","date":0,"origen":"x"}]"#
+        try Data(json.utf8).write(to: store.fileURL(userId: 1, homeId: "7"))
+        XCTAssertEqual(store.load(userId: 1, homeId: "7").map(\.text), ["a", "b"])
+    }
+
+    @MainActor
+    func testSendKeepsTheOriginOnTheUserMessageAndDefaultsToText() async throws {
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: #"{"texto":"ok"}"#) }
+        let store = makeStore()
+        await store.send("dictado", origen: .voz)
+        await store.send("escrito")
+        XCTAssertEqual(store.messages.filter { $0.role == .user }.map(\.origen), [.voz, .texto])
+        XCTAssertEqual(history().load(userId: 1, homeId: "7").filter { $0.role == .user }.map(\.origen), [.voz, .texto])
+    }
+
+    func testRequestToServerDoesNotCarryTheOrigin() throws {
+        let request = KitoAPIRequest.make(history: [KitoMessage(role: .user, text: "hola", origen: .voz)], timezone: "UTC")
+        let json = String(data: try JSONEncoder().encode(request), encoding: .utf8) ?? ""
+        XCTAssertFalse(json.contains("origen"))
+        XCTAssertFalse(json.contains("voz"))
+    }
+
     // MARK: - Textos de error
 
     func testErrorCopyPerCode() {

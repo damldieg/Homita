@@ -26,6 +26,11 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Dictado de Kito: se piden la primera vez que se pulsa el micro del chat. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Homita usa el micrófono para que puedas dictarle tus mensajes a Kito.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Homita usa el reconocimiento de voz para convertir en texto lo que le dictas a Kito.</string>
 	<!-- Live Activity de rutinas en la pantalla de bloqueo (sin push: se inicia desde la app). -->
 	<key>NSSupportsLiveActivities</key>
 	<true/>

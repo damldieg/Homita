@@ -6,6 +6,12 @@ public enum KitoRole: String, Codable, Sendable {
     case assistant
 }
 
+/// Cómo se creó un mensaje del usuario: escrito con el teclado o dictado por voz.
+public enum KitoOrigen: String, Codable, Sendable {
+    case texto
+    case voz
+}
+
 /// Mensaje del chat. El historial vive solo en el móvil (`KitoHistoryStore`); el servidor no lo guarda.
 public struct KitoMessage: Codable, Equatable, Identifiable, Sendable {
     public let id: UUID
@@ -14,16 +20,26 @@ public struct KitoMessage: Codable, Equatable, Identifiable, Sendable {
     public let date: Date
     /// Tarjetas de la respuesta. `nil` en el historial antiguo, que no las guardaba.
     public let cards: [KitoCard]?
+    /// Cómo se creó. En el historial antiguo (sin el campo) y ante un valor desconocido es `.texto`.
+    public let origen: KitoOrigen
 
-    public init(id: UUID = UUID(), role: KitoRole, text: String, date: Date = Date(), cards: [KitoCard]? = nil) {
+    public init(
+        id: UUID = UUID(),
+        role: KitoRole,
+        text: String,
+        date: Date = Date(),
+        cards: [KitoCard]? = nil,
+        origen: KitoOrigen = .texto
+    ) {
         self.id = id
         self.role = role
         self.text = text
         self.date = date
         self.cards = cards
+        self.origen = origen
     }
 
-    private enum CodingKeys: String, CodingKey { case id, role, text, date, cards }
+    private enum CodingKeys: String, CodingKey { case id, role, text, date, cards, origen }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -32,6 +48,8 @@ public struct KitoMessage: Codable, Equatable, Identifiable, Sendable {
         text = try c.decode(String.self, forKey: .text)
         date = try c.decode(Date.self, forKey: .date)
         cards = try c.decodeIfPresent([KitoCard].self, forKey: .cards)
+        // Tolerante: un `origen` ausente, nulo o desconocido no debe tirar todo el historial.
+        origen = (try? c.decodeIfPresent(KitoOrigen.self, forKey: .origen)) ?? .texto
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -41,6 +59,7 @@ public struct KitoMessage: Codable, Equatable, Identifiable, Sendable {
         try c.encode(text, forKey: .text)
         try c.encode(date, forKey: .date)
         try c.encodeIfPresent(cards, forKey: .cards)
+        try c.encode(origen, forKey: .origen)
     }
 }
 
