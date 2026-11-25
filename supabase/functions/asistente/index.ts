@@ -2,13 +2,15 @@
 // Se despliega con --no-verify-jwt (auth manual, como `api`): el Bearer del usuario se verifica en handler.ts.
 // Secretos: ANTHROPIC_API_KEY (obligatorio; sin él la función falla cerrada) y KITO_MODEL (por defecto
 // claude-haiku-5-5), KITO_EFFORT (opcional: low | medium | high; por defecto low) y, si una skill declara
-// `modelo`, el secreto que nombre. No usa CLAUDE_MODEL, que es del feedback.
+// `modelo`, el secreto que nombre. KITO_CONFIRM_SECRET (opcional) firma las confirmaciones de la skill
+// `organizar`: sin él, los borrados quedan desactivados. No usa CLAUDE_MODEL, que es del feedback.
 import { resolverEffort } from "./core.ts";
 import { crearCallModel } from "./modelo.ts";
 import { createHandler } from "./handler.ts";
 import type { UsageDb, UsoResultado } from "./handler.ts";
 import { SKILLS } from "./skills/registry.ts";
 import { crearLector } from "./skills/consulta/api.ts";
+import { crearEscritor } from "./skills/organizar/api.ts";
 import { appUserRow, verifyUser } from "../api/_shared/supabase.ts";
 import { checkHomeMember, runWithHome } from "../api/_shared/home.ts";
 
@@ -68,6 +70,7 @@ Deno.serve(createHandler({
         return Promise.resolve(n);
     },
     crearLector,
+    crearEscritor,
     checkHomeMember,
     runInHome: (homeId, fn) => runWithHome(homeId, fn),
     usage,

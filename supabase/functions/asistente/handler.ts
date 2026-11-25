@@ -10,7 +10,7 @@
 //   9. Tokens sumados (assistant_record_usage) → 200 {texto, tarjetas, cambios, uso}. Un `refusal` del modelo devuelve el mensaje.
 // Logs: solo operación y estado; nunca texto de usuario, tokens de sesión ni cabeceras.
 
-import { CallModel, Leer, ModelError, MAX_CHARS, MAX_HISTORY, Mensaje, runKito, Skill, Tokens } from "./core.ts";
+import { CallModel, Escribir, Leer, ModelError, MAX_CHARS, MAX_HISTORY, Mensaje, runKito, Skill, Tokens } from "./core.ts";
 
 export interface UsoResultado {
     allowed: boolean;
@@ -33,6 +33,8 @@ export interface HandlerDeps {
     appUserNombre?(uid: string, token: string): Promise<string | null>;
     /** Crea el lector del api para esta petición; sin él, las herramientas de datos no funcionan. */
     crearLector?(token: string, uid: string, timezone: string): Leer;
+    /** Crea el escritor del api (skill `organizar`); sin él, las herramientas de escritura no funcionan. */
+    crearEscritor?(token: string, uid: string, timezone: string, homeId: string): Escribir;
     checkHomeMember(homeId: string, token: string): Promise<boolean>;
     /** Ejecuta fn con el hogar activo en el contexto (null = sin hogar). */
     runInHome<T>(homeId: string | null, fn: () => Promise<T>): Promise<T>;
@@ -148,6 +150,8 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
                         ctx: {
                             token, uid: who.uid, homeId, timezone: parsed.timezone, now: deps.now(),
                             appUserId, nombreUsuario, leer: deps.crearLector?.(token, who.uid, parsed.timezone),
+                            escribir: deps.crearEscritor?.(token, who.uid, parsed.timezone, homeId),
+                            secretoConfirmacion: (deps.env("KITO_CONFIRM_SECRET") ?? "") || undefined,
                         },
                         skills: deps.skills,
                         callModel: deps.callModel,
