@@ -10,7 +10,7 @@
 - Defensa ante prompt injection como en `procesar-feedback`: instrucciones en `system`, datos de la
   app en bloques JSON escapados, ids validados contra lo que devolvieron las herramientas.
 - Historial: lo guarda la app y lo manda en cada petición (máx. 20 mensajes); el servidor no lo guarda.
-- Límite: migración `0035_assistant_usage.sql` (tabla `assistant_usage(app_user_id, day, count)` con
+- Límite: migración `0036_assistant_usage.sql` (la 0035 es `0035_client_request_idempotency.sql`, la idempotencia de altas) (tabla `assistant_usage(app_user_id, day, count)` con
   RLS y RPC `assistant_consume(p_timezone)` que suma 1 y devuelve si cabe; tope 50) + rollback + check
   SQL. Se consume antes de llamar al modelo. Tras responder se suman los tokens de entrada, salida y
   caché de `usage` (columnas `input_tokens`, `output_tokens`, `cache_read_tokens`) para medir el coste real
@@ -53,7 +53,7 @@ viejas de la app.
 Alexa será otro adaptador de entrada sobre el mismo núcleo y las mismas skills.
 
 ## Fase 1: consulta por texto
-1. Migración 0035 + rollback + check SQL del límite.
+1. Migración 0036 (`assistant_usage`) + rollback + check SQL del límite.
 2. `supabase/functions/asistente`: `index.ts` (cableado), `handler.ts` (auth, límite, validación,
    bucle con topes: 2000 caracteres por mensaje, 6 vueltas de tools), `tools.ts` (solo lectura:
    `ver_eventos`, `ver_rutinas`, `ver_listas`, `ver_tareas`, `ver_personas`, `fecha_actual`).

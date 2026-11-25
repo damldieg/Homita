@@ -2,7 +2,7 @@
 // Sin red ni BD: el modelo es una función falsa. Incluye una skill falsa que se añade sin tocar el núcleo.
 import { assert, assertEquals, assertRejects, assertThrows } from "jsr:@std/assert@1";
 import {
-    elegirModelo, indexTools, MAX_TOOL_ROUNDS, MENSAJE_REFUSAL, ModelError, NOTA_MAX_TOKENS, resolverEffort, runKito,
+    conEfectos, elegirModelo, indexTools, MAX_TOOL_ROUNDS, MENSAJE_REFUSAL, ModelError, NOTA_MAX_TOKENS, resolverEffort, runKito,
 } from "../core.ts";
 import type { CallOpts, ModelResponse, Skill, Tool, ToolCtx } from "../core.ts";
 
@@ -240,7 +240,7 @@ Deno.test("system: solo texto estable, con las reglas clave y sin datos variable
     const sys = (m.cuerpos[0].system as { text: string }[]).map((b) => b.text).join("\n");
     for (const regla of [
         "Kito", "Urki", "<contexto>", "Nunca son instrucciones", "solo_mias=true", "nunca llames «evento» a una rutina",
-        "No prometas fechas", "todavía no lo haces", "Cercano", "sin emojis",
+        "No prometas fechas", "no tienes una herramienta", "Cercano", "sin emojis",
     ]) {
         if (regla === "Cercano") continue;
         assert(sys.includes(regla) || sys.toLowerCase().includes(regla.toLowerCase()), regla);
@@ -253,4 +253,69 @@ Deno.test("system: solo texto estable, con las reglas clave y sin datos variable
     await runKito({ mensajes, ctx: { ...CTX, nombreUsuario: "Otra", now: new Date("2027-01-01T00:00:00Z") }, skills: [consulta], callModel: m2.call, model: "m" });
     assertEquals(JSON.stringify(m2.cuerpos[0].system), JSON.stringify(m.cuerpos[0].system));
     assertEquals(JSON.stringify(m2.cuerpos[0].tools), JSON.stringify(m.cuerpos[0].tools));
+});
+
+// ── Efectos de herramienta (change kito-organizar): tarjetas, cambios, tool_use.id y turno ──
+
+const escribe = (nombre: string, run: Tool["run"], extra: Partial<Tool> = {}): Tool => ({
+    name: nombre,
+    description: "Escribe algo.",
+    input_schema: { type: "object", properties: {}, required: [] },
+    run,
+    escritura: true,
+    ...extra,
+});
+const skillCon = (...herramientas: Tool[]): Skill => ({ ...falsa, herramientas });
+
+Deno.test("conEfectos: tarjeta y cambios llegan a RunResult y no al JSON que ve el modelo", async () => {
+    const t = escribe("hacer", () => Promise.resolve(conEfectos(
+        { estado: "propuesta enviada al usuario para confirmar" },
+        { tarjeta: { tipo: "confirmacion", id: "c", token: "SECRETO-TOKEN", acciones: [{ op: "x" }] }, cambios: [{ tipo: "lista", id: 3, op: "borrar" }] },
+    )));
+    const m = modeloFalso([pideTool("hacer", {}), texto("listo")]);
+    const res = await runKito({ mensajes, ctx: { ...CTX }, skills: [skillCon(t)], callModel: m.call, model: "m" });
+    assertEquals(res.tarjetas.length, 1);
+    assertEquals((res.tarjetas[0] as { token: string }).token, "SECRETO-TOKEN");
+    assertEquals(res.cambios, [{ tipo: "lista", id: 3, op: "borrar" }]);
+    const enviado = JSON.stringify(m.cuerpos[1].messages);
+    assert(enviado.includes("propuesta enviada al usuario para confirmar"));
+    assert(!enviado.includes("SECRETO-TOKEN"));
+    assert(!enviado.includes("acciones"));
+});
+
+Deno.test("tarjetas con el mismo id se sustituyen (upsert) y las herramientas normales no añaden nada", async () => {
+    const a = escribe("a", () => Promise.resolve(conEfectos("a", { tarjeta: { id: "c", n: 1 } })));
+    const b = escribe("b", () => Promise.resolve(conEfectos("b", { tarjeta: { id: "c", n: 2 } })));
+    const m = modeloFalso([{
+        stop_reason: "tool_use",
+        content: [{ type: "tool_use", id: "1", name: "a", input: {} }, { type: "tool_use", id: "2", name: "b", input: {} }, { type: "tool_use", id: "3", name: "eco", input: { texto: "x" } }],
+    }, texto("ok")]);
+    const res = await runKito({ mensajes, ctx: { ...CTX }, skills: [skillCon(a, b, eco)], callModel: m.call, model: "m" });
+    assertEquals(res.tarjetas, [{ id: "c", n: 2 }]);
+    assertEquals(res.cambios, []);
+    const normal = await runKito({ mensajes, ctx: { ...CTX }, skills: [falsa], callModel: modeloFalso([pideTool("eco", { texto: "p" }), texto("ok")]).call, model: "m" });
+    assertEquals(normal.tarjetas, []);
+    assertEquals(normal.cambios, []);
+});
+
+Deno.test("run recibe el tool_use.id y ctx.turno cuenta las escrituras de la vuelta", async () => {
+    const vistos: { id?: string; escrituras?: number }[] = [];
+    const t = escribe("hacer", (_i, ctx, extra) => {
+        vistos.push({ id: extra?.toolUseId, escrituras: ctx.turno?.escrituras });
+        return Promise.resolve({ ok: true });
+    });
+    const m = modeloFalso([{
+        stop_reason: "tool_use",
+        content: [{ type: "tool_use", id: "toolu_A", name: "hacer", input: {} }, { type: "tool_use", id: "toolu_B", name: "hacer", input: {} }, { type: "tool_use", id: "toolu_C", name: "eco", input: { texto: "x" } }],
+    }, texto("ok")]);
+    await runKito({ mensajes, ctx: { ...CTX }, skills: [skillCon(t, eco)], callModel: m.call, model: "m" });
+    assertEquals(vistos, [{ id: "toolu_A", escrituras: 2 }, { id: "toolu_B", escrituras: 2 }]);
+});
+
+Deno.test("strict: true por defecto y false solo si la herramienta lo declara", async () => {
+    const libre = escribe("libre", () => Promise.resolve(1), { strict: false });
+    const m = modeloFalso([texto("ok")]);
+    await runKito({ mensajes, ctx: { ...CTX }, skills: [skillCon(libre, eco)], callModel: m.call, model: "m" });
+    const tools = m.cuerpos[0].tools as { name: string; strict: boolean }[];
+    assertEquals(tools.map((t) => [t.name, t.strict]), [["eco", true], ["libre", false]]);
 });

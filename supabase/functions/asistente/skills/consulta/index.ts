@@ -274,7 +274,7 @@ Cuando el usuario diga «mis…», «lo mío» o «lo que tengo yo», usa solo_m
 
 Si dos listas o calendarios encajan con lo que pide, pregunta cuál quiere nombrando las opciones. Si no hay resultados, dilo y sugiere otra búsqueda (otro día, otro calendario, otra lista). Si la herramienta indica que hay más resultados (hay_mas), cuenta los que has visto y ofrécete a acotar. Las tareas se piden pendientes por defecto; usa estado, vencidas o prioridad cuando la pregunta lo pida.
 
-Si te piden crear, cambiar o borrar algo (una lista, un evento, una tarea…), no lo haces tú todavía: llama a guia_app con el tema y dile dónde se hace en la app con lo que devuelva (pantalla y botón), sin inventar pasos.`,
+Crear, cambiar o borrar cosas lo hace la skill «organizar» con sus herramientas, no esta. Si te preguntan cómo se hace algo en la app (pantalla y botón), llama a guia_app con el tema y responde con lo que devuelva, sin inventar pasos.`,
     herramientas: [verEventos, verRutinas, verTareas, verCalendarios, verListas, verPersonas],
     tarjetas: [],
     disponible: () => true,
