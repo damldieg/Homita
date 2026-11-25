@@ -86,7 +86,7 @@ struct KitoChatView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 dictation.recheckIfDenied()
-            } else {
+            } else if KitoChatLifecycle.shouldStopAudio(for: phase) {
                 dictation.cancel()
                 store.stopSpeaking()
             }
@@ -143,4 +143,11 @@ struct KitoChatView: View {
     private func send(_ text: String) {
         Task { await store.send(text) }
     }
+}
+
+/// Cuándo se corta el audio del chat por el ciclo de vida de la escena.
+enum KitoChatLifecycle {
+    /// Solo en segundo plano. `.inactive` ocurre también con los diálogos de permiso del sistema,
+    /// el centro de control o las notificaciones, y cancelarlo abortaría el primer dictado.
+    static func shouldStopAudio(for phase: ScenePhase) -> Bool { phase == .background }
 }

@@ -27,7 +27,7 @@ public enum KitoSpeechText {
         return lines.joined(separator: " ")
     }
 
-    /// «09:30» → «9 y 30»; «09:00» → «9 en punto». Fuera de 00:00–23:59 se deja como está.
+    /// «09:30» → «9 y 30»; «09:00» → «9 en punto»; «21:15» → «9 y 15 de la noche». Fuera de 00:00–23:59 se deja como está.
     private static func spokenTimes(_ text: String) -> String {
         guard let regex = try? NSRegularExpression(pattern: #"(?<![\d:])(\d{1,2}):(\d{2})(?![\d:])"#) else { return text }
         var result = text
@@ -36,9 +36,22 @@ public enum KitoSpeechText {
             guard let whole = Range(match.range, in: result),
                   let hr = Range(match.range(at: 1), in: text), let mr = Range(match.range(at: 2), in: text),
                   let hour = Int(text[hr]), let minute = Int(text[mr]), hour < 24, minute < 60 else { continue }
-            result.replaceSubrange(whole, with: minute == 0 ? "\(hour) en punto" : "\(hour) y \(minute)")
+            let (spoken, period) = spokenHour(hour)
+            let base = minute == 0 ? "\(spoken) en punto" : "\(spoken) y \(minute)"
+            result.replaceSubrange(whole, with: period.map { "\(base) \($0)" } ?? base)
         }
         return result
+    }
+
+    /// Hora en formato de 12 h con su momento del día: 0 → «12» de la madrugada, 13–23 → 1–11 de la tarde/noche.
+    /// De 1 a 12 se deja tal cual (sin sufijo), como en «09:30» → «9 y 30».
+    private static func spokenHour(_ hour: Int) -> (Int, String?) {
+        switch hour {
+        case 0: return (12, "de la madrugada")
+        case 1...12: return (hour, nil)
+        case 13...19: return (hour - 12, "de la tarde")
+        default: return (hour - 12, "de la noche")
+        }
     }
 
     private static func removeEmoji(_ text: String) -> String {

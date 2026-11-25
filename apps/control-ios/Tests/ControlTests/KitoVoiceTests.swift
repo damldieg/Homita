@@ -1,3 +1,4 @@
+import SwiftUI
 import XCTest
 @testable import ControlKit
 
@@ -334,6 +335,12 @@ final class KitoVoiceTests: XCTestCase {
 
     // MARK: - Limpieza para voz
 
+    func testOnlyBackgroundStopsAudio() {
+        XCTAssertTrue(KitoChatLifecycle.shouldStopAudio(for: .background))
+        XCTAssertFalse(KitoChatLifecycle.shouldStopAudio(for: .inactive))
+        XCTAssertFalse(KitoChatLifecycle.shouldStopAudio(for: .active))
+    }
+
     func testCleanSpeechTextTable() {
         let cases: [(String, String)] = [
             ("", ""),
@@ -349,7 +356,12 @@ final class KitoVoiceTests: XCTestCase {
             ("Abre [el calendario](https://example.com/cal) hoy", "Abre el calendario hoy."),
             ("A las 09:30 hay cole", "A las 9 y 30 hay cole."),
             ("Cena a las 09:00", "Cena a las 9 en punto."),
-            ("Vuelo 23:05", "Vuelo 23 y 5."),
+            ("Vuelo 23:05", "Vuelo 11 y 5 de la noche."),
+            ("Cena 21:15", "Cena 9 y 15 de la noche."),
+            ("Salida 13:05", "Salida 1 y 5 de la tarde."),
+            ("Turno 00:30", "Turno 12 y 30 de la madrugada."),
+            ("Turno 00:00", "Turno 12 en punto de la madrugada."),
+            ("Comida 12:00", "Comida 12 en punto."),
             ("Hora rara 27:99", "Hora rara 27:99."),
             ("Línea uno\n\n\nLínea dos", "Línea uno. Línea dos."),
             ("snake_case y 3 * 4", "snake_case y 3 4."),
