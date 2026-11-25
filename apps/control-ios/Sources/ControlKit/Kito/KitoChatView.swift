@@ -34,7 +34,12 @@ struct KitoChatView: View {
                             if startsNewDay(index) {
                                 dayLabel(message.date)
                             }
-                            KitoMessageBubble(message: message, isLastInGroup: isLastInGroup(index))
+                            KitoMessageBubble(
+                                message: message,
+                                isLastInGroup: isLastInGroup(index),
+                                onToggleSpeech: store.canSpeak ? { store.toggleSpeech(for: message) } : nil,
+                                isSpeaking: store.speakingId == message.id
+                            )
                                 .padding(.top, startsGroup(index) ? Spacing.s2 : 0)
                                 .transition(entryTransition)
                                 .id(message.id)
@@ -69,12 +74,22 @@ struct KitoChatView: View {
         .background(Palette.background.ignoresSafeArea())
         .onChange(of: store.messages.last?.id) { _, _ in lightHaptic() }
         .onAppear {
+            store.chatDidOpen()
+            dictation.onStart = { store.dictationDidStart() }
             dictation.onFinish = { text in Task { await store.send(text, origen: .voz) } }
             dictation.recheckIfDenied()
         }
-        .onDisappear { dictation.cancel() }
+        .onDisappear {
+            dictation.cancel()
+            store.chatDidClose()
+        }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { dictation.recheckIfDenied() } else { dictation.cancel() }
+            if phase == .active {
+                dictation.recheckIfDenied()
+            } else {
+                dictation.cancel()
+                store.stopSpeaking()
+            }
         }
         .confirmationDialog("¿Borrar la conversación?", isPresented: $confirmingClear, titleVisibility: .visible) {
             Button("Borrar conversación", role: .destructive) { store.clearConversation() }

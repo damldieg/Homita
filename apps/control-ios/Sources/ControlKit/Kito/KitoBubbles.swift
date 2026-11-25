@@ -28,6 +28,9 @@ private struct KitoAvatarSlot: View {
 struct KitoMessageBubble: View {
     let message: KitoMessage
     let isLastInGroup: Bool
+    /// Altavoz de la respuesta: `nil` si no hay voz disponible.
+    var onToggleSpeech: (() -> Void)?
+    var isSpeaking = false
 
     private var isUser: Bool { message.role == .user }
 
@@ -64,6 +67,19 @@ struct KitoMessageBubble: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(isUser ? "Tú" : "Kito"), \(spokenTime): \(String(KitoMarkdown.attributed(message.text).characters))")
+            // Fuera del `.combine` de la burbuja: elemento propio para VoiceOver.
+            if !isUser, let onToggleSpeech {
+                Button(action: onToggleSpeech) {
+                    Image(systemName: isSpeaking ? "stop.circle.fill" : "speaker.wave.2")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(isSpeaking ? Palette.accent : Palette.inkSoft)
+                        .frame(minWidth: 44, minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, 28 + Spacing.s2 - 8)
+                .padding(.top, -Spacing.s2)
+                .accessibilityLabel(isSpeaking ? "Parar" : "Escuchar respuesta")
+            }
             if let cards = message.cards, !cards.isEmpty {
                 KitoCardRenderer(cards: cards)
                     .padding(.leading, 28 + Spacing.s2)
