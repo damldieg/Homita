@@ -159,3 +159,25 @@ export const detalle = async (ctx: ToolCtx, ruta: string, id: number): Promise<O
     if (esNoExiste(r.status, r.error)) return null;
     throw new Error(traducir(r.status, r.error));
 };
+
+/**
+ * Elemento de destino (lista, calendario) de un alta: el indicado o, si solo hay uno donde se pueda escribir,
+ * ese. Con varios y sin indicar, `falta` lleva las opciones para preguntar al usuario.
+ */
+export const resolverDestino = async (
+    ctx: ToolCtx,
+    ruta: string,
+    singular: string,
+    id: number | undefined,
+): Promise<{ id: number; nombre: string } | { falta: Obj } | { error: string }> => {
+    const todas = await filas(ctx.leer, ruta);
+    if (todas === null) return { error: `No he podido leer tus ${singular}s ahora mismo.` };
+    if (id !== undefined) {
+        const x = todas.find((f) => Number(f.id) === id);
+        return x ? { id, nombre: String(x.name) } : { error: "Ya no existe." };
+    }
+    const editables = todas.filter((f) => f.can_edit !== false);
+    if (editables.length === 0) return { error: `No tienes ningún ${singular} donde puedas escribir.` };
+    if (editables.length === 1) return { id: Number(editables[0].id), nombre: String(editables[0].name) };
+    return { falta: falta([singular], { opciones: editables.map((f) => ({ id: f.id, nombre: f.name })) }) };
+};
