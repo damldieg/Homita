@@ -40,9 +40,14 @@ Deno.test("hayIntencion: palabras clave sin acentos ni mayúsculas; «semana» s
     for (const t of [
         "Proponme el menú de la semana", "MENU semanal", "qué hacemos de comer? ideas de comidas", "las cenas de esta semana",
         "almuerzos para el lunes", "dame las recetas de la semana", "Menús",
+        // rangos
+        "planifica desde esta noche hasta el viernes a mediodía", "Desde el lunes por la noche hasta el viernes a mediodia",
+        "organiza de esta noche a mediodía hasta el jueves a mediodía", "organiza qué cenar desde esta noche hasta el domingo por la noche",
     ]) assert(hay(t), t);
     for (const t of [
         "qué tengo esta semana", "crea una tarea para el viernes", "añade un evento mañana", "menudo día", "comidilla", "",
+        // «desde», «hasta» y «esta noche» sueltos no son menú
+        "eventos desde el lunes hasta el viernes", "recuérdame esta noche que llame a mamá", "tareas hasta el viernes a mediodía",
     ]) assert(!hay(t), t);
 });
 
