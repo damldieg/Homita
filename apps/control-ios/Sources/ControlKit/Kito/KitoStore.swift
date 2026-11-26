@@ -10,6 +10,8 @@ import UIKit
 @Observable
 public final class KitoStore {
     public private(set) var messages: [KitoMessage]
+    /// Lo que se pinta: sin los resultados de confirmación (que solo viven en el historial).
+    public var visibleMessages: [KitoMessage] { messages.filter { !$0.oculto } }
     public private(set) var isSending = false
     public private(set) var failure: KitoFailure?
     /// Último cupo diario que informó la Edge (solo en memoria).
@@ -192,10 +194,10 @@ public final class KitoStore {
         let old = messages[found.messageIndex]
         var cards = old.cards ?? []
         cards[index] = KitoConfirmation.card(cards[index], estado: estado, detalle: detalle)
-        messages[found.messageIndex] = KitoMessage(id: old.id, role: old.role, text: old.text, date: old.date, cards: cards, origen: old.origen)
+        messages[found.messageIndex] = KitoMessage(id: old.id, role: old.role, text: old.text, date: old.date, cards: cards, origen: old.origen, oculto: old.oculto)
         if answer {
             let text = estado.historyText(detalle: detalle)
-            if !text.isEmpty { messages.append(KitoMessage(role: .assistant, text: text)) }
+            if !text.isEmpty { messages.append(KitoMessage(role: .assistant, text: text, oculto: true)) }
         }
         persist()
     }
@@ -237,7 +239,7 @@ public final class KitoStore {
             }
             guard newCards != cards else { return message }
             changed = true
-            return KitoMessage(id: message.id, role: message.role, text: message.text, date: message.date, cards: newCards, origen: message.origen)
+            return KitoMessage(id: message.id, role: message.role, text: message.text, date: message.date, cards: newCards, origen: message.origen, oculto: message.oculto)
         }
         return (out, changed)
     }

@@ -137,6 +137,11 @@ public struct KitoConfirmation: Equatable, Sendable {
     /// La misma tarjeta con otro estado (y detalle opcional). El resto de claves no cambian.
     public static func card(_ card: KitoCard, estado: KitoConfirmationState, detalle: String? = nil) -> KitoCard {
         var datos = card.datos
+        // Resuelta: el token (reusable hasta caducar) y las acciones no hacen falta para mostrarla.
+        if estado.isResolved {
+            datos["token"] = nil
+            datos["acciones"] = nil
+        }
         datos["estado"] = .string(estado.rawValue)
         if let detalle, !detalle.isEmpty { datos["detalle"] = .string(detalle) } else { datos["detalle"] = nil }
         return KitoCard(tipo: card.tipo, datos: datos)
@@ -144,11 +149,19 @@ public struct KitoConfirmation: Equatable, Sendable {
 
     /// ISO 8601 con o sin fracciones de segundo; cualquier otra cosa es `nil`.
     public static func parseExpiry(_ raw: String) -> Date? {
-        let withFraction = ISO8601DateFormatter()
-        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = withFraction.date(from: raw) { return d }
-        let plain = ISO8601DateFormatter()
-        plain.formatOptions = [.withInternetDateTime]
-        return plain.date(from: raw)
+        if let d = withFractionFormatter.date(from: raw) { return d }
+        return plainFormatter.date(from: raw)
     }
+
+    private nonisolated(unsafe) static let withFractionFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private nonisolated(unsafe) static let plainFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
 }

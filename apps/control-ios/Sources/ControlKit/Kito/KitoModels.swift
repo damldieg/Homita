@@ -22,6 +22,9 @@ public struct KitoMessage: Codable, Equatable, Identifiable, Sendable {
     public let cards: [KitoCard]?
     /// Cómo se creó. En el historial antiguo (sin el campo) y ante un valor desconocido es `.texto`.
     public let origen: KitoOrigen
+    /// Resultado de una confirmación: se guarda y se envía al modelo, pero no se pinta como burbuja
+    /// (la tarjeta resuelta es la única vista). Ausente en el historial antiguo: `false`.
+    public let oculto: Bool
 
     public init(
         id: UUID = UUID(),
@@ -29,7 +32,8 @@ public struct KitoMessage: Codable, Equatable, Identifiable, Sendable {
         text: String,
         date: Date = Date(),
         cards: [KitoCard]? = nil,
-        origen: KitoOrigen = .texto
+        origen: KitoOrigen = .texto,
+        oculto: Bool = false
     ) {
         self.id = id
         self.role = role
@@ -37,9 +41,10 @@ public struct KitoMessage: Codable, Equatable, Identifiable, Sendable {
         self.date = date
         self.cards = cards
         self.origen = origen
+        self.oculto = oculto
     }
 
-    private enum CodingKeys: String, CodingKey { case id, role, text, date, cards, origen }
+    private enum CodingKeys: String, CodingKey { case id, role, text, date, cards, origen, oculto }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -50,6 +55,7 @@ public struct KitoMessage: Codable, Equatable, Identifiable, Sendable {
         cards = try c.decodeIfPresent([KitoCard].self, forKey: .cards)
         // Tolerante: un `origen` ausente, nulo o desconocido no debe tirar todo el historial.
         origen = (try? c.decodeIfPresent(KitoOrigen.self, forKey: .origen)) ?? .texto
+        oculto = (try? c.decodeIfPresent(Bool.self, forKey: .oculto)) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -60,6 +66,7 @@ public struct KitoMessage: Codable, Equatable, Identifiable, Sendable {
         try c.encode(date, forKey: .date)
         try c.encodeIfPresent(cards, forKey: .cards)
         try c.encode(origen, forKey: .origen)
+        if oculto { try c.encode(oculto, forKey: .oculto) }
     }
 }
 

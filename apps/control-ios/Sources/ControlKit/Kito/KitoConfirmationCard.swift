@@ -22,13 +22,10 @@ struct KitoConfirmationPresentation: Equatable {
     /// Resultado visible (sin botones).
     var resolvedLabel: String? { showsButtons ? nil : estado.label }
 
-    /// Texto breve de la propuesta para las etiquetas de los botones.
-    var shortText: String {
-        let t = texto.trimmingCharacters(in: .whitespacesAndNewlines)
-        return t.count > 60 ? String(t.prefix(60)) + "…" : t
-    }
+    /// Texto completo de la propuesta para las etiquetas (VoiceOver lo lee entero).
+    var fullText: String { texto.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    var confirmAccessibilityLabel: String { "Confirmar: \(shortText)" }
+    var confirmAccessibilityLabel: String { "Confirmar: \(fullText)" }
     var cancelAccessibilityLabel: String { "Cancelar" }
 
     /// Etiqueta de VoiceOver de la tarjeta entera; el estado resuelto se lee al final.
@@ -40,6 +37,11 @@ struct KitoConfirmationPresentation: Equatable {
             if let detalle, estado != .caducado { out += ". \(detalle)" }
         }
         return out
+    }
+
+    /// Etiqueta del texto de la propuesta pendiente (elemento propio, antes de los botones).
+    var proposalAccessibilityLabel: String {
+        estado == .enviando ? "Kito pide confirmación: \(fullText). Enviando" : "Kito pide confirmación: \(fullText)"
     }
 
     /// Anuncio al pasar a un estado resuelto (nil si no es resuelto).
@@ -65,7 +67,8 @@ struct KitoConfirmationCard: View {
                 .font(HomitaFont.inter(14))
                 .foregroundStyle(Palette.ink)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityHidden(true)
+                .accessibilityLabel(model.showsButtons ? model.proposalAccessibilityLabel : "")
+                .accessibilityHidden(!model.showsButtons)
             if model.showsButtons {
                 HStack(spacing: Spacing.s2) {
                     HomitaButton(title: "Confirmar", kind: .destructiveOutline, isEnabled: model.buttonsEnabled, isLoading: model.confirmIsLoading, action: onConfirm)
@@ -91,14 +94,26 @@ struct KitoConfirmationCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Radius.md).fill(Palette.surface))
         .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Palette.line, lineWidth: 1))
-        // Con botones, el contenedor se agrupa sin esconderlos; resuelta, es un único elemento de lectura.
-        .accessibilityElement(children: model.showsButtons ? .contain : .ignore)
-        .accessibilityLabel(model.accessibilityLabel)
+        .modifier(ResolvedAccessibility(enabled: !model.showsButtons, label: model.accessibilityLabel))
         .onAppear(perform: onAppear)
         .onChange(of: confirmation.estado) { _, _ in
             #if canImport(UIKit)
             if let text = model.announcement { UIAccessibility.post(notification: .announcement, argument: text) }
             #endif
+        }
+    }
+}
+
+/// Resuelta, la tarjeta es un único elemento de lectura; pendiente, el texto y los botones se leen por separado.
+private struct ResolvedAccessibility: ViewModifier {
+    let enabled: Bool
+    let label: String
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.accessibilityElement(children: .ignore).accessibilityLabel(label)
+        } else {
+            content
         }
     }
 }

@@ -102,6 +102,15 @@ final class KitoConfirmStoreTests: XCTestCase {
         let last = try XCTUnwrap(store.messages.last)
         XCTAssertEqual(last.role, .assistant)
         XCTAssertEqual(last.text, "Hecho: Lista borrada")
+        // Se guarda (también en disco) pero no se pinta como burbuja.
+        XCTAssertTrue(last.oculto)
+        XCTAssertTrue(history().load(userId: 1, homeId: "7").last?.oculto == true)
+        XCTAssertEqual(store.visibleMessages.count, store.messages.count - 1)
+        XCTAssertFalse(store.visibleMessages.contains { $0.text == "Hecho: Lista borrada" })
+        // Token y acciones ya no están en el historial en disco.
+        let disk = try XCTUnwrap(history().load(userId: 1, homeId: "7").first { $0.id == id }?.cards?.first)
+        XCTAssertNil(disk.datos["token"])
+        XCTAssertNil(disk.datos["acciones"])
         // El servidor solo ve role/content: la respuesta de Kito entra en el historial enviado.
         let body = KitoAPIRequest.make(history: store.messages + [KitoMessage(role: .user, text: "¿está?")], timezone: "UTC")
         XCTAssertTrue(body.messages.contains { $0.content == "Hecho: Lista borrada" })

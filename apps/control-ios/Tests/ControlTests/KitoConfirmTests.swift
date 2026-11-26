@@ -150,7 +150,20 @@ final class KitoConfirmTests: XCTestCase {
         let c = try XCTUnwrap(KitoConfirmation(card: back))
         XCTAssertEqual(c.estado, .hecho)
         XCTAssertEqual(c.detalle, "Lista borrada")
-        XCTAssertEqual(c.token, "tok")
+        XCTAssertNil(c.token)
+    }
+
+    func testResolvedCardDropsTokenAndActions() throws {
+        for estado in [KitoConfirmationState.hecho, .cancelado, .caducado, .parcial, .error, .desconocido] {
+            let resolved = KitoConfirmation.card(card(), estado: estado)
+            let c = try XCTUnwrap(KitoConfirmation(card: resolved))
+            XCTAssertNil(c.token)
+            XCTAssertTrue(c.acciones.isEmpty)
+            XCTAssertEqual(c.texto, "¿Borro la lista?")
+            XCTAssertEqual(c.estado, estado)
+        }
+        let sending = try XCTUnwrap(KitoConfirmation(card: KitoConfirmation.card(card(), estado: .enviando)))
+        XCTAssertEqual(sending.token, "tok")
     }
 
     // MARK: - T4 KitoAPI.confirm
@@ -233,8 +246,10 @@ final class KitoConfirmationPresentationTests: XCTestCase {
         XCTAssertEqual(done.accessibilityLabel, "Kito pide confirmación: ¿Borro la lista «Pruebas»?. Hecho. Lista borrada")
     }
 
-    func testLongTextIsShortenedInButtonLabel() {
-        let m = model(nil, texto: String(repeating: "a", count: 100))
-        XCTAssertEqual(m.confirmAccessibilityLabel, "Confirmar: " + String(repeating: "a", count: 60) + "…")
+    func testLongTextIsReadInFullByVoiceOver() {
+        let long = String(repeating: "a", count: 100)
+        let m = model(nil, texto: long)
+        XCTAssertEqual(m.confirmAccessibilityLabel, "Confirmar: " + long)
+        XCTAssertEqual(m.proposalAccessibilityLabel, "Kito pide confirmación: " + long)
     }
 }

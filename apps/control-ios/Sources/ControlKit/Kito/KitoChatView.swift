@@ -27,10 +27,10 @@ struct KitoChatView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: Spacing.s1) {
-                        if store.messages.isEmpty && !store.isSending {
+                        if visible.isEmpty && !store.isSending {
                             KitoWelcomeView(userName: userName) { suggestion in send(suggestion) }
                         }
-                        ForEach(Array(store.messages.enumerated()), id: \.element.id) { index, message in
+                        ForEach(Array(visible.enumerated()), id: \.element.id) { index, message in
                             if startsNewDay(index) {
                                 dayLabel(message.date)
                             }
@@ -59,9 +59,9 @@ struct KitoChatView: View {
                         Color.clear.frame(height: 1).id("bottom")
                     }
                     .padding(Spacing.gutter)
-                    .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: store.messages.count)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: visible.count)
                 }
-                .onChange(of: store.messages.count) { _, _ in scrollToBottom(proxy) }
+                .onChange(of: visible.count) { _, _ in scrollToBottom(proxy) }
                 .onChange(of: store.isSending) { _, _ in scrollToBottom(proxy) }
                 .onChange(of: store.failure) { _, _ in scrollToBottom(proxy) }
             }
@@ -104,20 +104,22 @@ struct KitoChatView: View {
 
     // MARK: - Agrupación
 
+    private var visible: [KitoMessage] { store.visibleMessages }
+
     private var entryTransition: AnyTransition {
         reduceMotion ? .identity : .opacity.combined(with: .offset(y: 8))
     }
 
     private func startsGroup(_ index: Int) -> Bool {
-        index == 0 || store.messages[index - 1].role != store.messages[index].role
+        index == 0 || visible[index - 1].role != visible[index].role
     }
 
     private func isLastInGroup(_ index: Int) -> Bool {
-        index == store.messages.count - 1 || store.messages[index + 1].role != store.messages[index].role
+        index == visible.count - 1 || visible[index + 1].role != visible[index].role
     }
 
     private func startsNewDay(_ index: Int) -> Bool {
-        index == 0 || !Calendar.current.isDate(store.messages[index - 1].date, inSameDayAs: store.messages[index].date)
+        index == 0 || !Calendar.current.isDate(visible[index - 1].date, inSameDayAs: visible[index].date)
     }
 
     private func dayLabel(_ date: Date) -> some View {
