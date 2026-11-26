@@ -296,3 +296,18 @@ Deno.test("recipe create/update propagan optional en los ingredientes y rechazan
         assertEquals(calls.length, 2);
     });
 });
+
+Deno.test("POST /recipe/create envía client_request_id y origin (0048) y responde 201", async () => {
+    await withFetch(ok, async (calls) => {
+        const cr = "22222222-2222-4222-8222-222222222222";
+        const res = await handleRecipeCreate(
+            req("POST", { name: "Milanesas", steps: ["Empanar"], client_request_id: cr, origin: "kito" }), "tok");
+        assertEquals(res.status, 201);
+        assertEquals(calls[0].body, { p_name: "Milanesas", p_client_request_id: cr, p_origin: "kito", p_steps: ["Empanar"] });
+        const res2 = await handleRecipeCreate(req("POST", { name: "X", client_request_id: "nope" }), "tok");
+        assertEquals(res2.status, 400);
+        const res3 = await handleRecipeCreate(req("POST", { name: "X", origin: 3 }), "tok");
+        assertEquals(res3.status, 400);
+        assertEquals(calls.length, 1);
+    });
+});

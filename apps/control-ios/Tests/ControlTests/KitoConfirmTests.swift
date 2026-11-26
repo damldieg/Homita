@@ -89,7 +89,7 @@ final class KitoConfirmTests: XCTestCase {
     }
 
     func testUnknownChangeKindIsKeptWithoutKind() throws {
-        let reply = try JSONDecoder().decode(KitoReply.self, from: Data(#"{"texto":"ok","cambios":[{"tipo":"menu","id":1,"op":"crear"}]}"#.utf8))
+        let reply = try JSONDecoder().decode(KitoReply.self, from: Data(#"{"texto":"ok","cambios":[{"tipo":"raro","id":1,"op":"crear"}]}"#.utf8))
         XCTAssertEqual(reply.cambios.count, 1)
         XCTAssertNil(reply.cambios[0].kind)
     }

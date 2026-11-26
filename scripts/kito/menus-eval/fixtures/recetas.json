@@ -1,0 +1,303 @@
+[
+ {
+  "id": 10,
+  "name": "Pasta con tomate",
+  "servings": 4,
+  "minutes": 25,
+  "slots": [
+   "lunch",
+   "dinner"
+  ],
+  "alergenos": [
+   "gluten"
+  ]
+ },
+ {
+  "id": 11,
+  "name": "Ensalada de lentejas",
+  "servings": 4,
+  "minutes": 20,
+  "slots": [
+   "lunch"
+  ],
+  "alergenos": []
+ },
+ {
+  "id": 12,
+  "name": "Tortilla de patatas",
+  "servings": 4,
+  "minutes": 30,
+  "slots": [
+   "dinner"
+  ],
+  "alergenos": [
+   "huevo"
+  ]
+ },
+ {
+  "id": 13,
+  "name": "Arroz con pollo",
+  "servings": 4,
+  "minutes": 35,
+  "slots": [
+   "lunch",
+   "dinner"
+  ],
+  "alergenos": []
+ },
+ {
+  "id": 14,
+  "name": "Salmón al horno con verduras",
+  "servings": 4,
+  "minutes": 30,
+  "slots": [
+   "dinner"
+  ],
+  "alergenos": [
+   "pescado"
+  ]
+ },
+ {
+  "id": 15,
+  "name": "Gambas al ajillo",
+  "servings": 4,
+  "minutes": 15,
+  "slots": [
+   "dinner"
+  ],
+  "alergenos": [
+   "marisco"
+  ]
+ },
+ {
+  "id": 16,
+  "name": "Crema de calabaza",
+  "servings": 4,
+  "minutes": 30,
+  "slots": [
+   "dinner"
+  ],
+  "alergenos": []
+ },
+ {
+  "id": 17,
+  "name": "Tacos de pollo",
+  "servings": 4,
+  "minutes": 30,
+  "slots": [
+   "lunch",
+   "dinner"
+  ],
+  "alergenos": [
+   "gluten"
+  ]
+ },
+ {
+  "id": 18,
+  "name": "Pizza margarita",
+  "servings": 4,
+  "minutes": 40,
+  "slots": [
+   "dinner"
+  ],
+  "alergenos": [
+   "gluten",
+   "lactosa"
+  ]
+ },
+ {
+  "id": 19,
+  "name": "Garbanzos con espinacas",
+  "servings": 4,
+  "minutes": 35,
+  "slots": [
+   "lunch"
+  ],
+  "alergenos": []
+ },
+ {
+  "id": 20,
+  "name": "Fideuá de marisco",
+  "servings": 4,
+  "minutes": 45,
+  "slots": [
+   "lunch"
+  ],
+  "alergenos": [
+   "gluten",
+   "marisco"
+  ]
+ },
+ {
+  "id": 21,
+  "name": "Wok de verduras con sésamo",
+  "servings": 4,
+  "minutes": 20,
+  "slots": [
+   "lunch",
+   "dinner"
+  ],
+  "alergenos": [
+   "sesamo"
+  ]
+ },
+ {
+  "id": 22,
+  "name": "Pollo asado con patatas",
+  "servings": 4,
+  "minutes": 60,
+  "slots": [
+   "lunch",
+   "dinner"
+  ],
+  "alergenos": []
+ },
+ {
+  "id": 23,
+  "name": "Yogur con frutos secos",
+  "servings": 4,
+  "minutes": 5,
+  "slots": [
+   "snack"
+  ],
+  "alergenos": [
+   "lactosa",
+   "frutos_secos"
+  ]
+ },
+ {
+  "id": 24,
+  "name": "Hamburguesa vegetal",
+  "servings": 4,
+  "minutes": 25,
+  "slots": [
+   "dinner"
+  ],
+  "alergenos": [
+   "gluten",
+   "soja"
+  ]
+ },
+ {
+  "id": 25,
+  "name": "Chili sin carne",
+  "servings": 4,
+  "minutes": 40,
+  "slots": [
+   "lunch",
+   "dinner"
+  ],
+  "alergenos": []
+ },
+ {
+  "id": 26,
+  "name": "Sushi bowl de atún",
+  "servings": 4,
+  "minutes": 30,
+  "slots": [
+   "lunch"
+  ],
+  "alergenos": [
+   "pescado",
+   "sesamo"
+  ]
+ },
+ {
+  "id": 27,
+  "name": "Revuelto de champiñones",
+  "servings": 4,
+  "minutes": 15,
+  "slots": [
+   "dinner"
+  ],
+  "alergenos": [
+   "huevo"
+  ]
+ },
+ {
+  "id": 28,
+  "name": "Cuscús con verduras",
+  "servings": 4,
+  "minutes": 20,
+  "slots": [
+   "lunch"
+  ],
+  "alergenos": [
+   "gluten"
+  ]
+ },
+ {
+  "id": 29,
+  "name": "Fruta de temporada",
+  "servings": 4,
+  "minutes": 5,
+  "slots": [
+   "snack"
+  ],
+  "alergenos": []
+ },
+ {
+  "id": 30,
+  "name": "Pad thai con cacahuetes",
+  "servings": 4,
+  "minutes": 30,
+  "slots": [
+   "lunch",
+   "dinner"
+  ],
+  "alergenos": [
+   "cacahuete",
+   "huevo",
+   "marisco"
+  ],
+  "ingredientes": [
+   {
+    "food_id": null,
+    "label": "fideos de arroz"
+   },
+   {
+    "food_id": null,
+    "label": "gambas"
+   },
+   {
+    "food_id": null,
+    "label": "huevo"
+   },
+   {
+    "food_id": null,
+    "label": "cacahuetes"
+   },
+   {
+    "food_id": null,
+    "label": "salsa de pescado"
+   }
+  ]
+ },
+ {
+  "id": 31,
+  "name": "Lasaña de verduras",
+  "servings": 4,
+  "minutes": 60,
+  "slots": [
+   "lunch"
+  ],
+  "alergenos": [
+   "gluten",
+   "lactosa",
+   "huevo"
+  ]
+ },
+ {
+  "id": 32,
+  "name": "Merluza a la plancha con arroz",
+  "servings": 4,
+  "minutes": 25,
+  "slots": [
+   "lunch",
+   "dinner"
+  ],
+  "alergenos": [
+   "pescado"
+  ]
+ }
+]

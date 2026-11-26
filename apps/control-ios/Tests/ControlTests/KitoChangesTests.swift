@@ -19,7 +19,7 @@ final class KitoChangesTests: XCTestCase {
     func testEmptyOrUnknownChangesChangeNothing() {
         let changes = KitoChanges()
         changes.publish([])
-        changes.publish([change("menu")])
+        changes.publish([change("desconocido")])
         XCTAssertTrue(changes.counters.isEmpty)
         XCTAssertEqual(changes.counter(for: KitoReloadTargets.inicio), 0)
     }

@@ -1,0 +1,135 @@
+{
+ "id": "09-halal-tres-adultos",
+ "nombre": "Tres adultos, uno halal, muchos días fuera",
+ "nota": "Halal y ausencias en varias casillas",
+ "semana": "2030-01-07",
+ "mensaje": "Proponme el menú de la semana del 2030-01-07. Los días fuera que aparezcan están confirmados; no me preguntes nada y guárdalo.",
+ "perfil": {
+  "home_id": 7,
+  "timezone": "Europe/Madrid",
+  "can_edit": true,
+  "countries": [
+   "MA",
+   "ES"
+  ],
+  "profile": {
+   "week_start_day": 1,
+   "shopping_day": 6,
+   "cook_minutes_weekday": 30,
+   "cook_minutes_weekend": 60,
+   "cook_skill": "medium",
+   "repeat_policy": "some",
+   "leftovers": "yes",
+   "dessert": "no",
+   "equipment": [
+    "horno"
+   ],
+   "preferences": {}
+  },
+  "slots": [
+   {
+    "slot": "lunch",
+    "enabled": true,
+    "time": "14:00"
+   },
+   {
+    "slot": "dinner",
+    "enabled": true,
+    "time": "21:00"
+   },
+   {
+    "slot": "snack",
+    "enabled": false,
+    "time": "17:00"
+   }
+  ],
+  "members": [
+   {
+    "home_member_id": 1,
+    "name": "Omar",
+    "kind": "adult",
+    "age_band": "adult",
+    "portion_size": "normal",
+    "allergies_answered": true,
+    "allergies": [],
+    "diet": "halal",
+    "dislikes": [],
+    "favorites": [],
+    "quirks": null,
+    "spice": 1
+   },
+   {
+    "home_member_id": 2,
+    "name": "Yasmin",
+    "kind": "adult",
+    "age_band": "adult",
+    "portion_size": "normal",
+    "allergies_answered": true,
+    "allergies": [
+     {
+      "allergen": "lactosa",
+      "severity": "intolerance"
+     }
+    ],
+    "diet": null,
+    "dislikes": [],
+    "favorites": [],
+    "quirks": null,
+    "spice": 1
+   },
+   {
+    "home_member_id": 3,
+    "name": "Karim",
+    "kind": "adult",
+    "age_band": "adult",
+    "portion_size": "normal",
+    "allergies_answered": true,
+    "allergies": [],
+    "diet": null,
+    "dislikes": [],
+    "favorites": [],
+    "quirks": null,
+    "spice": 1
+   }
+  ],
+  "schedule": [
+   {
+    "home_member_id": 1,
+    "weekday": 1,
+    "slot": "lunch",
+    "status": "out"
+   },
+   {
+    "home_member_id": 1,
+    "weekday": 2,
+    "slot": "lunch",
+    "status": "out"
+   },
+   {
+    "home_member_id": 1,
+    "weekday": 4,
+    "slot": "lunch",
+    "status": "out"
+   },
+   {
+    "home_member_id": 3,
+    "weekday": 1,
+    "slot": "dinner",
+    "status": "out"
+   },
+   {
+    "home_member_id": 3,
+    "weekday": 3,
+    "slot": "dinner",
+    "status": "out"
+   },
+   {
+    "home_member_id": 2,
+    "weekday": 5,
+    "slot": "dinner",
+    "status": "out"
+   }
+  ],
+  "candidates": []
+ }
+}

@@ -1,0 +1,89 @@
+{
+ "id": "07-marisco-japon",
+ "nombre": "Alergia al marisco, cocina japonesa y poco tiempo",
+ "nota": "Dos alergias, poco tiempo",
+ "semana": "2030-01-07",
+ "mensaje": "Proponme el menú de la semana del 2030-01-07. Los días fuera que aparezcan están confirmados; no me preguntes nada y guárdalo.",
+ "perfil": {
+  "home_id": 7,
+  "timezone": "Europe/Madrid",
+  "can_edit": true,
+  "countries": [
+   "JP",
+   "ES"
+  ],
+  "profile": {
+   "week_start_day": 1,
+   "shopping_day": 6,
+   "cook_minutes_weekday": 20,
+   "cook_minutes_weekend": 40,
+   "cook_skill": "low",
+   "repeat_policy": "some",
+   "leftovers": "yes",
+   "dessert": "no",
+   "equipment": [
+    "horno"
+   ],
+   "preferences": {}
+  },
+  "slots": [
+   {
+    "slot": "lunch",
+    "enabled": true,
+    "time": "14:00"
+   },
+   {
+    "slot": "dinner",
+    "enabled": true,
+    "time": "21:00"
+   },
+   {
+    "slot": "snack",
+    "enabled": false,
+    "time": "17:00"
+   }
+  ],
+  "members": [
+   {
+    "home_member_id": 1,
+    "name": "Aiko",
+    "kind": "adult",
+    "age_band": "adult",
+    "portion_size": "normal",
+    "allergies_answered": true,
+    "allergies": [
+     {
+      "allergen": "marisco",
+      "severity": "avoid_ingredient"
+     }
+    ],
+    "diet": null,
+    "dislikes": [],
+    "favorites": [],
+    "quirks": null,
+    "spice": 2
+   },
+   {
+    "home_member_id": 2,
+    "name": "Marc",
+    "kind": "adult",
+    "age_band": "adult",
+    "portion_size": "normal",
+    "allergies_answered": true,
+    "allergies": [
+     {
+      "allergen": "pescado",
+      "severity": "avoid_ingredient"
+     }
+    ],
+    "diet": null,
+    "dislikes": [],
+    "favorites": [],
+    "quirks": null,
+    "spice": 1
+   }
+  ],
+  "schedule": [],
+  "candidates": []
+ }
+}

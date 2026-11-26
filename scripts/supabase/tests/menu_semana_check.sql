@@ -840,8 +840,12 @@ begin
     end loop;
     foreach t in array array['search_food(text,integer)', 'create_food(text,text,jsonb,text,numeric)', 'update_food(bigint,jsonb)',
             'delete_food(bigint)', 'list_recipes(text,text,integer)', 'get_recipe(bigint)',
-            'create_recipe(text,integer,integer,jsonb,jsonb,jsonb)', 'update_recipe(bigint,jsonb)', 'delete_recipe(bigint)',
-            'get_meal_plan(date)', 'upsert_meal_plan_items(date,integer,jsonb,bigint[])', 'accept_meal_plan(bigint,integer)',
+            case when to_regprocedure('create_recipe(text,integer,integer,jsonb,jsonb,jsonb,uuid,text)') is not null
+                 then 'create_recipe(text,integer,integer,jsonb,jsonb,jsonb,uuid,text)'
+                 else 'create_recipe(text,integer,integer,jsonb,jsonb,jsonb)' end, 'update_recipe(bigint,jsonb)', 'delete_recipe(bigint)',
+            'get_meal_plan(date)', case when to_regprocedure('upsert_meal_plan_items(date,integer,jsonb,bigint[],uuid,text)') is not null
+                 then 'upsert_meal_plan_items(date,integer,jsonb,bigint[],uuid,text)'
+                 else 'upsert_meal_plan_items(date,integer,jsonb,bigint[])' end, 'accept_meal_plan(bigint,integer)',
             'archive_meal_plan(bigint,integer)', 'copy_meal_plan_week(date,date)', 'check_meal_plan(bigint)', 'get_meals_today(date)'] loop
         if has_function_privilege('anon', t, 'execute') or not has_function_privilege('authenticated', t, 'execute') then
             raise exception 'menu_semana MS12: EXECUTE incorrecto en %', t;

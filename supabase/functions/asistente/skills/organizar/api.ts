@@ -7,6 +7,9 @@ import {
 import {
     handleEventCreate, handleEventDelete, handleEventDetail, handleEventUpdate,
 } from "../../../api/usecases/events.ts";
+import { handleMealPlanItems, handleMealProfileMemberUpdate } from "../../../api/usecases/meals.ts";
+import { handleRecipeCreate } from "../../../api/usecases/recipes.ts";
+import { handleShoppingItemCreate } from "../../../api/usecases/shopping.ts";
 import { handleRoutineCreate, handleRoutineDelete, handleRoutineDetail, handleRoutineUpdate } from "../../../api/usecases/routines.ts";
 import {
     handleTaskListCreate, handleTaskListDelete, handleTaskListUpdate,
@@ -40,6 +43,14 @@ const RUTAS: Record<string, Manejador> = {
     "PATCH calendar/update": (r, t) => handleCalendarUpdate(r, t),
     "DELETE calendar/delete": (r, t) => handleCalendarDelete(r, t),
     "PATCH calendar/user": (r, t) => handleCalendarUserAccess(r, t),
+    // Skill `menus` (kito-menus). Solo lo que escribe Kito: borrador del menú (origin kito; la RPC no toca un
+    // plan aceptado ni casillas locked), recetas con pasos, artículos de compra y preferencias de una persona.
+    // `POST meal/plan/accept` NO está y no debe estar nunca: Kito no acepta el menú, lo acepta la persona en
+    // la app. Tampoco archive, copy, schedule ni el perfil del hogar.
+    "PATCH meal/plan/items": (r, t) => handleMealPlanItems(r, t),
+    "POST recipe/create": (r, t) => handleRecipeCreate(r, t),
+    "POST shopping/item/create": (r, t) => handleShoppingItemCreate(r, t),
+    "PATCH meal/profile/member": (r, t) => handleMealProfileMemberUpdate(r, t),
 };
 
 const respuesta = async (res: Response): Promise<RespuestaApi> => {

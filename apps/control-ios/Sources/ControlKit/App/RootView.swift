@@ -127,7 +127,8 @@ struct MainTabView: View {
         kito?.stopSpeaking()
         kito = KitoStore(
             api: services.kitoAPI, historyStore: services.kitoHistory, userId: userId, homeId: homeId,
-            speaker: makeLiveKitoSpeaker(), changes: services.kitoChanges
+            speaker: makeLiveKitoSpeaker(), changes: services.kitoChanges,
+            acceptMenu: { [meals = services.meals] planId, revision in _ = try await meals.accept(planId: planId, expectedRevision: revision) }
         )
     }
 

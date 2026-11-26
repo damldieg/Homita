@@ -25,7 +25,7 @@ export type Escribir = (
 
 /** Qué ha cambiado una escritura, para que la app recargue (aditivo en la respuesta). */
 export interface Cambio {
-    tipo: "tarea" | "lista" | "evento" | "rutina" | "calendario";
+    tipo: "tarea" | "lista" | "evento" | "rutina" | "calendario" | "menu" | "receta" | "compra";
     id: number | string | null;
     op: "crear" | "editar" | "borrar";
 }
@@ -68,6 +68,8 @@ export interface ToolCtx {
     appUserId?: string;
     /** Nombre del usuario, si se pudo leer. */
     nombreUsuario?: string;
+    /** Códigos de permiso del usuario en el hogar activo, si el handler los conoce (p. ej. `menu.health.view`). */
+    permisos?: string[];
     /** Lector del api; lo inyecta el handler (los tests, uno falso). */
     leer?: Leer;
     /** Escritor del api (skill `organizar`); lo inyecta el handler. */
@@ -99,6 +101,14 @@ export interface Skill {
     herramientas: Tool[];
     /** Nombre del secreto con el modelo de la skill (p. ej. KITO_MODEL_MENUS); opcional. Ver `elegirModelo`. */
     modelo?: string;
+    /**
+     * Activación por intención (opcional). Con ella, la skill solo entra en la petición si algún mensaje reciente
+     * (ver `hayIntencion`) encaja con la expresión; sin ella, entra siempre que `disponible`. Así sus
+     * instrucciones, sus herramientas y su modelo (`modelo`) solo se pagan cuando la persona habla de lo suyo.
+     */
+    intencion?: RegExp;
+    /** Rondas de herramientas que necesita la skill si superan `MAX_TOOL_ROUNDS`; se usa el mayor de las activas. */
+    maxRondas?: number;
     /** Tipos de tarjeta que la skill puede devolver (fase 2+). La fase 1 solo devuelve texto. */
     tarjetas: string[];
     disponible: (ctx: ToolCtx) => boolean | Promise<boolean>;
@@ -167,15 +177,31 @@ export const resolverEffort = (valor: string | undefined, avisar: (m: string) =>
     return EFFORT_POR_DEFECTO;
 };
 
+/** Cuántos mensajes recientes (de cualquier rol) se miran para saber si la petición habla de una skill por intención. */
+export const MENSAJES_INTENCION = 3;
+
+const sinAcentos = (t: string): string => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+
 /**
- * Modelo de la petición: con una sola skill disponible que declara `modelo` y cuyo secreto existe, ese; en
- * cualquier otro caso (sin declarar, secreto vacío o varias skills) el modelo por defecto (KITO_MODEL).
+ * ¿La conversación reciente encaja con la intención de una skill? Mira los últimos `MENSAJES_INTENCION`
+ * mensajes (así «cambia el martes» sigue en la skill tras haber hablado del menú) sin acentos ni mayúsculas.
+ */
+export const hayIntencion = (intencion: RegExp, mensajes: Mensaje[]): boolean =>
+    mensajes.slice(-MENSAJES_INTENCION).some((m) => intencion.test(sinAcentos(m.content)));
+
+/**
+ * Modelo de la petición. Regla (decisión kito-menus):
+ * 1. Si entre las skills activas hay alguna con `modelo` e `intencion` (solo están activas cuando la petición
+ *    tiene esa intención, ver `runKito`), se usa el secreto que nombra (p. ej. KITO_MODEL_MENUS) y, si falta o
+ *    está vacío, el modelo por defecto (KITO_MODEL). Sin intención de esa skill, siempre KITO_MODEL.
+ * 2. Sin ninguna así: con una sola skill disponible que declara `modelo` y cuyo secreto existe, ese; en
+ *    cualquier otro caso (sin declarar, secreto vacío o varias skills) el modelo por defecto.
  */
 export const elegirModelo = (disponibles: Skill[], env: (n: string) => string | undefined, porDefecto: string): string => {
-    if (disponibles.length !== 1) return porDefecto;
-    const nombre = disponibles[0].modelo;
-    if (!nombre) return porDefecto;
-    const v = (env(nombre) ?? "").trim();
+    const porIntencion = disponibles.find((s) => s.modelo && s.intencion);
+    const elegida = porIntencion ?? (disponibles.length === 1 ? disponibles[0] : undefined);
+    if (!elegida?.modelo) return porDefecto;
+    const v = (env(elegida.modelo) ?? "").trim();
     return v === "" ? porDefecto : v;
 };
 const MAX_RESULTADO_CHARS = 20000;
@@ -258,9 +284,11 @@ export interface RunArgs {
 export const runKito = async (args: RunArgs): Promise<RunResult> => {
     const disponibles: Skill[] = [];
     for (const s of args.skills) {
+        if (s.intencion && !hayIntencion(s.intencion, args.mensajes)) continue;
         if (await s.disponible(args.ctx)) disponibles.push(s);
     }
     const tools = indexTools(disponibles);
+    const maxRondas = Math.max(MAX_TOOL_ROUNDS, ...disponibles.map((s) => s.maxRondas ?? 0));
     const reloj = args.reloj ?? Date.now;
     const inicio = reloj();
     const restanteMs = () => (args.presupuestoMs ?? PRESUPUESTO_MS) - (reloj() - inicio);
@@ -331,7 +359,7 @@ export const runKito = async (args: RunArgs): Promise<RunResult> => {
         }
     };
 
-    for (let ronda = 0; ronda <= MAX_TOOL_ROUNDS; ronda++) {
+    for (let ronda = 0; ronda <= maxRondas; ronda++) {
         if (restanteMs() <= 0) throw new ModelError("presupuesto agotado");
         const body: Record<string, unknown> = {
             model,
@@ -356,7 +384,7 @@ export const runKito = async (args: RunArgs): Promise<RunResult> => {
             return { texto: textoDe(res.content) || "No he podido responder a eso.", tarjetas, cambios, tokens, herramientasUsadas };
         }
 
-        if (ronda === MAX_TOOL_ROUNDS) break;
+        if (ronda === maxRondas) break;
 
         // El content del asistente se conserva tal cual (incluidos bloques thinking). Las herramientas de la
         // vuelta se ejecutan en paralelo y los tool_result van en un solo mensaje, en el orden de los tool_use.

@@ -1,0 +1,129 @@
+{
+ "id": "06-pareja-merienda-postre",
+ "nombre": "Pareja con merienda y postre, fines de semana fuera",
+ "nota": "Tres franjas; fin de semana entero fuera",
+ "semana": "2030-01-07",
+ "mensaje": "Proponme el menú de la semana del 2030-01-07. Los días fuera que aparezcan están confirmados; no me preguntes nada y guárdalo.",
+ "perfil": {
+  "home_id": 7,
+  "timezone": "Europe/Madrid",
+  "can_edit": true,
+  "countries": [
+   "ES"
+  ],
+  "profile": {
+   "week_start_day": 1,
+   "shopping_day": 6,
+   "cook_minutes_weekday": 30,
+   "cook_minutes_weekend": 60,
+   "cook_skill": "medium",
+   "repeat_policy": "some",
+   "leftovers": "yes",
+   "dessert": "yes",
+   "equipment": [
+    "horno"
+   ],
+   "preferences": {}
+  },
+  "slots": [
+   {
+    "slot": "lunch",
+    "enabled": true,
+    "time": "14:00"
+   },
+   {
+    "slot": "dinner",
+    "enabled": true,
+    "time": "21:00"
+   },
+   {
+    "slot": "snack",
+    "enabled": true,
+    "time": "17:00"
+   }
+  ],
+  "members": [
+   {
+    "home_member_id": 1,
+    "name": "Jorge",
+    "kind": "adult",
+    "age_band": "adult",
+    "portion_size": "normal",
+    "allergies_answered": true,
+    "allergies": [],
+    "diet": null,
+    "dislikes": [],
+    "favorites": [],
+    "quirks": null,
+    "spice": 1
+   },
+   {
+    "home_member_id": 2,
+    "name": "Lía",
+    "kind": "adult",
+    "age_band": "adult",
+    "portion_size": "normal",
+    "allergies_answered": true,
+    "allergies": [],
+    "diet": null,
+    "dislikes": [
+     "cilantro"
+    ],
+    "favorites": [],
+    "quirks": null,
+    "spice": 1
+   }
+  ],
+  "schedule": [
+   {
+    "home_member_id": 1,
+    "weekday": 6,
+    "slot": "lunch",
+    "status": "out"
+   },
+   {
+    "home_member_id": 1,
+    "weekday": 6,
+    "slot": "dinner",
+    "status": "out"
+   },
+   {
+    "home_member_id": 1,
+    "weekday": 7,
+    "slot": "lunch",
+    "status": "out"
+   },
+   {
+    "home_member_id": 1,
+    "weekday": 7,
+    "slot": "dinner",
+    "status": "out"
+   },
+   {
+    "home_member_id": 2,
+    "weekday": 6,
+    "slot": "lunch",
+    "status": "out"
+   },
+   {
+    "home_member_id": 2,
+    "weekday": 6,
+    "slot": "dinner",
+    "status": "out"
+   },
+   {
+    "home_member_id": 2,
+    "weekday": 7,
+    "slot": "lunch",
+    "status": "out"
+   },
+   {
+    "home_member_id": 2,
+    "weekday": 7,
+    "slot": "dinner",
+    "status": "out"
+   }
+  ],
+  "candidates": []
+ }
+}

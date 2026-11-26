@@ -37,10 +37,10 @@ begin
                                      'create_task_list(text,text,text,boolean,boolean)'] then
         return format('RB1 firmas %s', v_sigs);
     end if;
-    -- 0045 (menus-compra, aplicada encima en esta pasada) usa p_client_request_id en dos RPC propias
+    -- 0045 (menus-compra) y 0048 (kito-menus), aplicadas encima en esta pasada, usan p_client_request_id en sus RPC
     if exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace
                 and 'p_client_request_id' = any(proargnames)
-                and proname not in ('create_shopping_item', 'sync_meal_shopping')) then
+                and proname not in ('create_shopping_item', 'sync_meal_shopping', 'upsert_meal_plan_items', 'create_recipe')) then
         return 'RB1 queda una función con p_client_request_id';
     end if;
     if exists (select 1 from pg_proc p where p.oid in ('create_task(bigint,text,jsonb)'::regprocedure,

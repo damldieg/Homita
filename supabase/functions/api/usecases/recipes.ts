@@ -8,6 +8,7 @@ import {
     errFoodIdRequired, errInvalidFood, errInvalidRecipe, errRecipeIdRequired, rpcPassHome,
 } from "../_shared/errors.ts";
 import { rpc } from "../_shared/supabase.ts";
+import { clientRequestIdOf } from "../_shared/validate.ts";
 
 const isIntId = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v > 0 && v <= Number.MAX_SAFE_INTEGER;
 
@@ -120,7 +121,9 @@ const isIngredientList = (v: unknown): boolean =>
         || ((e as Record<string, unknown>).optional ?? false) === false
         || typeof (e as Record<string, unknown>).optional === "boolean");
 
-// POST /recipe/create {name, servings?, minutes?, slots?, steps?, ingredients?: [{food_id?, label?, quantity?, unit?, optional?}]}
+// POST /recipe/create {name, servings?, minutes?, slots?, steps?, ingredients?: [{food_id?, label?, quantity?, unit?, optional?}],
+// client_request_id?, origin?} (0048: client_request_id hace el reintento idempotente (201 también en replay); origin
+// 'user' | 'kito', lo valida la RPC, y con 'kito' exige pasos)
 export const handleRecipeCreate = async (req: Request, token: string): Promise<Response> => {
     const b = await contractBodyOnly(req);
     if (typeof b.name !== "string") return errInvalidRecipe();
@@ -132,7 +135,12 @@ export const handleRecipeCreate = async (req: Request, token: string): Promise<R
     if ((b.servings !== undefined && !isOptInt32(b.servings)) || (b.minutes !== undefined && !isOptInt32(b.minutes))) {
         return errInvalidRecipe();
     }
+    const clientRequestId = clientRequestIdOf(b);
+    if (clientRequestId instanceof Response) return clientRequestId;
+    if (b.origin !== undefined && b.origin !== null && typeof b.origin !== "string") return errInvalidRecipe();
     const args: Record<string, unknown> = { p_name: b.name };
+    if (clientRequestId !== undefined) args.p_client_request_id = clientRequestId;
+    if (typeof b.origin === "string") args.p_origin = b.origin;
     if (b.servings !== undefined) args.p_servings = b.servings;
     if (b.minutes !== undefined) args.p_minutes = b.minutes;
     if (b.slots !== undefined) args.p_slots = b.slots;
