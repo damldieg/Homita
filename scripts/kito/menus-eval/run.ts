@@ -10,6 +10,9 @@
 //
 // Uso (raíz del repo):
 //   deno run --allow-read --allow-write --allow-env scripts/kito/menus-eval/run.ts --seco
+// Con --rango, en lugar del menú de la semana se pide «menú desde esta noche hasta el viernes a mediodía» (hoy = la
+// fecha `semana` del fixture, lunes) y se mide además que las casillas queden solo dentro del rango (columna «Fuera
+// de rango»: cualquier casilla fuera del rango cuenta como toque indebido, el plan de partida está vacío).
 //   ANTHROPIC_API_KEY=… deno run --allow-read --allow-write --allow-env --allow-net=api.anthropic.com \
 //     scripts/kito/menus-eval/run.ts --modelos claude-haiku-5-5,claude-sonnet-5-5 --hogares 10 \
 //     --salida docs/planificador-comidas/comparacion-modelos-kito.md
@@ -46,6 +49,8 @@ export interface Resultado {
     repeticiones: number;
     repeticionesHistorial: number;
     tarjeta: boolean;
+    /** Solo en modo rango: casillas del plan fuera del rango pedido (debe ser 0). */
+    fueraRango?: number;
     herramientas: number;
     tokens: { input: number; output: number; cacheRead: number; cacheWrite: number };
     llamadas: number;
@@ -82,6 +87,27 @@ export const conflictoDieta = (dieta: string, titulo: string, alergenos: string[
     if (dieta === "vegan") return animal || alergenos.includes("huevo") || alergenos.includes("lactosa") || CARNE.some((p) => t.includes(p)) || NO_VEGANO.some((p) => t.includes(p));
     if (dieta === "halal") return NO_HALAL.some((p) => t.includes(p));
     return false;
+};
+
+export const FRANJAS_ORDEN = ["breakfast", "midmorning", "lunch", "snack", "dinner"];
+const sumaDias = (fecha: string, n: number): string => new Date(Date.parse(`${fecha}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+
+/** Rango de la petición: desde hoy (la `semana` del fixture, lunes) por la noche hasta el viernes a mediodía. */
+export const rangoDe = (hogar: Hogar): { desde: { fecha: string; franja: string }; hasta: { fecha: string; franja: string } } => ({
+    desde: { fecha: hogar.semana, franja: "dinner" }, hasta: { fecha: sumaDias(hogar.semana, 4), franja: "lunch" },
+});
+
+/** Mensaje del modo rango: hoy se le dice la fecha para que convierta «esta noche» y «el viernes» a fechas. */
+export const mensajeRango = (hogar: Hogar): string =>
+    `Hoy es ${hogar.semana}. Hazme el menú desde esta noche hasta el viernes a mediodía. Los días fuera que aparezcan están confirmados; no me preguntes nada y guárdalo.`;
+
+/** ¿Cae la casilla dentro del rango (ambos extremos incluidos, por orden de franja dentro del día)? */
+export const enRango = (rango: ReturnType<typeof rangoDe>, dia: string, franja: string): boolean => {
+    const pos = (f: string) => FRANJAS_ORDEN.indexOf(f);
+    if (dia < rango.desde.fecha || dia > rango.hasta.fecha) return false;
+    if (dia === rango.desde.fecha && pos(franja) < pos(rango.desde.franja)) return false;
+    if (dia === rango.hasta.fecha && pos(franja) > pos(rango.hasta.franja)) return false;
+    return true;
 };
 
 const clave = (it: Obj): string => it.kind === "recipe" ? `r${it.recipe_id}` : norm(String(it.title ?? ""));
@@ -138,7 +164,7 @@ const sumar = (a: Resultado["tokens"], b: Resultado["tokens"]) => ({
 });
 
 /** Ejecuta un hogar con un modelo (la skill real, el mundo falso del fixture) y mide el resultado. */
-export const evaluarHogar = async (hogar: Hogar, recetas: Receta[], modelo: string, callModel: CallModel, effort?: string): Promise<Resultado> => {
+export const evaluarHogar = async (hogar: Hogar, recetas: Receta[], modelo: string, callModel: CallModel, effort?: string, rango = false): Promise<Resultado> => {
     const alergenos: Record<number, string[]> = {};
     for (const r of recetas) alergenos[r.id] = r.alergenos;
     // Ingredientes de las recetas con texto libre (sin food_id): no son comprobables para quien tiene dieta o alergias.
@@ -162,13 +188,15 @@ export const evaluarHogar = async (hogar: Hogar, recetas: Receta[], modelo: stri
     };
     try {
         const r = await runKito({
-            mensajes: [{ role: "user", content: hogar.mensaje }],
+            mensajes: [{ role: "user", content: rango ? mensajeRango(hogar) : hogar.mensaje }],
             ctx: ctxDe(mundo, { now: new Date(`${hogar.semana}T08:00:00Z`) }),
             skills: [menus], callModel: contado, model: modelo, effort,
         });
         const med = await medirPlan(mundo.plan(), hogar, recetas, mundo.leer);
+        const rg = rangoDe(hogar);
+        const fueraRango = rango ? ((mundo.plan()?.items as Obj[]) ?? []).filter((i) => !enRango(rg, String(i.day), String(i.slot))).length : undefined;
         return {
-            ...base, ok: true, casillas: med.casillas, conflictos: med.conflictos.length, detalleConflictos: med.conflictos,
+            ...base, fueraRango, ok: true, casillas: med.casillas, conflictos: med.conflictos.length, detalleConflictos: med.conflictos,
             repeticiones: med.repeticiones, repeticionesHistorial: med.repeticionesHistorial,
             tarjeta: r.tarjetas.length > 0, herramientas: r.herramientasUsadas, tokens: r.tokens, llamadas,
         };
@@ -181,7 +209,7 @@ export const evaluarHogar = async (hogar: Hogar, recetas: Receta[], modelo: stri
 export const costeUsd = (t: Resultado["tokens"], tarifa: Tarifa): number =>
     (t.input * tarifa.entrada + t.cacheRead * tarifa.entrada * LECTURA_CACHE + t.cacheWrite * tarifa.entrada * ESCRITURA_CACHE + t.output * tarifa.salida) / 1e6;
 
-export interface Resumen { modelo: string; hogares: number; fallos: number; conflictos: number; hogaresConConflicto: number; repeticiones: number; repeticionesHistorial: number; tarjetas: number; casillas: number; tokens: Resultado["tokens"]; coste: number }
+export interface Resumen { modelo: string; hogares: number; fallos: number; conflictos: number; hogaresConConflicto: number; repeticiones: number; repeticionesHistorial: number; tarjetas: number; casillas: number; fueraRango?: number; tokens: Resultado["tokens"]; coste: number }
 
 export const resumir = (resultados: Resultado[], tarifas: Record<string, Tarifa>): Resumen[] => {
     const modelos = [...new Set(resultados.map((r) => r.modelo))];
@@ -193,7 +221,8 @@ export const resumir = (resultados: Resultado[], tarifas: Record<string, Tarifa>
             modelo, hogares: rs.length, fallos: rs.filter((r) => !r.ok).length, conflictos: rs.reduce((s, r) => s + r.conflictos, 0),
             hogaresConConflicto: rs.filter((r) => r.conflictos > 0).length, repeticiones: rs.reduce((s, r) => s + r.repeticiones, 0),
             repeticionesHistorial: rs.reduce((s, r) => s + r.repeticionesHistorial, 0), tarjetas: rs.filter((r) => r.tarjeta).length,
-            casillas: rs.reduce((s, r) => s + r.casillas, 0), tokens, coste: t ? costeUsd(tokens, t) : Number.NaN,
+            casillas: rs.reduce((s, r) => s + r.casillas, 0), tokens,
+            fueraRango: rs.some((r) => r.fueraRango !== undefined) ? rs.reduce((s, r) => s + (r.fueraRango ?? 0), 0) : undefined, coste: t ? costeUsd(tokens, t) : Number.NaN,
         };
     });
 };
@@ -203,14 +232,17 @@ const usd = (n: number) => (Number.isFinite(n) ? `${n.toFixed(4)} USD` : "sin ta
 export const tablaMarkdown = (resultados: Resultado[], tarifas: Record<string, Tarifa>): string => {
     const res = resumir(resultados, tarifas);
     const l: string[] = [];
-    l.push("| Modelo | Hogares | Fallos | Casillas | Conflictos (hogares) | Repeticiones (semana / historial) | Menús mostrados | Tokens entrada | Tokens salida | Caché leída / escrita | Coste estimado |");
-    l.push("|---|---|---|---|---|---|---|---|---|---|---|");
+    const rango = resultados.some((r) => r.fueraRango !== undefined);
+    const colR = rango ? " Fuera de rango |" : "";
+    const sepR = rango ? "---|" : "";
+    l.push(`| Modelo | Hogares | Fallos | Casillas |${colR} Conflictos (hogares) | Repeticiones (semana / historial) | Menús mostrados | Tokens entrada | Tokens salida | Caché leída / escrita | Coste estimado |`);
+    l.push(`|---|---|---|---|${sepR}---|---|---|---|---|---|---|`);
     for (const r of res) {
-        l.push(`| ${r.modelo} | ${r.hogares} | ${r.fallos} | ${r.casillas} | ${r.conflictos} (${r.hogaresConConflicto}) | ${r.repeticiones} / ${r.repeticionesHistorial} | ${r.tarjetas}/${r.hogares} | ${r.tokens.input} | ${r.tokens.output} | ${r.tokens.cacheRead} / ${r.tokens.cacheWrite} | ${usd(r.coste)} |`);
+        l.push(`| ${r.modelo} | ${r.hogares} | ${r.fallos} | ${r.casillas} |${rango ? ` ${r.fueraRango ?? 0} |` : ""} ${r.conflictos} (${r.hogaresConConflicto}) | ${r.repeticiones} / ${r.repeticionesHistorial} | ${r.tarjetas}/${r.hogares} | ${r.tokens.input} | ${r.tokens.output} | ${r.tokens.cacheRead} / ${r.tokens.cacheWrite} | ${usd(r.coste)} |`);
     }
-    l.push("", "Detalle por hogar:", "", "| Hogar | Modelo | OK | Casillas | Conflictos | Rep. semana | Rep. historial | Menú mostrado | Llamadas | Entrada | Salida |", "|---|---|---|---|---|---|---|---|---|---|---|");
+    l.push("", "Detalle por hogar:", "", `| Hogar | Modelo | OK | Casillas |${colR} Conflictos | Rep. semana | Rep. historial | Menú mostrado | Llamadas | Entrada | Salida |`, `|---|---|---|---|${sepR}---|---|---|---|---|---|---|`);
     for (const r of resultados) {
-        l.push(`| ${r.hogar} | ${r.modelo} | ${r.ok ? "sí" : `no (${r.error})`} | ${r.casillas} | ${r.conflictos} | ${r.repeticiones} | ${r.repeticionesHistorial} | ${r.tarjeta ? "sí" : "no"} | ${r.llamadas} | ${r.tokens.input} | ${r.tokens.output} |`);
+        l.push(`| ${r.hogar} | ${r.modelo} | ${r.ok ? "sí" : `no (${r.error})`} | ${r.casillas} |${rango ? ` ${r.fueraRango ?? 0} |` : ""} ${r.conflictos} | ${r.repeticiones} | ${r.repeticionesHistorial} | ${r.tarjeta ? "sí" : "no"} | ${r.llamadas} | ${r.tokens.input} | ${r.tokens.output} |`);
     }
     const detalle = resultados.filter((r) => r.detalleConflictos.length > 0);
     if (detalle.length > 0) {
@@ -230,35 +262,39 @@ export const cargarFixtures = async (dir: string): Promise<{ hogares: Hogar[]; r
 };
 
 /** Modelo simulado (--seco y tests): lee el perfil, propone un menú sin conflictos con las recetas seguras y cierra. */
-export const modeloSimulado = (hogar: Hogar, recetas: Receta[]): CallModel => {
+export const modeloSimulado = (hogar: Hogar, recetas: Receta[], rango = false): CallModel => {
     let ronda = 0;
     const usage = (i: number, o: number) => ({ input_tokens: i, output_tokens: o, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 });
     return (): Promise<ModelResponse> => {
         ronda++;
         if (ronda > 1) return Promise.resolve({ stop_reason: "end_turn", content: [{ type: "text", text: "Menú propuesto." }], usage: usage(900, 40) });
         const alergias = new Set((hogar.perfil.members as Obj[]).flatMap((m) => ((m.allergies as Obj[]) ?? []).map((a) => String(a.allergen))));
-        const seguras = recetas.filter((r) => r.alergenos.every((a) => !alergias.has(a)));
+        // Sin las recetas con ingredientes de texto libre: el servidor no puede comprobarlas y rechazaría el menú entero.
+        const seguras = recetas.filter((r) => r.alergenos.every((a) => !alergias.has(a)) && !r.ingredientes?.some((i) => i.food_id === null || i.food_id === undefined));
         const franjas = (hogar.perfil.slots as Obj[]).filter((s) => s.enabled).map((s) => String(s.slot));
         const platos: Obj[] = [];
         let n = 0;
+        const rg = rangoDe(hogar);
         for (let d = 0; d < 7; d++) {
-            const dia = new Date(Date.parse(`${hogar.semana}T00:00:00Z`) + d * 86400000).toISOString().slice(0, 10);
+            const dia = sumaDias(hogar.semana, d);
             for (const franja of franjas) {
+                if (rango && !enRango(rg, dia, franja)) continue;
                 const aptas = seguras.filter((r) => r.slots.includes(franja));
                 platos.push(aptas.length > 0 ? { dia, franja, receta_id: aptas[n++ % aptas.length].id } : { dia, franja, titulo: "Ensalada de la casa" });
             }
         }
         return Promise.resolve({
-            stop_reason: "tool_use", content: [{ type: "tool_use", id: "toolu_sim", name: "proponer_menu", input: { semana: hogar.semana, platos } }], usage: usage(1500, 600),
+            stop_reason: "tool_use", content: [{ type: "tool_use", id: "toolu_sim", name: "proponer_menu", input: rango ? { rango: rg, platos } : { semana: hogar.semana, platos } }], usage: usage(1500, 600),
         });
     };
 };
 
 const parseArgs = (argv: string[]) => {
-    const o = { modelos: ["claude-haiku-5-5", "claude-sonnet-5-5"], hogares: 10, salida: "", seco: false, maxLlamadas: 150, effort: undefined as string | undefined, tarifas: { ...TARIFAS_POR_DEFECTO } };
+    const o = { modelos: ["claude-haiku-5-5", "claude-sonnet-5-5"], hogares: 10, salida: "", seco: false, rango: false, maxLlamadas: 150, effort: undefined as string | undefined, tarifas: { ...TARIFAS_POR_DEFECTO } };
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
         if (a === "--seco") o.seco = true;
+        else if (a === "--rango") o.rango = true;
         else if (a === "--modelos") o.modelos = argv[++i].split(",").map((s) => s.trim()).filter(Boolean);
         else if (a === "--hogares") o.hogares = Number(argv[++i]);
         else if (a === "--salida") o.salida = argv[++i];
@@ -297,9 +333,9 @@ export const main = async (argv: string[]): Promise<number> => {
                     total++;
                     return real(b, opts);
                 }
-                : modeloSimulado(h, recetas);
-            const r = await evaluarHogar(h, recetas, modelo, cm, o.effort);
-            console.error(`${modelo} ${h.id}: ${r.ok ? "ok" : "ERROR " + r.error} conflictos=${r.conflictos} rep=${r.repeticiones} in=${r.tokens.input} out=${r.tokens.output}`);
+                : modeloSimulado(h, recetas, o.rango);
+            const r = await evaluarHogar(h, recetas, modelo, cm, o.effort, o.rango);
+            console.error(`${modelo} ${h.id}: ${r.ok ? "ok" : "ERROR " + r.error} conflictos=${r.conflictos} rep=${r.repeticiones}${o.rango ? ` fuera=${r.fueraRango}` : ""} in=${r.tokens.input} out=${r.tokens.output}`);
             resultados.push(r);
         }
     }
