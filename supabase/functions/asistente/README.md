@@ -3,7 +3,7 @@
 Asistente de IA de Homita (change `kito-asistente`, fase 1). Recibe el historial del chat y responde en
 español con datos del hogar activo. Lee (skill `consulta`), explica la app (`ayuda`) y, desde el change
 `kito-organizar`, escribe (skill `organizar`: crea, edita, completa y borra listas, tareas, eventos, rutinas y
-calendarios).
+calendarios). Desde `kito-menus`, la skill `menus` propone el menú semanal como borrador (ver más abajo).
 
 ## Estructura
 
@@ -24,6 +24,10 @@ calendarios).
   `confirmar.ts` es `POST /asistente/confirmar`; `listas.ts`, `tareas.ts`, `eventos.ts`, `rutinas.ts` y
   `calendarios.ts` son las herramientas; `errores.ts` traduce los errores del api; `uuid.ts` deriva el
   `client_request_id`; `tiempo.ts` convierte las fechas locales.
+- `skills/menus/`: skill del menú semanal (`kito-menus`). `index.ts` (prompt y registro), `intencion.ts` (cuándo
+  se activa), `lectura.ts` (`leer_perfil`, `leer_semana`, `buscar_recetas`), `menu.ts` (`proponer_menu`,
+  `reproponer`), `escritura.ts` (`guardar_receta`, `apuntar_compra`, `apuntar_preferencia`), `plan.ts` (forma
+  compacta del plan y tarjeta `menu`) y `util.ts`.
 - `tests/`: tests Deno con modelo, auth, uso y escritor falsos (puros: sin red ni lectura de disco).
 
 ## Contrato
@@ -97,14 +101,39 @@ cupo. Ejecuta las acciones en orden dentro del hogar activo.
 - `KITO_CONFIRM_SECRET`: opcional pero necesario para borrar y para confirmar. Firma las tarjetas de confirmación.
   Sin él, Kito responde «No puedo borrar desde aquí ahora mismo», las altas siguen funcionando y
   `/asistente/confirmar` responde 503 (falla cerrada).
+- `KITO_MODEL_MENUS`: opcional. Modelo de la skill `menus`, solo cuando la petición tiene intención de menú; sin
+  él, `KITO_MODEL`.
 - `KITO_EFFORT`: opcional, `low` | `medium` | `high`. Por defecto `low` (el de Haiku 5.5 sería `medium`). Vacío o
   inválido cae a `low` y deja un aviso en el log sin el valor.
 
 ## Regla del modelo por skill
 
-Una skill puede declarar `modelo`: el **nombre de un secreto** (p. ej. `KITO_MODEL_MENUS`). Si hay una única
-skill disponible en la petición, declara `modelo` y ese secreto existe y no está vacío, se usa ese modelo. En
-cualquier otro caso (sin declarar, secreto ausente o vacío, o varias skills disponibles) se usa `KITO_MODEL`.
+Una skill puede declarar `modelo`: el **nombre de un secreto** (p. ej. `KITO_MODEL_MENUS`). Si la skill también
+declara `intencion` (expresión sobre los últimos mensajes) y la petición encaja, entra en la petición y se usa
+ese secreto cuando existe y no está vacío. Sin intención, solo cuenta si es la única skill disponible. En
+cualquier otro caso (sin declarar, secreto ausente o vacío) se usa `KITO_MODEL`. `menus` declara
+`KITO_MODEL_MENUS` con intención de menú (menú, comidas, cenas, almuerzos, recetas de la semana); «semana» suelta
+no la activa.
+
+## Skill `menus` (kito-menus)
+
+Kito propone el menú de la semana como **borrador** (`origin = kito`), la persona marca platos a cambiar en la
+tarjeta `menu`, Kito repropone solo lo rechazado y la persona **acepta en la app**. Kito nunca acepta:
+`POST /meal/plan/accept` no está en las rutas de Kito (`organizar/api.ts`) ni en la confirmación HMAC.
+
+- Lectura: `leer_perfil` (sin salud si falta `menu.health.view`; tolera que no haya países), `leer_semana`,
+  `buscar_recetas` (con `ya_tomados`).
+- `proponer_menu`: una llamada con la semana entera. Guarda con `PATCH /meal/plan/items` (`origin`,
+  `client_request_id` derivado del contenido y de la revisión, `expected_revision`), respeta casillas `locked` y no
+  toca un plan aceptado ni uno hecho por la persona; si las casillas libres ya coinciden tras un reintento, no
+  escribe de nuevo. Después `check_meal_plan`: solo con 0 conflictos emite la tarjeta `menu` (con conflictos no hay
+  tarjeta y el modelo recibe cuáles son).
+- `reproponer`: solo casillas `rejected` (con motivo), con la revisión vigente; no toca `locked` ni aceptadas.
+- `guardar_receta` (pasos obligatorios, idempotente), `apuntar_compra` (solo si la persona lo pide) y
+  `apuntar_preferencia` (C1/C2/C4, solo con `confirmado_por_usuario = true` tras preguntar).
+- Rondas: `maxRondas = 8` (por encima de las 6 habituales).
+- Tests: `tests/menus_*_test.ts` con el mundo falso de `tests/menus_util.ts`. Más detalle en
+  `docs/planificador-comidas/kito-menus.md`.
 
 ## Llamada al modelo
 
