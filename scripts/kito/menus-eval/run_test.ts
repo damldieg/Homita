@@ -75,7 +75,7 @@ Deno.test("coste y tabla: tarifas con caché y una fila por modelo", async () =>
     assert(t.includes("| claude-haiku-5-5 | 3 |") && t.includes("Detalle por hogar"));
 });
 
-Deno.test("main: sin --seco y sin ANTHROPIC_API_KEY para sin llamar a nada (código 2)", async () => {
+Deno.test("main: sin --seco y sin ANTHROPIC_API_KEY sale sin llamar a nada (código 2)", async () => {
     const antes = Deno.env.get("ANTHROPIC_API_KEY");
     Deno.env.delete("ANTHROPIC_API_KEY");
     try {
