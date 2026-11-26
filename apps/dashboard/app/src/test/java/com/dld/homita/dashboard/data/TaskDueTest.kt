@@ -44,7 +44,7 @@ class TaskDueTest {
     private val now = LocalDateTime.of(2026, 12, 1, 10, 0)
 
     @Test
-    fun `el banner es la alta pendiente futura que vence antes`() {
+    fun `el aviso es la alta pendiente que vence antes, incluidas las vencidas`() {
         val tasks = listOf(
             task(1, "2026-12-02 10:00:00"),
             task(2, "2026-12-01 12:00:00"),
@@ -54,14 +54,40 @@ class TaskDueTest {
             task(6, null),
         )
         val banner = TaskDue.banner(tasks, now, emptySet(), utc)
-        assertEquals(2, banner?.task?.id)
-        assertEquals(LocalDateTime.of(2026, 12, 1, 12, 0), banner?.due)
+        // La 4 ya venció (09:00): N1, sigue en el aviso hasta completarla
+        assertEquals(4, banner?.task?.id)
+        assertEquals(LocalDateTime.of(2026, 12, 1, 9, 0), banner?.due)
     }
 
     @Test
-    fun `cerrado en la sesion no vuelve y sin candidatos no hay banner`() {
+    fun `solo avisa de lo que vence en menos de 48 horas`() {
+        val lejana = listOf(task(1, "2026-12-03 10:01:00"))
+        assertNull(TaskDue.banner(lejana, now, emptySet(), utc))
+        val dentro = listOf(task(2, "2026-12-03 09:59:00"))
+        assertEquals(2, TaskDue.banner(dentro, now, emptySet(), utc)?.task?.id)
+    }
+
+    @Test
+    fun `cerrado no vuelve, la clave cambia con la fecha y sin candidatos no hay aviso`() {
         val tasks = listOf(task(1, "2026-12-01 12:00:00"))
-        assertNull(TaskDue.banner(tasks, now, setOf(1), utc))
+        assertNull(TaskDue.banner(tasks, now, setOf(TaskDue.key(tasks[0])), utc))
+        // Si cambia la fecha, la clave ya no coincide: vuelve a avisar
+        assertEquals(1, TaskDue.banner(tasks, now, setOf("1@2026-11-30 10:00:00"), utc)?.task?.id)
         assertNull(TaskDue.banner(emptyList(), now, emptySet(), utc))
+    }
+
+    @Test
+    fun `la fecha relativa dice hoy, manana o el dia`() {
+        assertEquals("Hoy 12:00", TaskDue.whenText(LocalDateTime.of(2026, 12, 1, 12, 0), now))
+        assertEquals("Mañana 09:00", TaskDue.whenText(LocalDateTime.of(2026, 12, 2, 9, 0), now))
+        assertEquals("jue 3 dic 19:00", TaskDue.whenText(LocalDateTime.of(2026, 12, 3, 19, 0), now))
+    }
+
+    @Test
+    fun `lo vencido dice cuanto hace`() {
+        assertEquals("Vencida ahora", TaskDue.whenText(now.minusSeconds(20), now))
+        assertEquals("Vencida hace 45 min", TaskDue.whenText(now.minusMinutes(45), now))
+        assertEquals("Vencida hace 2 h", TaskDue.whenText(now.minusHours(2), now))
+        assertEquals("Vencida hace 3 d", TaskDue.whenText(now.minusDays(3), now))
     }
 }

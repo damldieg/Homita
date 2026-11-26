@@ -59,7 +59,9 @@ data class Task(
     /** `alta`/`media`/`baja` (0037). Gson lo deja a null si falta (caché de disco antigua): ver [priorityValue]. */
     val priority: String? = null,
     /** Fecha límite en UTC, `yyyy-MM-dd HH:mm:ss` (0041). Null = sin fecha; ver [TaskDue.local]. */
-    val due_at: String? = null
+    val due_at: String? = null,
+    /** Personas asignadas (0024, en `GET /task?dashboard=true`). Null en cachés anteriores. */
+    val persons: List<Person>? = null
 )
 
 /** Contenido de Hoy (ver ContentRepository). */
@@ -150,7 +152,9 @@ data class Current(
     val weather_code: Int,
     val wind_speed_10m: Double,
     val wind_direction_10m: Double,
-    val is_day: Int
+    val is_day: Int,
+    /** Sensación térmica (Open-Meteo `apparent_temperature`); null si la copia es anterior a pedirla. */
+    val apparent_temperature: Double? = null
 )
 
 data class Hourly(
@@ -159,7 +163,9 @@ data class Hourly(
     val precipitation_probability: List<Int?>,
     val precipitation: List<Double?>,
     val weather_code: List<Int?>,
-    val is_day: List<Int?>
+    val is_day: List<Int?>,
+    /** Sensación térmica por hora; vacía si la copia es anterior a pedirla. */
+    val apparent_temperature: List<Double?> = emptyList()
 )
 
 data class Daily(

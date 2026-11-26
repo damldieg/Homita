@@ -35,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -69,6 +70,7 @@ import java.time.LocalTime
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class SettingsCallbacks(
@@ -76,8 +78,12 @@ class SettingsCallbacks(
     val onSelectLocation: (GeoResult) -> Unit,
     val onSchedule: (Schedule) -> Unit,
     val onBrightness: (Float?) -> Unit,
-    val onLogout: () -> Unit
+    val onLogout: () -> Unit,
+    val onSync: () -> Unit
 )
+
+/** Mantener pulsado este tiempo para los botones que no deben tocarse por error (U9). */
+private const val HOLD_MILLIS = 2_000L
 
 /**
  * Tres columnas que caben enteras en pantalla, sin desplazamiento; la de la derecha, en dos cajas (brillo y conexión, y
@@ -102,10 +108,17 @@ fun SettingsScreen(state: UiState, actions: DashboardActions, callbacks: Setting
                 }
                 Panel(Modifier.fillMaxWidth()) {
                     Column(verticalArrangement = Arrangement.spacedBy(ButtonGap)) {
-                        PillButton("Wi-Fi", Modifier.fillMaxWidth(), background = Control, onClick = actions.openWifi)
-                        PillButton("Ajustes de Android", Modifier.fillMaxWidth(), background = Control, onClick = actions.openSettings)
-                        PillButton("Cerrar sesión", Modifier.fillMaxWidth(), background = Control, onClick = callbacks.onLogout)
-                        PillButton("Apagar o reiniciar", Modifier.fillMaxWidth(), background = Control, onClick = actions.powerMenu)
+                        // Sincronizar es de uso diario: un toque. Lo demás, con una pulsación de 2 s (U9).
+                        PillButton(if (state.syncing) "Sincronizando…" else "Sincronizar ahora", Modifier.fillMaxWidth(), primary = true, enabled = !state.syncing, onClick = callbacks.onSync)
+                        Text(
+                            "Mantén pulsado 2 segundos para abrir Wi-Fi o los ajustes de Android, cerrar sesión o apagar.",
+                            style = Type.Small,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                        HoldButton("Wi-Fi", background = Control, onHold = actions.openWifi)
+                        HoldButton("Ajustes de Android", background = Control, onHold = actions.openSettings)
+                        HoldButton("Cerrar sesión", background = Control, onHold = callbacks.onLogout)
+                        HoldButton("Apagar o reiniciar", background = Control, onHold = actions.powerMenu)
                     }
                 }
             }
@@ -115,6 +128,40 @@ fun SettingsScreen(state: UiState, actions: DashboardActions, callbacks: Setting
 
 private val Control = Palette.Background
 private val ButtonGap = 16.dp
+
+/**
+ * Botón en píldora que solo actúa si se mantiene pulsado [HOLD_MILLIS]. Si se suelta antes, no hace nada: el texto de
+ * arriba lo explica.
+ */
+@Composable
+private fun HoldButton(text: String, background: Color, onHold: () -> Unit) {
+    val currentOnHold by rememberUpdatedState(onHold)
+    val scope = rememberCoroutineScope()
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(84.dp)
+            .clip(RoundedCornerShape(42.dp))
+            .background(background, RoundedCornerShape(42.dp))
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        // Empieza a contar al apretar; si se suelta (o se cancela) antes, no pasa nada
+                        val timer = scope.launch {
+                            delay(HOLD_MILLIS)
+                            currentOnHold()
+                        }
+                        tryAwaitRelease()
+                        timer.cancel()
+                    }
+                )
+            }
+            .padding(horizontal = 40.dp)
+    ) {
+        Text("$text · 2 s", style = Type.Body.copy(color = Palette.Ink), maxLines = 1)
+    }
+}
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {

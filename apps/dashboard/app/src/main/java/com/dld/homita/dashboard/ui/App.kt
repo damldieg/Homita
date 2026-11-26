@@ -23,23 +23,19 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -50,11 +46,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dld.homita.dashboard.UiState
+import com.dld.homita.dashboard.data.Freshness
 import com.dld.homita.dashboard.ui.theme.Palette
 import com.dld.homita.dashboard.ui.theme.Type
 import java.time.LocalDate
 import kotlinx.coroutines.delay
 
+/**
+ * Pantallas. En la barra solo Hoy, Calendario, Tareas y Ajustes (Q2: el tiempo se abre desde su tarjeta de Hoy, por
+ * eso [Weather] no tiene botón).
+ */
 enum class Page(val label: String, val icon: ImageVector) {
     Today("Hoy", Icons.Outlined.Home),
     Calendar("Calendario", Icons.Outlined.CalendarMonth),
@@ -86,10 +87,9 @@ fun DashboardApp(
     actions: DashboardActions,
     onLogin: (String, String) -> Unit,
     onLoadWeek: (LocalDate) -> Unit,
-    onSync: () -> Unit,
     settings: SettingsCallbacks,
     onPeek: () -> Unit,
-    taskView: TaskViewCallbacks
+    onDismissDue: (String) -> Unit
 ) {
     var intro by remember { mutableStateOf<IntroStyle?>(if (state.token == null) IntroStyle.First else IntroStyle.Returning) }
     var hadToken by remember { mutableStateOf(state.token != null) }
@@ -100,7 +100,7 @@ fun DashboardApp(
         hadToken = has
     }
     Box(Modifier.fillMaxSize()) {
-        DashboardContent(state, actions, onLogin, onLoadWeek, onSync, settings, onPeek, taskView)
+        DashboardContent(state, actions, onLogin, onLoadWeek, settings, onPeek, onDismissDue)
         intro?.let { BrandIntro(it) { intro = null } }
     }
 }
@@ -111,10 +111,9 @@ private fun DashboardContent(
     actions: DashboardActions,
     onLogin: (String, String) -> Unit,
     onLoadWeek: (LocalDate) -> Unit,
-    onSync: () -> Unit,
     settings: SettingsCallbacks,
     onPeek: () -> Unit,
-    taskView: TaskViewCallbacks
+    onDismissDue: (String) -> Unit
 ) {
     var page by remember { mutableStateOf(Page.Today) }
     var lastTouch by remember { mutableLongStateOf(0L) }
@@ -153,13 +152,13 @@ private fun DashboardContent(
             return@Box
         }
         Row(Modifier.fillMaxSize()) {
-            Rail(page, state, onSelect = { page = it }, onSync = onSync, onSleep = actions.sleep)
+            Rail(page, state, onSelect = { page = it }, onSleep = actions.sleep)
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 when (page) {
-                    Page.Today -> TodayScreen(state, lastTouch)
+                    Page.Today -> TodayScreen(state, lastTouch, onOpenWeather = { page = Page.Weather }, onDismissDue = onDismissDue)
                     Page.Calendar -> CalendarScreen(state, onLoadWeek)
                     Page.Weather -> WeatherScreen(state)
-                    Page.Tasks -> TasksScreen(state, taskView)
+                    Page.Tasks -> TasksScreen(state)
                     Page.Settings -> SettingsScreen(state, actions, settings)
                 }
             }
@@ -168,59 +167,47 @@ private fun DashboardContent(
 }
 
 @Composable
-private fun Rail(current: Page, state: UiState, onSelect: (Page) -> Unit, onSync: () -> Unit, onSleep: () -> Unit) {
+private fun Rail(current: Page, state: UiState, onSelect: (Page) -> Unit, onSleep: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .width(136.dp)
             .fillMaxHeight()
             .background(Palette.Rail)
-            .padding(vertical = 48.dp)
+            .padding(vertical = 40.dp)
     ) {
-        // Todos los botones juntos arriba y el reloj abajo del todo
-        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            Page.entries.filter { it != Page.Settings }.forEach { page -> RailItem(page.label, page.icon, page == current) { onSelect(page) } }
-            SyncItem(state.syncing, onSync)
-            RailItem(Page.Settings.label, Page.Settings.icon, current == Page.Settings) { onSelect(Page.Settings) }
-            RailItem("Apagar pantalla", Icons.Outlined.Bedtime, false, onClick = onSleep)
+        // Las pantallas arriba, con su nombre bajo el icono (U6); el apagado, con su nombre
+        Column(verticalArrangement = Arrangement.spacedBy(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            listOf(Page.Today, Page.Calendar, Page.Tasks, Page.Settings).forEach { page ->
+                RailItem(page.label, page.icon, page == current) { onSelect(page) }
+            }
+            RailItem("Apagar", Icons.Outlined.Bedtime, false, onClick = onSleep)
         }
         Spacer(Modifier.weight(1f))
-        RailClock(state)
+        // El reloj de la barra no se repite en Hoy (que ya tiene el suyo); el estado de los datos, siempre
+        if (current != Page.Today) RailClock(state)
+        RailStatus(state, Modifier.padding(top = 12.dp))
     }
 }
 
-/**
- * Sincronizar ahora. Gira mientras dura; el giro va con el reloj de fotogramas porque el marco tiene las animaciones
- * del sistema a 0 y Compose las respeta.
- */
+/** Botón de la barra: el icono y su nombre debajo, en 24 px. */
 @Composable
-private fun SyncItem(syncing: Boolean, onSync: () -> Unit) {
-    var angle by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(syncing) {
-        angle = 0f
-        if (!syncing) return@LaunchedEffect
-        val start = withFrameMillis { it }
-        // Hacia la izquierda, como indica la flecha del icono
-        while (true) withFrameMillis { angle = -((it - start) % 1000L) * 0.36f }
-    }
-    RailItem("Sincronizar", Icons.Outlined.Sync, syncing, rotation = angle) { onSync() }
-}
-
-/** Botón de la barra lateral: solo el icono (el nombre queda como descripción de accesibilidad). */
-@Composable
-private fun RailItem(label: String, icon: ImageVector, selected: Boolean, rotation: Float = 0f, onClick: () -> Unit) {
-    Box(
-        contentAlignment = Alignment.Center,
+private fun RailItem(label: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier
-            .size(104.dp)
+            .width(128.dp)
             .background(if (selected) Palette.Card else Palette.Rail, RoundedCornerShape(30.dp))
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .padding(vertical = 14.dp)
     ) {
-        Icon(icon, contentDescription = label, tint = if (selected) Palette.Ink else Palette.InkMuted, modifier = Modifier.size(52.dp).rotate(rotation))
+        Icon(icon, contentDescription = label, tint = if (selected) Palette.Ink else Palette.InkMuted, modifier = Modifier.size(52.dp))
+        Text(label, style = Type.Small.copy(color = if (selected) Palette.Ink else Palette.InkMuted, fontWeight = FontWeight.Medium, letterSpacing = 0.sp), maxLines = 1, softWrap = false)
     }
 }
 
-/** La hora, con horas y minutos en dos líneas. Debajo, solo si falla la sincronización, un aviso. */
+/** La hora, con horas y minutos en dos líneas. */
 @Composable
 private fun RailClock(state: UiState) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -241,10 +228,21 @@ private fun RailClock(state: UiState) {
             RollingText(hour, style)
             RollingText(minute, style.copy(color = Palette.InkSoft))
         }
-        if (!state.online || !state.connected) {
-            Text("Sin conexión", style = Type.Tiny.copy(color = Palette.Danger), textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
-        }
     }
+}
+
+/**
+ * Estado de los datos (U7): «Sin conexión» y/o «Actualizado hace 2 h» cuando la copia tiene más de 15 min. Texto de 24 px.
+ */
+@Composable
+private fun RailStatus(state: UiState, modifier: Modifier = Modifier) {
+    val text = Freshness.label(state.contentFetchedAt, System.currentTimeMillis(), state.online, state.connected) ?: return
+    Text(
+        text,
+        style = Type.Small.copy(color = if (!state.online || !state.connected) Palette.Danger else Palette.InkSoft),
+        textAlign = TextAlign.Center,
+        modifier = modifier.width(120.dp)
+    )
 }
 
 /** Botón en píldora. */
