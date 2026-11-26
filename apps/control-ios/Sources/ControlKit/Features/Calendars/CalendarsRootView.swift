@@ -10,10 +10,18 @@ public struct CalendarsRootView: View {
     @State private var routineStore: RoutineStore
     @State private var personStore: PersonStore
     @Binding private var segment: Int
+    /// Último cambio de Kito visto por cada grupo de almacenes (ver `KitoReloadTargets`).
+    @State private var agendaGate: KitoReloadGate
+    @State private var calendarsGate: KitoReloadGate
+    @State private var routinesGate: KitoReloadGate
 
     public init(services: AppServices, segment: Binding<Int>) {
         self.services = services
         _segment = segment
+        let changes = services.kitoChanges
+        _agendaGate = State(initialValue: KitoReloadGate(seen: changes.counter(for: KitoReloadTargets.agenda)))
+        _calendarsGate = State(initialValue: KitoReloadGate(seen: changes.counter(for: KitoReloadTargets.calendars)))
+        _routinesGate = State(initialValue: KitoReloadGate(seen: changes.counter(for: KitoReloadTargets.routines)))
         _calendarStore = State(initialValue: CalendarStore(repo: services.calendars, events: services.events, routines: services.routines, persons: services.persons))
         _eventStore = State(initialValue: EventStore(repo: services.events))
         _calendarAgenda = State(initialValue: CalendarAgendaStore(repo: services.events))
@@ -48,6 +56,28 @@ public struct CalendarsRootView: View {
                 async let routines: Void = routineStore.load()
                 _ = await (calendars, persons, routines)
             }
+            // Cambios de Kito: se recarga solo lo afectado, en el acto si la pestaña está montada o al volver a ella.
+            .onChange(of: services.kitoChanges.counter(for: KitoReloadTargets.agenda)) { _, _ in reloadFromKito() }
+            .onChange(of: services.kitoChanges.counter(for: KitoReloadTargets.calendars)) { _, _ in reloadFromKito() }
+            .onChange(of: services.kitoChanges.counter(for: KitoReloadTargets.routines)) { _, _ in reloadFromKito() }
+            .onAppear { reloadFromKito() }
+        }
+    }
+
+    /// Recarga lo que haya cambiado Kito desde la última vez (cada grupo una sola vez).
+    private func reloadFromKito() {
+        let changes = services.kitoChanges
+        if calendarsGate.shouldReload(current: changes.counter(for: KitoReloadTargets.calendars)) {
+            Task { await calendarStore.load() }
+        }
+        if agendaGate.shouldReload(current: changes.counter(for: KitoReloadTargets.agenda)) {
+            Task {
+                await calendarAgenda.load()
+                await eventStore.load()
+            }
+        }
+        if routinesGate.shouldReload(current: changes.counter(for: KitoReloadTargets.routines)) {
+            Task { await routineStore.load() }
         }
     }
 }

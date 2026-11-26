@@ -127,7 +127,7 @@ struct MainTabView: View {
         kito?.stopSpeaking()
         kito = KitoStore(
             api: services.kitoAPI, historyStore: services.kitoHistory, userId: userId, homeId: homeId,
-            speaker: makeLiveKitoSpeaker()
+            speaker: makeLiveKitoSpeaker(), changes: services.kitoChanges
         )
     }
 
