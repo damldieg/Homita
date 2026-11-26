@@ -176,13 +176,16 @@ public struct KitoReply: Decodable, Equatable, Sendable {
     public let texto: String
     public let tarjetas: [KitoCard]
     public let uso: Usage?
+    /// Lo que Kito ha cambiado en esta petición. Ausente o inválido es vacío.
+    public let cambios: [KitoChange]
 
-    private enum CodingKeys: String, CodingKey { case texto, tarjetas, uso }
+    private enum CodingKeys: String, CodingKey { case texto, tarjetas, uso, cambios }
 
-    public init(texto: String, tarjetas: [KitoCard] = [], uso: Usage? = nil) {
+    public init(texto: String, tarjetas: [KitoCard] = [], uso: Usage? = nil, cambios: [KitoChange] = []) {
         self.texto = texto
         self.tarjetas = tarjetas
         self.uso = uso
+        self.cambios = cambios
     }
 
     public init(from decoder: Decoder) throws {
@@ -190,6 +193,51 @@ public struct KitoReply: Decodable, Equatable, Sendable {
         texto = try c.decode(String.self, forKey: .texto)
         tarjetas = (try? c.decodeIfPresent(KitoCardList.self, forKey: .tarjetas))?.cards ?? []
         uso = try? c.decodeIfPresent(Usage.self, forKey: .uso)
+        cambios = (try? c.decodeIfPresent(KitoChangeList.self, forKey: .cambios))?.changes ?? []
+    }
+}
+
+/// Qué tipo de elemento ha cambiado Kito (lo que decide qué pantallas se recargan).
+public enum KitoChangeKind: String, Sendable, CaseIterable {
+    case tarea, lista, evento, rutina, calendario
+}
+
+/// Un cambio que Kito ha hecho en el hogar. Solo informa de tipo, id y operación; la app recarga por tipo.
+public struct KitoChange: Decodable, Equatable, Sendable {
+    /// Tipo tal cual llega; un tipo nuevo del servidor se conserva pero no tiene `kind`.
+    public let tipo: String
+    public let id: String?
+    public let op: String?
+
+    public var kind: KitoChangeKind? { KitoChangeKind(rawValue: tipo) }
+
+    public init(tipo: String, id: String? = nil, op: String? = nil) {
+        self.tipo = tipo
+        self.id = id
+        self.op = op
+    }
+
+    private enum CodingKeys: String, CodingKey { case tipo, id, op }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        tipo = try c.decode(String.self, forKey: .tipo)
+        if let n = try? c.decode(Int.self, forKey: .id) { id = String(n) } else { id = try? c.decodeIfPresent(String.self, forKey: .id) }
+        op = try? c.decodeIfPresent(String.self, forKey: .op)
+    }
+}
+
+/// Lista de cambios que descarta los elementos mal formados en vez de fallar.
+struct KitoChangeList: Decodable {
+    let changes: [KitoChange]
+
+    init(from decoder: Decoder) throws {
+        var c = try decoder.unkeyedContainer()
+        var out: [KitoChange] = []
+        while !c.isAtEnd {
+            if let change = try? c.decode(KitoChange.self) { out.append(change) } else { _ = try? c.decode(JSONValue.self) }
+        }
+        changes = out
     }
 }
 

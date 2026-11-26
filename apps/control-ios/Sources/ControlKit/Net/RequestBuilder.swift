@@ -40,9 +40,9 @@ public enum RequestBuilder {
         ["recipe", "food"].contains { path == $0 || path.hasPrefix($0 + "/") }
     }
 
-    /// Regla de envío de `X-Home-Id`: ruta autenticada bajo `home/` (fuera de las excluidas), `meal/*` y el asistente.
+    /// Regla de envío de `X-Home-Id`: ruta autenticada bajo `home/` (fuera de las excluidas), `meal/*` y el asistente (incluida su confirmación).
     static func sendsHomeHeader(for apiRequest: APIRequest) -> Bool {
-        if apiRequest.path == "asistente" { return !apiRequest.isPublic } // Kito opera siempre sobre el hogar activo
+        if apiRequest.path == "asistente" || apiRequest.path == "asistente/confirmar" { return !apiRequest.isPublic } // Kito opera siempre sobre el hogar activo
         // Planificador de comidas (0043): `meal/*` opera sobre el hogar activo (amplía D-012)
         if apiRequest.path.hasPrefix("meal/") { return !apiRequest.isPublic }
         // Recetas y catálogo (0044): cuelgan de la raíz, no de `meal/*`, y operan sobre el hogar activo
