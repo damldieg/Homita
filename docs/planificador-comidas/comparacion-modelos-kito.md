@@ -41,3 +41,7 @@ Conflictos detectados:
 - 05-cinco-personas (claude-sonnet-5-5): 2030-01-11 lunch Chili sin carne persona 1: diet vegan
 - 05-cinco-personas (claude-sonnet-5-5): 2030-01-13 lunch Pad thai con cacahuetes persona 1: diet vegan
 - 05-cinco-personas (claude-sonnet-5-5): 2030-01-13 dinner Chili sin carne persona 1: diet vegan
+
+## Nota sobre el criterio de dieta
+
+Los conflictos de dieta de este informe vienen de una heurística del script (título y alérgenos de la receta), no de `check_meal_plan`, que en producción mira la sección de cada ingrediente. El mundo de pruebas del script no evalúa dieta, así que ambos criterios no son idénticos. Las menciones de «Chili sin carne» de la tabla anterior eran falsos positivos por no tratar las negaciones (corregido en el script); los de «Pad thai» son reales (lleva marisco y huevo). El informe debe repetirse para reflejar el criterio corregido.
