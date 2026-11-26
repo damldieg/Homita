@@ -97,3 +97,9 @@ Deno.test("conflictoDieta: las negaciones no cuentan y un plato con carne sí", 
     // Receta con marisco (Pad thai): no es vegetariana aunque el título no lo diga.
     assertEquals(conflictoDieta("vegetarian", "Pad thai con cacahuetes", ["cacahuete", "huevo", "marisco"]), true);
 });
+
+Deno.test("fixtures: el pad thai lleva ingredientes sin food_id (no comprobable para dieta o alergias)", async () => {
+    const recetas = JSON.parse(await Deno.readTextFile(new URL("./fixtures/recetas.json", import.meta.url)));
+    const pad = recetas.find((r: { id: number }) => r.id === 30);
+    assertEquals(pad.ingredientes.every((i: { food_id: unknown }) => i.food_id === null), true);
+});

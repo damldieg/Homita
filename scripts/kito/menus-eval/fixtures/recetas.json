@@ -249,6 +249,28 @@
    "cacahuete",
    "huevo",
    "marisco"
+  ],
+  "ingredientes": [
+   {
+    "food_id": null,
+    "label": "fideos de arroz"
+   },
+   {
+    "food_id": null,
+    "label": "gambas"
+   },
+   {
+    "food_id": null,
+    "label": "huevo"
+   },
+   {
+    "food_id": null,
+    "label": "cacahuetes"
+   },
+   {
+    "food_id": null,
+    "label": "salsa de pescado"
+   }
   ]
  },
  {

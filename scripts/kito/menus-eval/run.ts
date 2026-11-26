@@ -21,7 +21,7 @@ import { crearMundo, ctxDe } from "../../../supabase/functions/asistente/tests/m
 
 type Obj = Record<string, unknown>;
 
-export interface Receta { id: number; name: string; servings: number; minutes: number; slots: string[]; alergenos: string[] }
+export interface Receta { id: number; name: string; servings: number; minutes: number; slots: string[]; alergenos: string[]; ingredientes?: Obj[] }
 export interface Hogar { id: string; nombre: string; nota: string; semana: string; mensaje: string; perfil: Obj; historial?: Record<string, Obj> }
 
 /** Tarifas en USD por millón de tokens. Configurables: ver `TARIFAS_POR_DEFECTO` y el informe. */
@@ -141,10 +141,14 @@ const sumar = (a: Resultado["tokens"], b: Resultado["tokens"]) => ({
 export const evaluarHogar = async (hogar: Hogar, recetas: Receta[], modelo: string, callModel: CallModel, effort?: string): Promise<Resultado> => {
     const alergenos: Record<number, string[]> = {};
     for (const r of recetas) alergenos[r.id] = r.alergenos;
+    // Ingredientes de las recetas con texto libre (sin food_id): no son comprobables para quien tiene dieta o alergias.
+    const ingredientes: Record<number, Obj[]> = {};
+    for (const r of recetas) if (r.ingredientes) ingredientes[r.id] = r.ingredientes;
+    const recetasSinComprobar = recetas.filter((r) => r.ingredientes?.some((i) => i.food_id === null || i.food_id === undefined)).map((r) => r.id);
     const mundo = crearMundo({
         perfil: JSON.parse(JSON.stringify(hogar.perfil)),
-        recetas: recetas.map(({ alergenos: _a, ...r }) => r),
-        alergenos,
+        recetas: recetas.map(({ alergenos: _a, ingredientes: _i, ...r }) => r),
+        alergenos, ingredientes, recetasSinComprobar,
         historial: hogar.historial,
     });
     let llamadas = 0;
