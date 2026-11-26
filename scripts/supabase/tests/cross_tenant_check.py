@@ -295,13 +295,14 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 365  # 266 + 3 de prioridad (0037) + 4 XT-AL de acceso a la lista (0038)
+EXPECTED_CASES = 367  # 266 + 3 de prioridad (0037) + 4 XT-AL de acceso a la lista (0038)
                       # + 9 XH de ocultas (0039: 6 XH-B, 1 XH-A-lista, 2 XH-V)
                       # + 7 de PATCH /task-list/order (0040)
                       # + 13 XM de /meal/* (0043, menus-perfil-hogar)
                       # + 30 XR de recetas, catálogo y menú semanal (0044, menus-semana)
                       # + 17 XS de la compra (0045, menus-compra)
                       # + 16 XK de menú y receta de origen Kito (0048, kito-menus)
+                      # + 2 XM de países del hogar (0046, menus-paises-hogar)
 A12_ITERS = int(os.environ.get("A12_ITERS", "20"))
 # F1_ITERS: carreras de solape real por bloque F1/F2 (R1-06; el solape expone el 40P01 de 0020)
 F1_ITERS = int(os.environ.get("F1_ITERS", "10"))
@@ -2237,12 +2238,20 @@ check("XM11 B SELECT directo de meal_* de A (PostgREST) → 200 y lista vacía",
 xm12 = request(URL, "POST", "/rest/v1/meal_profile", {"home_id": home_a}, b_tok, apikey=ANON)
 check("XM12 B INSERT directo en meal_profile → rechazado (sin privilegio de escritura)",
       xm12[0] in (401, 403), f"obtenido {xm12!r}")
+xm14 = edge("PATCH", "/meal/profile", {"countries": ["AR", "ES"]}, a_tok)
+xm14_get = edge("GET", "/meal/profile", None, a_tok)
+check("XM14 A guarda countries por la Edge (0046) → 200 y el GET los devuelve",
+      xm14[0] == 200 and xm14_get[0] == 200
+      and (parse(xm14_get[1]) or {}).get("profile", {}).get("countries") == ["AR", "ES"], repr((xm14, xm14_get))[:300])
+expect("XM15 B PATCH /meal/profile {countries} con X-Home-Id de A → 404",
+       edge("PATCH", "/meal/profile", {"countries": ["US"]}, b_tok, home=home_a), HOME_NOT_FOUND)
 state = psql(f"select (select diet from meal_profile_member where home_member_id = {int(a_hm or 0)}) || ' ' || "
              f"(select to_char(time, 'HH24:MI') from meal_slot_setting where home_id = {home_a} and slot = 'lunch') || ' ' || "
              f"(select count(*) from meal_schedule where home_id = {home_a}) || ' ' || "
-             f"(select shopping_day from meal_profile where home_id = {home_a})")
-check("XM13 el perfil de A sigue intacto tras los intentos de B (vegetarian 14:00, sin horario, sábado)",
-      state == "vegetarian 14:00 0 6", f"psql: {state!r}")
+             f"(select shopping_day from meal_profile where home_id = {home_a}) || ' ' || "
+             f"(select array_to_string(countries, ',') from meal_profile where home_id = {home_a})")
+check("XM13 el perfil de A sigue intacto tras los intentos de B (vegetarian 14:00, sin horario, sábado, AR,ES)",
+      state == "vegetarian 14:00 0 6 AR,ES", f"psql: {state!r}")
 XT_BLOCK = "BASE"
 
 # ── XR (0044, menus-semana): recetas, catálogo y menú semanal — B no lee ni escribe lo de A ──

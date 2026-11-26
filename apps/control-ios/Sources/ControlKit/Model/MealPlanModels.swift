@@ -118,6 +118,35 @@ public struct RecipeSummary: Codable, Equatable, Sendable, Identifiable {
     public var servings: Int
     public var minutes: Int?
     public var slots: [String]
+    /// Nulo en las recetas comunes precargadas (0047), de solo lectura para los hogares.
+    public var homeId: Int64?
+    /// Código ISO de dos letras de las recetas comunes; nulo en las del hogar.
+    public var country: String?
+
+    public init(id: Int64, name: String, servings: Int, minutes: Int? = nil, slots: [String] = [],
+                homeId: Int64? = nil, country: String? = nil) {
+        self.id = id
+        self.name = name
+        self.servings = servings
+        self.minutes = minutes
+        self.slots = slots
+        self.homeId = homeId
+        self.country = country
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, servings, minutes, slots, homeId = "home_id", country
+    }
+
+    /// Receta común precargada (sin hogar): se lee, no se edita ni se borra.
+    public var isCommon: Bool { homeId == nil }
+}
+
+/// Nombre en español de un código de país ISO de dos letras (el de `recipe.country`).
+public enum RecipeCountry {
+    public static func name(_ code: String) -> String {
+        Locale(identifier: "es").localizedString(forRegionCode: code) ?? code
+    }
 }
 
 /// Ficha de `GET recipe/detail` (y respuesta de create/update).
@@ -132,10 +161,16 @@ public struct Recipe: Codable, Equatable, Sendable, Identifiable {
     /// Derivados de los ingredientes con `food_id`.
     public var allergens: [String]
     public var updatedAt: String?
+    /// Nulo en las recetas comunes precargadas (0047).
+    public var homeId: Int64?
+    public var country: String?
 
     enum CodingKeys: String, CodingKey {
         case id, name, servings, minutes, slots, steps, ingredients, allergens, updatedAt = "updated_at"
+        case homeId = "home_id", country
     }
+
+    public var isCommon: Bool { homeId == nil }
 }
 
 /// Alta o edición de receta. `minutes` y `steps` se envían siempre (null los borra); en edición

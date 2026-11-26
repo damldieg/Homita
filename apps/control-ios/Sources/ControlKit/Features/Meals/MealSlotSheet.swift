@@ -24,6 +24,7 @@ struct MealSlotSheet: View {
         self.item = item
         let recipesStore = RecipesStore(repo: recipes, activeHomeId: { nil })
         recipesStore.slot = slot
+        recipesStore.includeCommon = false
         _recipes = State(initialValue: recipesStore)
         _kind = State(initialValue: item?.kind ?? "recipe")
         _title = State(initialValue: item?.title ?? "")

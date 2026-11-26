@@ -1,10 +1,10 @@
 -- rollback_0048_menus_kito.sql — Revierte 0048_menus_kito.sql (change kito-menus).
 -- PIERDE DATOS: borra meal_plan.origin, recipe.origin, meal_plan_item.state y las filas client_request de
 -- los kinds 'meal_plan' y 'recipe'. En prod, export SELECT-only y confirmación antes de ejecutar.
--- Restaura upsert_meal_plan_items y fn_meal_recipe_json con el cuerpo de 0045, create_recipe y
+-- Restaura fn_meal_recipe_json con el cuerpo de 0047 (home_id y country), upsert_meal_plan_items con el de 0045, create_recipe y
 -- fn_meal_plan_json con el de 0044, y el check de client_request.kind al de 0045.
 -- Idempotente (if exists). La fila '0048' de schema_migrations no se borra aquí.
--- Orden LIFO: va ANTES que rollback_0045.
+-- Orden LIFO: va ANTES que rollback_0047, rollback_0046 y rollback_0045.
 
 begin;
 
@@ -41,7 +41,8 @@ $$;
 create or replace function fn_meal_recipe_json(p_id bigint) returns json
 language sql stable security definer set search_path = public as $$
     select json_build_object(
-        'id', r.id, 'name', r.name, 'servings', r.servings, 'minutes', r.minutes, 'slots', r.slots,
+        'id', r.id, 'home_id', r.home_id, 'country', r.country,
+        'name', r.name, 'servings', r.servings, 'minutes', r.minutes, 'slots', r.slots,
         'steps', r.steps, 'created_by', r.created_by, 'updated_at', r.updated_at,
         'ingredients', (select coalesce(json_agg(json_build_object(
                 'id', i.id, 'position', i.position, 'food_id', i.food_id, 'label', i.label,

@@ -55,6 +55,12 @@ public final class MealProfileStore {
         await run { try await $0.updateHome(update) }
     }
 
+    /// Países de los que el hogar quiere recetas (0046): lista completa, sin repetidos y en el orden dado.
+    public func setCountries(_ countries: [String]) async {
+        var seen = Set<String>()
+        await run { try await $0.updateHome(MealHomeUpdate(countries: countries.filter { seen.insert($0).inserted })) }
+    }
+
     public func setSlots(_ slots: [MealSlot]) async {
         await run { try await $0.setSlots(slots) }
     }

@@ -17,9 +17,14 @@ const isIntId = (v: unknown): v is number => typeof v === "number" && Number.isI
 export const handleMealProfileGet = async (_req: Request, token: string): Promise<Response> =>
     rpcPassHome(await rpc("get_meal_profile", {}, token));
 
-// PATCH /meal/profile {week_start_day, shopping_day, cook_minutes_*, equipment, … preferences}
+// PATCH /meal/profile {week_start_day, shopping_day, cook_minutes_*, equipment, countries, … preferences}
+// `countries` (0046, menus-paises-hogar): array de textos (códigos ISO 3166-1 alfa-2; [] es válido). La Edge
+// solo comprueba la forma (400 sin llamar a la RPC); la lista cerrada la valida la RPC ('Invalid meal profile').
 export const handleMealProfileUpdate = async (req: Request, token: string): Promise<Response> => {
     const data = await contractBodyOnly(req);
+    if ("countries" in data && (!Array.isArray(data.countries) || data.countries.some((c) => typeof c !== "string"))) {
+        return errInvalidMealProfile();
+    }
     return rpcPassHome(await rpc("update_meal_profile", { p_data: data }, token));
 };
 

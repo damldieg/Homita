@@ -65,7 +65,8 @@ $$;
 create or replace function fn_meal_recipe_json(p_id bigint) returns json
 language sql stable security definer set search_path = public as $$
     select json_build_object(
-        'id', r.id, 'name', r.name, 'servings', r.servings, 'minutes', r.minutes, 'slots', r.slots,
+        'id', r.id, 'home_id', r.home_id, 'country', r.country,
+        'name', r.name, 'servings', r.servings, 'minutes', r.minutes, 'slots', r.slots,
         'steps', r.steps, 'origin', r.origin, 'created_by', r.created_by, 'updated_at', r.updated_at,
         'ingredients', (select coalesce(json_agg(json_build_object(
                 'id', i.id, 'position', i.position, 'food_id', i.food_id, 'label', i.label,

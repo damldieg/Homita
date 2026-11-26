@@ -99,6 +99,42 @@ Deno.test("PATCH /meal/profile envía el body como p_data", async () => {
     });
 });
 
+Deno.test("PATCH /meal/profile reenvía countries como p_data y el GET lo devuelve tal cual (0046)", async () => {
+    await withFetch(ok, async (calls) => {
+        for (const countries of [["AR", "ES"], []]) {
+            const res = await handleMealProfileUpdate(req("PATCH", { countries }), "tok");
+            assertEquals(res.status, 200);
+            assertEquals(calls[calls.length - 1].body, { p_data: { countries } });
+        }
+    });
+    const profile = { home_id: 1, profile: { countries: ["AR", "ES"], shopping_day: 6 } };
+    await withFetch(() => jsonRes(200, profile), async () => {
+        const res = await handleMealProfileGet(req("GET"), "tok");
+        assertEquals(await res.json(), profile);
+    });
+});
+
+Deno.test("PATCH /meal/profile con countries mal formado → 400 sin llamar a la RPC (0046)", async () => {
+    const bodies = [{ countries: "ES" }, { countries: null }, { countries: [1] }, { countries: ["ES", null] },
+        { countries: [["ES"]] }, { countries: { a: "ES" } }];
+    for (const data of bodies) {
+        await withFetch(ok, async (calls) => {
+            const res = await handleMealProfileUpdate(req("PATCH", data), "tok");
+            assertEquals(res.status, 400);
+            assertEquals(await res.json(), { error: "Invalid meal profile" });
+            assertEquals(calls.length, 0);
+        });
+    }
+});
+
+Deno.test("PATCH /meal/profile: un código fuera de lista lo rechaza la RPC → 400 (0046)", async () => {
+    await withFetch(() => jsonRes(400, { message: "Invalid meal profile" }), async (calls) => {
+        const res = await handleMealProfileUpdate(req("PATCH", { countries: ["XX"] }), "tok");
+        assertEquals(res.status, 400);
+        assertEquals(calls[0].body, { p_data: { countries: ["XX"] } });
+    });
+});
+
 Deno.test("PATCH /meal/profile ignora el query string (solo body)", async () => {
     await withFetch(ok, async (calls) => {
         const r = new Request("http://x/meal/profile?shopping_day=1", {
