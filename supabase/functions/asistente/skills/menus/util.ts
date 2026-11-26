@@ -44,6 +44,74 @@ export const isoDow = (ymd: string): number => new Date(`${ymd}T00:00:00Z`).getU
 export const inicioSemana = (ymd: string, weekStartDay: number): string =>
     sumarDias(ymd, -((isoDow(ymd) - weekStartDay + 7) % 7));
 
+/** Un extremo del rango: fecha local (AAAA-MM-DD) y franja (breakfast … dinner). */
+export interface PuntoRango {
+    fecha: string;
+    franja: string;
+}
+export interface CasillaRango {
+    fecha: string;
+    franja: string;
+}
+export interface SemanaRango {
+    /** Primer día de la semana (según `week_start_day`). */
+    semana: string;
+    /** Casillas del rango en esa semana, en orden cronológico. */
+    casillas: CasillaRango[];
+}
+
+/** Máximo de días que puede abarcar un rango (dos semanas completas). */
+export const MAX_DIAS_RANGO = 14;
+
+/**
+ * Expande un rango `desde`/`hasta` (ambos inclusive) en casillas, agrupadas por semana. El orden dentro del día es
+ * el de `FRANJAS`; solo cuentan las franjas activas del perfil (las desactivadas no generan casilla y, si son un
+ * extremo del rango, se avisa). Lógica pura: no lee ni escribe nada.
+ */
+export const resolverRango = (
+    rango: unknown, franjasActivas: readonly string[], weekStartDay = 1,
+): { semanas: SemanaRango[]; avisos: string[] } | { error: string } => {
+    const r = obj(rango);
+    const extremo = (v: unknown, nombre: string): PuntoRango | string => {
+        const o = obj(v);
+        if (!esFecha(o.fecha)) return `rango.${nombre}.fecha debe tener formato AAAA-MM-DD`;
+        const franja = typeof o.franja === "string" ? o.franja : "";
+        if (!(FRANJAS as readonly string[]).includes(franja)) return `rango.${nombre}.franja no es válida`;
+        return { fecha: o.fecha, franja };
+    };
+    const desde = extremo(r.desde, "desde");
+    if (typeof desde === "string") return { error: desde };
+    const hasta = extremo(r.hasta, "hasta");
+    if (typeof hasta === "string") return { error: hasta };
+    const pos = (f: string) => (FRANJAS as readonly string[]).indexOf(f);
+    if (desde.fecha > hasta.fecha || (desde.fecha === hasta.fecha && pos(desde.franja) > pos(hasta.franja))) {
+        return { error: "El rango está invertido: `desde` debe ser anterior o igual a `hasta`." };
+    }
+    if (sumarDias(desde.fecha, MAX_DIAS_RANGO - 1) < hasta.fecha) {
+        return { error: `El rango es demasiado largo: como máximo ${MAX_DIAS_RANGO} días.` };
+    }
+    const avisos: string[] = [];
+    for (const [nombre, p] of [["desde", desde], ["hasta", hasta]] as const) {
+        if (!franjasActivas.includes(p.franja)) {
+            avisos.push(`La franja ${FRANJA_ES[p.franja]} (${nombre} ${p.fecha}) no se planifica en este hogar: no se crea esa casilla.`);
+        }
+    }
+    const semanas = new Map<string, CasillaRango[]>();
+    for (let fecha = desde.fecha; fecha <= hasta.fecha; fecha = sumarDias(fecha, 1)) {
+        for (const franja of FRANJAS) {
+            if (!franjasActivas.includes(franja)) continue;
+            if (fecha === desde.fecha && pos(franja) < pos(desde.franja)) continue;
+            if (fecha === hasta.fecha && pos(franja) > pos(hasta.franja)) continue;
+            const semana = inicioSemana(fecha, weekStartDay);
+            const lista = semanas.get(semana) ?? [];
+            lista.push({ fecha, franja });
+            semanas.set(semana, lista);
+        }
+    }
+    if (semanas.size === 0) avisos.push("El rango no contiene ninguna franja que se planifique en este hogar.");
+    return { semanas: [...semanas].map(([semana, casillas]) => ({ semana, casillas })), avisos };
+};
+
 export const leerDe = (ctx: ToolCtx): Leer => {
     if (!ctx.leer) throw new Error("lectura de datos no disponible");
     return ctx.leer;

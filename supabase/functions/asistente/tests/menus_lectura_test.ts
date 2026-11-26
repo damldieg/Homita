@@ -134,3 +134,17 @@ Deno.test("buscar_recetas: con dieta en el hogar excluye las recetas con ingredi
     assertEquals((r.excluidas_sin_catalogo as Obj[]).map((x) => x.id), [30]);
     assert(String(r.aviso_excluidas).includes("catálogo"));
 });
+
+Deno.test("leer_perfil expone la zona horaria del hogar y la fecha y hora locales de hoy", async () => {
+    // 2030-01-03 23:30 UTC = jueves 4 de enero 00:30 en Madrid (UTC+1)
+    const m = crearMundo();
+    const r = await leerPerfilTool.run({}, ctxDe(m, { now: new Date("2030-01-03T23:30:00Z") }), { toolUseId: "t", orden: 0 } as never) as Obj;
+    assertEquals(r.hoy, { zona_horaria: "Europe/Madrid", fecha: "2030-01-04", dia: "viernes", hora: "00:30" });
+    // sin zona en el perfil usa la del usuario; una zona no válida también
+    const sin = crearMundo({ perfil: perfilBase({ timezone: undefined }) });
+    const r2 = await leerPerfilTool.run({}, ctxDe(sin, { timezone: "America/Argentina/Buenos_Aires", now: new Date("2030-01-03T23:30:00Z") }), { toolUseId: "t", orden: 0 } as never) as Obj;
+    assertEquals((r2.hoy as Obj).fecha, "2030-01-03");
+    const mala = crearMundo({ perfil: perfilBase({ timezone: "Mars/Olympus" }) });
+    const r3 = await leerPerfilTool.run({}, ctxDe(mala), { toolUseId: "t", orden: 0 } as never) as Obj;
+    assertEquals((r3.hoy as Obj).zona_horaria, "Europe/Madrid");
+});

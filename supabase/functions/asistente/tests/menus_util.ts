@@ -58,6 +58,8 @@ interface Opciones {
     recetasSinComprobar?: number[];
     /** Falla la comprobación. */
     checkFalla?: boolean;
+    /** Primer id de plan y casilla (por defecto 100); para dos mundos que no choquen. */
+    idInicial?: number;
 }
 
 export const crearMundo = (o: Opciones = {}): Mundo => {
@@ -69,7 +71,7 @@ export const crearMundo = (o: Opciones = {}): Mundo => {
     ];
     const alergenos = o.alergenos ?? { 10: ["gluten"], 11: [], 12: [] };
     let plan: Obj | null = null;
-    let siguienteId = 100;
+    let siguienteId = o.idInicial ?? 100;
     const claves = new Map<string, Obj>();
     const escrituras: Mundo["escrituras"] = [];
     const lecturas: Mundo["lecturas"] = [];
@@ -225,10 +227,10 @@ export const casilla = (id: number, day: string, slot: string, title: string, ov
 });
 
 /** Separa el valor para el modelo de los efectos (tarjeta, cambios) que `conEfectos` esconde en un símbolo. */
-export const abrir = (r: unknown): { valor: Obj; tarjeta?: Obj; cambios?: Obj[] } => {
+export const abrir = (r: unknown): { valor: Obj; tarjeta?: Obj; tarjetas?: Obj[]; cambios?: Obj[] } => {
     const o = r as Obj;
     const sim = Object.getOwnPropertySymbols(o)[0];
     if (sim === undefined) return { valor: o };
     const ef = (o as unknown as Record<symbol, Obj>)[sim];
-    return { valor: o.valor as Obj, tarjeta: ef.tarjeta as Obj | undefined, cambios: ef.cambios as Obj[] | undefined };
+    return { valor: o.valor as Obj, tarjeta: ef.tarjeta as Obj | undefined, tarjetas: ef.tarjetas as Obj[] | undefined, cambios: ef.cambios as Obj[] | undefined };
 };

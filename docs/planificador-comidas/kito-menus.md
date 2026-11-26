@@ -26,6 +26,7 @@ Kito nunca acepta un menú.
 | `leer_semana` | Eventos y personas fuera por día, plan existente de la semana con el estado de cada casilla. |
 | `buscar_recetas` | Recetario del hogar e historial reciente (para no repetir). |
 | `proponer_menu` | Crea o actualiza el borrador de la semana (`upsert_meal_plan_items`, `origin = kito`, `client_request_id`, `expected_revision`) y comprueba conflictos. |
+| `proponer_menu` con `rango` | Igual que `proponer_menu`, pero solo para un tramo de fechas y franjas (puede cruzar dos semanas: un plan y una tarjeta por semana). Solo rellena casillas vacías, sin `delete_ids`; salta semanas aceptadas con aviso. Change `menus-kito-rango`. |
 | `reproponer` | Cambia solo casillas `rejected`; respeta `locked` y planes aceptados; usa la revisión vigente. |
 | `guardar_receta` | Guarda una receta con pasos (obligatorios), `origin = kito`, idempotente. |
 | `apuntar_compra` | Apunta artículos a la Compra, solo si la persona lo pide. |

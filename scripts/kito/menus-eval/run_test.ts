@@ -1,7 +1,7 @@
 // Tests del script de comparación de modelos de menús: cliente falso, sin red ni clave.
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import type { CallModel } from "../../../supabase/functions/asistente/core.ts";
-import { cargarFixtures, conflictoDieta, costeUsd, evaluarHogar, main, modeloSimulado, resumir, tablaMarkdown, TARIFAS_POR_DEFECTO } from "./run.ts";
+import { cargarFixtures, conflictoDieta, costeUsd, enRango, evaluarHogar, main, modeloSimulado, rangoDe, resumir, tablaMarkdown, TARIFAS_POR_DEFECTO } from "./run.ts";
 
 const DIR = new URL("./fixtures", import.meta.url).pathname;
 const { hogares, recetas } = await cargarFixtures(DIR);
@@ -16,6 +16,14 @@ const proponiendo = (platos: Record<string, unknown>[], semana = "2030-01-07"): 
             ? { stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "proponer_menu", input: { semana, platos } }], usage: { input_tokens: 100, output_tokens: 50, cache_read_input_tokens: 10, cache_creation_input_tokens: 5 } }
             : { stop_reason: "end_turn", content: [{ type: "text", text: "listo" }], usage: { input_tokens: 200, output_tokens: 20 } });
     };
+};
+
+/** Como `proponiendo`, pero en modo rango (sin `semana`). */
+const conRango = (platos: Record<string, unknown>[], rango: unknown): CallModel => {
+    let n = 0;
+    return () => Promise.resolve(++n === 1
+        ? { stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "proponer_menu", input: { rango, platos } }], usage: { input_tokens: 1, output_tokens: 1 } }
+        : { stop_reason: "end_turn", content: [{ type: "text", text: "listo" }], usage: { input_tokens: 1, output_tokens: 1 } });
 };
 
 Deno.test("fixtures: entre 10 y 20 hogares con miembros, perfil, semana y mensaje; ids únicos", () => {
@@ -102,4 +110,33 @@ Deno.test("fixtures: el pad thai lleva ingredientes sin food_id (no comprobable 
     const recetas = JSON.parse(await Deno.readTextFile(new URL("./fixtures/recetas.json", import.meta.url)));
     const pad = recetas.find((r: { id: number }) => r.id === 30);
     assertEquals(pad.ingredientes.every((i: { food_id: unknown }) => i.food_id === null), true);
+});
+
+Deno.test("modo rango: solo se rellena desde esta noche hasta el viernes a mediodía y nada queda fuera", async () => {
+    const h = por("01");
+    const rg = rangoDe(h);
+    assertEquals(rg, { desde: { fecha: h.semana, franja: "dinner" }, hasta: { fecha: "2030-01-11", franja: "lunch" } });
+    let mensaje = "";
+    const sim = modeloSimulado(h, recetas, true);
+    const r = await evaluarHogar(h, recetas, "m", (b, o) => {
+        mensaje ||= JSON.stringify(b);
+        return sim(b, o);
+    }, undefined, true);
+    assert(r.ok, r.error);
+    assert(mensaje.includes("desde esta noche hasta el viernes a mediod"), "el mensaje pide el rango");
+    assert(mensaje.includes(h.semana), "lleva la fecha de hoy");
+    assert(r.casillas > 0);
+    assertEquals(r.fueraRango, 0);
+    assertEquals(r.conflictos, 0);
+    assertEquals(r.tarjeta, true);
+    assert(tablaMarkdown([r], TARIFAS_POR_DEFECTO).includes("Fuera de rango"));
+    // Un modelo que además pone el lunes a mediodía (fuera del rango) no lo consigue: la skill lo rechaza y no se escribe nada.
+    const mal = await evaluarHogar(h, recetas, "m", conRango([{ dia: h.semana, franja: "lunch", receta_id: 13 }], rg), undefined, true);
+    assertEquals(mal.fueraRango, 0);
+    assertEquals(mal.casillas, 0);
+    // enRango: extremos incluidos, el resto del lunes y del viernes fuera.
+    assertEquals(enRango(rg, h.semana, "lunch"), false);
+    assertEquals(enRango(rg, h.semana, "dinner"), true);
+    assertEquals(enRango(rg, "2030-01-11", "lunch"), true);
+    assertEquals(enRango(rg, "2030-01-11", "dinner"), false);
 });

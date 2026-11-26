@@ -128,6 +128,12 @@ tarjeta `menu`, Kito repropone solo lo rechazado y la persona **acepta en la app
   toca un plan aceptado ni uno hecho por la persona; si las casillas libres ya coinciden tras un reintento, no
   escribe de nuevo. Después `check_meal_plan`: solo con 0 conflictos emite la tarjeta `menu` (con conflictos no hay
   tarjeta y el modelo recibe cuáles son).
+- `proponer_menu` con `rango` (`{desde:{fecha,franja}, hasta:{fecha,franja}}`, ambos inclusive; sustituye a `semana`):
+  planifica solo ese tramo, aunque cruce dos semanas (un plan por semana, una tarjeta `menu-<semana>` por plan).
+  Kito convierte el lenguaje natural a fechas con `hoy` de `leer_perfil` («esta noche» = cena, «a mediodía» =
+  comida); `resolverRango` (`util.ts`) lo expande en casillas según las franjas activas. Solo rellena huecos: no
+  borra nada, no toca casillas con comida, bloqueadas ni fuera del rango, y salta con aviso la semana aceptada o
+  hecha por la persona. Franja desactivada en un extremo: aviso y sin casilla.
 - `reproponer`: solo casillas `rejected` (con motivo), con la revisión vigente; no toca `locked` ni aceptadas.
 - `guardar_receta` (pasos obligatorios, idempotente), `apuntar_compra` (solo si la persona lo pide) y
   `apuntar_preferencia` (C1/C2/C4, solo con `confirmado_por_usuario = true` tras preguntar).

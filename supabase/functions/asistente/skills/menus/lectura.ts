@@ -52,6 +52,23 @@ const compactarPersona = (m: Obj, conSalud: boolean): Obj => {
     };
 };
 
+/** Zona horaria del hogar (la del perfil; si falta, la del usuario) y fecha/hora local de hoy en ella. */
+export const hoyLocal = (perfil: Obj, ctx: ToolCtx): { zona_horaria: string; fecha: string; dia: string; hora: string } => {
+    const zona = str(perfil.timezone, 60) ?? ctx.timezone;
+    const valida = (z: string): string => {
+        try {
+            new Intl.DateTimeFormat("sv-SE", { timeZone: z });
+            return z;
+        } catch {
+            return ctx.timezone;
+        }
+    };
+    const tz = valida(zona);
+    const fecha = ctx.now.toLocaleDateString("sv-SE", { timeZone: tz });
+    const hora = ctx.now.toLocaleTimeString("sv-SE", { timeZone: tz, hour: "2-digit", minute: "2-digit" });
+    return { zona_horaria: tz, fecha, dia: diaNombre(isoDow(fecha)), hora };
+};
+
 export const compactarPerfil = (perfil: Obj, ctx: ToolCtx): Obj => {
     const p = obj(perfil.profile);
     const conSalud = ctx.permisos?.includes("menu.health.view") === true;
@@ -59,6 +76,7 @@ export const compactarPerfil = (perfil: Obj, ctx: ToolCtx): Obj => {
     const comen = arr(perfil.members).map(obj).map((m) => compactarPersona(m, conSalud));
     const sinAlergias = comen.filter((m) => m.alergias_respondidas !== true).map((m) => m.nombre);
     return {
+        hoy: hoyLocal(perfil, ctx),
         hogar: {
             franjas: arr(perfil.slots).map(obj).filter((s) => s.enabled === true).map((s) => ({ franja: s.slot, hora: s.time })),
             dia_inicio_semana: diaInicio(perfil),
