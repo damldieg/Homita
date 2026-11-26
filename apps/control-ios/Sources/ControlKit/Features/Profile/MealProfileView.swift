@@ -65,6 +65,7 @@ struct MealProfileView: View {
             cocina(profile)
             estilo(profile)
             compra(profile)
+            paises(profile)
         }
         .disabled(store.state == .loading && store.profile == nil)
     }
@@ -214,6 +215,29 @@ struct MealProfileView: View {
         }
     }
 
+    // MARK: - H. Países
+
+    private func paises(_ profile: MealProfile) -> some View {
+        let selected = profile.profile.countries
+        return Section {
+            NavigationLink {
+                MealCountriesView(store: store, canEdit: profile.canEdit)
+            } label: {
+                HStack {
+                    Text("Países")
+                    Spacer()
+                    Text(selected.isEmpty ? "Ninguno" : selected.map(MealCountries.flag).joined(separator: " "))
+                        .foregroundStyle(Palette.inkSoft)
+                }
+            }
+            .accessibilityIdentifier("comidas.paises")
+        } header: {
+            Text("H. Países")
+        } footer: {
+            Text("Kito propondrá platos de estos países. Puedes elegir varios, por ejemplo si en casa hay dos nacionalidades.")
+        }
+    }
+
     // MARK: - Helpers
 
     private func homeBinding<T>(_ value: T, _ make: @escaping (T) -> MealHomeUpdate) -> Binding<T> {
@@ -244,6 +268,35 @@ struct MealProfileView: View {
     static func hhmm(_ date: Date) -> String {
         let c = Calendar.current.dateComponents([.hour, .minute], from: date)
         return MealRules.time(fromMinutes: (c.hour ?? 0) * 60 + (c.minute ?? 0))
+    }
+}
+
+/// Selector múltiple de países (lista cerrada, nombre en español y bandera). Cada cambio guarda la lista.
+struct MealCountriesView: View {
+    let store: MealProfileStore
+    let canEdit: Bool
+
+    private var selected: [String] { store.profile?.profile.countries ?? [] }
+
+    var body: some View {
+        List {
+            ForEach(MealCountries.sorted, id: \.self) { code in
+                let on = selected.contains(code)
+                Button {
+                    Task { await store.setCountries(on ? selected.filter { $0 != code } : selected + [code]) }
+                } label: {
+                    HStack {
+                        Text(MealCountries.label(code)).foregroundStyle(Palette.ink)
+                        Spacer()
+                        if on { Image(systemName: "checkmark").foregroundStyle(Palette.accent) }
+                    }
+                }
+                .disabled(!canEdit)
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+        .navigationTitle("Países")
+        .errorAlert(Binding(get: { store.errorMessage }, set: { store.errorMessage = $0 }))
     }
 }
 
