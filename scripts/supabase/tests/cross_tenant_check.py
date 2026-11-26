@@ -295,12 +295,13 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 349  # 266 + 3 de prioridad (0037) + 4 XT-AL de acceso a la lista (0038)
+EXPECTED_CASES = 365  # 266 + 3 de prioridad (0037) + 4 XT-AL de acceso a la lista (0038)
                       # + 9 XH de ocultas (0039: 6 XH-B, 1 XH-A-lista, 2 XH-V)
                       # + 7 de PATCH /task-list/order (0040)
                       # + 13 XM de /meal/* (0043, menus-perfil-hogar)
                       # + 30 XR de recetas, catálogo y menú semanal (0044, menus-semana)
                       # + 17 XS de la compra (0045, menus-compra)
+                      # + 16 XK de menú y receta de origen Kito (0048, kito-menus)
 A12_ITERS = int(os.environ.get("A12_ITERS", "20"))
 # F1_ITERS: carreras de solape real por bloque F1/F2 (R1-06; el solape expone el 40P01 de 0020)
 F1_ITERS = int(os.environ.get("F1_ITERS", "10"))
@@ -2398,6 +2399,91 @@ state = psql(f"select (select count(*) from shopping_item where home_id = {home_
              f"(select count(*) from shopping_item where home_id = {home_b})")
 check("XS17 la compra de A sigue intacta tras los intentos de B (todo pendiente, manual con 2, nada robado)",
       state == f"{len(xs_menu)} 2.00 0 0", f"psql: {state!r}")
+XT_BLOCK = "BASE"
+
+# ── XK (0048, kito-menus): menú y receta de origen Kito + client_request — B no lee ni escribe lo de A ──
+# A crea una receta y un borrador de plan con origin 'kito' y client_request_id (como hace la skill menus
+# de Kito, con el JWT de la persona). B (sin membresía en home(A)) no lee ni escribe el plan, la receta ni
+# el client_request de A: con la cabecera de A recibe 404; por id, 404; y reutilizar las MISMAS
+# client_request_id de A en su propio hogar no devuelve ni reaplica nada de A (la clave es por app_user).
+# PostgREST directo: client_request no es legible (revocado) y meal_plan/recipe solo se leen bajo RLS.
+XT_BLOCK = "XK"
+XK_WEEK = "2026-12-07"
+XK_REQ_RECETA = "a0000000-0000-4000-8000-0000000000a1"
+XK_REQ_PLAN = "a0000000-0000-4000-8000-0000000000a2"
+xk1 = edge("POST", "/recipe/create",
+           {"name": "XT-Kito-Receta", "servings": 2, "steps": ["Hervir"], "origin": "kito",
+            "client_request_id": XK_REQ_RECETA}, a_tok)
+xk_recipe = (parse(xk1[1]) or {}).get("id") if xk1[0] == 201 else None
+check("XK1 A crea una receta origin kito con pasos y client_request_id → 201 con id",
+      xk1[0] == 201 and isinstance(xk_recipe, int), repr(xk1)[:200])
+xk2 = edge("POST", "/recipe/create",
+           {"name": "XT-Kito-Receta", "servings": 2, "steps": ["Hervir"], "origin": "kito",
+            "client_request_id": XK_REQ_RECETA}, a_tok)
+check("XK2 A repite la alta con el mismo client_request_id → 201 con la misma receta (sin duplicar)",
+      xk2[0] == 201 and (parse(xk2[1]) or {}).get("id") == xk_recipe, repr(xk2)[:200])
+xk3 = edge("PATCH", "/meal/plan/items",
+           {"week_start": XK_WEEK, "expected_revision": 0, "origin": "kito", "client_request_id": XK_REQ_PLAN,
+            "items": [{"day": "2026-12-08", "slot": "lunch", "kind": "free_text", "title": "XT-Kito-Plato"}]}, a_tok)
+xk3_body = parse(xk3[1]) if xk3[0] == 200 else {}
+xk_plan = xk3_body.get("id") if isinstance(xk3_body, dict) else None
+check("XK3 A crea el borrador origin kito con client_request_id → 200 con id y origin kito",
+      isinstance(xk_plan, int) and xk3_body.get("origin") == "kito" and xk3_body.get("status") == "draft",
+      repr(xk3)[:200])
+xk4 = edge("GET", f"/meal/plan?week_start={XK_WEEK}", None, b_tok)
+check("XK4 B GET /meal/plan de la semana de A sin cabecera → 200 null (nada de A)",
+      xk4 == (200, "null"), repr(xk4)[:200])
+expect("XK5 B GET /meal/plan con X-Home-Id de A → 404",
+       edge("GET", f"/meal/plan?week_start={XK_WEEK}", None, b_tok, home=home_a), HOME_NOT_FOUND)
+expect("XK6 B PATCH /meal/plan/items origin kito con X-Home-Id de A y la client_request_id de A → 404",
+       edge("PATCH", "/meal/plan/items",
+            {"week_start": XK_WEEK, "expected_revision": 1, "origin": "kito", "client_request_id": XK_REQ_PLAN,
+             "items": [{"day": "2026-12-09", "slot": "lunch", "kind": "free_text", "title": "XT-Kito-Robado"}]},
+            b_tok, home=home_a), HOME_NOT_FOUND)
+expect("XK7 B GET /meal/plan/check del plan Kito de A → 404",
+       edge("GET", f"/meal/plan/check?plan_id={xk_plan}", None, b_tok), HOME_NOT_FOUND)
+expect("XK8 B POST /meal/plan/accept del plan Kito de A → 404",
+       edge("POST", "/meal/plan/accept", {"plan_id": xk_plan, "expected_revision": 1}, b_tok), HOME_NOT_FOUND)
+expect("XK9 B GET /recipe/detail de la receta Kito de A → 404",
+       edge("GET", f"/recipe/detail?id={xk_recipe}", None, b_tok), HOME_NOT_FOUND)
+expect("XK10 B POST /recipe/create origin kito con X-Home-Id de A y la client_request_id de A → 404",
+       edge("POST", "/recipe/create",
+            {"name": "XT-Kito-Robada", "steps": ["x"], "origin": "kito", "client_request_id": XK_REQ_RECETA},
+            b_tok, home=home_a), HOME_NOT_FOUND)
+xk11 = edge("POST", "/recipe/create",
+            {"name": "XT-Kito-RecetaB", "steps": ["x"], "origin": "kito", "client_request_id": XK_REQ_RECETA}, b_tok)
+xk11_body = parse(xk11[1]) if xk11[0] == 201 else {}
+check("XK11 B reutiliza la client_request_id de A en su hogar → 201 con receta propia (no la de A)",
+      isinstance(xk11_body, dict) and isinstance(xk11_body.get("id"), int) and xk11_body.get("id") != xk_recipe
+      and xk11_body.get("name") == "XT-Kito-RecetaB" and "XT-Kito-Receta\"" not in xk11[1], repr(xk11)[:200])
+xk12 = edge("PATCH", "/meal/plan/items",
+            {"week_start": XK_WEEK, "expected_revision": 0, "origin": "kito", "client_request_id": XK_REQ_PLAN,
+             "items": [{"day": "2026-12-08", "slot": "dinner", "kind": "free_text", "title": "XT-Kito-PlatoB"}]}, b_tok)
+xk12_body = parse(xk12[1]) if xk12[0] == 200 else {}
+check("XK12 B reutiliza la client_request_id del plan de A en su hogar → 200 con plan propio (no el de A)",
+      isinstance(xk12_body, dict) and isinstance(xk12_body.get("id"), int) and xk12_body.get("id") != xk_plan
+      and "XT-Kito-Plato\"" not in xk12[1], repr(xk12)[:200])
+expect_err("XK13 B rpc upsert_meal_plan_items con X-Home-Id de A y client_request_id de A → Not Found",
+           request(URL, "POST", "/rest/v1/rpc/upsert_meal_plan_items",
+                   {"p_week_start": XK_WEEK, "p_expected_revision": 1, "p_origin": "kito",
+                    "p_client_request_id": XK_REQ_PLAN}, b_tok, apikey=ANON, home=home_a), "Not Found")
+xk14 = [request(URL, "GET", f"/rest/v1/meal_plan?select=id&home_id=eq.{home_a}&origin=eq.kito", None, b_tok, apikey=ANON),
+        request(URL, "GET", f"/rest/v1/recipe?select=id&home_id=eq.{home_a}&origin=eq.kito", None, b_tok, apikey=ANON),
+        request(URL, "GET", f"/rest/v1/meal_plan_item?select=id&plan_id=eq.{xk_plan}", None, b_tok, apikey=ANON)]
+check("XK14 B SELECT directo de meal_plan, recipe y meal_plan_item de origen Kito de A → 200 y vacío",
+      all(r[0] == 200 and parse(r[1]) == [] for r in xk14), repr(xk14)[:300])
+xk15 = request(URL, "GET", f"/rest/v1/client_request?select=*&client_request_id=eq.{XK_REQ_PLAN}", None, b_tok, apikey=ANON)
+check("XK15 B SELECT directo de client_request (PostgREST) → rechazado o vacío (sin privilegio de lectura)",
+      xk15[0] in (401, 403) or (xk15[0] == 200 and parse(xk15[1]) == []), repr(xk15)[:200])
+state = psql(f"select (select count(*) from recipe where home_id = {home_a} and origin = 'kito') || ' ' || "
+             f"(select count(*) from client_request where client_request_id = '{XK_REQ_RECETA}') || ' ' || "
+             f"(select count(*) from client_request where client_request_id = '{XK_REQ_PLAN}') || ' ' || "
+             f"(select revision from meal_plan where id = {xk_plan}) || ' ' || "
+             f"(select count(*) from meal_plan_item where plan_id = {xk_plan}) || ' ' || "
+             f"(select title from meal_plan_item where plan_id = {xk_plan}) || ' ' || "
+             f"(select count(*) from meal_plan_item where title like 'XT-Kito-Robado%')")
+check("XK16 el estado de A sigue intacto (1 receta Kito, 2 client_request por clave —uno de A y uno de B—, plan revision 1 con su casilla, nada robado)",
+      state == "1 2 2 1 1 XT-Kito-Plato 0", f"psql: {state!r}")
 XT_BLOCK = "BASE"
 
 # ── K21 (1.5, plan §8.2) y §8.3: cascada app_user → person → home_member (trigger 0014c, I5) ──
