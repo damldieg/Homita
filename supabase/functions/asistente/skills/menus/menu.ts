@@ -67,6 +67,22 @@ const cerrar = async (
     if (conflictos === null) {
         return { ok: false, error: "No he podido comprobar el menú (alergias, dietas y personas fuera). No lo muestro hasta comprobarlo; inténtalo de nuevo." };
     }
+    // Fail closed: una receta que el servidor no pudo comprobar (ingredientes sin catálogo) no se muestra como
+    // válida si la come alguien con dieta o alergias. Texto libre y sobras siguen saliendo marcados `comprobada: false`.
+    const rest = restringidos(perfil);
+    const sin = new Set(arr(plan.unchecked_item_ids));
+    const sinComprobarRestringidos = arr(plan.items).map(obj).filter((i) =>
+        i.kind === "recipe" && sin.has(i.id) && arr(i.members).some((n) => typeof n === "number" && rest.has(n))
+    );
+    if (sinComprobarRestringidos.length > 0) {
+        return {
+            ok: false,
+            tarjeta: false,
+            sin_comprobar: sinComprobarRestringidos.slice(0, 20).map((i) => ({ casilla: i.id, plato: str(i.title, 80) ?? "", dia: i.day, franja: FRANJA_ES[String(i.slot)] ?? i.slot })),
+            aviso: "Hay recetas que no se han podido comprobar (ingredientes sin catálogo) y las come alguien con dieta o alergias: NO se muestra el menú. Cámbialas por recetas con ingredientes del catálogo y vuelve a proponer.",
+            ...extra,
+        };
+    }
     const nombres = new Map(arr(perfil.members).map(obj).map((m) => [m.home_member_id, str(m.name, 80) ?? ""]));
     if (conflictos.length > 0) {
         const titulos = new Map(arr(plan.items).map(obj).map((i) => [i.id, str(i.title, 80) ?? ""]));

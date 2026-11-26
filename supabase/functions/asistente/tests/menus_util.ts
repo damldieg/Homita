@@ -54,6 +54,8 @@ interface Opciones {
     eventos?: Obj[];
     /** receta_id → ingredientes de `recipe/detail` (por defecto, todos enlazados a un alimento del catálogo). */
     ingredientes?: Record<number, Obj[]>;
+    /** Recetas que el servidor da por no comprobables en el plan (ingredientes sin food_id). */
+    recetasSinComprobar?: number[];
     /** Falla la comprobación. */
     checkFalla?: boolean;
 }
@@ -73,7 +75,7 @@ export const crearMundo = (o: Opciones = {}): Mundo => {
     const lecturas: Mundo["lecturas"] = [];
 
     const clonar = <T>(x: T): T => JSON.parse(JSON.stringify(x));
-    const sinComprobar = (items: Obj[]) => items.filter((i) => i.kind !== "recipe").map((i) => i.id);
+    const sinComprobar = (items: Obj[]) => items.filter((i) => i.kind !== "recipe" || o.recetasSinComprobar?.includes(i.recipe_id as number)).map((i) => i.id);
 
     const miembrosPorDefecto = (dia: string, slot: string): number[] => {
         const wd = new Date(`${dia}T00:00:00Z`).getUTCDay() || 7;

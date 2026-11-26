@@ -197,3 +197,15 @@ Deno.test("proponer_menu: sin dieta ni alergias, la receta con texto libre se ad
     const r = abrir(await proponer({ semana: SEMANA, platos: [{ dia: "2030-01-08", franja: "dinner", receta_id: 30 }] }, ctxDe(m)));
     assertEquals(r.valor.ok, true);
 });
+
+Deno.test("proponer_menu falla cerrado: receta sin comprobar por el servidor y comensal con dieta → sin tarjeta", async () => {
+    const m = crearMundo({
+        perfil: perfilVegetariano(), recetas: [{ id: 11, name: "Ensalada de lentejas", servings: 4, minutes: 20, slots: ["lunch"] }],
+        recetasSinComprobar: [11],
+    });
+    const r = abrir(await proponer({ semana: SEMANA, platos: [{ dia: "2030-01-08", franja: "dinner", receta_id: 11 }] }, ctxDe(m)));
+    assertEquals(r.valor.ok, false);
+    assertEquals(r.valor.tarjeta, false);
+    assertEquals((r.valor.sin_comprobar as Obj[]).length, 1);
+    assertEquals(r.tarjeta, undefined);
+});
