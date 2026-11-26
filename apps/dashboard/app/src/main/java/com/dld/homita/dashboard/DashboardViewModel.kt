@@ -10,11 +10,14 @@ import com.dld.homita.dashboard.data.Api
 import com.dld.homita.dashboard.data.AuthRequest
 import com.dld.homita.dashboard.data.Content
 import com.dld.homita.dashboard.data.Forecast
+import com.dld.homita.dashboard.data.RefreshRequest
 import com.dld.homita.dashboard.data.GeoResult
 import com.dld.homita.dashboard.data.Location
 import com.dld.homita.dashboard.data.MealsToday
 import com.dld.homita.dashboard.data.ReferenceClock
 import com.dld.homita.dashboard.data.Schedule
+import com.dld.homita.dashboard.data.Session
+import com.dld.homita.dashboard.data.SessionExpired
 import com.dld.homita.dashboard.data.Store
 import com.dld.homita.dashboard.data.TaskPriority
 import com.dld.homita.dashboard.data.TaskSort
@@ -60,6 +63,8 @@ data class UiState(
     /** Semanas del calendario descargadas bajo demanda, por su lunes. */
     val weeks: Map<LocalDate, Week> = emptyMap(),
     val loginError: String? = null,
+    /** La sesión caducó y no se pudo renovar: el login lo dice en vez de quedarse mudo. */
+    val sessionExpired: Boolean = false,
     val loggingIn: Boolean = false,
     val geoResults: List<GeoResult> = emptyList(),
     val geoSearching: Boolean = false,
@@ -85,6 +90,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val calendarRepository = CalendarRepository(api, cache)
     private val mealRepository = MealRepository(api, cache)
     private val clock = ReferenceClock(BuildConfig.BUILD_TIME, { store.lastValidTime }, { store.lastValidTime = it })
+    private val session = Session(store, { refresh -> api.refresh(RefreshRequest(refresh)) })
 
     private val _state = MutableStateFlow(
         clock.current().let { time ->
@@ -141,6 +147,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         while (true) {
             tick()
             if (_state.value.clockValid) {
+                // dashboard-sesion: renovar antes de que el JWT caduque (y al arrancar, si ya toca).
+                if (session.needsProactiveRenewal() && session.renew() is Session.Outcome.Rejected) logout(expired = true)
                 if (contentRepository.isStale()) refreshContent()
                 if (weatherRepository.isStale()) refreshWeather()
                 if (mealRepository.isStale(_state.value.now.toLocalDate())) refreshMeals()
@@ -167,8 +175,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     /** Sin hora válida no se pide nada: las fechas de la petición serían las de fábrica. */
     private suspend fun refreshContent() {
-        val token = _state.value.token ?: return
-        report(contentRepository.refresh(token, LocalDate.now()))
+        if (_state.value.token == null) return
+        report(session.authorized { contentRepository.refresh(it, LocalDate.now()) })
     }
 
     /**
@@ -176,8 +184,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
      * oculta, sin marcar el dashboard como sin conexión. Solo un 401 cierra la sesión.
      */
     private suspend fun refreshMeals() {
-        val token = _state.value.token ?: return
-        if (mealRepository.refresh(token, _state.value.now.toLocalDate()).exceptionOrNull()?.isUnauthorized == true) logout()
+        if (_state.value.token == null) return
+        val result = session.authorized { mealRepository.refresh(it, _state.value.now.toLocalDate()) }
+        if (result.exceptionOrNull() is SessionExpired || result.exceptionOrNull()?.isUnauthorized == true) logout(expired = true)
     }
 
     private suspend fun refreshWeather() {
@@ -187,9 +196,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     /** Carga la semana del calendario que empieza en [monday] si no está en caché o ha caducado. */
     fun loadWeek(monday: LocalDate) {
-        val token = _state.value.token ?: return
+        if (_state.value.token == null) return
         if (!calendarRepository.isStale(monday)) return
-        viewModelScope.launch { report(calendarRepository.refresh(token, monday)) }
+        viewModelScope.launch { report(session.authorized { calendarRepository.refresh(it, monday) }) }
     }
 
     /** Orden de la pantalla de tareas (en cliente, sobre la caché). */
@@ -216,7 +225,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             tick()
             if (_state.value.clockValid) {
                 refreshContent()
-                _state.value.token?.let { token -> calendarRepository.loaded().forEach { report(calendarRepository.refresh(token, it)) } }
+                if (_state.value.token != null) {
+                    calendarRepository.loaded().forEach { monday -> report(session.authorized { calendarRepository.refresh(it, monday) }) }
+                }
                 refreshWeather()
                 refreshMeals()
             }
@@ -227,10 +238,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     /** Estado de la conexión según la última petición. Si falla, la pantalla sigue con la copia en caché. */
     private fun report(result: Result<*>) {
+        if (_state.value.token == null) return
         val error = result.exceptionOrNull()
         when {
             error == null -> _state.update { it.copy(online = true) }
-            error.isUnauthorized -> logout()
+            error is SessionExpired || error.isUnauthorized -> logout(expired = true)
             else -> _state.update { it.copy(online = false) }
         }
     }
@@ -246,8 +258,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     return@launch
                 }
                 store.token = token
+                store.refreshToken = response.body()?.refresh_token
                 store.email = email.trim()
-                _state.update { it.copy(token = token, email = email.trim(), loggingIn = false) }
+                _state.update { it.copy(token = token, email = email.trim(), loggingIn = false, sessionExpired = false) }
                 refreshNow()
             } catch (e: Exception) {
                 _state.update { it.copy(loggingIn = false, loginError = "Sin conexión con el servidor") }
@@ -255,12 +268,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun logout() {
+    /** [expired]: la sesión caducó y no se pudo renovar; el login lo explica. */
+    fun logout(expired: Boolean = false) {
         store.logout()
         contentRepository.clear()
         calendarRepository.clear()
         mealRepository.clear()
-        _state.update { it.copy(token = null) }
+        _state.update { it.copy(token = null, sessionExpired = expired) }
     }
 
     fun searchLocation(query: String) {

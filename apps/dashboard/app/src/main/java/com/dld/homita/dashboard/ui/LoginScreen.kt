@@ -87,13 +87,18 @@ fun LoginScreen(state: UiState, onLogin: (String, String) -> Unit, onWifi: () ->
             Field(password, { password = it }, "Contraseña", Modifier.fillMaxWidth(), password = true) {
                 if (canSubmit) onLogin(email, password)
             }
-            state.loginError?.let { Text(it, style = Type.Body.copy(color = Palette.Danger)) }
+            // La sesión caducada se explica aquí; un error del intento (contraseña, red) tiene prioridad.
+            (state.loginError ?: if (state.sessionExpired) SESSION_EXPIRED_MESSAGE else null)
+                ?.let { Text(it, style = Type.Body.copy(color = Palette.Danger)) }
             PillButton(if (state.loggingIn) "Entrando…" else "Entrar", Modifier.fillMaxWidth(), primary = true, enabled = canSubmit) {
                 onLogin(email, password)
             }
         }
     }
 }
+
+/** Mensaje del login cuando la renovación de la sesión falla (dashboard-sesion). */
+private const val SESSION_EXPIRED_MESSAGE = "La sesión de esta pantalla ha caducado. Vuelve a iniciar sesión."
 
 /**
  * Arco que gira una vez por segundo. El marco tiene las escalas de animación del sistema a 0 (install.sh) y Compose

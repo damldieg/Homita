@@ -86,6 +86,8 @@ export const rpcPassHome = async (res: Response, status = 200): Promise<Response
 export const errAuthFieldsRequired = (): Response => error("Email and password are required", 400);
 export const errInvalidCredentials = (): Response => error("Invalid credentials", 401);
 export const errUnauthorized = (): Response => error("Unauthorized", 401);
+export const errRefreshTokenRequired = (): Response => error("Refresh token is required", 400);
+export const errInvalidRefreshToken = (): Response => error("Invalid refresh token", 401);
 export const errRouteNotFound = (): Response => error("Not Found", 404);
 export const errNotFound500 = (): Response => error("Not Found", 500);
 export const errInvalidTimezone = (): Response => error("Invalid timezone", 400);

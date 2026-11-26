@@ -19,13 +19,18 @@ data class Schedule(
 )
 
 /** Sesión y ajustes del dispositivo (SharedPreferences). Los datos descargados van en DiskCache. */
-class Store(context: Context) {
+class Store(context: Context) : TokenStore {
     private val prefs = context.getSharedPreferences("dashboard", Context.MODE_PRIVATE)
     private val gson = Gson()
 
-    var token: String?
+    override var token: String?
         get() = prefs.getString("token", null)
         set(value) = prefs.edit { putString("token", value) }
+
+    /** refresh_token de GoTrue (dashboard-sesion). Vacío en sesiones anteriores: hay que volver a entrar una vez. */
+    override var refreshToken: String?
+        get() = prefs.getString("refresh_token", null)
+        set(value) = prefs.edit { if (value == null) remove("refresh_token") else putString("refresh_token", value) }
 
     var email: String?
         get() = prefs.getString("email", null)
@@ -59,7 +64,10 @@ class Store(context: Context) {
         get() = prefs.getLong("last_valid_time", 0L)
         set(value) = prefs.edit { putLong("last_valid_time", value) }
 
-    fun logout() = prefs.edit { remove("token") }
+    fun logout() = prefs.edit {
+        remove("token")
+        remove("refresh_token")
+    }
 
     init {
         // La caché de datos estaba aquí antes de pasar a disco (DiskCache): se descarta, se vuelve a descargar.

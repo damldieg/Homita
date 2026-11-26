@@ -8,7 +8,13 @@ import java.time.format.DateTimeFormatter
 
 data class AuthRequest(val email: String, val password: String)
 
-data class UserResponse(val id: Int, val name: String, val email: String, val token: String?)
+data class UserResponse(val id: Int, val name: String, val email: String, val token: String?, val refresh_token: String? = null)
+
+/** Renovación de sesión (`POST /user/refresh`, dashboard-sesion): el refresh_token que se guardó al entrar. */
+data class RefreshRequest(val refresh_token: String)
+
+/** Sesión renovada: JWT nuevo y el refresh_token que lo sustituye (GoTrue rota el anterior). */
+data class SessionResponse(val token: String?, val refresh_token: String?)
 
 data class Person(val id: Int, val name: String, val color: String)
 

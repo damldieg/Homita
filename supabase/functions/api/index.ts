@@ -34,7 +34,7 @@ import { error, errInvalidHome, errNotFound500, errRouteHomeNotFound, errRouteNo
 import { checkHomeMember, parseHomeHeader, runWithHome } from "./_shared/home.ts";
 import { verifyUser } from "./_shared/supabase.ts";
 import {
-    handleConfig, handleUserAuth, handleUserCreate, handleUserUpdate,
+    handleConfig, handleUserAuth, handleUserCreate, handleUserRefresh, handleUserUpdate,
 } from "./usecases/auth.ts";
 import {
     handleCalendarCreate, handleCalendarDelete, handleCalendarDetail, handleCalendarIndex,
@@ -89,6 +89,8 @@ const ROUTES: Record<string, { auth: boolean; home?: boolean; homeContext?: bool
     "GET /config": { auth: false, handler: () => handleConfig() },
     "POST /user/create": { auth: false, handler: (req) => handleUserCreate(req) },
     "POST /user/auth": { auth: false, handler: (req) => handleUserAuth(req) },
+    // dashboard-sesion: ruta aditiva (D-008) para que la pantalla renueve su sesión sin la anon key.
+    "POST /user/refresh": { auth: false, handler: (req) => handleUserRefresh(req) },
     "PATCH /user/update": { auth: true, handler: (req, t, u) => handleUserUpdate(req, t, u) },
 
     "GET /calendar": { auth: true, handler: (req, t) => handleCalendarIndex(req, t) },
