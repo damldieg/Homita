@@ -193,3 +193,48 @@ final class KitoConfirmTests: XCTestCase {
         XCTAssertEqual(offline, .desconocido)
     }
 }
+
+/// Modelo de presentación de la tarjeta de confirmación (botones, etiquetas de VoiceOver, anuncios).
+final class KitoConfirmationPresentationTests: XCTestCase {
+    private func model(_ estado: KitoConfirmationState?, detalle: String? = nil, texto: String = "¿Borro la lista «Pruebas»?") -> KitoConfirmationPresentation {
+        var datos: [String: JSONValue] = ["texto": .string(texto), "token": .string("t")]
+        if let estado { datos["estado"] = .string(estado.rawValue) }
+        if let detalle { datos["detalle"] = .string(detalle) }
+        return KitoConfirmationPresentation(KitoConfirmation(card: KitoCard(tipo: "confirmacion", datos: datos))!)
+    }
+
+    func testPendingShowsEnabledButtons() {
+        let m = model(nil)
+        XCTAssertTrue(m.showsButtons)
+        XCTAssertTrue(m.buttonsEnabled)
+        XCTAssertNil(m.resolvedLabel)
+        XCTAssertNil(m.announcement)
+        XCTAssertEqual(m.accessibilityLabel, "Kito pide confirmación: ¿Borro la lista «Pruebas»?")
+        XCTAssertEqual(m.confirmAccessibilityLabel, "Confirmar: ¿Borro la lista «Pruebas»?")
+        XCTAssertEqual(m.cancelAccessibilityLabel, "Cancelar")
+    }
+
+    func testSendingShowsDisabledButtonsWithProgress() {
+        let m = model(.enviando)
+        XCTAssertTrue(m.showsButtons)
+        XCTAssertFalse(m.buttonsEnabled)
+        XCTAssertTrue(m.confirmIsLoading)
+        XCTAssertTrue(m.accessibilityLabel.hasSuffix("Enviando"))
+    }
+
+    func testResolvedStatesHaveNoButtonsAndAreAnnounced() {
+        for estado in [KitoConfirmationState.hecho, .cancelado, .caducado, .parcial, .error, .desconocido] {
+            let m = model(estado)
+            XCTAssertFalse(m.showsButtons, "\(estado)")
+            XCTAssertEqual(m.announcement, estado.label)
+            XCTAssertTrue(m.accessibilityLabel.contains(estado.label))
+        }
+        let done = model(.hecho, detalle: "Lista borrada")
+        XCTAssertEqual(done.accessibilityLabel, "Kito pide confirmación: ¿Borro la lista «Pruebas»?. Hecho. Lista borrada")
+    }
+
+    func testLongTextIsShortenedInButtonLabel() {
+        let m = model(nil, texto: String(repeating: "a", count: 100))
+        XCTAssertEqual(m.confirmAccessibilityLabel, "Confirmar: " + String(repeating: "a", count: 60) + "…")
+    }
+}
