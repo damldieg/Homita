@@ -73,7 +73,23 @@ public final class APIClient {
         return .sessionExpired
     }
 
+    /// Como `send` pero sin convertir los códigos no 2xx en error: devuelve estado y cuerpo para quien
+    /// necesita el body de un 4xx/5xx (p. ej. el 409 de `asistente/confirmar`). Mantiene el refresco de
+    /// sesión ante un 401. Sin caché de lectura. Los fallos de red lanzan `APIError.network`.
+    public func sendRaw(_ request: APIRequest) async throws -> (status: Int, data: Data) {
+        try await performRaw(request, allowRefresh: true)
+    }
+
     private func perform(_ request: APIRequest, allowRefresh: Bool) async throws -> Data {
+        let (status, data) = try await performRaw(request, allowRefresh: allowRefresh)
+        guard (200...299).contains(status) else {
+            let envelope = try? JSONCoding.decoder().decode(ErrorEnvelope.self, from: data)
+            throw APIError.http(status: status, message: envelope?.error ?? "HTTP \(status)")
+        }
+        return data
+    }
+
+    private func performRaw(_ request: APIRequest, allowRefresh: Bool) async throws -> (status: Int, data: Data) {
         let urlRequest = try RequestBuilder.urlRequest(baseURL: baseURL, apiRequest: request, accessToken: tokenProvider(), homeId: homeIdProvider())
         let data: Data
         let response: URLResponse
@@ -96,12 +112,8 @@ public final class APIClient {
             } catch {
                 throw expireSession()
             }
-            return try await perform(request, allowRefresh: false)
+            return try await performRaw(request, allowRefresh: false)
         }
-        guard (200...299).contains(http.statusCode) else {
-            let envelope = try? JSONCoding.decoder().decode(ErrorEnvelope.self, from: data)
-            throw APIError.http(status: http.statusCode, message: envelope?.error ?? "HTTP \(http.statusCode)")
-        }
-        return data
+        return (http.statusCode, data)
     }
 }

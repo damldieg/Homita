@@ -342,4 +342,21 @@ final class MealsStoreTests: XCTestCase {
         let late = Date(timeIntervalSince1970: 1_795_521_600 - 45_000)
         XCTAssertEqual(MealWeek.string(late, timeZone: TimeZone(identifier: "Pacific/Auckland")!), "2026-11-24")
     }
+
+    func testAddActionsOnlyInEditMode() {
+        let store = makeStore()
+        XCTAssertFalse(store.isEditing)
+        XCTAssertFalse(store.showsAddActions)
+        store.isEditing = true
+        XCTAssertTrue(store.showsAddActions)
+    }
+
+    func testNoAddActionsWhenArchivedEvenInEditMode() async {
+        route { _ in StubURLProtocol.Stub(json: self.planJSON(revision: 1, status: "archived")) }
+        let store = makeStore()
+        await store.load()
+        store.isEditing = true
+        XCTAssertFalse(store.canEdit)
+        XCTAssertFalse(store.showsAddActions)
+    }
 }

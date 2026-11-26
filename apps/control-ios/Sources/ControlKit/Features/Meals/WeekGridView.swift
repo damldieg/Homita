@@ -94,6 +94,11 @@ struct WeekGridView: View {
             .onTapGesture { Task { await store.goToCurrentWeek() } }
             Button { Task { await store.shiftWeek(by: 1) } } label: { Image(systemName: "chevron.right") }
                 .accessibilityLabel("Semana siguiente")
+            if store.canEdit {
+                Button(store.isEditing ? "Listo" : "Editar") { store.isEditing.toggle() }
+                    .font(HomitaFont.inter(15, weight: .semibold))
+                    .accessibilityIdentifier("menu.editar")
+            }
             menu
         }
         .padding(.vertical, 4)
@@ -215,7 +220,7 @@ struct WeekGridView: View {
             if !out.isEmpty {
                 Text("Fuera: \(out.joined(separator: ", "))").font(HomitaFont.inter(11)).foregroundStyle(Palette.inkMuted)
             }
-            if store.canEdit {
+            if store.showsAddActions {
                 Button { slotEditor = SlotEditorRequest(day: day, slot: slot.slot, item: nil) } label: {
                     Image(systemName: "plus").font(.system(size: 14)).frame(maxWidth: .infinity, minHeight: 28)
                 }

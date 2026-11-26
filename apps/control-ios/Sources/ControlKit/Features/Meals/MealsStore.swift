@@ -53,6 +53,10 @@ public final class MealsStore {
         }
     }
     public var canEdit: Bool { plan?.status != MealPlanStatus.archived }
+    /// Modo edición de la rejilla: solo en él se muestran los «+» de las casillas.
+    public var isEditing = false
+    /// Los «+» (añadir plato) se ofrecen únicamente en modo edición y si el plan es editable.
+    public var showsAddActions: Bool { isEditing && canEdit }
     public var isDraft: Bool { plan == nil || plan?.status == MealPlanStatus.draft }
     public var isAccepted: Bool { plan?.status == MealPlanStatus.accepted }
     public var currentWeekStart: String {

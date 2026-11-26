@@ -243,7 +243,9 @@ public final class TasksStore: MainActorWriteFailureReporting {
         }
     }
 
-    public func loadTasks() async {
+    /// `refreshAlarms: false` omite la reprogramación de avisos locales (la recarga por cambios de Kito la hace
+    /// Inicio, para no duplicar `HomitaSync.refresh` en una misma publicación).
+    public func loadTasks(refreshAlarms: Bool = true) async {
         isLoading = true
         defer { isLoading = false; hasLoadedTasks = true }
         // Tras el ack de un create de lista, el filtro pasa del ID temporal al real.
@@ -257,7 +259,7 @@ public final class TasksStore: MainActorWriteFailureReporting {
             let filter = listFilterId
             serverTasks = try await fetchFresh { try await tasksRepo.index(taskListId: filter) }
             // Fecha límite y completadas cambian los avisos locales (0041): se replanifican tras cada carga.
-            await HomitaSync.shared.refresh(force: true, allowPrompt: false)
+            if refreshAlarms { await HomitaSync.shared.refresh(force: true, allowPrompt: false) }
         } catch {
             report(error)
         }
