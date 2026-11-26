@@ -23,6 +23,7 @@ public struct InicioView: View {
     /// Navegación a otra pestaña (Tareas, Rutinas, Eventos); la resuelve `MainTabView`.
     var onOpen: (InicioDestination) -> Void = { _ in }
     @State private var store: InicioStore
+    @State private var kitoGate: KitoReloadGate
     @State private var eventStore: EventStore
     @State private var calendarStore: CalendarStore
     @State private var personStore: PersonStore
@@ -50,6 +51,7 @@ public struct InicioView: View {
     public init(services: AppServices, outbox: OutboxStore? = nil, onOpen: @escaping (InicioDestination) -> Void = { _ in }) {
         self.services = services
         self.onOpen = onOpen
+        _kitoGate = State(initialValue: KitoReloadGate(seen: services.kitoChanges.counter(for: KitoReloadTargets.inicio)))
         _store = State(initialValue: InicioStore(
             events: services.events, tasks: services.tasks,
             routines: services.routines, taskLists: services.taskLists,
@@ -100,6 +102,17 @@ public struct InicioView: View {
             }
             .refreshable { await store.load() }
             .task { await store.load() }
+            // Kito cambió algo: Inicio siempre se recarga (y reprograma los avisos locales una sola vez).
+            .onChange(of: services.kitoChanges.counter(for: KitoReloadTargets.inicio)) { _, current in
+                guard kitoGate.shouldReload(current: current) else { return }
+                Task { await store.reloadAfterKito() }
+            }
+            .onAppear {
+                // Si el cambio llegó con la pestaña fuera de pantalla y sin recargar.
+                if kitoGate.shouldReload(current: services.kitoChanges.counter(for: KitoReloadTargets.inicio)) {
+                    Task { await store.reloadAfterKito() }
+                }
+            }
             .onChange(of: store.outbox?.generation) {
                 // Cola sincronizada (ack): la lista mostrada pasa a su ID real y se recargan las tareas.
                 if let id = taskPageId, let outbox = store.outbox { taskPageId = outbox.resolve(id) }

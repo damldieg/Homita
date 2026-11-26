@@ -250,6 +250,15 @@ public final class InicioStore: MainActorWriteFailureReporting {
         _ = await (eventsLoad, tasksLoad, routinesLoad, mealsLoad)
     }
 
+    /// Recarga tras un cambio de Kito: eventos, tareas y rutinas (sin comidas). `loadTasks` reprograma los
+    /// avisos locales con `HomitaSync.refresh`, una vez por recarga.
+    public func reloadAfterKito() async {
+        async let eventsLoad: Void = loadEvents()
+        async let tasksLoad: Void = loadTasks()
+        async let routinesLoad: Void = loadRoutines()
+        _ = await (eventsLoad, tasksLoad, routinesLoad)
+    }
+
     // MARK: - Comidas de hoy
 
     /// Fase de una comida de hoy según su hora: mismas ventanas que las rutinas (aviso de 60 min

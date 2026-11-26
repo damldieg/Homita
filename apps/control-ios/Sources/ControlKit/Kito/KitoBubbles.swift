@@ -31,6 +31,10 @@ struct KitoMessageBubble: View {
     /// Altavoz de la respuesta: `nil` si no hay voz disponible.
     var onToggleSpeech: (() -> Void)?
     var isSpeaking = false
+    /// Acciones de las tarjetas de confirmación (índice de la tarjeta en el mensaje).
+    var onConfirm: (Int) -> Void = { _ in }
+    var onCancel: (Int) -> Void = { _ in }
+    var onAppearConfirmation: (Int) -> Void = { _ in }
 
     private var isUser: Bool { message.role == .user }
 
@@ -81,7 +85,10 @@ struct KitoMessageBubble: View {
                 .accessibilityLabel(isSpeaking ? "Parar" : "Escuchar respuesta")
             }
             if let cards = message.cards, !cards.isEmpty {
-                KitoCardRenderer(cards: cards)
+                KitoCardRenderer(
+                    messageId: message.id, cards: cards,
+                    onConfirm: onConfirm, onCancel: onCancel, onAppearConfirmation: onAppearConfirmation
+                )
                     .padding(.leading, 28 + Spacing.s2)
             }
         }

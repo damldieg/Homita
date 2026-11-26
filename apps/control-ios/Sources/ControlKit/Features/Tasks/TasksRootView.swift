@@ -5,6 +5,7 @@ public struct TasksRootView: View {
     let services: AppServices
     @State private var store: TasksStore
     @State private var segment = 0
+    @State private var kitoGate: KitoReloadGate
     /// Lista pedida desde Inicio («Ver más»): se despliega solo esa y se pliegan las demás.
     @Binding var listRequest: Int?
 
@@ -12,6 +13,7 @@ public struct TasksRootView: View {
     public init(services: AppServices, outbox: OutboxStore? = nil, listRequest: Binding<Int?> = .constant(nil)) {
         self.services = services
         _listRequest = listRequest
+        _kitoGate = State(initialValue: KitoReloadGate(seen: services.kitoChanges.counter(for: KitoReloadTargets.tasks)))
         _store = State(initialValue: TasksStore(taskLists: services.taskLists, tasks: services.tasks, persons: services.persons, outbox: outbox))
     }
 
@@ -41,6 +43,16 @@ public struct TasksRootView: View {
                 Task {
                     await store.loadLists()
                     await store.loadTasks()
+                }
+                // Lo de Kito ya se recarga arriba: solo se anota que se ha visto (no recargar dos veces).
+                _ = kitoGate.shouldReload(current: services.kitoChanges.counter(for: KitoReloadTargets.tasks))
+            }
+            // Kito cambió tareas o listas con la pestaña montada (el chat es una hoja: no hay onAppear al cerrarla).
+            .onChange(of: services.kitoChanges.counter(for: KitoReloadTargets.tasks)) { _, current in
+                guard kitoGate.shouldReload(current: current) else { return }
+                Task {
+                    await store.loadLists()
+                    await store.loadTasks(refreshAlarms: false)
                 }
             }
             .onChange(of: segment) { _, newValue in

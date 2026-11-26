@@ -20,6 +20,9 @@ public struct AppServices {
     /// Kito (asistente): cliente de la Edge `asistente` e historial local por usuario y hogar.
     public let kitoAPI: KitoAPI
     public let kitoHistory: KitoHistoryStore
+    /// Canal por el que Kito avisa de lo que ha cambiado (las pestañas se recargan). Es del servicio, no del
+    /// chat: sobrevive al cambio de hogar o de conversación.
+    public let kitoChanges: KitoChanges
     /// Reproduce la cola offline del hogar activo (D-024); uno por app, vuelo único por cola.
     public let outboxReplayer: OutboxReplayer
 
@@ -32,6 +35,7 @@ public struct AppServices {
         self.homeContext = homeContext
         let kitoHistory = KitoHistoryStore(directory: KitoHistoryStore.defaultDirectory())
         self.kitoHistory = kitoHistory
+        self.kitoChanges = KitoChanges()
         let client = APIClient(
             baseURL: config.homitaBaseURL,
             session: http,
