@@ -1,0 +1,137 @@
+{
+ "id": "11-todo-mezclado",
+ "nombre": "Alergias cruzadas: gluten, huevo y pescado en tres personas",
+ "nota": "Pocas recetas seguras para todos",
+ "semana": "2030-01-07",
+ "mensaje": "Proponme el menú de la semana del 2030-01-07. Los días fuera que aparezcan están confirmados; no me preguntes nada y guárdalo.",
+ "perfil": {
+  "home_id": 7,
+  "timezone": "Europe/Madrid",
+  "can_edit": true,
+  "countries": [
+   "ES",
+   "IT"
+  ],
+  "profile": {
+   "week_start_day": 1,
+   "shopping_day": 6,
+   "cook_minutes_weekday": 30,
+   "cook_minutes_weekend": 60,
+   "cook_skill": "medium",
+   "repeat_policy": "some",
+   "leftovers": "yes",
+   "dessert": "no",
+   "equipment": [
+    "horno"
+   ],
+   "preferences": {}
+  },
+  "slots": [
+   {
+    "slot": "lunch",
+    "enabled": true,
+    "time": "14:00"
+   },
+   {
+    "slot": "dinner",
+    "enabled": true,
+    "time": "21:00"
+   },
+   {
+    "slot": "snack",
+    "enabled": false,
+    "time": "17:00"
+   }
+  ],
+  "members": [
+   {
+    "home_member_id": 1,
+    "name": "Rosa",
+    "kind": "adult",
+    "age_band": "adult",
+    "portion_size": "normal",
+    "allergies_answered": true,
+    "allergies": [
+     {
+      "allergen": "gluten",
+      "severity": "avoid_ingredient"
+     }
+    ],
+    "diet": null,
+    "dislikes": [],
+    "favorites": [],
+    "quirks": null,
+    "spice": 1
+   },
+   {
+    "home_member_id": 2,
+    "name": "Iván",
+    "kind": "adult",
+    "age_band": "adult",
+    "portion_size": "normal",
+    "allergies_answered": true,
+    "allergies": [
+     {
+      "allergen": "huevo",
+      "severity": "avoid_ingredient"
+     }
+    ],
+    "diet": null,
+    "dislikes": [],
+    "favorites": [],
+    "quirks": null,
+    "spice": 1
+   },
+   {
+    "home_member_id": 3,
+    "name": "Noa",
+    "kind": "child",
+    "age_band": "child",
+    "portion_size": "small",
+    "allergies_answered": true,
+    "allergies": [
+     {
+      "allergen": "pescado",
+      "severity": "avoid_ingredient"
+     }
+    ],
+    "diet": null,
+    "dislikes": [],
+    "favorites": [
+     "lasaña"
+    ],
+    "quirks": null,
+    "spice": 1
+   },
+   {
+    "home_member_id": 4,
+    "name": "Ben",
+    "kind": "adult",
+    "age_band": "adult",
+    "portion_size": "normal",
+    "allergies_answered": true,
+    "allergies": [],
+    "diet": null,
+    "dislikes": [],
+    "favorites": [],
+    "quirks": null,
+    "spice": 1
+   }
+  ],
+  "schedule": [
+   {
+    "home_member_id": 4,
+    "weekday": 1,
+    "slot": "dinner",
+    "status": "out"
+   },
+   {
+    "home_member_id": 4,
+    "weekday": 2,
+    "slot": "dinner",
+    "status": "out"
+   }
+  ],
+  "candidates": []
+ }
+}
