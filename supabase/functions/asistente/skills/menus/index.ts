@@ -5,6 +5,7 @@
 import type { Skill } from "../../core.ts";
 import { INTENCION_MENUS } from "./intencion.ts";
 import { buscarRecetasTool, leerPerfilTool, leerSemanaTool } from "./lectura.ts";
+import { apuntarCompraTool, apuntarPreferenciaTool, guardarRecetaTool } from "./escritura.ts";
 import { proponerMenuTool, reproponerTool } from "./menu.ts";
 
 export const INSTRUCCIONES_MENUS = `Skill «menus»: propones el menú de la semana del hogar. Trabajas con borradores: guardas la propuesta, la persona la revisa en la tarjeta y la acepta ella en la app. Tú nunca aceptas un menú ni dices que está aceptado.
@@ -26,7 +27,8 @@ export const menus: Skill = {
     nombre: "Menús",
     descripcion: "Propone el menú semanal del hogar como borrador, repropone lo que la persona rechaza y apunta recetas y compra.",
     instrucciones: INSTRUCCIONES_MENUS,
-    herramientas: [leerPerfilTool, leerSemanaTool, buscarRecetasTool, proponerMenuTool, reproponerTool],
+    herramientas: [leerPerfilTool, leerSemanaTool, buscarRecetasTool, proponerMenuTool, reproponerTool,
+        guardarRecetaTool, apuntarCompraTool, apuntarPreferenciaTool],
     modelo: "KITO_MODEL_MENUS",
     intencion: INTENCION_MENUS,
     maxRondas: 8,
