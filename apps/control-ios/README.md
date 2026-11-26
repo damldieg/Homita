@@ -71,6 +71,26 @@ Límites (sin cuenta de pago ni servidor de push):
 - Firma gratuita: la extensión es un segundo App ID (AltStore/Sideloadly limitan IDs y apps activas) y el App Group lo registra la herramienta de firma; si no hay grupo, los widgets muestran «Abre Homita para cargar tus rutinas». Si cambias de equipo de firma, ajusta `appGroupId` en `HomitaShared/SharedConfig.swift` y en los dos `.entitlements`.
 - UI, widgets y Live Activity sin verificar en simulador ni en dispositivo.
 
+## Kito: confirmaciones y recarga
+
+Cuando Kito propone borrar algo (o varias escrituras a la vez) responde con una tarjeta `confirmacion`
+(`Sources/ControlKit/Kito/KitoConfirmation*.swift`). El estado vive en el historial local, en
+`datos["estado"]` de la tarjeta: `pendiente`, `enviando`, `hecho`, `cancelado`, `caducado`, `parcial`,
+`error` o `desconocido`. Reglas:
+
+- **Confirmar** llama una sola vez a `POST asistente/confirmar` y guarda `enviando` antes de la petición. El token
+  vale 2 minutos y es reusable en el servidor, así que la app nunca reintenta: si la app se cierra a mitad o falla
+  la red, la tarjeta queda en `desconocido` (sin botones) y hay que pedírselo otra vez a Kito.
+- **Cancelar** es solo local. 403 (firma o caducidad), 409 (parcial: se muestra el texto del servidor y se aplican
+  sus cambios), 503 y 400/404/405 dejan la tarjeta resuelta, nunca reabilitada.
+- **Caducidad**: se compara `caduca` con el reloj del móvil con 5 s de margen, al abrir el historial, al aparecer
+  la tarjeta y al pulsar. Sin fecha legible se trata como caducada.
+- Al resolver se añade al historial un mensaje de Kito con el resultado, para que sepa cómo acabó.
+- **Recarga**: `KitoStore` publica los `cambios` en `KitoChanges` (contador por tipo; no `DataFreshness`).
+  Tareas, Inicio y Calendario (agenda, calendarios, rutinas) recargan solo lo afectado, en el acto si están
+  montadas o al volver a ellas. Los avisos locales se reprograman con la recarga de Inicio
+  (`HomitaSync.refresh`), una vez por publicación; la recarga de Tareas por Kito no la repite.
+
 ## Alcance v1
 
 - Auth: login, registro (solo si `GET /config` → `allow_registration`), perfil (nombre, email, contraseña) y logout.
