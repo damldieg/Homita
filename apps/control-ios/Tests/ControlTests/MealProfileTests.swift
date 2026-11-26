@@ -180,4 +180,48 @@ final class MealProfileTests: XCTestCase {
     func testMealGetIsNotCached() {
         XCTAssertFalse(ReadCache.isCacheable(APIRequest(method: .get, path: "meal/profile")))
     }
+
+    // MARK: - Países del hogar (0046)
+
+    func testDecodeCountriesPresentAndAbsent() async throws {
+        let withCountries = profileJSON.replacingOccurrences(of: #""group_by_section":true,"#,
+                                                             with: #""group_by_section":true,"countries":["AR","ES"],"#)
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: withCountries) }
+        var loaded = try await MealRepository(client: makeTestClient()).profile()
+        XCTAssertEqual(loaded.profile.countries, ["AR", "ES"])
+        // servidor anterior a 0046: sin la clave → lista vacía
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: self.profileJSON) }
+        loaded = try await MealRepository(client: makeTestClient()).profile()
+        XCTAssertEqual(loaded.profile.countries, [])
+    }
+
+    func testSetCountriesSendsFullListAndReloads() async throws {
+        let withCountries = profileJSON.replacingOccurrences(of: #""group_by_section":true,"#,
+                                                             with: #""group_by_section":true,"countries":["AR","ES"],"#)
+        StubURLProtocol.reset { req in
+            req.httpMethod == "PATCH" ? StubURLProtocol.Stub(json: #"{"success":true}"#) : StubURLProtocol.Stub(json: withCountries)
+        }
+        let store = MealProfileStore(meals: MealRepository(client: makeTestClient()), activeHomeId: { "7" })
+        await store.setCountries(["AR", "ES", "AR"])
+        let patch = try XCTUnwrap(StubURLProtocol.requests.first { $0.httpMethod == "PATCH" })
+        XCTAssertTrue(patch.url?.path.hasSuffix("/api/meal/profile") == true)
+        XCTAssertEqual(String(data: try XCTUnwrap(patch.capturedBody), encoding: .utf8), #"{"countries":["AR","ES"]}"#)
+        XCTAssertEqual(store.profile?.profile.countries, ["AR", "ES"])
+        XCTAssertNil(store.errorMessage)
+        await store.setCountries([])
+        let last = try XCTUnwrap(StubURLProtocol.requests.last { $0.httpMethod == "PATCH" })
+        XCTAssertEqual(String(data: try XCTUnwrap(last.capturedBody), encoding: .utf8), #"{"countries":[]}"#)
+    }
+
+    func testCountryListMatchesServerAndHasSpanishNames() {
+        XCTAssertEqual(MealCountries.codes.count, 51)
+        XCTAssertEqual(Set(MealCountries.codes).count, 51)
+        XCTAssertTrue(MealCountries.codes.allSatisfy { $0.count == 2 && $0 == $0.uppercased() })
+        XCTAssertEqual(MealCountries.name("ES"), "España")
+        XCTAssertEqual(MealCountries.name("AR"), "Argentina")
+        XCTAssertEqual(MealCountries.flag("AR"), "\u{1F1E6}\u{1F1F7}")
+        XCTAssertEqual(MealCountries.flag("xx9"), "")
+        XCTAssertEqual(MealCountries.sorted.count, 51)
+        XCTAssertEqual(MealCountries.sorted.first.map(MealCountries.name), "Alemania")
+    }
 }
