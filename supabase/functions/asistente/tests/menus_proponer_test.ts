@@ -3,18 +3,10 @@ import { assert, assertEquals } from "jsr:@std/assert@1";
 import { indexTools } from "../core.ts";
 import { menus } from "../skills/menus/index.ts";
 import { proponerMenuTool } from "../skills/menus/menu.ts";
-import { ANA, casilla, crearMundo, ctxDe, SEMANA } from "./menus_util.ts";
+import { abrir, ANA, casilla, crearMundo, ctxDe, SEMANA } from "./menus_util.ts";
 
 type Obj = Record<string, unknown>;
 
-/** Separa el valor para el modelo de los efectos (tarjeta, cambios) que `conEfectos` esconde en un símbolo. */
-export const abrir = (r: unknown): { valor: Obj; tarjeta?: Obj; cambios?: Obj[] } => {
-    const o = r as Obj;
-    const sim = Object.getOwnPropertySymbols(o)[0];
-    if (sim === undefined) return { valor: o };
-    const ef = (o as unknown as Record<symbol, Obj>)[sim];
-    return { valor: o.valor as Obj, tarjeta: ef.tarjeta as Obj | undefined, cambios: ef.cambios as Obj[] | undefined };
-};
 const proponer = (input: Obj, ctx: unknown) => proponerMenuTool.run(input, ctx as never, { toolUseId: "toolu_1", orden: 0 } as never);
 
 const PLATOS = [

@@ -208,3 +208,87 @@ export const proponerMenuTool: Tool = {
         return await cerrar(ctx, obj(r.data), perfil, plan === null ? "crear" : "editar", new Map());
     },
 };
+
+export const reproponerTool: Tool = {
+    name: "reproponer",
+    description:
+        "Cambia SOLO las casillas que la persona ha marcado para cambiar (estado rejected) en el menú de una semana. Para cada una pasa casilla_id y el plato nuevo (receta_id o titulo); `motivo` es lo que dijo la persona. No toca las casillas aceptadas ni las bloqueadas (locked) y no sirve para un menú ya aceptado. Después comprueba el menú y, con 0 conflictos, muestra la tarjeta actualizada.",
+    input_schema: esquema({
+        semana: { type: "string", description: "Primer día de la semana, AAAA-MM-DD." },
+        cambios: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    casilla_id: { type: "integer", description: "Id de la casilla rechazada (leer_semana)." },
+                    receta_id: { type: "integer" },
+                    titulo: { type: "string", description: "Obligatorio si no hay receta_id." },
+                    motivo: { type: "string", description: "Por qué la persona la rechazó." },
+                },
+                required: ["casilla_id"],
+                additionalProperties: false,
+            },
+        },
+    }, ["semana", "cambios"]),
+    escritura: true,
+    strict: false,
+    run: async (input, ctx) => {
+        const semana = input.semana;
+        if (!esFecha(semana)) return { falta: ["semana"], error: "La semana debe tener formato AAAA-MM-DD." };
+        const plan = await leerPlan(ctx, semana);
+        if (plan === null) return { ok: false, error: "Esa semana no tiene menú: usa proponer_menu." };
+        if (plan.status === "accepted") return { ok: false, error: "Ese menú ya está aceptado: lo cambia la persona en la app, tú no lo tocas." };
+        const casillas = arr(plan.items).map(obj);
+        const rechazadas = casillas.filter((i) => i.state === "rejected");
+        const cambios = arr(input.cambios).map(obj);
+        if (cambios.length === 0) {
+            return rechazadas.length === 0
+                ? { ok: false, error: "No hay casillas marcadas para cambiar." }
+                : { falta: ["cambios"], rechazadas: rechazadas.map((i) => ({ casilla_id: i.id, dia: i.day, franja: i.slot, titulo: i.title })) };
+        }
+        const errores: string[] = [];
+        const items: Obj[] = [];
+        const motivos = new Map<number, string>();
+        const vistos = new Set<number>();
+        for (const c of cambios) {
+            const id = entero(c.casilla_id);
+            const casilla = casillas.find((i) => i.id === id);
+            if (id === undefined || casilla === undefined) {
+                errores.push(`casilla ${String(c.casilla_id)}: no existe en ese menú`);
+            } else if (casilla.state === "locked") {
+                errores.push(`casilla ${id}: está bloqueada por la persona y no se toca`);
+            } else if (casilla.state !== "rejected") {
+                errores.push(`casilla ${id}: no está marcada para cambiar (solo repropongo las rechazadas)`);
+            } else if (vistos.has(id)) {
+                errores.push(`casilla ${id}: repetida`);
+            } else {
+                const recetaId = c.receta_id === undefined ? undefined : entero(c.receta_id);
+                const titulo = str(c.titulo);
+                if ((c.receta_id !== undefined && recetaId === undefined) || (recetaId === undefined && titulo === undefined)) {
+                    errores.push(`casilla ${id}: falta el plato nuevo (receta_id o titulo)`);
+                } else {
+                    vistos.add(id);
+                    const motivo = str(c.motivo, 160);
+                    if (motivo !== undefined) motivos.set(id, motivo);
+                    items.push({
+                        id, day: casilla.day, slot: casilla.slot, position: casilla.position,
+                        kind: recetaId !== undefined ? "recipe" : "free_text",
+                        ...(recetaId !== undefined ? { recipe_id: recetaId } : { title: titulo }),
+                        state: null,
+                    });
+                }
+            }
+        }
+        if (errores.length > 0) return { ok: false, error: "Hay cambios que corregir.", errores: errores.slice(0, MAX_ERRORES) };
+        const perfil = await leerPerfil(ctx);
+        const revision = plan.revision as number;
+        const key = await uuidDe(`repropone|${ctx.appUserId ?? ctx.uid}|${ctx.homeId ?? ""}|${plan.id}|${revision}|${JSON.stringify(items)}`);
+        const r = await escribirDe(ctx)("PATCH", "meal/plan/items", {
+            week_start: semana, expected_revision: revision, items, client_request_id: key, origin: "kito",
+        });
+        if (!r.ok) return errorEscritura(r);
+        const nuevo = obj(r.data);
+        const pendientes = arr(nuevo.items).map(obj).filter((i) => i.state === "rejected").length;
+        return await cerrar(ctx, nuevo, perfil, "editar", motivos, { cambiadas: items.length, rechazadas_pendientes: pendientes });
+    },
+};

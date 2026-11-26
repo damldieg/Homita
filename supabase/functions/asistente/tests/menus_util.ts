@@ -215,3 +215,12 @@ export const casilla = (id: number, day: string, slot: string, title: string, ov
     id, day, slot, position: 0, kind: "free_text", recipe_id: null, title, servings: null, cook_member_id: null, state: null,
     members: [ANA, LEO], ...over,
 });
+
+/** Separa el valor para el modelo de los efectos (tarjeta, cambios) que `conEfectos` esconde en un símbolo. */
+export const abrir = (r: unknown): { valor: Obj; tarjeta?: Obj; cambios?: Obj[] } => {
+    const o = r as Obj;
+    const sim = Object.getOwnPropertySymbols(o)[0];
+    if (sim === undefined) return { valor: o };
+    const ef = (o as unknown as Record<symbol, Obj>)[sim];
+    return { valor: o.valor as Obj, tarjeta: ef.tarjeta as Obj | undefined, cambios: ef.cambios as Obj[] | undefined };
+};
