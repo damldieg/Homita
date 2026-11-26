@@ -117,3 +117,20 @@ Deno.test("buscar_recetas con recetario vacío sugiere guardar recetas con pasos
     assertEquals(r.recetas, []);
     assert(String(r.aviso).includes("guardar_receta"));
 });
+
+Deno.test("buscar_recetas: con dieta en el hogar excluye las recetas con ingredientes sin catálogo y lo avisa", async () => {
+    const p = perfilBase();
+    (p.members as Obj[]).forEach((m) => Object.assign(m, { allergies: [], diet: m.home_member_id === 1 ? "vegetarian" : null }));
+    const m = crearMundo({
+        perfil: p,
+        recetas: [
+            { id: 30, name: "Pad thai con cacahuetes", servings: 4, minutes: 30, slots: ["dinner"] },
+            { id: 11, name: "Ensalada de lentejas", servings: 4, minutes: 20, slots: ["lunch"] },
+        ],
+        ingredientes: { 30: [{ food_id: null, label: "gambas" }], 11: [{ food_id: 5, label: "lentejas" }] },
+    });
+    const r = await correr(buscarRecetasTool, {}, ctxDe(m));
+    assertEquals((r.recetas as Obj[]).map((x) => x.id), [11]);
+    assertEquals((r.excluidas_sin_catalogo as Obj[]).map((x) => x.id), [30]);
+    assert(String(r.aviso_excluidas).includes("catálogo"));
+});

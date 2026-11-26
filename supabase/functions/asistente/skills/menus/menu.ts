@@ -7,8 +7,8 @@ import type { Cambio, Tool, ToolCtx } from "../../core.ts";
 import { uuidDe } from "../organizar/uuid.ts";
 import { compactarPlan, tarjetaMenu } from "./plan.ts";
 import {
-    arr, comensalesEn, diaInicio, diaNombre, entero, errorEscritura, escribirDe, esFecha, esquema, FRANJA_ES, FRANJAS, isoDow, leerDe,
-    leerPerfil, leerPlan, norm, obj, str, sumarDias,
+    arr, AVISO_SIN_CATALOGO, comensalesEn, diaInicio, diaNombre, entero, errorEscritura, escribirDe, esFecha, esquema, FRANJA_ES, FRANJAS, isoDow, leerDe,
+    leerPerfil, leerPlan, norm, obj, recetaComprobable, restringidos, str, sumarDias,
 } from "./util.ts";
 import type { Obj } from "./util.ts";
 
@@ -36,6 +36,24 @@ const compactarConflictos = (conflictos: Obj[], nombres: Map<unknown, string>, t
         tipo: CODIGOS[String(c.code)] ?? c.code,
         detalle: c.detail,
     }));
+
+/**
+ * Regla de texto libre: a quien tiene dieta o alergias no se le propone una receta con ingredientes sin enlazar al
+ * catálogo (el servidor no puede comprobarla). Devuelve un error por cada receta excluida; `[]` si todo va bien.
+ */
+const recetasNoComprobables = async (
+    ctx: ToolCtx, perfil: Obj, recetas: { receta_id: number; donde: string; comen: number[] }[],
+): Promise<string[]> => {
+    const rest = restringidos(perfil);
+    const errores: string[] = [];
+    const cache = new Map<number, boolean>();
+    for (const r of recetas) {
+        if (!r.comen.some((id) => rest.has(id))) continue;
+        if (!cache.has(r.receta_id)) cache.set(r.receta_id, await recetaComprobable(ctx, r.receta_id));
+        if (!cache.get(r.receta_id)) errores.push(`${r.donde}: la receta ${r.receta_id} tiene ingredientes sin catálogo y hay dieta o alergias; ${AVISO_SIN_CATALOGO}`);
+    }
+    return errores.slice(0, MAX_ERRORES);
+};
 
 /**
  * Cierra una propuesta o repropuesta ya guardada: comprueba el plan y, solo con 0 conflictos, emite la tarjeta.
@@ -178,6 +196,14 @@ export const proponerMenuTool: Tool = {
         }
         const v = validarPlatos(input.platos, semana, perfil);
         if ("errores" in v) return { ok: false, error: "Hay platos que corregir.", errores: v.errores };
+        const sinCatalogo = await recetasNoComprobables(
+            ctx, perfil,
+            v.platos.filter((p) => p.receta_id !== undefined).map((p, i) => ({
+                receta_id: p.receta_id as number, donde: `plato ${i + 1} (${p.dia} ${FRANJA_ES[p.franja]})`,
+                comen: p.personas ?? comensalesEn(perfil, p.dia, p.franja).map((c) => c.id),
+            })),
+        );
+        if (sinCatalogo.length > 0) return { ok: false, error: "Hay recetas que no puedo comprobar.", errores: sinCatalogo };
         const plan = await leerPlan(ctx, semana);
         const existentes = plan === null ? [] : arr(plan.items).map(obj);
         if (plan !== null && plan.status === "accepted") {
@@ -281,6 +307,14 @@ export const reproponerTool: Tool = {
         }
         if (errores.length > 0) return { ok: false, error: "Hay cambios que corregir.", errores: errores.slice(0, MAX_ERRORES) };
         const perfil = await leerPerfil(ctx);
+        const sinCatalogo = await recetasNoComprobables(
+            ctx, perfil,
+            items.filter((i) => i.kind === "recipe").map((i) => {
+                const c = casillas.find((x) => x.id === i.id)!;
+                return { receta_id: i.recipe_id as number, donde: `casilla ${i.id}`, comen: arr(c.members).filter((n): n is number => typeof n === "number") };
+            }),
+        );
+        if (sinCatalogo.length > 0) return { ok: false, error: "Hay recetas que no puedo comprobar.", errores: sinCatalogo };
         const revision = plan.revision as number;
         const key = await uuidDe(`repropone|${ctx.appUserId ?? ctx.uid}|${ctx.homeId ?? ""}|${plan.id}|${revision}|${JSON.stringify(items)}`);
         const r = await escribirDe(ctx)("PATCH", "meal/plan/items", {

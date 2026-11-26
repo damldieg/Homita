@@ -52,6 +52,8 @@ interface Opciones {
     /** Planes de otras semanas por week_start (historial). */
     historial?: Record<string, Obj>;
     eventos?: Obj[];
+    /** receta_id → ingredientes de `recipe/detail` (por defecto, todos enlazados a un alimento del catálogo). */
+    ingredientes?: Record<number, Obj[]>;
     /** Falla la comprobación. */
     checkFalla?: boolean;
 }
@@ -111,6 +113,10 @@ export const crearMundo = (o: Opciones = {}): Mundo => {
             case "recipe": {
                 const q = String(params.q ?? "").toLowerCase();
                 return Promise.resolve(recetas.filter((r) => q === "" || String(r.name).toLowerCase().includes(q)));
+            }
+            case "recipe/detail": {
+                const id = Number(params.id);
+                return Promise.resolve({ id, ingredients: o.ingredientes?.[id] ?? [{ food_id: 1, label: "ingrediente" }] });
             }
             case "food": {
                 const q = String(params.q ?? "").toLowerCase();

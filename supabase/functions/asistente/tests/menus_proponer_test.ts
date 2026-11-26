@@ -3,7 +3,7 @@ import { assert, assertEquals } from "jsr:@std/assert@1";
 import { indexTools } from "../core.ts";
 import { menus } from "../skills/menus/index.ts";
 import { proponerMenuTool } from "../skills/menus/menu.ts";
-import { abrir, ANA, casilla, crearMundo, ctxDe, SEMANA } from "./menus_util.ts";
+import { abrir, ANA, casilla, crearMundo, ctxDe, perfilBase, SEMANA } from "./menus_util.ts";
 
 type Obj = Record<string, unknown>;
 
@@ -157,4 +157,43 @@ Deno.test("proponer_menu sobre un borrador de Kito sustituye lo libre, conserva 
     const items = m.plan()!.items as Obj[];
     assert(items.some((i) => i.id === 2 && i.state === "locked"));
     assert(!items.some((i) => i.id === 1));
+});
+
+const perfilVegetariano = () => {
+    const p = perfilBase();
+    (p.members as Obj[]).forEach((m) => Object.assign(m, { allergies: [], diet: m.home_member_id === ANA ? "vegetarian" : null }));
+    return p;
+};
+const PAD_THAI = { id: 30, name: "Pad thai con cacahuetes", servings: 4, minutes: 30, slots: ["lunch", "dinner"] };
+const LENTEJAS_ENLAZADAS = [{ food_id: 5, label: "lentejas" }, { food_id: 6, label: "cebolla" }];
+const PAD_THAI_TEXTO = [{ food_id: null, label: "gambas" }, { food_id: 7, label: "fideos de arroz" }];
+
+Deno.test("proponer_menu: receta con ingredientes en texto libre no se propone a un vegetariano (no escribe)", async () => {
+    const m = crearMundo({
+        perfil: perfilVegetariano(), recetas: [PAD_THAI, { id: 11, name: "Ensalada de lentejas", servings: 4, minutes: 20, slots: ["lunch"] }],
+        ingredientes: { 30: PAD_THAI_TEXTO, 11: LENTEJAS_ENLAZADAS },
+    });
+    const r = abrir(await proponer({ semana: SEMANA, platos: [{ dia: "2030-01-08", franja: "dinner", receta_id: 30 }] }, ctxDe(m)));
+    assertEquals(r.valor.ok, false);
+    assertEquals(m.escrituras.length, 0);
+    assertEquals(r.tarjeta, undefined);
+    assert(String((r.valor.errores as string[])[0]).includes("sin catálogo"));
+});
+
+Deno.test("proponer_menu: receta con todos los ingredientes enlazados sí se propone a un vegetariano", async () => {
+    const m = crearMundo({
+        perfil: perfilVegetariano(), recetas: [PAD_THAI, { id: 11, name: "Ensalada de lentejas", servings: 4, minutes: 20, slots: ["lunch"] }],
+        ingredientes: { 30: PAD_THAI_TEXTO, 11: LENTEJAS_ENLAZADAS },
+    });
+    const r = abrir(await proponer({ semana: SEMANA, platos: [{ dia: "2030-01-08", franja: "dinner", receta_id: 11 }] }, ctxDe(m)));
+    assertEquals(r.valor.ok, true);
+    assertEquals(r.tarjeta?.tipo, "menu");
+});
+
+Deno.test("proponer_menu: sin dieta ni alergias, la receta con texto libre se admite", async () => {
+    const p = perfilBase();
+    (p.members as Obj[]).forEach((m) => Object.assign(m, { allergies: [], diet: null }));
+    const m = crearMundo({ perfil: p, recetas: [PAD_THAI], ingredientes: { 30: PAD_THAI_TEXTO } });
+    const r = abrir(await proponer({ semana: SEMANA, platos: [{ dia: "2030-01-08", franja: "dinner", receta_id: 30 }] }, ctxDe(m)));
+    assertEquals(r.valor.ok, true);
 });

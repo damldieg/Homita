@@ -4,8 +4,8 @@ import type { Tool, ToolCtx } from "../../core.ts";
 import { compactarEvento } from "../consulta/compacto.ts";
 import { finRango, inicioRango } from "../consulta/fechas.ts";
 import {
-    arr, diaInicio, diaNombre, entero, esFecha, esquema, FRANJA_ES, FRANJAS, inicioSemana, isoDow, leerDe, leerPerfil,
-    leerPlan, obj, str, sumarDias,
+    arr, AVISO_SIN_CATALOGO, diaInicio, diaNombre, entero, esFecha, esquema, FRANJA_ES, FRANJAS, inicioSemana, isoDow, leerDe, leerPerfil,
+    leerPlan, obj, recetaComprobable, restringidos, str, sumarDias,
 } from "./util.ts";
 import type { Obj } from "./util.ts";
 import { compactarPlan } from "./plan.ts";
@@ -177,13 +177,23 @@ export const buscarRecetasTool: Tool = {
             p === null ? [] : arr(p.items).map(obj).filter((it) => it.kind === "recipe" || it.kind === "free_text")
                 .map((it) => ({ semana: semanas[i], dia: it.day, franja: it.slot, titulo: str(it.title, 80), receta_id: it.recipe_id ?? null }))
         );
+        // Hogar con dieta o alergias: se excluyen las recetas con algún ingrediente sin food_id (no comprobables).
+        let lista = recetas.map(obj);
+        let excluidas: Obj[] = [];
+        if (restringidos(perfil).size > 0) {
+            const ok = await Promise.all(lista.slice(0, MAX_RECETAS).map((r) => recetaComprobable(ctx, r.id)));
+            const dentro = lista.slice(0, MAX_RECETAS);
+            excluidas = dentro.filter((_, i) => !ok[i]).map((r) => ({ id: r.id, nombre: str(r.name, 80) ?? "" }));
+            lista = [...dentro.filter((_, i) => ok[i]), ...lista.slice(MAX_RECETAS)];
+        }
         return {
-            recetas: recetas.slice(0, MAX_RECETAS).map(obj).map((r) => ({
+            recetas: lista.slice(0, MAX_RECETAS).map((r) => ({
                 id: r.id, nombre: str(r.name, 80) ?? "", raciones: r.servings, minutos: r.minutes ?? null, franjas: r.slots ?? [],
             })),
-            hay_mas: recetas.length > MAX_RECETAS,
+            hay_mas: lista.length > MAX_RECETAS,
+            ...(excluidas.length > 0 ? { excluidas_sin_catalogo: excluidas, aviso_excluidas: AVISO_SIN_CATALOGO } : {}),
             ya_tomados: yaTomados.slice(0, 80),
-            ...(recetas.length === 0 ? { aviso: "El recetario no tiene nada que encaje: propón platos nuevos y guárdalos con guardar_receta (con pasos)." } : {}),
+            ...(lista.length === 0 && excluidas.length === 0 ? { aviso: "El recetario no tiene nada que encaje: propón platos nuevos y guárdalos con guardar_receta (con pasos)." } : {}),
         };
     },
 };

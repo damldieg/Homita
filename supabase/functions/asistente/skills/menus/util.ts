@@ -111,3 +111,32 @@ export const errorEscritura = (r: RespuestaApi): Obj => {
     }
     return { ok: false, error: "No he podido guardarlo ahora mismo." };
 };
+
+/** Dieta que obliga a comprobar ingredientes: cualquier valor salvo vacío u `omnivore`. */
+const conDieta = (m: Obj): boolean => typeof m.diet === "string" && m.diet.trim() !== "" && m.diet !== "omnivore";
+
+/** Ids de las personas con dieta (vegetariana, vegana, pescetariana, halal, sin cerdo…) o con alguna alergia. */
+export const restringidos = (perfil: Obj): Set<number> =>
+    new Set(
+        arr(perfil.members).map(obj)
+            .filter((m) => typeof m.home_member_id === "number" && (conDieta(m) || arr(m.allergies).length > 0))
+            .map((m) => m.home_member_id as number),
+    );
+
+/**
+ * Regla de texto libre: `check_meal_plan` solo evalúa ingredientes con `food_id` del catálogo. Una receta es
+ * comprobable si tiene ingredientes y TODOS están enlazados. Si no se puede leer, se trata como no comprobable
+ * (falla cerrado).
+ */
+export const recetaComprobable = async (ctx: ToolCtx, id: unknown): Promise<boolean> => {
+    try {
+        const r = obj(await leerDe(ctx)("recipe/detail", { id: String(id) }));
+        const ing = arr(r.ingredients).map(obj);
+        return ing.length > 0 && ing.every((i) => typeof i.food_id === "number");
+    } catch {
+        return false;
+    }
+};
+
+export const AVISO_SIN_CATALOGO =
+    "Receta excluida: algún ingrediente no está enlazado a un alimento del catálogo, así que no puedo comprobar su dieta ni sus alergias. No la propongas a quien tenga dieta o alergias; elige otra o guarda la receta con ingredientes del catálogo.";
