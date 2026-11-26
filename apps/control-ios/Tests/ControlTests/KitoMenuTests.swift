@@ -74,3 +74,133 @@ final class KitoMenuTests: XCTestCase {
         XCTAssertEqual(c.counter(for: KitoReloadTargets.tasks), 0)
     }
 }
+
+@MainActor
+final class KitoMenuStoreTests: XCTestCase {
+    private var directory: URL!
+    private let fakeChanges = KitoChanges()
+
+    override func setUp() {
+        super.setUp()
+        directory = FileManager.default.temporaryDirectory.appendingPathComponent("kito-menu-\(UUID().uuidString)")
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: "{}") }
+    }
+
+    override func tearDown() {
+        try? FileManager.default.removeItem(at: directory)
+        super.tearDown()
+    }
+
+    private func history() -> KitoHistoryStore { KitoHistoryStore(directory: directory.appendingPathComponent("kito")) }
+
+    private func client() -> APIClient {
+        APIClient(
+            baseURL: URL(string: "https://test.supabase.co/functions/v1/api")!, session: StubURLProtocol.session(),
+            tokenProvider: { "t" }, homeIdProvider: { "7" },
+            readCache: ReadCache(directory: directory.appendingPathComponent("cache")))
+    }
+
+    private func makeStore(accept: Bool = true) -> KitoStore {
+        let meals = MealRepository(client: client())
+        return KitoStore(
+            api: KitoAPI(client: client()), historyStore: history(), userId: 1, homeId: "7", timezone: { "UTC" },
+            changes: fakeChanges,
+            acceptMenu: accept ? { id, rev in _ = try await meals.accept(planId: id, expectedRevision: rev) } : nil)
+    }
+
+    private func seed(resultado: String? = nil) throws -> UUID {
+        var datos: [String: JSONValue] = [
+            "plan_id": .number(9), "revision": .number(3), "semana": .string("2026-11-23"), "estado": .string("draft"),
+            "casillas": .array([.object(["dia": .string("2026-11-23"), "franja_es": .string("comida"), "titulo": .string("Lentejas")])])
+        ]
+        if let resultado { datos["resultado"] = .string(resultado) }
+        let message = KitoMessage(role: .assistant, text: "Menú", cards: [KitoCard(tipo: "menu", datos: datos)])
+        try history().save([KitoMessage(role: .user, text: "menú"), message], userId: 1, homeId: "7")
+        return message.id
+    }
+
+    private let planResponse = """
+    {"id":9,"week_start":"2026-11-23","status":"accepted","revision":4,"accepted_at":null,"accepted_by":null,
+     "updated_at":"2026-11-24T10:00:00","items":[]}
+    """
+
+    private static func bodyData(of request: URLRequest) -> Data? {
+        if let body = request.httpBody { return body }
+        guard let stream = request.httpBodyStream else { return nil }
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 1024)
+        while stream.hasBytesAvailable {
+            let n = stream.read(&buffer, maxLength: buffer.count)
+            if n <= 0 { break }
+            data.append(buffer, count: n)
+        }
+        return data
+    }
+
+    private func acceptCalls() -> [URLRequest] {
+        StubURLProtocol.requests.filter { $0.url?.path.hasSuffix("/meal/plan/accept") == true }
+    }
+
+    func testNothingIsAcceptedWithoutTapping() throws {
+        _ = try seed()
+        _ = makeStore()
+        XCTAssertTrue(acceptCalls().isEmpty)
+    }
+
+    func testAcceptSendsPlanAndRevisionOnceAndPublishesMenuChange() async throws {
+        let id = try seed()
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: self.planResponse) }
+        let store = makeStore()
+        await store.acceptMenu(messageId: id, cardIndex: 0)
+        let calls = acceptCalls()
+        XCTAssertEqual(calls.count, 1)
+        XCTAssertEqual(calls[0].httpMethod, "POST")
+        let body = try XCTUnwrap(Self.bodyData(of: calls[0]))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        XCTAssertEqual(json["plan_id"] as? Int, 9)
+        XCTAssertEqual(json["expected_revision"] as? Int, 3)
+        XCTAssertEqual(store.menuResult(messageId: id, cardIndex: 0), .aceptado)
+        XCTAssertEqual(fakeChanges.counter(for: KitoReloadTargets.meals), 1)
+        // Ya aceptada: un segundo toque no llama otra vez.
+        await store.acceptMenu(messageId: id, cardIndex: 0)
+        XCTAssertEqual(acceptCalls().count, 1)
+    }
+
+    func testStaleRevisionMarksCardOutdatedAndDoesNotPublish() async throws {
+        let id = try seed()
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(status: 409, json: #"{"error":"Stale meal plan revision"}"#) }
+        let store = makeStore()
+        await store.acceptMenu(messageId: id, cardIndex: 0)
+        XCTAssertEqual(store.menuResult(messageId: id, cardIndex: 0), .desactualizado)
+        XCTAssertEqual(fakeChanges.counter(for: KitoReloadTargets.meals), 0)
+    }
+
+    func testWithoutAcceptHandlerNothingHappens() async throws {
+        let id = try seed()
+        let store = makeStore(accept: false)
+        await store.acceptMenu(messageId: id, cardIndex: 0)
+        XCTAssertTrue(acceptCalls().isEmpty)
+        XCTAssertEqual(store.menuResult(messageId: id, cardIndex: 0), .pendiente)
+    }
+
+    func testSendingStateFromClosedAppBecomesDesconocidoOnLoad() throws {
+        let id = try seed(resultado: "enviando")
+        let store = makeStore()
+        XCTAssertEqual(store.menuResult(messageId: id, cardIndex: 0), .desconocido)
+    }
+
+    func testPresentationShowsRejectedWithReasonAndFullAccessibilityText() throws {
+        let card = KitoCard(tipo: "menu", datos: [
+            "plan_id": .number(9), "revision": .number(3), "semana": .string("2026-11-23"),
+            "casillas": .array([.object(["dia": .string("2026-11-24"), "franja_es": .string("cena"), "titulo": .string("Tortilla"),
+                                         "estado": .string("rejected"), "motivo": .string("Ya la cené")])])
+        ])
+        let model = KitoMenuPresentation(menu: try XCTUnwrap(KitoMenu(card: card)))
+        XCTAssertEqual(model.title, "Menú de la semana del 23 de noviembre")
+        XCTAssertTrue(model.showsAccept)
+        XCTAssertTrue(model.accessibilityLabel.contains("cena: Tortilla (a cambiar: Ya la cené)"))
+        XCTAssertTrue(model.accessibilityLabel.contains("martes 24 de noviembre"))
+    }
+}

@@ -35,6 +35,7 @@ struct KitoMessageBubble: View {
     var onConfirm: (Int) -> Void = { _ in }
     var onCancel: (Int) -> Void = { _ in }
     var onAppearConfirmation: (Int) -> Void = { _ in }
+    var onAcceptMenu: (Int) -> Void = { _ in }
 
     private var isUser: Bool { message.role == .user }
 
@@ -87,7 +88,8 @@ struct KitoMessageBubble: View {
             if let cards = message.cards, !cards.isEmpty {
                 KitoCardRenderer(
                     messageId: message.id, cards: cards,
-                    onConfirm: onConfirm, onCancel: onCancel, onAppearConfirmation: onAppearConfirmation
+                    onConfirm: onConfirm, onCancel: onCancel, onAppearConfirmation: onAppearConfirmation,
+                    onAcceptMenu: onAcceptMenu
                 )
                     .padding(.leading, 28 + Spacing.s2)
             }

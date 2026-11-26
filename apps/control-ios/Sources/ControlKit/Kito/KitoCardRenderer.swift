@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Elige la vista de cada tarjeta por `tipo`: `confirmacion` tiene su tarjeta con botones; un tipo desconocido
+/// Elige la vista de cada tarjeta por `tipo`: `confirmacion` y `menu` tienen su tarjeta con botones; un tipo desconocido
 /// muestra su campo `texto` si lo tiene y, si no, se omite. Nunca falla.
 struct KitoCardRenderer: View {
     /// Mensaje al que pertenecen las tarjetas (con el índice identifica cada tarjeta).
@@ -9,6 +9,7 @@ struct KitoCardRenderer: View {
     var onConfirm: (Int) -> Void = { _ in }
     var onCancel: (Int) -> Void = { _ in }
     var onAppearConfirmation: (Int) -> Void = { _ in }
+    var onAcceptMenu: (Int) -> Void = { _ in }
 
     private struct Item: Identifiable {
         let id: String
@@ -30,6 +31,8 @@ struct KitoCardRenderer: View {
                         onCancel: { onCancel(item.index) },
                         onAppear: { onAppearConfirmation(item.index) }
                     )
+                } else if let menu = KitoMenu(card: item.card) {
+                    KitoMenuCard(menu: menu, onAccept: { onAcceptMenu(item.index) })
                 } else if case .string(let texto)? = item.card.datos["texto"], !texto.isEmpty {
                     Text(texto)
                         .font(HomitaFont.inter(14))

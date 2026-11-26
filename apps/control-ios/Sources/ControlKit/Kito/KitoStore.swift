@@ -38,6 +38,10 @@ public final class KitoStore {
     private let changes: (any KitoChangePublishing)?
     /// Tokens con una confirmación en vuelo: segunda barrera contra el doble toque (el token vale 2 min en servidor).
     private var inFlight: Set<String> = []
+    /// Acepta un menú (`POST meal/plan/accept`, la misma llamada que la pestaña Menú). Sin él la tarjeta no acepta.
+    private let acceptMenu: ((_ planId: Int64, _ expectedRevision: Int) async throws -> Void)?
+    /// Planes con una aceptación en vuelo (contra el doble toque).
+    private var acceptingPlans: Set<Int64> = []
 
     public init(
         api: KitoAPI,
@@ -49,8 +53,10 @@ public final class KitoStore {
         voiceMode: @escaping () -> KitoVoiceMode = { KitoVoiceSettings.load() },
         isVoiceOverRunning: @escaping () -> Bool = KitoStore.systemVoiceOverRunning,
         now: @escaping () -> Date = { Date() },
-        changes: (any KitoChangePublishing)? = nil
+        changes: (any KitoChangePublishing)? = nil,
+        acceptMenu: ((_ planId: Int64, _ expectedRevision: Int) async throws -> Void)? = nil
     ) {
+        self.acceptMenu = acceptMenu
         self.api = api
         self.historyStore = historyStore
         self.userId = userId
@@ -230,6 +236,10 @@ public final class KitoStore {
             guard let cards = message.cards else { return message }
             var newCards = cards
             for (i, card) in cards.enumerated() {
+                if let menu = KitoMenu(card: card) {
+                    if menu.resultado == .enviando { newCards[i] = KitoMenu.card(card, resultado: .desconocido) }
+                    continue
+                }
                 guard let c = KitoConfirmation(card: card) else { continue }
                 if c.estado == .enviando {
                     newCards[i] = KitoConfirmation.card(card, estado: .desconocido)
@@ -242,6 +252,59 @@ public final class KitoStore {
             return KitoMessage(id: message.id, role: message.role, text: message.text, date: message.date, cards: newCards, origen: message.origen, oculto: message.oculto)
         }
         return (out, changed)
+    }
+
+    // MARK: - Tarjeta de menú
+
+    /// Acepta el menú de una tarjeta `menu` con la revisión que trae. Solo al tocar «Aceptar»: Kito nunca acepta.
+    /// Una sola llamada por plan a la vez; 409 `Stale meal plan revision` deja la tarjeta como desactualizada.
+    public func acceptMenu(messageId: UUID, cardIndex: Int) async {
+        guard let acceptMenu, let found = menu(messageId: messageId, cardIndex: cardIndex), found.menu.resultado.canAccept,
+              !acceptingPlans.contains(found.menu.planId) else { return }
+        let menu = found.menu
+        acceptingPlans.insert(menu.planId)
+        defer { acceptingPlans.remove(menu.planId) }
+        setMenuResult(messageId: messageId, index: cardIndex, resultado: .enviando)
+        let startEpoch = epoch
+        let resultado: KitoMenuResult
+        do {
+            try await acceptMenu(menu.planId, menu.revision)
+            resultado = .aceptado
+            changes?.publish([KitoChange(tipo: "menu", id: String(menu.planId), op: "aceptar")])
+        } catch let error as APIError where error.isStaleRevision {
+            resultado = .desactualizado
+        } catch let error as APIError {
+            if case .http(let status, _) = error, status < 500 { resultado = .error } else { resultado = .desconocido }
+        } catch {
+            resultado = .desconocido
+        }
+        guard startEpoch == epoch else { return }
+        setMenuResult(messageId: messageId, index: cardIndex, resultado: resultado)
+        if resultado == .aceptado {
+            messages.append(KitoMessage(role: .assistant, text: "La persona ha aceptado el menú de la semana \(menu.semana).", oculto: true))
+            persist()
+        }
+    }
+
+    /// Resultado local de una tarjeta `menu` (nil si no existe o es de otro tipo).
+    public func menuResult(messageId: UUID, cardIndex: Int) -> KitoMenuResult? {
+        menu(messageId: messageId, cardIndex: cardIndex)?.menu.resultado
+    }
+
+    private func menu(messageId: UUID, cardIndex: Int) -> (messageIndex: Int, menu: KitoMenu)? {
+        guard let mi = messages.firstIndex(where: { $0.id == messageId }),
+              let cards = messages[mi].cards, cards.indices.contains(cardIndex),
+              let menu = KitoMenu(card: cards[cardIndex]) else { return nil }
+        return (mi, menu)
+    }
+
+    private func setMenuResult(messageId: UUID, index: Int, resultado: KitoMenuResult) {
+        guard let found = menu(messageId: messageId, cardIndex: index) else { return }
+        let old = messages[found.messageIndex]
+        var cards = old.cards ?? []
+        cards[index] = KitoMenu.card(cards[index], resultado: resultado)
+        messages[found.messageIndex] = KitoMessage(id: old.id, role: old.role, text: old.text, date: old.date, cards: cards, origen: old.origen, oculto: old.oculto)
+        persist()
     }
 
     // MARK: - Voz

@@ -41,7 +41,8 @@ struct KitoChatView: View {
                                 isSpeaking: store.speakingId == message.id,
                                 onConfirm: { card in Task { await store.confirm(messageId: message.id, cardIndex: card) } },
                                 onCancel: { card in store.cancel(messageId: message.id, cardIndex: card) },
-                                onAppearConfirmation: { card in store.expireIfNeeded(messageId: message.id, cardIndex: card) }
+                                onAppearConfirmation: { card in store.expireIfNeeded(messageId: message.id, cardIndex: card) },
+                                onAcceptMenu: { card in Task { await store.acceptMenu(messageId: message.id, cardIndex: card) } }
                             )
                                 .padding(.top, startsGroup(index) ? Spacing.s2 : 0)
                                 .transition(entryTransition)

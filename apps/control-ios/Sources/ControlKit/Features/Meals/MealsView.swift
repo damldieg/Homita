@@ -35,6 +35,13 @@ struct MealsView: View {
                 }
             }
             .background(Palette.background.ignoresSafeArea())
+            // Kito propuso, aceptó o guardó algo del menú con la pestaña montada (el chat es una hoja: sin onAppear).
+            .onChange(of: services.kitoChanges.counter(for: KitoReloadTargets.meals)) { _, _ in
+                Task {
+                    await store.load()
+                    await shopping.load()
+                }
+            }
             .navigationTitle("Menú")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
