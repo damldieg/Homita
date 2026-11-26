@@ -68,6 +68,22 @@ const CARNE = ["pollo", "carne", "ternera", "cerdo", "jamon", "hamburguesa de te
 const NO_HALAL = ["cerdo", "jamon", "chorizo", "panceta", "bacon", "vino"];
 const NO_VEGANO = ["huevo", "queso", "yogur", "leche", "tortilla", "revuelto", "pizza", "lasana", "mantequilla", "miel"];
 
+/** Quita las negaciones («sin carne», «sin gluten»…): lo que va tras «sin» no está en el plato. */
+export const sinNegaciones = (titulo: string): string => titulo.replace(/\bsin\s+\S+(\s+(ni|y|o)\s+\S+)*/g, " ").replace(/\s+/g, " ").trim();
+
+/**
+ * Conflicto de dieta por título y alérgenos de la receta. Es un criterio aproximado: el servidor
+ * (check_meal_plan) mira las secciones de los ingredientes, que el catálogo de fixtures no tiene.
+ */
+export const conflictoDieta = (dieta: string, titulo: string, alergenos: string[] = []): boolean => {
+    const t = sinNegaciones(norm(titulo));
+    const animal = alergenos.includes("pescado") || alergenos.includes("marisco");
+    if (dieta === "vegetarian") return animal || CARNE.some((p) => t.includes(p));
+    if (dieta === "vegan") return animal || alergenos.includes("huevo") || alergenos.includes("lactosa") || CARNE.some((p) => t.includes(p)) || NO_VEGANO.some((p) => t.includes(p));
+    if (dieta === "halal") return NO_HALAL.some((p) => t.includes(p));
+    return false;
+};
+
 const clave = (it: Obj): string => it.kind === "recipe" ? `r${it.recipe_id}` : norm(String(it.title ?? ""));
 
 /** Mide el plan final: conflictos (check del mundo + palabras clave sobre el título) y repeticiones. */
@@ -104,9 +120,7 @@ export const medirPlan = async (
                 if (alRec || alPal) anota(it, id, "allergen", al);
             }
             const dieta = String(m.diet ?? "");
-            if (dieta === "vegetarian" && CARNE.some((p) => titulo.includes(p))) anota(it, id, "diet", dieta);
-            if (dieta === "vegan" && (CARNE.some((p) => titulo.includes(p)) || NO_VEGANO.some((p) => titulo.includes(p)))) anota(it, id, "diet", dieta);
-            if (dieta === "halal" && NO_HALAL.some((p) => titulo.includes(p))) anota(it, id, "diet", dieta);
+            if (conflictoDieta(dieta, String(it.title ?? ""), rec?.alergenos)) anota(it, id, "diet", dieta);
         }
     }
     // Repeticiones: casillas con un plato ya servido antes esa misma semana (las copias extra).

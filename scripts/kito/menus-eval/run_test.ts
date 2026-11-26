@@ -1,7 +1,7 @@
 // Tests del script de comparación de modelos de menús: cliente falso, sin red ni clave.
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import type { CallModel } from "../../../supabase/functions/asistente/core.ts";
-import { cargarFixtures, costeUsd, evaluarHogar, main, modeloSimulado, resumir, tablaMarkdown, TARIFAS_POR_DEFECTO } from "./run.ts";
+import { cargarFixtures, conflictoDieta, costeUsd, evaluarHogar, main, modeloSimulado, resumir, tablaMarkdown, TARIFAS_POR_DEFECTO } from "./run.ts";
 
 const DIR = new URL("./fixtures", import.meta.url).pathname;
 const { hogares, recetas } = await cargarFixtures(DIR);
@@ -83,4 +83,17 @@ Deno.test("main: sin --seco y sin ANTHROPIC_API_KEY sale sin llamar a nada (cód
     } finally {
         if (antes !== undefined) Deno.env.set("ANTHROPIC_API_KEY", antes);
     }
+});
+
+Deno.test("conflictoDieta: las negaciones no cuentan y un plato con carne sí", () => {
+    assertEquals(conflictoDieta("vegetarian", "Chili sin carne"), false);
+    assertEquals(conflictoDieta("vegan", "Chili sin carne"), false);
+    assertEquals(conflictoDieta("vegetarian", "Ensalada sin pescado"), false);
+    assertEquals(conflictoDieta("vegan", "Bizcocho sin lactosa ni huevo"), false);
+    assertEquals(conflictoDieta("vegan", "Pan sin gluten"), false);
+    assertEquals(conflictoDieta("vegetarian", "Arroz con pollo"), true);
+    assertEquals(conflictoDieta("vegan", "Tortilla de patatas"), true);
+    assertEquals(conflictoDieta("halal", "Lentejas con chorizo"), true);
+    // Receta con marisco (Pad thai): no es vegetariana aunque el título no lo diga.
+    assertEquals(conflictoDieta("vegetarian", "Pad thai con cacahuetes", ["cacahuete", "huevo", "marisco"]), true);
 });
