@@ -17,6 +17,37 @@ public enum KitoConfirmationState: String, Equatable, Sendable {
     public var isResolved: Bool { self != .pendiente && self != .enviando }
 }
 
+extension KitoConfirmationState {
+    /// Etiqueta corta del estado en la tarjeta. `pendiente` no tiene (se muestran los botones).
+    public var label: String {
+        switch self {
+        case .pendiente: return ""
+        case .enviando: return "Enviando…"
+        case .hecho: return "Hecho"
+        case .cancelado: return "Cancelado"
+        case .caducado: return "Ha caducado, pídemelo otra vez"
+        case .parcial: return "Se ha hecho solo una parte"
+        case .error: return "No se ha podido hacer"
+        case .desconocido: return "No sé si se llegó a hacer. Comprueba la app y, si falta, pídemelo otra vez"
+        }
+    }
+
+    /// Texto del mensaje de Kito que se añade al historial al resolver una confirmación, para que Kito
+    /// sepa cómo acabó. `detalle` es el texto del servidor o el motivo.
+    func historyText(detalle: String?) -> String {
+        let extra = (detalle?.isEmpty == false) ? ": \(detalle!)" : "."
+        switch self {
+        case .hecho: return "Hecho\(extra)"
+        case .cancelado: return "Cancelado. No he hecho ningún cambio."
+        case .parcial: return "Solo se ha hecho una parte\(extra)"
+        case .caducado: return "La confirmación ha caducado y no se ha hecho nada."
+        case .error: return "No se ha podido hacer\(extra)"
+        case .desconocido: return "No sé si se llegó a hacer. Hay que comprobarlo."
+        case .pendiente, .enviando: return ""
+        }
+    }
+}
+
 /// Resultado tipado de `POST asistente/confirmar`.
 public enum KitoConfirmOutcome: Equatable, Sendable {
     /// 200: todo hecho.
