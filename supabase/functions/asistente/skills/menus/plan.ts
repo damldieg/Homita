@@ -37,12 +37,12 @@ export const compactarPlan = (plan: Obj, motivos: Map<number, string> = new Map(
  * Tarjeta `menu` (solo la emite Kito con 0 conflictos). No lleva token: aceptar lo hace la app con
  * `POST /meal/plan/accept {plan_id, expected_revision: revision}`; Kito nunca acepta.
  */
-export const tarjetaMenu = (plan: Obj, motivos: Map<number, string> = new Map()): Obj => {
+export const tarjetaMenu = (plan: Obj, motivos: Map<number, string> = new Map(), id = "menu"): Obj => {
     const c = compactarPlan(plan, motivos);
     const casillas = arr(c.casillas).map(obj).map((x) => ({ ...x, franja_es: FRANJA_ES[String(x.franja)] ?? x.franja }));
     return {
         tipo: "menu",
-        id: "menu",
+        id,
         semana: c.semana,
         plan_id: c.plan_id,
         revision: c.revision,

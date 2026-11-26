@@ -35,6 +35,8 @@ const EFECTOS = Symbol("efectos");
 export interface Efectos {
     /** Tarjeta para la app (nunca llega al modelo). Con `id`, sustituye a otra del mismo `id`. */
     tarjeta?: Record<string, unknown>;
+    /** Varias tarjetas de una misma llamada (p. ej. un menú por semana); cada una con su `id` distinto. */
+    tarjetas?: Record<string, unknown>[];
     cambios?: Cambio[];
 }
 
@@ -395,6 +397,7 @@ export const runKito = async (args: RunArgs): Promise<RunResult> => {
         const hechos = await Promise.all(usos.map((b) => ejecutar(b, siguienteOrden++)));
         for (const h of hechos) {
             if (h.efectos?.tarjeta) guardarTarjeta(h.efectos.tarjeta);
+            for (const t of h.efectos?.tarjetas ?? []) guardarTarjeta(t);
             if (h.efectos?.cambios) cambios.push(...h.efectos.cambios);
         }
         convo.push({ role: "user", content: hechos.map((h) => h.resultado) });

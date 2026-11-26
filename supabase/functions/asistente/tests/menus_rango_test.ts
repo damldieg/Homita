@@ -2,6 +2,8 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { resolverRango } from "../skills/menus/util.ts";
 import type { SemanaRango } from "../skills/menus/util.ts";
+import { proponerMenuTool } from "../skills/menus/menu.ts";
+import { abrir, casilla, crearMundo, ctxDe, perfilBase, SEMANA } from "./menus_util.ts";
 
 const ACTIVAS = ["lunch", "dinner"];
 const ok = (r: ReturnType<typeof resolverRango>) => {
@@ -86,4 +88,104 @@ Deno.test("proponer_menu: el esquema declara `rango` opcional, sin propiedades e
     }
     assert(proponerMenuTool.description.includes("esta noche"));
     assert(proponerMenuTool.description.includes("a mediodía"));
+});
+
+// ---- proponer_menu con `rango` (un mundo falso por semana) ----
+
+type Obj = Record<string, unknown>;
+const proponer = (input: Obj, ctx: unknown) => proponerMenuTool.run(input, ctx as never, { toolUseId: "toolu_1", orden: 0 } as never);
+const P = (dia: string, franja: string, titulo = "Plato") => ({ dia, franja, titulo: `${titulo} ${dia} ${franja}` });
+// SEMANA = lunes 2030-01-07; lunes noche → viernes mediodía
+const RANGO = { desde: { fecha: "2030-01-07", franja: "dinner" }, hasta: { fecha: "2030-01-11", franja: "lunch" } };
+const CASILLAS_RANGO = [
+    ["2030-01-07", "dinner"], ["2030-01-08", "lunch"], ["2030-01-08", "dinner"], ["2030-01-09", "lunch"], ["2030-01-09", "dinner"],
+    ["2030-01-10", "lunch"], ["2030-01-10", "dinner"], ["2030-01-11", "lunch"],
+];
+const platosRango = () => CASILLAS_RANGO.map(([d, f]) => P(d, f));
+const par = (e: Obj) => `${e.day} ${e.slot}`;
+
+Deno.test("proponer_menu con rango: escribe solo las casillas del rango, sin borrar, y emite la tarjeta", async () => {
+    const m = crearMundo({ perfil: perfilBase({ schedule: [] }) });
+    const { valor, tarjetas, cambios } = abrir(await proponer({ rango: RANGO, platos: platosRango() }, ctxDe(m)));
+    const tarjeta = tarjetas?.[0];
+    assertEquals(valor.ok, true, JSON.stringify(valor));
+    assertEquals(m.escrituras.length, 1);
+    const cuerpo = m.escrituras[0].cuerpo;
+    assertEquals(cuerpo.week_start, SEMANA);
+    assertEquals(cuerpo.origin, "kito");
+    assertEquals(cuerpo.delete_ids, undefined, "en modo rango no se borra nada");
+    assertEquals((cuerpo.items as Obj[]).map(par), CASILLAS_RANGO.map(([d, f]) => `${d} ${f}`));
+    assertEquals((m.plan()!.items as Obj[]).length, 8);
+    assertEquals(tarjeta?.tipo, "menu");
+    assertEquals(cambios, [{ tipo: "menu", id: m.plan()!.id, op: "crear" }]);
+});
+
+Deno.test("proponer_menu con rango: un plato fuera del rango o en franja desactivada se rechaza sin escribir", async () => {
+    const m = crearMundo({ perfil: perfilBase({ schedule: [] }) });
+    const r1 = abrir(await proponer({ rango: RANGO, platos: [P("2030-01-07", "lunch")] }, ctxDe(m))).valor; // el lunes a mediodía queda antes del rango
+    assertEquals(r1.ok, false);
+    assert(String((r1.errores as string[])[0]).includes("fuera del rango"));
+    const r2 = abrir(await proponer({ rango: RANGO, platos: [P("2030-01-12", "lunch")] }, ctxDe(m))).valor;
+    assertEquals(r2.ok, false);
+    const r3 = abrir(await proponer({ rango: RANGO, platos: [P("2030-01-08", "snack")] }, ctxDe(m))).valor; // merienda desactivada
+    assertEquals(r3.ok, false);
+    assertEquals(m.escrituras.length, 0);
+});
+
+Deno.test("proponer_menu con rango: rango invertido o demasiado largo da error claro", async () => {
+    const m = crearMundo();
+    const inv = abrir(await proponer({ rango: { desde: RANGO.hasta, hasta: RANGO.desde }, platos: platosRango() }, ctxDe(m))).valor;
+    assertEquals(inv.ok, false);
+    assert(String(inv.error).includes("invertido"));
+    assertEquals(m.escrituras.length, 0);
+});
+
+Deno.test("proponer_menu con rango: solo rellena huecos; casillas con comida o bloqueadas no se tocan ni se borran", async () => {
+    const m = crearMundo({ perfil: perfilBase({ schedule: [] }) });
+    m.ponerPlan({
+        id: 5, week_start: SEMANA, status: "draft", revision: 3, origin: "kito", unchecked_item_ids: [1, 2, 3],
+        items: [
+            casilla(1, "2030-01-08", "lunch", "Sopa"), // dentro del rango, ya con comida
+            casilla(2, "2030-01-09", "dinner", "Pizza", { state: "locked" }), // dentro del rango, bloqueada
+            casilla(3, "2030-01-07", "lunch", "Fuera del rango"), // fuera del rango
+        ],
+    });
+    const { valor } = abrir(await proponer({ rango: RANGO, platos: platosRango() }, ctxDe(m)));
+    assertEquals(valor.ok, true, JSON.stringify(valor));
+    const cuerpo = m.escrituras[0].cuerpo;
+    assertEquals(cuerpo.delete_ids, undefined);
+    assertEquals(cuerpo.expected_revision, 3);
+    assertEquals((cuerpo.items as Obj[]).length, 6);
+    assert(!(cuerpo.items as Obj[]).some((i) => ["2030-01-08 lunch", "2030-01-09 dinner"].includes(par(i))));
+    const final = m.plan()!.items as Obj[];
+    assertEquals(final.length, 9);
+    assert(final.find((i) => i.id === 1) && final.find((i) => i.id === 2 && i.state === "locked") && final.find((i) => i.id === 3));
+    assert(((valor.avisos as string[]) ?? []).some((a) => a.includes("2 casilla")));
+});
+
+Deno.test("proponer_menu con rango: una semana aceptada se salta con aviso y no se escribe", async () => {
+    const m = crearMundo({ perfil: perfilBase({ schedule: [] }) });
+    m.ponerPlan({ id: 5, week_start: SEMANA, status: "accepted", revision: 4, origin: "kito", unchecked_item_ids: [], items: [casilla(1, "2030-01-07", "lunch", "Sopa")] });
+    const { valor } = abrir(await proponer({ rango: RANGO, platos: platosRango() }, ctxDe(m)));
+    assertEquals(valor.ok, false);
+    assertEquals(m.escrituras.length, 0);
+    assert((valor.avisos as string[]).some((a) => a.includes("aceptada")));
+    assertEquals(m.plan()!.status, "accepted");
+});
+
+Deno.test("proponer_menu con rango: un reintento no duplica y vuelve a mostrar la tarjeta", async () => {
+    const m = crearMundo({ perfil: perfilBase({ schedule: [] }) });
+    await proponer({ rango: RANGO, platos: platosRango() }, ctxDe(m));
+    const { valor, tarjetas } = abrir(await proponer({ rango: RANGO, platos: platosRango() }, ctxDe(m)));
+    const tarjeta = tarjetas?.[0];
+    assertEquals(valor.ok, true);
+    assertEquals(m.escrituras.length, 1, "sin segunda escritura");
+    assertEquals(tarjeta?.tipo, "menu");
+});
+
+Deno.test("proponer_menu con rango: una receta con alérgeno para quien come ahí no muestra la tarjeta", async () => {
+    const m = crearMundo({ perfil: perfilBase({ schedule: [] }) });
+    const { valor, tarjetas: tarj } = abrir(await proponer({ rango: RANGO, platos: [{ dia: "2030-01-08", franja: "lunch", receta_id: 10 }] }, ctxDe(m)));
+    assertEquals(valor.ok, false); // el servidor falso detecta gluten en la receta 10 (Ana, alergia al gluten)
+    assertEquals(tarj, undefined);
 });

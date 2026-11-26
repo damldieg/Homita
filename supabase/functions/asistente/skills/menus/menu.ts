@@ -3,12 +3,12 @@
 // `client_request_id` sale del contenido (misma propuesta sobre la misma revisión = mismo UUID), así que un
 // reintento no duplica. Concurrencia: `expected_revision` es la revisión que acaba de leer.
 import { conEfectos } from "../../core.ts";
-import type { Cambio, Tool, ToolCtx } from "../../core.ts";
+import type { Cambio, Efectos, Tool, ToolCtx } from "../../core.ts";
 import { uuidDe } from "../organizar/uuid.ts";
 import { compactarPlan, tarjetaMenu } from "./plan.ts";
 import {
-    arr, AVISO_SIN_CATALOGO, comensalesEn, diaInicio, diaNombre, entero, errorEscritura, escribirDe, esFecha, esquema, FRANJA_ES, FRANJAS, isoDow, leerDe,
-    leerPerfil, leerPlan, norm, obj, recetaComprobable, restringidos, str, sumarDias,
+    arr, AVISO_SIN_CATALOGO, comensalesEn, diaInicio, diaNombre, entero, errorEscritura, escribirDe, esFecha, esquema, FRANJA_ES, FRANJAS, inicioSemana, isoDow, leerDe,
+    leerPerfil, leerPlan, norm, obj, recetaComprobable, resolverRango, restringidos, str, sumarDias,
 } from "./util.ts";
 import type { Obj } from "./util.ts";
 
@@ -62,10 +62,18 @@ const recetasNoComprobables = async (
 const cerrar = async (
     ctx: ToolCtx, plan: Obj, perfil: Obj, op: Cambio["op"], motivos: Map<number, string>, extra: Obj = {},
 ): Promise<unknown> => {
+    const r = await evaluar(ctx, plan, perfil, op, motivos, extra);
+    return r.efectos === undefined ? r.valor : conEfectos(r.valor, r.efectos);
+};
+
+/** Como `cerrar`, pero devuelve el valor para el modelo y los efectos (tarjeta, cambios) por separado. */
+const evaluar = async (
+    ctx: ToolCtx, plan: Obj, perfil: Obj, op: Cambio["op"], motivos: Map<number, string>, extra: Obj = {}, idTarjeta = "menu",
+): Promise<{ valor: Obj; efectos?: Efectos }> => {
     const planId = entero(plan.id);
     const conflictos = planId === undefined ? null : await comprobar(ctx, planId);
     if (conflictos === null) {
-        return { ok: false, error: "No he podido comprobar el menú (alergias, dietas y personas fuera). No lo muestro hasta comprobarlo; inténtalo de nuevo." };
+        return { valor: { ok: false, error: "No he podido comprobar el menú (alergias, dietas y personas fuera). No lo muestro hasta comprobarlo; inténtalo de nuevo." } };
     }
     // Fail closed: una receta que el servidor no pudo comprobar (ingredientes sin catálogo) no se muestra como
     // válida si la come alguien con dieta o alergias. Texto libre y sobras siguen saliendo marcados `comprobada: false`.
@@ -75,28 +83,28 @@ const cerrar = async (
         i.kind === "recipe" && sin.has(i.id) && arr(i.members).some((n) => typeof n === "number" && rest.has(n))
     );
     if (sinComprobarRestringidos.length > 0) {
-        return {
+        return { valor: {
             ok: false,
             tarjeta: false,
             sin_comprobar: sinComprobarRestringidos.slice(0, 20).map((i) => ({ casilla: i.id, plato: str(i.title, 80) ?? "", dia: i.day, franja: FRANJA_ES[String(i.slot)] ?? i.slot })),
             aviso: "Hay recetas que no se han podido comprobar (ingredientes sin catálogo) y las come alguien con dieta o alergias: NO se muestra el menú. Cámbialas por recetas con ingredientes del catálogo y vuelve a proponer.",
             ...extra,
-        };
+        } };
     }
     const nombres = new Map(arr(perfil.members).map(obj).map((m) => [m.home_member_id, str(m.name, 80) ?? ""]));
     if (conflictos.length > 0) {
         const titulos = new Map(arr(plan.items).map(obj).map((i) => [i.id, str(i.title, 80) ?? ""]));
-        return {
+        return { valor: {
             ok: false,
             tarjeta: false,
             conflictos: compactarConflictos(conflictos, nombres, titulos),
             aviso: "El menú guardado tiene conflictos y NO se muestra a la persona. Cambia esos platos y vuelve a llamar a proponer_menu (o a reproponer si ya hay casillas marcadas). Si no encuentras alternativa, explícaselo.",
             ...extra,
-        };
+        } };
     }
     const resumen = compactarPlan(plan, motivos);
-    return conEfectos(
-        {
+    return {
+        valor: {
             ok: true,
             estado: "borrador guardado y tarjeta mostrada; lo acepta la persona en la app (tú no puedes aceptarlo)",
             plan_id: resumen.plan_id,
@@ -106,8 +114,8 @@ const cerrar = async (
             sin_comprobar: resumen.sin_comprobar,
             ...extra,
         },
-        { tarjeta: tarjetaMenu(plan, motivos), cambios: [{ tipo: "menu", id: planId ?? null, op }] },
-    );
+        efectos: { tarjeta: tarjetaMenu(plan, motivos, idTarjeta), cambios: [{ tipo: "menu", id: planId ?? null, op }] },
+    };
 };
 
 interface Plato {
@@ -203,6 +211,115 @@ const ESQUEMA_PUNTO = {
     additionalProperties: false,
 };
 
+/**
+ * Modo rango de proponer_menu: planifica solo las casillas del rango, una semana tras otra (cada semana es su propio
+ * plan). Solo rellena huecos: no borra nada, salta las semanas aceptadas o hechas por la persona y no toca casillas
+ * ocupadas (con comida o bloqueadas) ni fuera del rango.
+ */
+const proponerRango = async (input: Obj, ctx: ToolCtx): Promise<unknown> => {
+    const perfil = await leerPerfil(ctx);
+    const habilitadas = arr(perfil.slots).map(obj).filter((s) => s.enabled === true).map((s) => String(s.slot));
+    const inicio = diaInicio(perfil);
+    const res = resolverRango(input.rango, habilitadas, inicio);
+    if ("error" in res) return { ok: false, error: res.error };
+    const avisos = [...res.avisos];
+    if (res.semanas.length === 0) return { ok: false, error: "En ese rango no hay ninguna franja que planificar.", avisos };
+    const lista = arr(input.platos);
+    if (lista.length === 0) return { ok: false, error: "platos está vacío" };
+    if (lista.length > MAX_PLATOS) return { ok: false, error: `como máximo ${MAX_PLATOS} platos` };
+    // Cada plato debe caer en una casilla del rango; se agrupan por semana.
+    const dentro = new Set(res.semanas.flatMap((w) => w.casillas.map((c) => `${c.fecha}|${c.franja}`)));
+    const porSemana = new Map<string, unknown[]>();
+    const fuera: string[] = [];
+    lista.forEach((x, i) => {
+        const p = obj(x);
+        if (!esFecha(p.dia) || !dentro.has(`${p.dia}|${String(p.franja)}`)) {
+            return void fuera.push(`plato ${i + 1}: ${String(p.dia)} ${FRANJA_ES[String(p.franja)] ?? String(p.franja)} está fuera del rango pedido`);
+        }
+        const semana = inicioSemana(p.dia, inicio);
+        porSemana.set(semana, [...(porSemana.get(semana) ?? []), x]);
+    });
+    if (fuera.length > 0) return { ok: false, error: "Hay platos fuera del rango.", errores: fuera.slice(0, MAX_ERRORES) };
+    const validados: { semana: string; platos: Plato[] }[] = [];
+    const errores: string[] = [];
+    for (const [semana, crudos] of porSemana) {
+        const v = validarPlatos(crudos, semana, perfil);
+        if ("errores" in v) errores.push(...v.errores.map((e) => `semana ${semana}: ${e}`));
+        else validados.push({ semana, platos: v.platos });
+    }
+    if (errores.length > 0) return { ok: false, error: "Hay platos que corregir.", errores: errores.slice(0, MAX_ERRORES) };
+    const sinCatalogo = await recetasNoComprobables(
+        ctx, perfil,
+        validados.flatMap((w) => w.platos).filter((p) => p.receta_id !== undefined).map((p) => ({
+            receta_id: p.receta_id as number, donde: `plato ${p.dia} ${FRANJA_ES[p.franja]}`,
+            comen: p.personas ?? comensalesEn(perfil, p.dia, p.franja).map((c) => c.id),
+        })),
+    );
+    if (sinCatalogo.length > 0) return { ok: false, error: "Hay recetas que no puedo comprobar.", errores: sinCatalogo };
+
+    const resultados: Obj[] = [];
+    const tarjetas: Record<string, unknown>[] = [];
+    const cambios: Cambio[] = [];
+    const orden = new Map(res.semanas.map((w, i) => [w.semana, i]));
+    validados.sort((a, b) => (orden.get(a.semana) ?? 0) - (orden.get(b.semana) ?? 0));
+    for (const { semana, platos } of validados) {
+        const plan = await leerPlan(ctx, semana);
+        const existentes = plan === null ? [] : arr(plan.items).map(obj);
+        const saltada = (motivo: string) => {
+            avisos.push(`Semana ${semana}: ${motivo}`);
+            resultados.push({ semana, ok: false, saltada: true });
+        };
+        if (plan !== null && plan.status === "accepted") {
+            saltada("ya está aceptada: la cambia la persona en la app, no la toco.");
+            continue;
+        }
+        if (plan !== null && plan.origin !== "kito" && existentes.length > 0) {
+            saltada("ya tiene un menú hecho por la persona; no lo piso.");
+            continue;
+        }
+        const ocupadas = new Map(existentes.map((i) => [`${i.day}|${i.slot}`, i]));
+        const libres = platos.filter((p) => !ocupadas.has(`${p.dia}|${p.franja}`));
+        const yaEstan = platos.filter((p) => {
+            const e = ocupadas.get(`${p.dia}|${p.franja}`);
+            return e !== undefined && claveCasilla(e.day, e.slot, e.kind, e.recipe_id, e.title) === claveCasilla(p.dia, p.franja, p.tipo, p.receta_id, p.titulo);
+        });
+        const ocupadasOtras = platos.length - libres.length - yaEstan.length;
+        if (ocupadasOtras > 0) {
+            avisos.push(`Semana ${semana}: ${ocupadasOtras} casilla(s) ya tenían comida o están bloqueadas y no se tocan.`);
+        }
+        const op: Cambio["op"] = plan === null ? "crear" : "editar";
+        const idTarjeta = `menu-${semana}`;
+        let planFinal: Obj;
+        let opFinal = op;
+        if (libres.length > 0) {
+            const revision = typeof plan?.revision === "number" ? plan.revision : 0;
+            const items = libres.map(itemDe);
+            const key = await uuidDe(`menu-rango|${ctx.appUserId ?? ctx.uid}|${ctx.homeId ?? ""}|${semana}|${revision}|${JSON.stringify(items)}`);
+            const r = await escribirDe(ctx)("PATCH", "meal/plan/items", {
+                week_start: semana, expected_revision: revision, items, client_request_id: key, origin: "kito",
+            });
+            if (!r.ok) {
+                resultados.push({ semana, ...errorEscritura(r) });
+                continue;
+            }
+            planFinal = obj(r.data);
+        } else if (yaEstan.length > 0 && plan !== null) {
+            // Reintento tras un éxito: ya están puestas; solo se vuelve a comprobar y mostrar.
+            planFinal = plan;
+            opFinal = "editar";
+        } else {
+            saltada("no quedaba ninguna casilla libre en el rango.");
+            continue;
+        }
+        const ev = await evaluar(ctx, planFinal, perfil, opFinal, new Map(), { semana, escritas: libres.length }, idTarjeta);
+        resultados.push({ semana, ...ev.valor });
+        if (ev.efectos?.tarjeta) tarjetas.push(ev.efectos.tarjeta);
+        if (ev.efectos?.cambios) cambios.push(...ev.efectos.cambios);
+    }
+    const valor: Obj = { ok: tarjetas.length > 0, semanas: resultados, ...(avisos.length > 0 ? { avisos } : {}) };
+    return tarjetas.length > 0 ? conEfectos(valor, { tarjetas, cambios }) : valor;
+};
+
 export const proponerMenuTool: Tool = {
     name: "proponer_menu",
     description:
@@ -221,7 +338,7 @@ export const proponerMenuTool: Tool = {
     escritura: true,
     strict: false,
     run: async (input, ctx) => {
-        if (input.rango !== undefined) return { ok: false, error: "El rango aún no está disponible." };
+        if (input.rango !== undefined) return await proponerRango(input, ctx);
         const semana = input.semana;
         if (!esFecha(semana)) return { falta: ["semana"], error: "La semana debe tener formato AAAA-MM-DD." };
         const perfil = await leerPerfil(ctx);
