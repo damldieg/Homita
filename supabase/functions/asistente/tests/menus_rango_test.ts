@@ -189,3 +189,66 @@ Deno.test("proponer_menu con rango: una receta con alérgeno para quien come ah�
     assertEquals(valor.ok, false); // el servidor falso detecta gluten en la receta 10 (Ana, alergia al gluten)
     assertEquals(tarj, undefined);
 });
+
+// ---- rango que cruza dos semanas: un mundo por semana; el enrutador traduce la semana 2 a la del mundo B ----
+const SEMANA2 = "2030-01-14";
+const enrutar = (a: ReturnType<typeof crearMundo>, b: ReturnType<typeof crearMundo>) => {
+    const esB = (semana: unknown) => semana === SEMANA2;
+    const aB = <T extends Obj>(o: T): T => ({ ...o, week_start: SEMANA });
+    return ctxDe(a, {
+        leer: (ruta, params = {}) => {
+            if (ruta === "meal/plan") return esB(params.week_start) ? b.leer(ruta, aB(params)) : a.leer(ruta, params);
+            if (ruta === "meal/plan/check") return String(params.plan_id).startsWith("5") ? b.leer(ruta, params) : a.leer(ruta, params);
+            return a.leer(ruta, params);
+        },
+        escribir: (metodo, ruta, cuerpo = {}) => esB(cuerpo.week_start) ? b.escribir(metodo, ruta, aB(cuerpo)) : a.escribir(metodo, ruta, cuerpo),
+    });
+};
+const RANGO2 = { desde: { fecha: "2030-01-11", franja: "dinner" }, hasta: { fecha: "2030-01-15", franja: "lunch" } };
+const PLATOS2 = [
+    P("2030-01-11", "dinner"), P("2030-01-12", "lunch"), P("2030-01-13", "dinner"), P("2030-01-14", "lunch"), P("2030-01-14", "dinner"), P("2030-01-15", "lunch"),
+];
+
+Deno.test("proponer_menu con rango entre dos semanas: un lote por semana, dos planes, dos tarjetas y casillas solo del rango", async () => {
+    const perfil = perfilBase({ schedule: [] });
+    const a = crearMundo({ perfil });
+    const b = crearMundo({ perfil, idInicial: 500 });
+    const { valor, tarjetas, cambios } = abrir(await proponer({ rango: RANGO2, platos: PLATOS2 }, enrutar(a, b)));
+    assertEquals(valor.ok, true, JSON.stringify(valor));
+    assertEquals(a.escrituras.length, 1);
+    assertEquals(b.escrituras.length, 1);
+    assertEquals(a.escrituras[0].cuerpo.week_start, SEMANA);
+    assertEquals(b.escrituras[0].cuerpo.week_start, SEMANA, "el enrutador la traduce desde 2030-01-14");
+    assertEquals((a.escrituras[0].cuerpo.items as Obj[]).map(par), ["2030-01-11 dinner", "2030-01-12 lunch", "2030-01-13 dinner"]);
+    assertEquals((b.escrituras[0].cuerpo.items as Obj[]).map(par), ["2030-01-14 lunch", "2030-01-14 dinner", "2030-01-15 lunch"]);
+    assertEquals(tarjetas?.length, 2);
+    assertEquals(new Set(tarjetas?.map((t) => t.id)).size, 2, "ids de tarjeta distintos");
+    assertEquals(tarjetas?.map((t) => t.id), ["menu-2030-01-07", "menu-2030-01-14"]);
+    assertEquals(cambios?.length, 2);
+    assertEquals((valor.semanas as Obj[]).map((s) => s.semana), ["2030-01-07", SEMANA2]);
+});
+
+Deno.test("proponer_menu con rango entre dos semanas: si una está aceptada, se salta con aviso y la otra se escribe", async () => {
+    const perfil = perfilBase({ schedule: [] });
+    const a = crearMundo({ perfil });
+    const b = crearMundo({ perfil, idInicial: 500 });
+    a.ponerPlan({ id: 5, week_start: SEMANA, status: "accepted", revision: 2, origin: "kito", unchecked_item_ids: [], items: [casilla(1, "2030-01-08", "lunch", "Sopa")] });
+    const { valor, tarjetas } = abrir(await proponer({ rango: RANGO2, platos: PLATOS2 }, enrutar(a, b)));
+    assertEquals(valor.ok, true);
+    assertEquals(a.escrituras.length, 0);
+    assertEquals(b.escrituras.length, 1);
+    assertEquals(tarjetas?.length, 1);
+    assert((valor.avisos as string[]).some((x) => x.includes("2030-01-07") && x.includes("aceptada")));
+    assertEquals((valor.semanas as Obj[])[0].saltada, true);
+});
+
+Deno.test("proponer_menu con rango entre dos semanas: aviso de franja desactivada en un extremo y no se crea esa casilla", async () => {
+    const perfil = perfilBase({ schedule: [] });
+    const a = crearMundo({ perfil });
+    const b = crearMundo({ perfil, idInicial: 500 });
+    const rango = { desde: { fecha: "2030-01-11", franja: "dinner" }, hasta: { fecha: "2030-01-14", franja: "snack" } }; // merienda desactivada
+    const { valor } = abrir(await proponer({ rango, platos: [P("2030-01-11", "dinner"), P("2030-01-14", "lunch")] }, enrutar(a, b)));
+    assertEquals(valor.ok, true, JSON.stringify(valor));
+    assert((valor.avisos as string[]).some((x) => x.includes("merienda")));
+    assertEquals((b.escrituras[0].cuerpo.items as Obj[]).map(par), ["2030-01-14 lunch"]);
+});
