@@ -16,6 +16,15 @@ export const passwordGrant = (email: string, password: string): Promise<Response
         body: JSON.stringify({ email, password }),
     });
 
+// POST /user/refresh (dashboard, dashboard-sesion): GoTrue refresh_token grant con la anon key de la
+// propia función. Devuelve la sesión nueva (GoTrue rota el refresh_token: el anterior queda revocado).
+export const refreshSession = (refreshToken: string): Promise<Response> =>
+    fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: "POST",
+        headers: { apikey: ANON_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
 // User::create (alta): GoTrue signup con anon key; el trigger on_auth_user_created crea app_user
 // 0027: con invitationPending viaja solo un marcador booleano (nunca el código en claro, R2-03)
 // y el trigger no crea hogar personal.

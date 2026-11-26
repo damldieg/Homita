@@ -200,6 +200,9 @@ expect_log "deno test api task-list/order" deno-test-api-order '^ok \| [0-9]+ pa
 run "deno test api task-due" deno-test-api-due env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/task_due_test.ts"
 expect_log "deno test api task-due" deno-test-api-due '^ok \| [0-9]+ passed \| 0 failed'
 
+# dashboard-sesion: POST /user/refresh con fetch falso (refresh_token grant, errores 400/401/5xx).
+run "deno test api user/refresh" deno-test-api-refresh env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/user_refresh_test.ts"
+expect_log "deno test api user/refresh" deno-test-api-refresh '^ok \| [0-9]+ passed \| 0 failed'
 # Tests de /meal/* (0043): fetch falso; forma de la petición, args de cada RPC, mapeo de errores y X-Home-Id.
 run "deno test api meals" deno-test-api-meals env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/meals_test.ts"
 expect_log "deno test api meals" deno-test-api-meals '^ok \| [0-9]+ passed \| 0 failed'

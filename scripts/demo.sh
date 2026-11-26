@@ -93,7 +93,7 @@ emulator() {
         step "Arrancando el emulador $AVD"
         # Si el PC se apagó con el emulador abierto, quedan los bloqueos del AVD y no vuelve a arrancar
         pgrep -f "[q]emu.*-avd $AVD" >/dev/null || rm -f "$HOME/.android/avd/$AVD.avd/"*.lock
-        setsid "$SDK/emulator/emulator" -avd "$AVD" -port "$EMULATOR_PORT" -no-snapshot-save > "$DEMO/emulator.log" 2>&1 < /dev/null &
+        nohup "$SDK/emulator/emulator" -avd "$AVD" -port "$EMULATOR_PORT" -no-snapshot-save > "$DEMO/emulator.log" 2>&1 < /dev/null &
         local pid=$!
         until adb devices | grep -q "^$ANDROID_SERIAL\s*device"; do
             kill -0 $pid 2>/dev/null || { echo "El emulador no arrancó:"; tail -5 "$DEMO/emulator.log"; exit 1; }
@@ -126,21 +126,25 @@ app() {
     adb install -r "$apk" >/dev/null
 
     step "Sesión de demo"
-    local token prefs dir api="$BASE_URL"
+    local token refresh session prefs dir api="$BASE_URL"
     api="${api/10.0.2.2/127.0.0.1}"  # 10.0.2.2 es el PC visto desde el emulador: desde el PC es 127.0.0.1
     api="${api%/}"                   # sin barra final: la ruta se añade abajo
-    token="$(curl -sf "$api/user/auth" -H 'Content-Type: application/json' \
-        -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')"
+    session="$(curl -sf "$api/user/auth" -H 'Content-Type: application/json' \
+        -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
+    token="$(printf '%s' "$session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')"
+    refresh="$(printf '%s' "$session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["refresh_token"])')"
     dir="/data/data/$PKG"
     prefs="$(adb shell cat "$dir/shared_prefs/dashboard.xml" 2>/dev/null | tr -d '\r' || true)"
     # Sesión y ubicación de demo; el resto de ajustes (horario, brillo…) se conserva. Sin la caché de otra cuenta.
-    python3 -I - "$token" "$EMAIL" "$prefs" > "$DEMO/dashboard.xml" <<'EOF'
+    python3 -I - "$token" "$EMAIL" "$prefs" "$refresh" > "$DEMO/dashboard.xml" <<'EOF'
 import json, sys, xml.etree.ElementTree as ET
 text = sys.argv[3].strip()
 root = ET.fromstring(text.encode()) if "<map" in text else ET.Element("map")
 values = {
     "token": sys.argv[1],
     "email": sys.argv[2],
+    # dashboard-sesion: sin refresh_token la pantalla no puede renovar la sesión.
+    "refresh_token": sys.argv[4],
     "location": json.dumps({"detail": "Comunidad Autónoma de Madrid, España", "latitude": 40.4165,
                             "longitude": -3.70256, "name": "Madrid"}, ensure_ascii=False),
 }

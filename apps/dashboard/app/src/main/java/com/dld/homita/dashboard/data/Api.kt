@@ -18,6 +18,10 @@ interface Api {
     @POST("user/auth")
     suspend fun auth(@Body request: AuthRequest): Response<UserResponse>
 
+    /** Renueva el JWT con el refresh_token guardado. 401 = el refresh_token ya no vale: hay que volver a entrar. */
+    @POST("user/refresh")
+    suspend fun refresh(@Body request: RefreshRequest): Response<SessionResponse>
+
     /**
      * `start_date`/`end_date`: hora local expresada como segundos epoch en UTC, igual que la app. Sin `end_date`
      * (null) no hay límite: todos los eventos desde `start_date`.

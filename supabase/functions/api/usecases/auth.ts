@@ -1,11 +1,11 @@
 // user/auth, user/create, user/update y config (UserAuth/UserCreate/UserUpdate/Config.php).
 import { fmt, inputEmail, inputString, json, contractEmpty, contractInput, contractBodyOnly } from "../_shared/contract.ts";
 import {
-    errAuthFieldsRequired, errEmailExists, errInvalidCredentials, errNameLength, errNotAllowed,
-    errPasswordLength, errNotFound500, errProfileFieldsRequired, errUserFieldsRequired, error, rpcPass,
+    errAuthFieldsRequired, errEmailExists, errInvalidCredentials, errInvalidRefreshToken, errNameLength, errNotAllowed,
+    errPasswordLength, errRefreshTokenRequired, errNotFound500, errProfileFieldsRequired, errUserFieldsRequired, error, rpcPass,
     errInvitationEmailMismatch, errInvitationNotValidForSignup,
 } from "../_shared/errors.ts";
-import { appUserRow, passwordGrant, rpc, rpcAnon, signup, updateAuthUser } from "../_shared/supabase.ts";
+import { appUserRow, passwordGrant, refreshSession, rpc, rpcAnon, signup, updateAuthUser } from "../_shared/supabase.ts";
 
 // Config::key('public','allow_registration') → env ALLOW_REGISTRATION (default false, Q3)
 export const allowRegistration = (): boolean =>
@@ -42,6 +42,24 @@ export const handleUserAuth = async (req: Request): Promise<Response> => {
         created_at: fmt(me.created_at as string),
         updated_at: fmt(me.updated_at as string),
     });
+};
+
+// POST /user/refresh (dashboard-sesion, aditiva D-008): {refresh_token} → {token, refresh_token}, la
+// misma forma que user/auth. 400 sin refresh_token; 401 si GoTrue rechaza el token (inválido, revocado
+// o ya usado). Un fallo de GoTrue distinto de 400/401 se trata como error interno (500): el cliente no
+// debe cerrar la sesión por eso.
+export const handleUserRefresh = async (req: Request): Promise<Response> => {
+    const input = await contractInput(req);
+    const refreshToken = inputString(input, "refresh_token");
+    if (contractEmpty(refreshToken)) return errRefreshTokenRequired();
+
+    const res = await refreshSession(refreshToken as string);
+    if (res.status === 400 || res.status === 401) return errInvalidRefreshToken();
+    if (!res.ok) return error("Internal error", 500);
+    const session = await res.json();
+    if (!session.access_token || !session.refresh_token) return errInvalidRefreshToken();
+
+    return json({ token: session.access_token, refresh_token: session.refresh_token });
 };
 
 // POST /user/create (UserCreate.php): flag → validaciones → alta GoTrue (trigger 0004 crea
