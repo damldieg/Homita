@@ -26,6 +26,8 @@
 #      task_person_access_rollback_guard_check G38-1 (guarda LIFO de rollback_0037 con 0038 aplicada),
 #      task_hidden_rollback_guard_check G39-1 (guarda LIFO de rollback_0038 con 0039 aplicada),
 #      contract_check.py (502 + prioridad + ocultas + orden de listas) y cross_tenant_check.py.
+#   5c. Ida y vuelta 0048 → rollback_0048_menus_kito → [rollbacks de 0045 y 0044] → 0048 (kito-menus): RK1-RK3 y, tras
+#      reaplicar, RK4 y kito_menus_check MK1-MK7 otra vez (MK1-MK7 también corre en el paso 5). La más exterior de menús (LIFO).
 #   5a. Ida y vuelta 0044 → rollback_0044_menus_semana → 0044 + semilla (menus-semana): RM4-RM6, RA3-RA4 y
 #      menu_semana_check MS1-MS17 otra vez. Va ANTES de la de 0043 (orden LIFO: 0044 usa lo de 0043).
 #   5b. Ida y vuelta exterior 0039 → rollback_0039 → [paso 6] → 0039 (ocultar-completadas-3-dias):
@@ -237,6 +239,11 @@ expect_log "SQL menu_semana_check" sql-menu-semana "${ms_pat[@]}"
 run "SQL shopping_check" sql-shopping sql "$HERE/scripts/supabase/tests/shopping_check.sql"
 sh_pat=(); for i in $(seq 1 11); do sh_pat+=("ok SH$i([^0-9a-z]|\$)"); done
 expect_log "SQL shopping_check" sql-shopping "${sh_pat[@]}"
+
+# 0048 (kito-menus): origin, estado de casilla, client_request_id en plan y receta, reglas de Kito, aislamiento y grants.
+run "SQL kito_menus_check" sql-kito-menus sql "$HERE/scripts/supabase/tests/kito_menus_check.sql"
+mk_pat=(); for i in $(seq 1 7); do mk_pat+=("ok MK$i([^0-9a-z]|\$)"); done
+expect_log "SQL kito_menus_check" sql-kito-menus "${mk_pat[@]}"
 
 run "SQL client_request_check" sql-client-request sql "$HERE/scripts/supabase/tests/client_request_check.sql"
 c_pat=(); for i in $(seq 1 9); do c_pat+=("ok C$i([^0-9a-z]|\$)"); done
@@ -587,6 +594,20 @@ else
     FAILED+=("ida y vuelta 0041 (rollback_0041 no quedó en verde; repetir ci.sh)")
 fi
 
+# Ida y vuelta 0048 → rollback_0048_menus_kito.sql → 0048 (kito-menus), la más exterior de las de menús (orden LIFO:
+# 0048 redefine upsert_meal_plan_items sobre el cuerpo de 0045 y toca meal_plan y recipe, así que se revierte ANTES que
+# 0045 y 0044 y se reaplica DESPUÉS de ellas). El rollback quita origin, state y las firmas nuevas. Si no queda en
+# verde no se reaplica: la BD local queda a medias, repetir ci.sh.
+run "SQL kito_menus_rollback_check" sql-rb0048 sql_expanded "$HERE/scripts/supabase/tests/kito_menus_rollback_check.sql"
+expect_log "SQL kito_menus_rollback_check" sql-rb0048 'ok RK1([^0-9]|$)' 'ok RK2([^0-9]|$)' 'ok RK3([^0-9]|$)'
+RB0048_OK=0
+if grep -Eq 'ok RK1([^0-9]|$)' "$OUT/sql-rb0048.log" && grep -Eq 'ok RK2([^0-9]|$)' "$OUT/sql-rb0048.log" \
+    && grep -Eq 'ok RK3([^0-9]|$)' "$OUT/sql-rb0048.log"; then
+    RB0048_OK=1
+else
+    FAILED+=("ida y vuelta 0048 (rollback_0048 no quedó en verde; no se reaplica 0048: la BD local queda a medias, repetir ci.sh)")
+fi
+
 # Ida y vuelta 0045 → rollback_0045_menus_compra.sql → 0045 (menus-compra), anidada alrededor de la de 0044 (orden LIFO:
 # shopping_item referencia meal_plan y food, y rollback_0044 los borra). El rollback quita la Compra y restaura
 # accept_meal_plan y upsert_meal_plan_items de 0044; la reaplicación va después de reaplicar 0044 y la semilla. Si el
@@ -628,6 +649,16 @@ if [ "$RB0045_OK" = 1 ]; then
     expect_log "SQL shopping_reapply_check" sql-ra0045-chk 'ok RS4([^0-9]|$)'
     run "SQL shopping_check (tras reaplicar 0045)" sql-ra0045-sh sql "$HERE/scripts/supabase/tests/shopping_check.sql"
     expect_log "SQL shopping_check (tras reaplicar 0045)" sql-ra0045-sh "${sh_pat[@]}"
+fi
+
+# Reaplicación de 0048 (cierra la ida y vuelta exterior de arriba, con 0044, 0045 y la semilla ya reaplicadas).
+if [ "$RB0048_OK" = 1 ]; then
+    run "SQL 0048 reaplicada" sql-ra0048 sql "$HERE/supabase/migrations/0048_menus_kito.sql"
+    sleep 1 # notify pgrst: PostgREST recarga el esquema
+    run "SQL kito_menus_reapply_check" sql-ra0048-chk sql "$HERE/scripts/supabase/tests/kito_menus_reapply_check.sql"
+    expect_log "SQL kito_menus_reapply_check" sql-ra0048-chk 'ok RK4([^0-9]|$)'
+    run "SQL kito_menus_check (tras reaplicar 0048)" sql-ra0048-mk sql "$HERE/scripts/supabase/tests/kito_menus_check.sql"
+    expect_log "SQL kito_menus_check (tras reaplicar 0048)" sql-ra0048-mk "${mk_pat[@]}"
 fi
 
 # Ida y vuelta 0043 → rollback_0043_meal_profile.sql → 0043 (menus-perfil-hogar): el último cambio, en serie tras 0041/0042.

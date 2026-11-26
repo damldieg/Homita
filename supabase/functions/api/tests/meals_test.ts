@@ -351,3 +351,46 @@ Deno.test("R1-03: expected_revision fuera de int32 o plan_id gigante → 400 sin
         assertEquals(calls.length, 0);
     });
 });
+
+const CR = "11111111-1111-4111-8111-111111111111";
+
+Deno.test("PATCH /meal/plan/items envía client_request_id y origin a la RPC (0048)", async () => {
+    await withFetch(ok, async (calls) => {
+        const res = await handleMealPlanItems(
+            req("PATCH", { week_start: "2030-01-07", expected_revision: 0, items: [], client_request_id: CR.toUpperCase(), origin: "kito" }),
+            "tok",
+        );
+        assertEquals(res.status, 200);
+        assertEquals(calls[0].body, {
+            p_week_start: "2030-01-07", p_expected_revision: 0, p_items: [], p_client_request_id: CR, p_origin: "kito",
+        });
+    });
+});
+
+Deno.test("PATCH /meal/plan/items sin client_request_id ni origin no envía esas claves (compatibilidad)", async () => {
+    await withFetch(ok, async (calls) => {
+        await handleMealPlanItems(req("PATCH", { week_start: "2030-01-07", expected_revision: 3 }), "tok");
+        assertEquals(calls[0].body, { p_week_start: "2030-01-07", p_expected_revision: 3 });
+    });
+});
+
+Deno.test("PATCH /meal/plan/items con client_request_id u origin mal formados → 400 sin RPC", async () => {
+    await withFetch(ok, async (calls) => {
+        const res = await handleMealPlanItems(
+            req("PATCH", { week_start: "2030-01-07", expected_revision: 0, client_request_id: "no-uuid" }), "tok");
+        assertEquals(res.status, 400);
+        const res2 = await handleMealPlanItems(
+            req("PATCH", { week_start: "2030-01-07", expected_revision: 0, origin: 5 }), "tok");
+        assertEquals(res2.status, 400);
+        assertEquals(calls.length, 0);
+    });
+});
+
+Deno.test("PATCH /meal/plan/items: la RPC rechaza el plan aceptado de Kito → 400 (Invalid meal plan)", async () => {
+    await withFetch(() => jsonRes(400, { message: "Invalid meal plan" }), async () => {
+        const res = await handleMealPlanItems(
+            req("PATCH", { week_start: "2030-01-07", expected_revision: 2, origin: "kito" }), "tok");
+        assertEquals(res.status, 400);
+        assertEquals(await res.json(), { error: "Invalid meal plan" });
+    });
+});

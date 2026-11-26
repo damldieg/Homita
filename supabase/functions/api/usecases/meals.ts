@@ -9,6 +9,7 @@ import {
     errHomeMemberIdRequired, errInvalidMealPlan, errInvalidMealProfile, errMealPlanIdRequired, rpcPassHome,
 } from "../_shared/errors.ts";
 import { rpc } from "../_shared/supabase.ts";
+import { clientRequestIdOf } from "../_shared/validate.ts";
 
 const isIntId = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v > 0 && v <= Number.MAX_SAFE_INTEGER;
 
@@ -67,7 +68,9 @@ export const handleMealPlanGet = async (req: Request, token: string): Promise<Re
     return rpcPassHome(await rpc("get_meal_plan", { p_week_start: weekStart }, token));
 };
 
-// PATCH /meal/plan/items {week_start, expected_revision, items?: [...], delete_ids?: [id]}
+// PATCH /meal/plan/items {week_start, expected_revision, items?: [...], delete_ids?: [id], client_request_id?, origin?}
+// (0048: client_request_id hace el reintento idempotente; origin 'user' | 'kito', lo valida la RPC; con 'kito' la
+// RPC no edita un plan aceptado ni toca casillas locked. El `state` de cada casilla también lo valida la RPC.)
 export const handleMealPlanItems = async (req: Request, token: string): Promise<Response> => {
     const b = await contractBodyOnly(req);
     if (!isDate(b.week_start) || !isNonNegInt(b.expected_revision)) return errInvalidMealPlan();
@@ -75,9 +78,14 @@ export const handleMealPlanItems = async (req: Request, token: string): Promise<
     if (b.delete_ids !== undefined && b.delete_ids !== null && !(Array.isArray(b.delete_ids) && b.delete_ids.every(isIntId))) {
         return errInvalidMealPlan();
     }
+    const clientRequestId = clientRequestIdOf(b);
+    if (clientRequestId instanceof Response) return clientRequestId;
+    if (b.origin !== undefined && b.origin !== null && typeof b.origin !== "string") return errInvalidMealPlan();
     const args: Record<string, unknown> = { p_week_start: b.week_start, p_expected_revision: b.expected_revision };
     if (b.items !== undefined) args.p_items = b.items;
     if (b.delete_ids !== undefined) args.p_delete_ids = b.delete_ids;
+    if (clientRequestId !== undefined) args.p_client_request_id = clientRequestId;
+    if (typeof b.origin === "string") args.p_origin = b.origin;
     return rpcPassHome(await rpc("upsert_meal_plan_items", args, token));
 };
 
