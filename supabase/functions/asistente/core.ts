@@ -68,6 +68,8 @@ export interface ToolCtx {
     appUserId?: string;
     /** Nombre del usuario, si se pudo leer. */
     nombreUsuario?: string;
+    /** Códigos de permiso del usuario en el hogar activo, si el handler los conoce (p. ej. `menu.health.view`). */
+    permisos?: string[];
     /** Lector del api; lo inyecta el handler (los tests, uno falso). */
     leer?: Leer;
     /** Escritor del api (skill `organizar`); lo inyecta el handler. */
