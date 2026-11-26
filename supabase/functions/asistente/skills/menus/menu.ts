@@ -193,17 +193,35 @@ const yaCoincide = (existentes: Obj[], platos: Plato[]): boolean => {
     return a.every((x, n) => x === b[n]) && !existentes.some((i) => i.state === "rejected");
 };
 
+const ESQUEMA_PUNTO = {
+    type: "object",
+    properties: {
+        fecha: { type: "string", description: "AAAA-MM-DD, fecha local del hogar." },
+        franja: { type: "string", enum: [...FRANJAS], description: "«esta noche» = dinner, «a mediodía» = lunch." },
+    },
+    required: ["fecha", "franja"],
+    additionalProperties: false,
+};
+
 export const proponerMenuTool: Tool = {
     name: "proponer_menu",
     description:
-        "Guarda el menú de UNA semana completa como borrador (origen Kito) y, si la comprobación de alergias, dietas y personas fuera da 0 conflictos, muestra la tarjeta del menú. Se llama una vez con todos los platos. Pasa `semana` = semana.inicio de leer_semana. No acepta el menú: lo acepta la persona en la app. Si hay conflictos no se muestra nada y te devuelve cuáles son. Si esa semana ya tiene un menú aceptado o hecho por la persona, no lo pisa.",
+        "Guarda el menú de UNA semana completa como borrador (origen Kito) y, si la comprobación de alergias, dietas y personas fuera da 0 conflictos, muestra la tarjeta del menú. Se llama una vez con todos los platos. Pasa `semana` = semana.inicio de leer_semana. No acepta el menú: lo acepta la persona en la app. Si hay conflictos no se muestra nada y te devuelve cuáles son. Si esa semana ya tiene un menú aceptado o hecho por la persona, no lo pisa. Con `rango` (desde y hasta, ambos inclusive, fecha y franja) planificas solo esas casillas, aunque crucen dos semanas: conviertes tú la petición («desde esta noche hasta el viernes a mediodía») a fechas con la fecha y zona de `hoy` de leer_perfil; «esta noche» es la cena (dinner) y «a mediodía» la comida (lunch). En modo rango no pases `semana` y solo se rellenan casillas vacías: no se borra nada, ni lo aceptado ni lo bloqueado.",
     input_schema: esquema({
         semana: { type: "string", description: "Primer día de la semana, AAAA-MM-DD (semana.inicio de leer_semana)." },
         platos: { type: "array", items: ESQUEMA_PLATO, description: "Un plato por día y franja." },
-    }, ["semana", "platos"]),
+        rango: {
+            type: "object",
+            description: "Opcional: planifica solo este rango (ambos extremos inclusive). Sustituye a `semana`.",
+            properties: { desde: ESQUEMA_PUNTO, hasta: ESQUEMA_PUNTO },
+            required: ["desde", "hasta"],
+            additionalProperties: false,
+        },
+    }, ["platos"]),
     escritura: true,
     strict: false,
     run: async (input, ctx) => {
+        if (input.rango !== undefined) return { ok: false, error: "El rango aún no está disponible." };
         const semana = input.semana;
         if (!esFecha(semana)) return { falta: ["semana"], error: "La semana debe tener formato AAAA-MM-DD." };
         const perfil = await leerPerfil(ctx);

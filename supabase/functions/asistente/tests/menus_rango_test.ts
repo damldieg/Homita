@@ -72,3 +72,18 @@ Deno.test("resolverRango: rango invertido, fechas o franjas no válidas y rango 
     assert(err({ desde: { fecha: "2030-01-01", franja: "lunch" }, hasta: { fecha: "2030-02-01", franja: "lunch" } }).includes("largo"));
     assert(err(null).includes("desde"));
 });
+
+Deno.test("proponer_menu: el esquema declara `rango` opcional, sin propiedades extra y sin `semana` obligatoria", async () => {
+    const { proponerMenuTool } = await import("../skills/menus/menu.ts");
+    const e = proponerMenuTool.input_schema as unknown as { properties: Record<string, Record<string, unknown>>; required: string[] };
+    assertEquals(e.required, ["platos"]);
+    const rango = e.properties.rango as { properties: Record<string, Record<string, unknown>>; required: string[]; additionalProperties: boolean };
+    assertEquals(rango.required, ["desde", "hasta"]);
+    assertEquals(rango.additionalProperties, false);
+    for (const k of ["desde", "hasta"]) {
+        assertEquals(rango.properties[k].required, ["fecha", "franja"]);
+        assertEquals(rango.properties[k].additionalProperties, false);
+    }
+    assert(proponerMenuTool.description.includes("esta noche"));
+    assert(proponerMenuTool.description.includes("a mediodía"));
+});
