@@ -207,6 +207,8 @@ public struct KitoReply: Decodable, Equatable, Sendable {
 /// Qué tipo de elemento ha cambiado Kito (lo que decide qué pantallas se recargan).
 public enum KitoChangeKind: String, Sendable, CaseIterable {
     case tarea, lista, evento, rutina, calendario
+    /// Menú semanal, recetas y compra (skill `menus`).
+    case menu, receta, compra
 }
 
 /// Un cambio que Kito ha hecho en el hogar. Solo informa de tipo, id y operación; la app recarga por tipo.

@@ -35,9 +35,11 @@ public enum KitoReloadTargets {
     public static let calendars: Set<KitoChangeKind> = [.calendario]
     /// Rutinas.
     public static let routines: Set<KitoChangeKind> = [.rutina]
-    /// Inicio (eventos, tareas y rutinas de hoy): cualquier tipo. Sus cargas también reprograman los avisos
-    /// locales por `HomitaSync.refresh` (una vez por publicación).
-    public static let inicio: Set<KitoChangeKind> = Set(KitoChangeKind.allCases)
+    /// Pestaña Menú: menú semanal, recetas y compra.
+    public static let meals: Set<KitoChangeKind> = [.menu, .receta, .compra]
+    /// Inicio (eventos, tareas, rutinas y platos de hoy): todo salvo recetas y compra. Sus cargas también
+    /// reprograman los avisos locales por `HomitaSync.refresh` (una vez por publicación).
+    public static let inicio: Set<KitoChangeKind> = Set(KitoChangeKind.allCases).subtracting([.receta, .compra])
 }
 
 /// Último contador visto por un consumidor. `shouldReload` es verdadero una sola vez por cambio, lo vea
