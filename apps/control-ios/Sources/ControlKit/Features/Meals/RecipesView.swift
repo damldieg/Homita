@@ -23,6 +23,13 @@ struct RecipesView: View {
                     ForEach(MealSlotKind.order, id: \.self) { Text(MealSlotKind.title($0)).tag(String?.some($0)) }
                 }
                 .onChange(of: store.slot) { _, _ in Task { await store.load() } }
+                if !store.countries.isEmpty {
+                    Picker("País de las recetas comunes", selection: $store.country) {
+                        Text("Todos").tag(String?.none)
+                        ForEach(store.countries, id: \.self) { Text(RecipeCountry.name($0)).tag(String?.some($0)) }
+                    }
+                    .accessibilityIdentifier("recetas.pais")
+                }
             }
             if case .failed(let message) = store.state {
                 Text(message).foregroundStyle(Palette.inkSoft)
@@ -37,7 +44,9 @@ struct RecipesView: View {
                     }
                 }
                 .swipeActions {
-                    Button("Borrar", role: .destructive) { Task { await store.delete(recipe) } }
+                    if !recipe.isCommon {
+                        Button("Borrar", role: .destructive) { Task { await store.delete(recipe) } }
+                    }
                 }
             }
         }
@@ -67,6 +76,7 @@ struct RecipesView: View {
         var parts = ["\(recipe.servings) raciones"]
         if let minutes = recipe.minutes { parts.append("\(minutes) min") }
         if !recipe.slots.isEmpty { parts.append(recipe.slots.map(MealSlotKind.title).joined(separator: ", ")) }
+        if recipe.isCommon, let country = recipe.country { parts.append(RecipeCountry.name(country)) }
         return parts.joined(separator: " · ")
     }
 }
@@ -91,7 +101,8 @@ struct RecipeDetailView: View {
                 List {
                     Section {
                         Text(RecipesView.subtitle(RecipeSummary(
-                            id: recipe.id, name: recipe.name, servings: recipe.servings, minutes: recipe.minutes, slots: recipe.slots)))
+                            id: recipe.id, name: recipe.name, servings: recipe.servings, minutes: recipe.minutes, slots: recipe.slots,
+                            homeId: recipe.homeId, country: recipe.country)))
                             .foregroundStyle(Palette.inkSoft)
                         if !recipe.allergens.isEmpty {
                             Label("Alérgenos: " + recipe.allergens.map(Self.allergenName).joined(separator: ", "),
@@ -121,7 +132,7 @@ struct RecipeDetailView: View {
         }
         .navigationTitle(recipe?.name ?? "Receta")
         .toolbar {
-            if let recipe {
+            if let recipe, !recipe.isCommon {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Editar") { editing = RecipeEditorRequest(recipe: recipe) }
                 }

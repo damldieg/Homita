@@ -26,6 +26,8 @@
 #      task_person_access_rollback_guard_check G38-1 (guarda LIFO de rollback_0037 con 0038 aplicada),
 #      task_hidden_rollback_guard_check G39-1 (guarda LIFO de rollback_0038 con 0039 aplicada),
 #      contract_check.py (502 + prioridad + ocultas + orden de listas) y cross_tenant_check.py.
+#   5-0047. recetas_seed.py --check, seed de recetas precargadas (dos cargas, la segunda INSERT 0 0), recetas_precargadas_check
+#      RP1-RP5 (0047) e ida y vuelta 0047 → rollback_0047 → 0047 + seed (RR1-RR3, RA5; la más externa, orden LIFO).
 #   5a. Ida y vuelta 0044 → rollback_0044_menus_semana → 0044 + semilla (menus-semana): RM4-RM6, RA3-RA4 y
 #      menu_semana_check MS1-MS17 otra vez. Va ANTES de la de 0043 (orden LIFO: 0044 usa lo de 0043).
 #   5b. Ida y vuelta exterior 0039 → rollback_0039 → [paso 6] → 0039 (ocultar-completadas-3-dias):
@@ -242,6 +244,22 @@ expect_log "SQL shopping_check" sql-shopping "${sh_pat[@]}"
 run "SQL meal_profile_countries_check" sql-mp-countries sql "$HERE/scripts/supabase/tests/meal_profile_countries_check.sql"
 mc_pat=(); for i in $(seq 1 5); do mc_pat+=("ok MC$i([^0-9a-z]|\$)"); done
 expect_log "SQL meal_profile_countries_check" sql-mp-countries "${mc_pat[@]}"
+
+# 0047 (menus-recetas-precargadas): el lote de recetas comunes se valida (scripts/menus/recetas_seed.py --check: formato y
+# SQL generado al día) y se carga dos veces (la segunda no inserta nada: on conflict contra recipe_common_name_country_uq).
+# Va DESPUÉS de menu_semana_check y shopping_check, que esperan listas de recetas vacías para un hogar sin recetas.
+run "recetas_seed.py --check" recetas-seed-check python3 "$HERE/scripts/menus/recetas_seed.py" --check
+expect_log "recetas_seed.py --check" recetas-seed-check '^recetas_seed: 20 recetas válidas'
+run "SQL seed recetas_precargadas" sql-seed-recetas sql "$HERE/supabase/seed/recetas_precargadas.sql"
+expect_log "SQL seed recetas_precargadas" sql-seed-recetas '^INSERT 0 [1-9][0-9]*'
+run "SQL seed recetas_precargadas (segunda carga)" sql-seed-recetas2 sql "$HERE/supabase/seed/recetas_precargadas.sql"
+expect_log "SQL seed recetas_precargadas (segunda carga)" sql-seed-recetas2 '^INSERT 0 0$'
+if grep -Eq '^INSERT 0 [1-9]' "$OUT/sql-seed-recetas2.log"; then
+    FAILED+=("SQL seed recetas_precargadas (segunda carga): insertó filas, no es idempotente")
+fi
+run "SQL recetas_precargadas_check" sql-recetas sql "$HERE/scripts/supabase/tests/recetas_precargadas_check.sql"
+rp_pat=(); for i in $(seq 1 5); do rp_pat+=("ok RP$i([^0-9a-z]|\$)"); done
+expect_log "SQL recetas_precargadas_check" sql-recetas "${rp_pat[@]}"
 
 run "SQL client_request_check" sql-client-request sql "$HERE/scripts/supabase/tests/client_request_check.sql"
 c_pat=(); for i in $(seq 1 9); do c_pat+=("ok C$i([^0-9a-z]|\$)"); done
@@ -592,6 +610,20 @@ else
     FAILED+=("ida y vuelta 0041 (rollback_0041 no quedó en verde; repetir ci.sh)")
 fi
 
+# Ida y vuelta 0047 → rollback_0047_menus_recetas_precargadas.sql → 0047 + seed (menus-recetas-precargadas): la más externa
+# (orden LIFO: rollback_0045 restaura fn_meal_recipe_json de 0044 y rollback_0047 restaura la de 0045). El rollback borra
+# las recetas comunes y la columna country; la reaplicación va tras reaplicar 0045 (más abajo). Si el rollback no queda en
+# verde no se reaplica: la BD local queda a medias, repetir ci.sh.
+run "SQL recetas_precargadas_rollback_check" sql-rb0047 sql_expanded "$HERE/scripts/supabase/tests/recetas_precargadas_rollback_check.sql"
+expect_log "SQL recetas_precargadas_rollback_check" sql-rb0047 'ok RR1([^0-9]|$)' 'ok RR2([^0-9]|$)' 'ok RR3([^0-9]|$)'
+RB0047_OK=0
+if grep -Eq 'ok RR1([^0-9]|$)' "$OUT/sql-rb0047.log" && grep -Eq 'ok RR2([^0-9]|$)' "$OUT/sql-rb0047.log" \
+    && grep -Eq 'ok RR3([^0-9]|$)' "$OUT/sql-rb0047.log"; then
+    RB0047_OK=1
+else
+    FAILED+=("ida y vuelta 0047 (rollback_0047 no quedó en verde; no se reaplica 0047: la BD local queda a medias, repetir ci.sh)")
+fi
+
 # Ida y vuelta 0046 → rollback_0046_menus_paises_hogar.sql → 0046 (menus-paises-hogar), la más externa (orden LIFO: 0046
 # redefine get/update_meal_profile de 0043 y rollback_0043 borra meal_profile, así que se revierte la primera y se
 # reaplica la última, tras reaplicar 0043). Si el rollback no queda en verde no se reaplica: repetir ci.sh.
@@ -670,7 +702,7 @@ else
     FAILED+=("ida y vuelta 0043 (rollback_0043 no quedó en verde; no se reaplica 0043: la BD local queda a medias, repetir ci.sh)")
 fi
 
-# Reaplicación de 0046 (cierra la ida y vuelta más externa, con 0043–0045 ya reaplicadas).
+# Reaplicación de 0046 (orden LIFO: rollback 0047 → 0046, reaplicación 0046 → 0047; con 0043–0045 ya reaplicadas).
 if [ "$RB0046_OK" = 1 ]; then
     run "SQL 0046 reaplicada" sql-ra0046 sql "$HERE/supabase/migrations/0046_menus_paises_hogar.sql"
     sleep 1 # notify pgrst: PostgREST recarga el esquema
@@ -682,6 +714,18 @@ if [ "$RB0046_OK" = 1 ]; then
     expect_log "SQL meal_profile_check (tras reaplicar 0046)" sql-ra0046-mp "${mp_pat[@]}"
 fi
 
+# Reaplicación de 0047 y del seed de recetas (cierra la ida y vuelta de 0047, la última en reaplicarse, con 0043–0046 ya reaplicadas).
+if [ "$RB0047_OK" = 1 ]; then
+    run "SQL 0047 reaplicada" sql-ra0047 sql "$HERE/supabase/migrations/0047_menus_recetas_precargadas.sql"
+    run "SQL seed recetas_precargadas (tras reaplicar 0047)" sql-ra0047-seed sql "$HERE/supabase/seed/recetas_precargadas.sql"
+    expect_log "SQL seed recetas_precargadas (tras reaplicar 0047)" sql-ra0047-seed '^INSERT 0 [1-9][0-9]*'
+    sleep 1 # notify pgrst: PostgREST recarga el esquema
+    run "SQL recetas_precargadas_reapply_check" sql-ra0047-chk sql "$HERE/scripts/supabase/tests/recetas_precargadas_reapply_check.sql"
+    expect_log "SQL recetas_precargadas_reapply_check" sql-ra0047-chk 'ok RA5([^0-9]|$)'
+    run "SQL recetas_precargadas_check (tras reaplicar 0047)" sql-ra0047-rp sql "$HERE/scripts/supabase/tests/recetas_precargadas_check.sql"
+    expect_log "SQL recetas_precargadas_check (tras reaplicar 0047)" sql-ra0047-rp "${rp_pat[@]}"
+fi
+
 if [ "${#FAILED[@]}" -gt 0 ]; then
     echo
     echo "FALLARON ${#FAILED[@]} paso(s):"
@@ -689,4 +733,4 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
     exit 1
 fi
 echo
-echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10, task_person_access A1-A9, get_persons GP1-GP4, task_hidden H1-H12, task_list_position TP1-TP8, meal_profile MP1-MP11, menu_semana MS1-MS17, guardas de rollback G0-G3, G38-1 y G39-1, feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta 0039 → rollback → [0038 → rollback → (0037 → rollback → (0035 → rollback → 0035) → 0037) → 0038] → 0039 con RBH1-5, contract pre-0039 ${contract_pre39}/${contract_pre39}, RB38-1..5, PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, guarda 0030 E0-E2, RA1-RA2, PA1-PA3, P1-P10, C1-C9, RA38-1, A1-A9, GP1-GP4, RAH1-3 y H1-H12; ida y vuelta 0040 con TR1-TR3, contract ${contract_nopos}/${contract_nopos} sin position, TA1-TA2 y TP1-TP8; ida y vuelta 0045 (anidada en la de 0044) con RS1-RS4 y SH1-SH11; ida y vuelta 0044 con RM4-RM6, RA3-RA4 y MS1-MS17; shopping_check SH1-SH11; ida y vuelta 0043 con RM1-RM3, RA1-RA2 y MP1-MP11; meal_profile_countries_check MC1-MC5; ida y vuelta 0046 con RC1-RC4)"
+echo "ci.sh: todo ok (deno check/test procesar-feedback y asistente; SQL incl. invitaciones N1-N22, K1-K8, client_request C1-C9, assistant_usage U1-U7, task_priority P1-P10, task_person_access A1-A9, get_persons GP1-GP4, task_hidden H1-H12, task_list_position TP1-TP8, meal_profile MP1-MP11, menu_semana MS1-MS17, guardas de rollback G0-G3, G38-1 y G39-1, feedback B1-B8 y F1-F12; contract_check ${contract_full}/${contract_full}, cross_tenant ${expected}/${expected}; ida y vuelta 0039 → rollback → [0038 → rollback → (0037 → rollback → (0035 → rollback → 0035) → 0037) → 0038] → 0039 con RBH1-5, contract pre-0039 ${contract_pre39}/${contract_pre39}, RB38-1..5, PR1-PR4, contract pre-0037 ${contract_pre}/${contract_pre}, RB1-RB4, guarda 0030 E0-E2, RA1-RA2, PA1-PA3, P1-P10, C1-C9, RA38-1, A1-A9, GP1-GP4, RAH1-3 y H1-H12; ida y vuelta 0040 con TR1-TR3, contract ${contract_nopos}/${contract_nopos} sin position, TA1-TA2 y TP1-TP8; ida y vuelta 0047 (la más externa) con RR1-RR3, RA5 y RP1-RP5; ida y vuelta 0045 (anidada en la de 0044) con RS1-RS4 y SH1-SH11; ida y vuelta 0044 con RM4-RM6, RA3-RA4 y MS1-MS17; shopping_check SH1-SH11; ida y vuelta 0043 con RM1-RM3, RA1-RA2 y MP1-MP11; meal_profile_countries_check MC1-MC5; ida y vuelta 0046 con RC1-RC4)"
