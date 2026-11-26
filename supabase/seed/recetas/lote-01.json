@@ -1,0 +1,502 @@
+{
+  "lote": 1,
+  "recetas": [
+    {
+      "name": "Tortilla de patatas",
+      "country": "ES",
+      "servings": 4,
+      "minutes": 45,
+      "slots": ["lunch", "dinner"],
+      "steps": [
+        "Pela las patatas y la cebolla y córtalas en láminas finas. Sálalas.",
+        "Fríe las patatas y la cebolla en abundante aceite a fuego medio-bajo unos 20 minutos, hasta que estén tiernas sin dorarse.",
+        "Escúrrelas bien del aceite y mézclalas con los huevos batidos y una pizca de sal. Déjalas reposar 5 minutos.",
+        "Calienta una sartén con un poco de aceite y vierte la mezcla. Cuaja a fuego medio unos 4 minutos.",
+        "Da la vuelta a la tortilla con ayuda de un plato y cuaja otros 3 minutos por el otro lado. Sírvela templada."
+      ],
+      "ingredients": [
+        {"label": "Patatas", "quantity": 600, "unit": "g", "food_name": "Patata"},
+        {"label": "Huevos", "quantity": 6, "unit": "ud", "food_name": "Huevos"},
+        {"label": "Cebolla", "quantity": 1, "unit": "ud", "food_name": "Cebolla"},
+        {"label": "Aceite de oliva", "quantity": 200, "unit": "ml", "food_name": "Aceite de oliva"},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Paella valenciana",
+      "country": "ES",
+      "servings": 4,
+      "minutes": 70,
+      "slots": ["lunch"],
+      "steps": [
+        "Sofríe en la paella con aceite el pollo y el conejo troceados y salados hasta que se doren bien.",
+        "Añade las judías verdes y el tomate rallado y rehoga unos 5 minutos.",
+        "Incorpora el pimentón dulce, remueve un momento y cubre con 1,2 litros de agua caliente. Añade el azafrán y cuece 30 minutos a fuego medio.",
+        "Echa el arroz en forma de cruz, repártelo y cuece 10 minutos a fuego fuerte y otros 8 a fuego suave, sin remover.",
+        "Retira del fuego y deja reposar 5 minutos tapada con un paño antes de servir."
+      ],
+      "ingredients": [
+        {"label": "Arroz bomba", "quantity": 400, "unit": "g", "food_name": "Arroz bomba"},
+        {"label": "Muslo de pollo troceado", "quantity": 500, "unit": "g", "food_name": "Muslo de pollo"},
+        {"label": "Conejo troceado", "quantity": 400, "unit": "g", "food_name": "Conejo"},
+        {"label": "Judías verdes", "quantity": 200, "unit": "g", "food_name": "Judías verdes"},
+        {"label": "Tomate maduro rallado", "quantity": 2, "unit": "ud", "food_name": "Tomate"},
+        {"label": "Pimentón dulce", "quantity": 1, "unit": "cdta", "food_name": "Pimentón dulce"},
+        {"label": "Azafrán", "quantity": 1, "unit": "pizca", "food_name": "Azafrán"},
+        {"label": "Aceite de oliva", "quantity": 80, "unit": "ml", "food_name": "Aceite de oliva"},
+        {"label": "Agua", "quantity": 1.2, "unit": "l", "food_name": "Agua"},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Gazpacho andaluz",
+      "country": "ES",
+      "servings": 4,
+      "minutes": 15,
+      "slots": ["lunch", "dinner"],
+      "steps": [
+        "Lava las hortalizas. Trocea los tomates, el pepino, el pimiento y el ajo.",
+        "Tritura todo con el pan remojado en agua, el aceite, el vinagre y sal hasta obtener una crema fina.",
+        "Pasa el gazpacho por un colador chino si quieres una textura más suave.",
+        "Rectifica de sal y vinagre y enfría en la nevera al menos 2 horas. Sirve muy frío."
+      ],
+      "ingredients": [
+        {"label": "Tomates maduros", "quantity": 1, "unit": "kg", "food_name": "Tomate"},
+        {"label": "Pepino", "quantity": 1, "unit": "ud", "food_name": "Pepino"},
+        {"label": "Pimiento verde", "quantity": 1, "unit": "ud", "food_name": "Pimiento verde"},
+        {"label": "Ajo", "quantity": 1, "unit": "ud", "food_name": "Ajo"},
+        {"label": "Pan del día anterior", "quantity": 60, "unit": "g", "food_name": "Barra de pan"},
+        {"label": "Aceite de oliva virgen extra", "quantity": 80, "unit": "ml", "food_name": "Aceite de oliva virgen extra"},
+        {"label": "Vinagre de Jerez", "quantity": 2, "unit": "cda", "food_name": "Vinagre de Jerez"},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Cocido madrileño",
+      "country": "ES",
+      "servings": 6,
+      "minutes": 180,
+      "slots": ["lunch"],
+      "steps": [
+        "Pon los garbanzos, remojados la noche anterior, en una olla grande con agua fría, la carne de ternera, el tocino, el hueso y el pollo.",
+        "Lleva a ebullición, espuma y cuece a fuego suave 1 hora y media.",
+        "Añade el chorizo, la morcilla, las zanahorias y las patatas y cuece 30 minutos más.",
+        "Cuece aparte la col en agua con sal y rehógala con ajo en aceite.",
+        "Con parte del caldo cuece los fideos como primer plato. Sirve después los garbanzos, las verduras y las carnes."
+      ],
+      "ingredients": [
+        {"label": "Garbanzos", "quantity": 400, "unit": "g", "food_name": "Garbanzos"},
+        {"label": "Ternera para cocido", "quantity": 500, "unit": "g", "food_name": "Ternera"},
+        {"label": "Pollo entero", "quantity": 1, "unit": "ud", "food_name": "Pollo entero"},
+        {"label": "Chorizo", "quantity": 200, "unit": "g", "food_name": "Chorizo"},
+        {"label": "Morcilla", "quantity": 200, "unit": "g", "food_name": "Morcilla"},
+        {"label": "Tocino", "quantity": 100, "unit": "g", "food_name": null},
+        {"label": "Zanahorias", "quantity": 3, "unit": "ud", "food_name": "Zanahoria"},
+        {"label": "Patatas", "quantity": 4, "unit": "ud", "food_name": "Patata"},
+        {"label": "Col", "quantity": 1, "unit": "ud", "food_name": "Col"},
+        {"label": "Fideos", "quantity": 150, "unit": "g", "food_name": "Fideos"},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Fabada asturiana",
+      "country": "ES",
+      "servings": 6,
+      "minutes": 150,
+      "slots": ["lunch"],
+      "steps": [
+        "Deja las fabes en remojo en agua fría la noche anterior.",
+        "Ponlas en una olla con agua fría, el lacón, el chorizo, la morcilla y la panceta. Añade un chorrito de aceite.",
+        "Lleva a ebullición, retira la espuma y asusta las fabes con un poco de agua fría un par de veces.",
+        "Cuece a fuego muy suave 2 horas sin remover, moviendo la olla de vez en cuando.",
+        "Añade el azafrán y sal al final, comprueba que las fabes estén tiernas y deja reposar 15 minutos antes de servir."
+      ],
+      "ingredients": [
+        {"label": "Fabes (alubias blancas)", "quantity": 500, "unit": "g", "food_name": "Alubias blancas"},
+        {"label": "Chorizo", "quantity": 200, "unit": "g", "food_name": "Chorizo"},
+        {"label": "Morcilla", "quantity": 200, "unit": "g", "food_name": "Morcilla"},
+        {"label": "Panceta", "quantity": 200, "unit": "g", "food_name": "Panceta"},
+        {"label": "Lacón", "quantity": 300, "unit": "g", "food_name": null},
+        {"label": "Azafrán", "quantity": 1, "unit": "pizca", "food_name": "Azafrán"},
+        {"label": "Aceite de oliva", "quantity": 2, "unit": "cda", "food_name": "Aceite de oliva"},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Lentejas estofadas con chorizo",
+      "country": "ES",
+      "servings": 4,
+      "minutes": 60,
+      "slots": ["lunch", "dinner"],
+      "steps": [
+        "Sofríe en una olla con aceite la cebolla, el pimiento, el ajo y la zanahoria picados durante 10 minutos.",
+        "Añade el pimentón dulce, remueve y agrega el chorizo en rodajas.",
+        "Incorpora las lentejas, las patatas troceadas y el laurel. Cubre con agua o caldo.",
+        "Cuece a fuego suave unos 40 minutos, hasta que las lentejas estén tiernas, y rectifica de sal.",
+        "Deja reposar 10 minutos antes de servir."
+      ],
+      "ingredients": [
+        {"label": "Lentejas", "quantity": 300, "unit": "g", "food_name": "Lentejas"},
+        {"label": "Chorizo", "quantity": 150, "unit": "g", "food_name": "Chorizo"},
+        {"label": "Cebolla", "quantity": 1, "unit": "ud", "food_name": "Cebolla"},
+        {"label": "Pimiento verde", "quantity": 1, "unit": "ud", "food_name": "Pimiento verde"},
+        {"label": "Zanahoria", "quantity": 2, "unit": "ud", "food_name": "Zanahoria"},
+        {"label": "Patatas", "quantity": 2, "unit": "ud", "food_name": "Patata"},
+        {"label": "Ajo", "quantity": 2, "unit": "ud", "food_name": "Ajo"},
+        {"label": "Pimentón dulce", "quantity": 1, "unit": "cdta", "food_name": "Pimentón dulce"},
+        {"label": "Laurel", "quantity": 1, "unit": "ud", "food_name": "Laurel"},
+        {"label": "Aceite de oliva", "quantity": 3, "unit": "cda", "food_name": "Aceite de oliva"},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Croquetas de jamón",
+      "country": "ES",
+      "servings": 6,
+      "minutes": 60,
+      "slots": ["lunch", "dinner"],
+      "steps": [
+        "Derrite la mantequilla con un chorrito de aceite y sofríe la cebolla picada muy fina hasta que esté transparente.",
+        "Añade el jamón picado y la harina y tuesta 2 minutos removiendo.",
+        "Vierte la leche caliente poco a poco sin dejar de remover hasta obtener una bechamel espesa. Sazona con nuez moscada.",
+        "Extiéndela en una fuente y deja enfriar en la nevera al menos 4 horas.",
+        "Forma las croquetas, pásalas por huevo batido y pan rallado y fríelas en aceite caliente hasta que estén doradas."
+      ],
+      "ingredients": [
+        {"label": "Jamón serrano picado", "quantity": 150, "unit": "g", "food_name": "Jamón serrano"},
+        {"label": "Leche entera", "quantity": 800, "unit": "ml", "food_name": "Leche entera"},
+        {"label": "Harina de trigo", "quantity": 80, "unit": "g", "food_name": "Harina de trigo"},
+        {"label": "Mantequilla", "quantity": 80, "unit": "g", "food_name": "Mantequilla"},
+        {"label": "Cebolla", "quantity": 0.5, "unit": "ud", "food_name": "Cebolla"},
+        {"label": "Nuez moscada", "quantity": 1, "unit": "pizca", "food_name": "Nuez moscada"},
+        {"label": "Huevos", "quantity": 2, "unit": "ud", "food_name": "Huevos"},
+        {"label": "Pan rallado", "quantity": 150, "unit": "g", "food_name": "Pan rallado"},
+        {"label": "Aceite de girasol para freír", "quantity": 500, "unit": "ml", "food_name": "Aceite de girasol"}
+      ]
+    },
+    {
+      "name": "Merluza en salsa verde",
+      "country": "ES",
+      "servings": 4,
+      "minutes": 35,
+      "slots": ["lunch", "dinner"],
+      "steps": [
+        "Dora los ajos laminados en una cazuela de barro con aceite y retíralos antes de que se quemen.",
+        "Añade la harina y rehoga medio minuto. Agrega el caldo de pescado o agua poco a poco y remueve hasta ligar la salsa.",
+        "Incorpora el perejil picado y las rodajas de merluza salpimentadas.",
+        "Cuece a fuego suave 5 minutos moviendo la cazuela en círculos, da la vuelta a la merluza y añade los guisantes y las almejas.",
+        "Cuece 4 minutos más hasta que se abran las almejas y sirve enseguida."
+      ],
+      "ingredients": [
+        {"label": "Rodajas de merluza", "quantity": 4, "unit": "ud", "food_name": "Merluza"},
+        {"label": "Almejas", "quantity": 250, "unit": "g", "food_name": "Almejas"},
+        {"label": "Guisantes", "quantity": 100, "unit": "g", "food_name": "Guisantes"},
+        {"label": "Ajo", "quantity": 4, "unit": "ud", "food_name": "Ajo"},
+        {"label": "Perejil fresco", "quantity": 1, "unit": "ud", "food_name": "Perejil"},
+        {"label": "Harina de trigo", "quantity": 1, "unit": "cda", "food_name": "Harina de trigo"},
+        {"label": "Aceite de oliva", "quantity": 5, "unit": "cda", "food_name": "Aceite de oliva"},
+        {"label": "Caldo de pescado o agua", "quantity": 300, "unit": "ml", "food_name": null},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Pisto manchego con huevo",
+      "country": "ES",
+      "servings": 4,
+      "minutes": 50,
+      "slots": ["lunch", "dinner"],
+      "steps": [
+        "Pica la cebolla, los pimientos, el calabacín y la berenjena en dados pequeños.",
+        "Sofríe la cebolla con aceite a fuego medio 5 minutos y añade los pimientos. Cocina 10 minutos.",
+        "Agrega el calabacín y la berenjena y sigue cocinando 10 minutos más.",
+        "Incorpora el tomate triturado y una pizca de azúcar y cuece a fuego suave 20 minutos hasta que espese. Sazona.",
+        "Fríe los huevos aparte y sírvelos sobre el pisto caliente."
+      ],
+      "ingredients": [
+        {"label": "Cebolla", "quantity": 1, "unit": "ud", "food_name": "Cebolla"},
+        {"label": "Pimiento rojo", "quantity": 1, "unit": "ud", "food_name": "Pimiento rojo"},
+        {"label": "Pimiento verde", "quantity": 1, "unit": "ud", "food_name": "Pimiento verde"},
+        {"label": "Calabacín", "quantity": 1, "unit": "ud", "food_name": "Calabacín"},
+        {"label": "Berenjena", "quantity": 1, "unit": "ud", "food_name": "Berenjena"},
+        {"label": "Tomate triturado", "quantity": 400, "unit": "g", "food_name": "Tomate triturado"},
+        {"label": "Huevos", "quantity": 4, "unit": "ud", "food_name": "Huevos"},
+        {"label": "Aceite de oliva", "quantity": 4, "unit": "cda", "food_name": "Aceite de oliva"},
+        {"label": "Azúcar", "quantity": 1, "unit": "pizca", "food_name": "Azúcar"},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Pollo al ajillo",
+      "country": "ES",
+      "servings": 4,
+      "minutes": 45,
+      "slots": ["lunch", "dinner"],
+      "steps": [
+        "Sala y pimienta el pollo troceado.",
+        "Dóralo en una sartén grande con aceite a fuego medio-alto hasta que tome color por todos los lados.",
+        "Añade los dientes de ajo sin pelar, machacados, y la hoja de laurel.",
+        "Vierte el vino blanco y deja que reduzca 5 minutos.",
+        "Tapa y cocina a fuego suave unos 20 minutos, hasta que el pollo esté hecho. Espolvorea con perejil picado y sirve."
+      ],
+      "ingredients": [
+        {"label": "Muslos de pollo troceados", "quantity": 1, "unit": "kg", "food_name": "Muslo de pollo"},
+        {"label": "Ajo", "quantity": 8, "unit": "ud", "food_name": "Ajo"},
+        {"label": "Vino blanco", "quantity": 100, "unit": "ml", "food_name": "Vino blanco"},
+        {"label": "Aceite de oliva", "quantity": 5, "unit": "cda", "food_name": "Aceite de oliva"},
+        {"label": "Laurel", "quantity": 1, "unit": "ud", "food_name": "Laurel"},
+        {"label": "Perejil fresco", "quantity": 1, "unit": "cda", "food_name": "Perejil"},
+        {"label": "Pimienta negra", "quantity": 1, "unit": "pizca", "food_name": "Pimienta negra"},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Milanesa napolitana",
+      "country": "AR",
+      "servings": 4,
+      "minutes": 40,
+      "slots": ["lunch", "dinner"],
+      "steps": [
+        "Sazona los filetes de ternera con sal, pimienta y ajo picado.",
+        "Pásalos por huevo batido y luego por pan rallado, presionando para que se adhiera.",
+        "Fríe las milanesas en aceite caliente 3 minutos por lado y escúrrelas sobre papel absorbente.",
+        "Colócalas en una fuente de horno, cúbrelas con salsa de tomate, jamón cocido y mozzarella.",
+        "Gratina en el horno a 220 grados unos 8 minutos, hasta que el queso se derrita y burbujee."
+      ],
+      "ingredients": [
+        {"label": "Filetes de ternera", "quantity": 4, "unit": "ud", "food_name": "Filete de ternera"},
+        {"label": "Huevos", "quantity": 2, "unit": "ud", "food_name": "Huevos"},
+        {"label": "Pan rallado", "quantity": 200, "unit": "g", "food_name": "Pan rallado"},
+        {"label": "Ajo", "quantity": 2, "unit": "ud", "food_name": "Ajo"},
+        {"label": "Salsa de tomate", "quantity": 300, "unit": "g", "food_name": "Salsa de tomate"},
+        {"label": "Jamón cocido", "quantity": 4, "unit": "ud", "food_name": "Jamón cocido"},
+        {"label": "Queso mozzarella", "quantity": 200, "unit": "g", "food_name": "Queso mozzarella"},
+        {"label": "Aceite de girasol para freír", "quantity": 400, "unit": "ml", "food_name": "Aceite de girasol"},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Asado de tira a la parrilla",
+      "country": "AR",
+      "servings": 6,
+      "minutes": 150,
+      "slots": ["lunch", "dinner"],
+      "steps": [
+        "Saca la carne de la nevera 1 hora antes para que se atempere.",
+        "Prepara las brasas hasta que estén cubiertas de ceniza blanca y la parrilla muy caliente.",
+        "Coloca el asado de tira con el hueso hacia abajo y cocínalo a fuego medio-bajo unos 90 minutos, sin pincharlo.",
+        "Dale la vuelta y cocina 30 a 40 minutos más. Sala con sal gorda al darle la vuelta.",
+        "Deja reposar 10 minutos tapado antes de cortar y sirve con chimichurri y ensalada."
+      ],
+      "ingredients": [
+        {"label": "Asado de tira de ternera", "quantity": 2, "unit": "kg", "food_name": "Ternera"},
+        {"label": "Sal gorda", "quantity": 2, "unit": "cda", "food_name": "Sal gorda"},
+        {"label": "Chimichurri (perejil, ajo y orégano)", "quantity": null, "unit": "al gusto", "food_name": null},
+        {"label": "Carbón o leña", "quantity": 3, "unit": "kg", "food_name": null}
+      ]
+    },
+    {
+      "name": "Empanadas de carne",
+      "country": "AR",
+      "servings": 6,
+      "minutes": 75,
+      "slots": ["lunch", "dinner"],
+      "steps": [
+        "Sofríe la cebolla y la cebolleta picadas en aceite hasta que estén blandas. Añade el pimentón dulce y el comino.",
+        "Agrega la carne picada y cocina 10 minutos desmenuzándola. Sazona con sal y deja enfriar.",
+        "Mezcla el relleno con los huevos duros picados y las aceitunas en rodajas.",
+        "Corta círculos de masa, pon una cucharada de relleno en cada uno y cierra con el repulgue.",
+        "Pinta con huevo batido y hornea a 200 grados unos 20 minutos, hasta que estén doradas."
+      ],
+      "ingredients": [
+        {"label": "Tapas de empanada (discos de masa)", "quantity": 12, "unit": "ud", "food_name": null},
+        {"label": "Ternera picada", "quantity": 500, "unit": "g", "food_name": "Ternera picada"},
+        {"label": "Cebolla", "quantity": 2, "unit": "ud", "food_name": "Cebolla"},
+        {"label": "Cebolleta", "quantity": 2, "unit": "ud", "food_name": "Cebolleta"},
+        {"label": "Huevo duro", "quantity": 3, "unit": "ud", "food_name": "Huevo duro"},
+        {"label": "Aceitunas", "quantity": 12, "unit": "ud", "food_name": "Aceitunas"},
+        {"label": "Pimentón dulce", "quantity": 1, "unit": "cda", "food_name": "Pimentón dulce"},
+        {"label": "Comino", "quantity": 1, "unit": "cdta", "food_name": "Comino"},
+        {"label": "Aceite de oliva", "quantity": 3, "unit": "cda", "food_name": "Aceite de oliva"},
+        {"label": "Huevo para pintar", "quantity": 1, "unit": "ud", "food_name": "Huevos"},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Locro criollo",
+      "country": "AR",
+      "servings": 8,
+      "minutes": 180,
+      "slots": ["lunch"],
+      "steps": [
+        "Remoja el maíz blanco y las alubias la noche anterior.",
+        "Cuece el maíz y las alubias en una olla grande con agua durante 1 hora.",
+        "Añade la panceta, el chorizo, la ternera troceada y la calabaza en dados.",
+        "Cuece a fuego suave 1 hora y media más, removiendo de vez en cuando, hasta que espese y todo esté tierno.",
+        "Prepara aparte una salsa con aceite, pimentón picante y cebolleta y sírvela sobre cada plato."
+      ],
+      "ingredients": [
+        {"label": "Maíz blanco seco", "quantity": 400, "unit": "g", "food_name": null},
+        {"label": "Alubias blancas", "quantity": 200, "unit": "g", "food_name": "Alubias blancas"},
+        {"label": "Ternera para guiso", "quantity": 500, "unit": "g", "food_name": "Ternera"},
+        {"label": "Panceta", "quantity": 200, "unit": "g", "food_name": "Panceta"},
+        {"label": "Chorizo", "quantity": 200, "unit": "g", "food_name": "Chorizo"},
+        {"label": "Calabaza", "quantity": 500, "unit": "g", "food_name": "Calabaza"},
+        {"label": "Cebolla", "quantity": 2, "unit": "ud", "food_name": "Cebolla"},
+        {"label": "Cebolleta", "quantity": 2, "unit": "ud", "food_name": "Cebolleta"},
+        {"label": "Pimentón picante", "quantity": 1, "unit": "cda", "food_name": "Pimentón picante"},
+        {"label": "Aceite de oliva", "quantity": 3, "unit": "cda", "food_name": "Aceite de oliva"},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Tarta de manzana",
+      "country": "AR",
+      "servings": 8,
+      "minutes": 80,
+      "slots": ["lunch"],
+      "steps": [
+        "Mezcla la harina, la mantequilla fría en dados, el azúcar y una pizca de sal hasta obtener un arenado. Añade el huevo y 2 cucharadas de agua fría.",
+        "Forma una bola, envuélvela y déjala reposar 30 minutos en la nevera.",
+        "Pela las manzanas, córtalas en láminas y mézclalas con el zumo de limón, la canela y 2 cucharadas de azúcar.",
+        "Estira dos tercios de la masa, forra un molde y rellénalo con las manzanas. Cubre con el resto de la masa y haz unos cortes.",
+        "Pinta con huevo y hornea a 190 grados unos 40 minutos, hasta que esté dorada."
+      ],
+      "ingredients": [
+        {"label": "Harina de trigo", "quantity": 300, "unit": "g", "food_name": "Harina de trigo"},
+        {"label": "Mantequilla fría", "quantity": 150, "unit": "g", "food_name": "Mantequilla"},
+        {"label": "Azúcar", "quantity": 100, "unit": "g", "food_name": "Azúcar"},
+        {"label": "Huevos", "quantity": 2, "unit": "ud", "food_name": "Huevos"},
+        {"label": "Manzanas", "quantity": 5, "unit": "ud", "food_name": "Manzana"},
+        {"label": "Limón (zumo)", "quantity": 1, "unit": "ud", "food_name": "Limón"},
+        {"label": "Canela", "quantity": 1, "unit": "cdta", "food_name": "Canela"},
+        {"label": "Sal", "quantity": 1, "unit": "pizca", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Guiso de lentejas criollo",
+      "country": "AR",
+      "servings": 6,
+      "minutes": 75,
+      "slots": ["lunch", "dinner"],
+      "steps": [
+        "Sofríe la cebolla, el pimiento rojo y el ajo picados con aceite en una olla grande.",
+        "Añade la panceta y el chorizo en trozos y dóralos 5 minutos.",
+        "Incorpora la zanahoria, la patata y el boniato en dados, el tomate triturado y el pimentón dulce.",
+        "Agrega las lentejas y cubre con caldo. Cuece a fuego suave unos 45 minutos hasta que todo esté tierno.",
+        "Rectifica de sal y sirve bien caliente."
+      ],
+      "ingredients": [
+        {"label": "Lentejas", "quantity": 400, "unit": "g", "food_name": "Lentejas"},
+        {"label": "Chorizo", "quantity": 200, "unit": "g", "food_name": "Chorizo"},
+        {"label": "Panceta", "quantity": 150, "unit": "g", "food_name": "Panceta"},
+        {"label": "Cebolla", "quantity": 1, "unit": "ud", "food_name": "Cebolla"},
+        {"label": "Pimiento rojo", "quantity": 1, "unit": "ud", "food_name": "Pimiento rojo"},
+        {"label": "Zanahoria", "quantity": 2, "unit": "ud", "food_name": "Zanahoria"},
+        {"label": "Patata", "quantity": 2, "unit": "ud", "food_name": "Patata"},
+        {"label": "Boniato", "quantity": 1, "unit": "ud", "food_name": "Boniato"},
+        {"label": "Tomate triturado", "quantity": 300, "unit": "g", "food_name": "Tomate triturado"},
+        {"label": "Caldo de carne", "quantity": 1.2, "unit": "l", "food_name": "Caldo de carne"},
+        {"label": "Pimentón dulce", "quantity": 1, "unit": "cda", "food_name": "Pimentón dulce"},
+        {"label": "Aceite de oliva", "quantity": 3, "unit": "cda", "food_name": "Aceite de oliva"},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Ñoquis con salsa de tomate",
+      "country": "AR",
+      "servings": 4,
+      "minutes": 60,
+      "slots": ["lunch", "dinner"],
+      "steps": [
+        "Cuece las patatas con piel en agua con sal hasta que estén tiernas. Pélalas y tritúralas en caliente.",
+        "Mezcla el puré con la harina, el huevo y sal hasta formar una masa suave sin amasar de más.",
+        "Forma churros finos y córtalos en trocitos. Marca cada ñoqui con un tenedor si quieres.",
+        "Prepara la salsa sofriendo ajo en aceite, añade el tomate triturado, sal y albahaca y cuece 15 minutos.",
+        "Cuece los ñoquis en agua hirviendo; cuando suban a la superficie, escúrrelos y mézclalos con la salsa. Sirve con queso rallado."
+      ],
+      "ingredients": [
+        {"label": "Patatas", "quantity": 1, "unit": "kg", "food_name": "Patata"},
+        {"label": "Harina de trigo", "quantity": 250, "unit": "g", "food_name": "Harina de trigo"},
+        {"label": "Huevos", "quantity": 1, "unit": "ud", "food_name": "Huevos"},
+        {"label": "Tomate triturado", "quantity": 500, "unit": "g", "food_name": "Tomate triturado"},
+        {"label": "Ajo", "quantity": 2, "unit": "ud", "food_name": "Ajo"},
+        {"label": "Albahaca", "quantity": 1, "unit": "cda", "food_name": "Albahaca"},
+        {"label": "Aceite de oliva", "quantity": 3, "unit": "cda", "food_name": "Aceite de oliva"},
+        {"label": "Queso rallado", "quantity": 60, "unit": "g", "food_name": "Queso rallado"},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Pastel de papa",
+      "country": "AR",
+      "servings": 6,
+      "minutes": 80,
+      "slots": ["lunch", "dinner"],
+      "steps": [
+        "Cuece las patatas peladas en agua con sal, escúrrelas y haz un puré con la mantequilla y la leche.",
+        "Sofríe la cebolla picada en aceite, añade la carne picada, el comino y el pimentón dulce y cocina 10 minutos. Sazona.",
+        "Mezcla la carne con las pasas y los huevos duros picados.",
+        "En una fuente de horno pon una capa de puré, el relleno y cubre con el resto del puré.",
+        "Hornea a 200 grados unos 25 minutos hasta que la superficie esté dorada."
+      ],
+      "ingredients": [
+        {"label": "Patatas", "quantity": 1.2, "unit": "kg", "food_name": "Patata"},
+        {"label": "Ternera picada", "quantity": 600, "unit": "g", "food_name": "Ternera picada"},
+        {"label": "Cebolla", "quantity": 2, "unit": "ud", "food_name": "Cebolla"},
+        {"label": "Huevo duro", "quantity": 3, "unit": "ud", "food_name": "Huevo duro"},
+        {"label": "Pasas", "quantity": 40, "unit": "g", "food_name": "Pasas"},
+        {"label": "Mantequilla", "quantity": 50, "unit": "g", "food_name": "Mantequilla"},
+        {"label": "Leche entera", "quantity": 150, "unit": "ml", "food_name": "Leche entera"},
+        {"label": "Comino", "quantity": 1, "unit": "cdta", "food_name": "Comino"},
+        {"label": "Pimentón dulce", "quantity": 1, "unit": "cda", "food_name": "Pimentón dulce"},
+        {"label": "Aceite de oliva", "quantity": 2, "unit": "cda", "food_name": "Aceite de oliva"},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Matambre a la pizza",
+      "country": "AR",
+      "servings": 4,
+      "minutes": 90,
+      "slots": ["lunch", "dinner"],
+      "steps": [
+        "Sazona el matambre con sal, ajo picado y orégano.",
+        "Hiérvelo o cuécelo al horno envuelto en papel de aluminio a 180 grados durante 1 hora hasta que esté tierno.",
+        "Colócalo en una fuente de horno y cúbrelo con salsa de tomate.",
+        "Añade encima las lonchas de mozzarella y unas aceitunas.",
+        "Gratina 10 minutos a 220 grados hasta que el queso se funda y sirve cortado en porciones."
+      ],
+      "ingredients": [
+        {"label": "Matambre de ternera", "quantity": 1, "unit": "kg", "food_name": "Ternera"},
+        {"label": "Salsa de tomate", "quantity": 300, "unit": "g", "food_name": "Salsa de tomate"},
+        {"label": "Queso mozzarella", "quantity": 250, "unit": "g", "food_name": "Queso mozzarella"},
+        {"label": "Ajo", "quantity": 2, "unit": "ud", "food_name": "Ajo"},
+        {"label": "Orégano", "quantity": 1, "unit": "cda", "food_name": "Orégano"},
+        {"label": "Aceitunas", "quantity": 10, "unit": "ud", "food_name": "Aceitunas"},
+        {"label": "Sal", "quantity": null, "unit": "al gusto", "food_name": "Sal"}
+      ]
+    },
+    {
+      "name": "Flan casero con dulce de leche",
+      "country": "AR",
+      "servings": 6,
+      "minutes": 90,
+      "slots": ["lunch", "dinner"],
+      "steps": [
+        "Haz un caramelo con 100 g de azúcar y un chorrito de agua y viértelo en el fondo del molde.",
+        "Bate los huevos con el resto del azúcar y la vainilla sin hacer espuma.",
+        "Añade la leche templada y mezcla. Cuela sobre el molde caramelizado.",
+        "Cuece al baño maría en el horno a 160 grados durante 50 minutos, hasta que cuaje.",
+        "Deja enfriar y refrigera al menos 4 horas. Desmolda y sirve con dulce de leche y nata montada."
+      ],
+      "ingredients": [
+        {"label": "Huevos", "quantity": 5, "unit": "ud", "food_name": "Huevos"},
+        {"label": "Leche entera", "quantity": 500, "unit": "ml", "food_name": "Leche entera"},
+        {"label": "Azúcar", "quantity": 180, "unit": "g", "food_name": "Azúcar"},
+        {"label": "Esencia de vainilla", "quantity": 1, "unit": "cdta", "food_name": null},
+        {"label": "Dulce de leche", "quantity": 150, "unit": "g", "food_name": null},
+        {"label": "Nata montada", "quantity": 100, "unit": "g", "food_name": "Nata montada"}
+      ]
+    }
+  ]
+}
