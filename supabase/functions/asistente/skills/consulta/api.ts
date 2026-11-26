@@ -8,6 +8,8 @@ import { handleEvent } from "../../../api/usecases/events.ts";
 import { handleRoutineIndex } from "../../../api/usecases/routines.ts";
 import { handleCalendarIndex, handleCalendarUserIndex } from "../../../api/usecases/calendars.ts";
 import { handleHomeIndex } from "../../../api/usecases/homes.ts";
+import { handleMealPlanCheck, handleMealPlanGet, handleMealProfileGet } from "../../../api/usecases/meals.ts";
+import { handleFoodSearch, handleRecipeDetail, handleRecipeIndex } from "../../../api/usecases/recipes.ts";
 import type { Leer } from "../../core.ts";
 
 /** Ejecuta un caso de uso GET y devuelve su JSON; un error HTTP se devuelve como `{error, detalle}`. */
@@ -39,6 +41,13 @@ export const crearLector = (token: string, uid: string, tz: string): Leer => asy
         case "calendar": return await leerRespuesta(await handleCalendarIndex(req, token));
         case "calendar/user": return await leerRespuesta(await handleCalendarUserIndex(req, token));
         case "home": return await leerRespuesta(await handleHomeIndex(req, token));
+        // Skill `menus` (solo lectura): perfil de comidas, menú de una semana y su comprobación, recetas y alimentos.
+        case "meal/profile": return await leerRespuesta(await handleMealProfileGet(req, token));
+        case "meal/plan": return await leerRespuesta(await handleMealPlanGet(req, token));
+        case "meal/plan/check": return await leerRespuesta(await handleMealPlanCheck(req, token));
+        case "recipe": return await leerRespuesta(await handleRecipeIndex(req, token));
+        case "recipe/detail": return await leerRespuesta(await handleRecipeDetail(req, token));
+        case "food": return await leerRespuesta(await handleFoodSearch(req, token));
         default: return { error: "ruta no permitida" };
     }
 };
