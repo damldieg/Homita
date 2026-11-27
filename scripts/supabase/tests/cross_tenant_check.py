@@ -87,6 +87,10 @@ MCP de Claude (fase 1, bloque `MCP`, XT_ONLY=MCP): con tokens OAuth reales de A 
 consentimiento por API y canje PKCE contra el Auth local, sin navegador) el MCP responde 401 sin token, con el JWT
 de sesión y con un token manipulado; cada uno ve solo su hogar y A con `hogar` = hogar de B (y B con el de A)
 recibe un error de herramienta sin datos del otro en las herramientas de lectura. Corre antes de la fase 1.
+
+MCP de Claude (fase 2, mismo bloque `MCP`): A, con hogar=hogar de B y con ids de B (plan, receta, alimento, artículo) en su
+propio hogar, no escribe nada de B con las 8 herramientas de escritura y lo de B queda idéntico; A sí escribe en su hogar
+de punta a punta (alimento, receta, borrador, aceptar con revisión vieja y buena). Marcas XT-*, todo en el stack local.
 """
 import base64
 import datetime
@@ -401,7 +405,9 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 406  # +2 de la revisión de la pantalla del hogar (0054: DP3b, DP9b); 382 + 22 del MCP de Claude (fase 1: 3 de token, 1 de herramientas, 2 de ver_hogares, 3 de hogar por defecto/explícito,
+EXPECTED_CASES = 429  # 406 (404 + 2 de la pantalla del hogar, 0054) + 23 del MCP de Claude (fase 2: la lista de 20 herramientas sustituye a la de 12; 1 de preparación de B, 8 de hogar ajeno en
+                      # las herramientas de escritura, 1 de B intacto, 7 de ids de B con hogar propio, 1 de B intacto y 5 de controles
+                      # positivos de A) sobre los 22 de la fase 1 ( 3 de token, 1 de herramientas, 2 de ver_hogares, 3 de hogar por defecto/explícito,
                       # 11 de hogar ajeno de A en las herramientas con `hogar`, 2 de hogar ajeno de B), con tokens OAuth reales
                       # 367 + 10 de la pantalla del hogar (0049, DP1–DP10) + 2 de completar (0050, DM1–DM2) + 3 de actualización (0051, DU1–DU3)
                       # + 9 XH de ocultas (0039: 6 XH-B, 1 XH-A-lista, 2 XH-V)
@@ -506,8 +512,8 @@ if xt_on("MCP"):
     check("MCP con un token OAuth manipulado → 401",
           mcp_rpc(f"{head}.{payload}.{sig[:-4]}{'AAAA' if sig[-4:] != 'AAAA' else 'BBBB'}", "tools/list")[0] == 401)
     st, rpc = mcp_rpc(a_oauth, "tools/list")
-    check("MCP: el token OAuth de A lista las 12 herramientas",
-          st == 200 and len(rpc["result"]["tools"]) == 12, f"status={st}")
+    check("MCP: el token OAuth de A lista las 20 herramientas (12 de lectura y 8 de escritura)",
+          st == 200 and len(rpc["result"]["tools"]) == 20, f"status={st}")
     _, err, txt = mcp_call(a_oauth, "ver_hogares")
     check("MCP A ver_hogares: solo su hogar", not err and f'"id":"{home_a}"' in txt and f'"id":"{home_b}"' not in txt, txt[:200])
     _, err, txt = mcp_call(b_oauth, "ver_hogares")
@@ -530,6 +536,114 @@ if xt_on("MCP"):
         st, err, txt = mcp_call(b_oauth, tool, args, home=home_a)
         check(f"MCP B con hogar=home(A) en {tool} → error de herramienta sin datos de A",
               st == 200 and err and marca not in txt, f"status={st} {txt[:160]}")
+
+    # ── MCP fase 2 (escritura): A no escribe plan, receta, alimento ni compra de B por el MCP ──
+    # B tiene un alimento, una receta, un artículo de compra y un plan (semana 2031-03-03) con marcas XT-B-*. A, con su token
+    # OAuth, intenta cada herramienta de escritura con hogar=home(B) y con ids de B en su propio hogar: todo da error de
+    # herramienta y lo de B no cambia. Antes, controles positivos: A sí escribe en su hogar. Solo stack local (assert_local).
+    MCP_SEMANA = "2031-03-03"
+    mcp_b_food = parse(edge("POST", "/food/create", {"name": "XT-B-Alimento"}, b_tok)[1])["id"]
+    mcp_b_rec = parse(edge("POST", "/recipe/create", {"name": "XT-B-Receta", "steps": ["a"], "servings": 2,
+                          "ingredients": [{"food_id": mcp_b_food, "label": "XT-B-Alimento", "quantity": 1, "unit": "ud"}]}, b_tok)[1])["id"]
+    mcp_b_item = parse(edge("POST", "/shopping/item/create", {"label": "XT-B-Articulo"}, b_tok)[1])["id"]
+    mcp_b_plan = parse(edge("PATCH", "/meal/plan/items", {"week_start": MCP_SEMANA, "expected_revision": 0,
+                       "items": [{"day": "2031-03-04", "slot": "lunch", "kind": "free_text", "title": "XT-B-Plato"}]}, b_tok)[1])
+    mcp_b_plan_id, mcp_b_rev = mcp_b_plan["id"], mcp_b_plan["revision"]
+
+    def mcp_json(txt):
+        r = parse(txt)
+        return r if isinstance(r, dict) else {}
+
+    def b_estado():
+        """Foto de lo de B: plan (id, estado, revisión, casillas), artículo, recetas y alimentos con marca XT-."""
+        pl = parse(edge("GET", f"/meal/plan?week_start={MCP_SEMANA}", None, b_tok)[1]) or {}
+        it = [i for i in (parse(edge("GET", "/shopping", None, b_tok)[1]) or {}).get("items", []) if i.get("id") == mcp_b_item]
+        rec = [r["name"] for r in parse(edge("GET", "/recipe", None, b_tok)[1]) if str(r.get("name", "")).startswith("XT-")]
+        fd = [f["name"] for f in parse(edge("GET", "/food?q=XT-", None, b_tok)[1]) if str(f.get("name", "")).startswith("XT-")]
+        return (pl.get("id"), pl.get("status"), pl.get("revision"), len(pl.get("items", [])),
+                [i.get("state") for i in it], sorted(rec), sorted(fd))
+    b_antes = b_estado()
+    check("MCP preparación: B tiene plan draft rev 1 con 1 casilla, artículo pendiente, su receta y su alimento",
+          b_antes == (mcp_b_plan_id, "draft", 1, 1, ["pending"], ["XT-B-Receta"], ["XT-B-Alimento"]), repr(b_antes))
+
+    rango_b = {"desde": {"fecha": "2031-03-04", "franja": "lunch"}, "hasta": {"fecha": "2031-03-04", "franja": "dinner"}}
+    ataques = [
+        ("guardar_receta", {"nombre": "XT-X-Receta", "pasos": ["a"], "ingredientes": [{"alimento_id": mcp_b_food}]}),
+        ("crear_alimento", {"nombre": "XT-X-Alimento"}),
+        ("guardar_borrador", {"rango": rango_b, "casillas": [{"fecha": "2031-03-04", "franja": "dinner", "tipo": "texto", "titulo": "XT-X-Plato"}]}),
+        ("cambiar_casillas", {"plan_id": mcp_b_plan_id, "expected_revision": mcp_b_rev,
+                              "cambios": [{"fecha": "2031-03-05", "franja": "lunch", "tipo": "texto", "titulo": "XT-X-Plato"}]}),
+        ("aceptar_menu", {"plan_id": mcp_b_plan_id, "expected_revision": mcp_b_rev, "fecha": "2031-03-04"}),
+        ("apuntar_compra", {"articulos": [{"etiqueta": "XT-X-Articulo"}]}),
+        ("marcar_comprado", {"item_ids": [mcp_b_item], "estado": "checked"}),
+        ("apuntar_preferencia", {"persona_id": 1, "campo": "picante", "valor": "1", "confirmado_por_usuario": True}),
+    ]
+    for tool, args in ataques:
+        st, err, txt = mcp_call(a_oauth, tool, args, home=home_b)
+        check(f"MCP A con hogar=home(B) en {tool} → error de herramienta y nada de B",
+              st == 200 and err and "XT-B-" not in txt and "No tienes acceso a ese hogar" in txt, f"status={st} {txt[:160]}")
+    check("MCP: tras los 8 intentos con hogar=home(B), lo de B no ha cambiado", b_estado() == b_antes, repr(b_estado()))
+
+    # A, en su propio hogar, con ids de B.
+    st, err, txt = mcp_call(a_oauth, "cambiar_casillas", {"plan_id": mcp_b_plan_id, "expected_revision": mcp_b_rev,
+                            "cambios": [{"fecha": "2031-03-05", "franja": "lunch", "tipo": "texto", "titulo": "XT-X-Plato"}]})
+    check("MCP A cambiar_casillas con el plan_id de B (hogar=A) → error y sin escribir", st == 200 and err and "XT-B-" not in txt, txt[:200])
+    st, err, txt = mcp_call(a_oauth, "aceptar_menu", {"plan_id": mcp_b_plan_id, "expected_revision": mcp_b_rev, "fecha": "2031-03-04"})
+    check("MCP A aceptar_menu con el plan_id de B (hogar=A) → error y sin aceptar", st == 200 and err and "XT-B-" not in txt, txt[:200])
+    check("MCP: el plan de B sigue en draft y en la misma revisión", b_estado() == b_antes, repr(b_estado()))
+    st, err, txt = mcp_call(a_oauth, "guardar_receta", {"nombre": "XT-X-Receta2", "pasos": ["a"], "ingredientes": [{"alimento_id": mcp_b_food}]})
+    check("MCP A guardar_receta con el alimento_id de B (hogar=A) → error y sin receta creada",
+          st == 200 and err and "XT-X-Receta2" not in edge("GET", "/recipe", None, a_tok)[1], txt[:200])
+    st, err, txt = mcp_call(a_oauth, "guardar_borrador", {"rango": rango_b, "casillas": [
+        {"fecha": "2031-03-04", "franja": "lunch", "tipo": "receta", "receta_id": mcp_b_rec}]})
+    check("MCP A guardar_borrador con la receta_id de B (hogar=A) → error y sin plan en A",
+          st == 200 and err and edge("GET", f"/meal/plan?week_start={MCP_SEMANA}", None, a_tok)[1] == "null", txt[:200])
+    st, err, txt = mcp_call(a_oauth, "marcar_comprado", {"item_ids": [mcp_b_item], "estado": "checked"})
+    check("MCP A marcar_comprado con el artículo de B (hogar=A) → error y el artículo de B sigue pendiente",
+          st == 200 and err and b_estado()[4] == ["pending"], txt[:200])
+    st, err, txt = mcp_call(a_oauth, "apuntar_compra", {"articulos": [{"alimento_id": mcp_b_food}]})
+    check("MCP A apuntar_compra con el alimento_id de B (hogar=A) → error y sin artículo",
+          st == 200 and err and "XT-B-" not in edge("GET", "/shopping", None, a_tok)[1], txt[:200])
+    check("MCP: tras todo, lo de B sigue idéntico", b_estado() == b_antes, repr(b_estado()))
+
+    # Controles positivos: A sí escribe en su hogar, de punta a punta (alimento -> receta -> borrador -> aceptar -> compra).
+    # A necesita una ficha de comidas para que alguien coma en casa (si no, no hay casillas posibles).
+    mcp_a_hm = int(psql(f"select id from home_member where home_id = {home_a} and app_user_id = {a_id} limit 1") or 0)
+    edge("PATCH", "/meal/profile/member", {"home_member_id": mcp_a_hm, "allergies_answered": True, "allergies": []}, a_tok)
+    st, err, txt = mcp_call(a_oauth, "crear_alimento", {"nombre": "XT-A-Alimento", "seccion": "otros"})
+    mcp_a_food = mcp_json(txt).get("alimento_id")
+    check("MCP A crear_alimento en su hogar → creado", st == 200 and not err and mcp_json(txt).get("creado") is True
+          and isinstance(mcp_a_food, int), txt[:200])
+    st, err, txt = mcp_call(a_oauth, "guardar_receta", {"nombre": "XT-A-Receta", "pasos": ["Mezclar"], "raciones": 2,
+                            "ingredientes": [{"alimento_id": mcp_a_food, "cantidad": 100, "unidad": "g"}]})
+    mcp_a_rec = mcp_json(txt).get("receta_id")
+    check("MCP A guardar_receta con su alimento → receta_id", st == 200 and not err and isinstance(mcp_a_rec, int), txt[:200])
+    st, err, txt = mcp_call(a_oauth, "guardar_borrador", {"rango": rango_b, "casillas": [
+        {"fecha": "2031-03-04", "franja": "lunch", "tipo": "receta", "receta_id": mcp_a_rec},
+        {"fecha": "2031-03-04", "franja": "dinner", "tipo": "fuera", "titulo": "XT-A-Fuera"}]})
+    sem = (mcp_json(txt).get("semanas") or [{}])[0]
+    check("MCP A guardar_borrador en su hogar → escrito, rev 1, sin conflictos",
+          st == 200 and not err and sem.get("estado") == "escrito" and sem.get("revision") == 1 and sem.get("conflictos") == [], txt[:300])
+    st, err, txt = mcp_call(a_oauth, "aceptar_menu", {"plan_id": sem.get("plan_id"), "expected_revision": 0, "fecha": "2031-03-04"})
+    check("MCP A aceptar_menu con una revisión vieja → no acepta", st == 200 and err and mcp_json(txt).get("motivo") == "revision_vieja", txt[:200])
+    st, err, txt = mcp_call(a_oauth, "aceptar_menu", {"plan_id": sem.get("plan_id"), "expected_revision": sem.get("revision"), "fecha": "2031-03-04"})
+    acept = mcp_json(txt)
+    check("MCP A aceptar_menu con la revisión buena → aceptado y con resumen de la Compra",
+          st == 200 and not err and acept.get("aceptado") is True and "compra" in acept, txt[:300])
+    # Limpieza de lo de A (el plan aceptado se archiva; sin él la compra del menú desaparece).
+    mcp_pa = parse(edge("GET", f"/meal/plan?week_start={MCP_SEMANA}", None, a_tok)[1]) or {}
+    if mcp_pa.get("id"):
+        edge("POST", "/meal/plan/archive", {"plan_id": mcp_pa["id"]}, a_tok)
+    for it in (parse(edge("GET", "/shopping", None, a_tok)[1]) or {}).get("items", []):
+        edge("DELETE", f"/shopping/item/delete?id={it['id']}", None, a_tok)
+    if isinstance(mcp_a_rec, int):
+        edge("DELETE", f"/recipe/delete?id={mcp_a_rec}", None, a_tok)
+    if isinstance(mcp_a_food, int):
+        edge("DELETE", f"/food/delete?id={mcp_a_food}", None, a_tok)
+    edge("POST", "/meal/plan/archive", {"plan_id": mcp_b_plan_id}, b_tok)
+    edge("DELETE", f"/shopping/item/delete?id={mcp_b_item}", None, b_tok)
+    edge("DELETE", f"/recipe/delete?id={mcp_b_rec}", None, b_tok)
+    edge("DELETE", f"/food/delete?id={mcp_b_food}", None, b_tok)
     for path, body in (("/task/delete", {"id": b_tsk}), ("/event/delete", {"id": b_evt}), ("/person/delete", {"id": b_per_mcp}),
                        ("/task-list/delete", {"id": b_lst}), ("/calendar/delete", {"id": b_cal})):
         edge("DELETE", path, body, b_tok)
