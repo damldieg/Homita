@@ -51,6 +51,8 @@ apps/dashboard/           Gradle project (build.gradle.kts, settings.gradle.kts,
                           CalendarRepositoryTest, ForecastTest, ScreenScheduleTest
 apps/control/             app gestora (Homita): Gradle project (app/), design/, docs/, README.md
 supabase/                 backend único: Edge Function api (supabase/functions/api), migrations/, config.toml, README.md
+  functions/mcp/          MCP de Claude (solo lectura, OAuth de Supabase Auth; README.md); functions/_shared/homita/ = lógica de lectura compartida con Kito
+web/                      páginas estáticas (oauth/consent: consentimiento OAuth del MCP; Pages preparado en .github/workflows/pages.yml, sin activar)
 scripts/                  install.sh, demo.sh, meteocons.py, config.example
   frame/                  backup.sh, homita-frame.sh, homita-frame.rc
   boot/                   boot.html, make.sh, install.sh, out/
