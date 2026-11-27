@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.EventAvailable
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.Thermostat
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.outlined.Weekend
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dld.homita.dashboard.UiState
 import com.dld.homita.dashboard.data.Event
+import com.dld.homita.dashboard.data.Forecast
 import com.dld.homita.dashboard.data.MealsTodayState
 import com.dld.homita.dashboard.data.MealsTodayView
 import com.dld.homita.dashboard.data.Person
@@ -83,16 +85,15 @@ private const val MEAL_ROWS = 6
 fun TodayScreen(state: UiState, lastTouch: Long, onOpenWeather: () -> Unit, onDismissDue: (String) -> Unit) {
     val due = state.content?.tasks?.let { TaskDue.banner(it, state.now, state.dismissedDue) }
     BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 32.dp)) {
-        val left: Dp = (maxWidth - Gap) * 0.34f
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Gap)) {
             Row(Modifier.fillMaxWidth().weight(0.42f), horizontalArrangement = Arrangement.spacedBy(Gap)) {
-                ClockColumn(state, due, onDismissDue, Modifier.width(left).fillMaxHeight())
-                Box(Modifier.weight(1f).fillMaxHeight().clickable(onClick = onOpenWeather)) {
+                ClockColumn(state, Modifier.weight(1f).fillMaxHeight())
+                AlertsColumn(due, state.now, onDismissDue, Modifier.weight(1f).fillMaxHeight())
+                Box(Modifier.weight(1f).fillMaxHeight()) {
                     val forecast = state.forecast
                     val location = state.location
                     if (forecast != null && location != null) {
-                        // 8 días en una fila (Q1): sin segunda página, como la pantalla del tiempo
-                        WeatherCard(forecast, location.name, state.now, days = 8, modifier = Modifier.fillMaxSize(), compact = true)
+                        TodayWeather(forecast, location.name, state.now, onOpenWeather, Modifier.fillMaxSize())
                     } else {
                         Card(Modifier.fillMaxSize()) {
                             CardHeader("Tiempo", Icons.Outlined.Thermostat, Palette.Warm)
@@ -113,6 +114,50 @@ fun TodayScreen(state: UiState, lastTouch: Long, onOpenWeather: () -> Unit, onDi
     }
 }
 
+/**
+ * Cabecera del tiempo de hoy en su columna (un tercio de la pantalla): icono y temperatura, estado, mínima y máxima,
+ * sensación térmica. Compacta: la gráfica de horas necesita el alto.
+ */
+@Composable
+private fun TodayWeatherHeader(forecast: Forecast, location: String, now: LocalDateTime) {
+    val today = now.toLocalDate()
+    val day = forecast.dayIndex(today)
+    val current = forecast.current
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            WeatherIcon(current.weather_code, current.is_day == 1, 64, animated = true)
+            Text(current.temperature_2m.degrees(), style = Type.Huge.copy(fontSize = 80.sp, lineHeight = 80.sp, letterSpacing = (-3).sp), modifier = Modifier.padding(start = 12.dp))
+            Text(weatherText(current.weather_code), style = Type.Body, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 12.dp).weight(1f))
+        }
+        Text(
+            listOfNotNull(location, day.takeIf { it >= 0 }?.let { "Mín ${forecast.daily.temperature_2m_min[it].degrees()} · Máx ${forecast.daily.temperature_2m_max[it].degrees()}" }).joinToString("  ·  "),
+            style = Type.Small,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        current.apparent_temperature?.let { Text("Sensación ${it.degrees()}", style = Type.Small, maxLines = 1) }
+    }
+}
+
+/**
+ * El tiempo de hoy en Hoy: la cabecera (ahora, mínima y máxima, sensación térmica) y las horas del día en una franja que
+ * se desliza en horizontal, centrada en la hora actual. Solo hoy; los días siguientes están en la pantalla del tiempo,
+ * que se abre tocando la tarjeta (fuera de la franja).
+ */
+@Composable
+private fun TodayWeather(forecast: Forecast, location: String, now: LocalDateTime, onOpen: () -> Unit, modifier: Modifier) {
+    val today = now.toLocalDate()
+    Column(
+        modifier
+            .background(Palette.Card, RoundedCornerShape(32.dp))
+            .padding(horizontal = 36.dp, vertical = 24.dp)
+            .clickable(onClick = onOpen)
+    ) {
+        TodayWeatherHeader(forecast, location, now)
+        HourlyForecast(forecast, now, Modifier.fillMaxWidth().weight(1f).padding(top = 12.dp), iconSize = 28, day = today, compact = true, hourWidth = 96.dp)
+    }
+}
+
 @Composable
 private fun Card(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
@@ -126,13 +171,13 @@ private fun Card(modifier: Modifier, content: @Composable ColumnScope.() -> Unit
 // --- Hora, lo siguiente y el aviso de vencimiento (izquierda) ---
 
 @Composable
-private fun ClockColumn(state: UiState, due: TaskDue.DueBanner?, onDismissDue: (String) -> Unit, modifier: Modifier) {
+private fun ClockColumn(state: UiState, modifier: Modifier) {
     val now = state.now
     val today = now.toLocalDate()
     val next = nextUp(state)
     Column(modifier) {
         Column(Modifier.fillMaxWidth().weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            FlipClock(if (state.clockValid) now.format(HourMinute) else "--:--")
+            FlipClock(if (state.clockValid) now.format(HourMinute) else "--:--", tile = 96.dp, height = 96.dp * (184f / 110f))
             Text(
                 if (state.clockValid) "${today.weekdayName()} · ${today.dayOfMonth} ${today.month.getDisplayName(TextStyle.FULL, Spanish)}".uppercase(Spanish) else "SINCRONIZANDO HORA…",
                 style = Type.Mono.copy(fontSize = 24.sp, letterSpacing = 5.sp, color = Palette.InkSoft),
@@ -140,8 +185,23 @@ private fun ClockColumn(state: UiState, due: TaskDue.DueBanner?, onDismissDue: (
                 modifier = Modifier.padding(top = 24.dp)
             )
         }
-        if (due != null) DueCard(due, now) { onDismissDue(due.key) }
         if (next != null) NextCard(next, now, Modifier.padding(top = 16.dp))
+    }
+}
+
+/**
+ * Avisos de vencimiento en su propia columna de arriba (dashboard-hoy-legible): el de la tarea de alta prioridad que vence
+ * antes, o un «Sin avisos» tranquilo. Así el reloj no se recorta cuando hay uno.
+ */
+@Composable
+private fun AlertsColumn(due: TaskDue.DueBanner?, now: LocalDateTime, onDismissDue: (String) -> Unit, modifier: Modifier) {
+    Card(modifier) {
+        CardHeader("Avisos", Icons.Outlined.Warning, Palette.Accent, count = if (due != null) 1 else null)
+        if (due != null) {
+            DueCard(due, now) { onDismissDue(due.key) }
+        } else {
+            EmptyState(Icons.Outlined.EventAvailable, Palette.Sage, "Sin avisos", "Nada vence pronto", Modifier.weight(1f).fillMaxWidth())
+        }
     }
 }
 

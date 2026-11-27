@@ -53,10 +53,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.delay
 
-/**
- * Pantallas. En la barra solo Hoy, Calendario, Tareas y Ajustes (Q2: el tiempo se abre desde su tarjeta de Hoy, por
- * eso [Weather] no tiene botón).
- */
+/** Pantallas de la barra: Hoy, Calendario, Tiempo, Tareas y Ajustes; el tiempo también se abre desde su tarjeta de Hoy. */
 enum class Page(val label: String, val icon: ImageVector) {
     Today("Hoy", Icons.Outlined.Home),
     Calendar("Calendario", Icons.Outlined.CalendarMonth),
@@ -175,11 +172,11 @@ private fun Rail(current: Page, state: UiState, onSelect: (Page) -> Unit, onSlee
             .width(136.dp)
             .fillMaxHeight()
             .background(Palette.Rail)
-            .padding(vertical = 40.dp)
+            .padding(vertical = 32.dp)
     ) {
         // Las pantallas arriba, con su nombre bajo el icono (U6); el apagado, con su nombre
         Column(verticalArrangement = Arrangement.spacedBy(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            listOf(Page.Today, Page.Calendar, Page.Tasks, Page.Settings).forEach { page ->
+            listOf(Page.Today, Page.Calendar, Page.Weather, Page.Tasks, Page.Settings).forEach { page ->
                 RailItem(page.label, page.icon, page == current) { onSelect(page) }
             }
             RailItem("Apagar", Icons.Outlined.Bedtime, false, onClick = onSleep)

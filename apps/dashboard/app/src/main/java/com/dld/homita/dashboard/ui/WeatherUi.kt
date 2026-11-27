@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -57,6 +59,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.dld.homita.dashboard.R
 import com.dld.homita.dashboard.data.Forecast
@@ -225,7 +229,16 @@ private fun Hourly.rainAt(i: Int): Pair<Double, Int> =
  * Con [day], que es lo normal (las tarjetas pasan hoy o el día tocado), las 24 horas de ese día, de 00 a 23.
  */
 @Composable
-fun HourlyForecast(forecast: Forecast, now: LocalDateTime, modifier: Modifier = Modifier, iconSize: Int = 36, day: LocalDate? = null, compact: Boolean = false) {
+fun HourlyForecast(
+    forecast: Forecast,
+    now: LocalDateTime,
+    modifier: Modifier = Modifier,
+    iconSize: Int = 36,
+    day: LocalDate? = null,
+    compact: Boolean = false,
+    /** Con ancho de hora, la gráfica tiene 24 horas de ese ancho y se desliza en horizontal (Hoy); sin él, cabe en la tarjeta. */
+    hourWidth: Dp? = null
+) {
     val step = 1
     val prefix = day?.let { "${it}T" }
     // La previsión incluye el día anterior (past_days=1), así que de madrugada también hay horas previas.
@@ -245,8 +258,16 @@ fun HourlyForecast(forecast: Forecast, now: LocalDateTime, modifier: Modifier = 
     val mmStyle = Type.Tiny.copy(color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = if (compact) 14.sp else 16.sp)
     val hourStyle = Type.Mono.copy(fontSize = Type.Mono.fontSize * 0.85f)
 
-    Column(modifier) {
-        Canvas(Modifier.fillMaxWidth().weight(1f)) {
+    val scroll = rememberScrollState()
+    // Al entrar, la gráfica se coloca en la hora actual (con dos horas de margen a la izquierda)
+    if (hourWidth != null) {
+        val density = LocalDensity.current
+        LaunchedEffect(day, hourWidth) {
+            scroll.scrollTo(with(density) { (hourWidth * (now.hour - 2).coerceAtLeast(0)).roundToPx() })
+        }
+    }
+    Column(if (hourWidth != null) modifier.horizontalScroll(scroll) else modifier) {
+        Canvas((if (hourWidth != null) Modifier.width(hourWidth * points.size) else Modifier.fillMaxWidth()).weight(1f)) {
             val column = size.width / points.size
             fun x(i: Int) = column * i + column / 2
             val baseline = size.height - 2f
@@ -529,7 +550,7 @@ fun DaysRow(
  * Icono y valor de la cabecera; la unidad, más pequeña, para que el bloque no se ensanche ("km/h"). [extra] es un
  * segundo valor con su unidad detrás ("29 mm · 85%"), con los mismos tamaños.
  */
-private fun Stat(@DrawableRes icon: Int, value: String, unit: String, compact: Boolean, extra: Pair<String, String>? = null) {
+internal fun Stat(@DrawableRes icon: Int, value: String, unit: String, compact: Boolean, extra: Pair<String, String>? = null) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
