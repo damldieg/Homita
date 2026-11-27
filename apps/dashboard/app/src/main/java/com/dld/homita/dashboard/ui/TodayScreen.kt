@@ -84,7 +84,7 @@ private const val MEAL_ROWS = 6
 @Composable
 fun TodayScreen(state: UiState, lastTouch: Long, onOpenWeather: () -> Unit, onDismissDue: (String) -> Unit) {
     val due = state.content?.tasks?.let { TaskDue.banner(it, state.now, state.dismissedDue) }
-    BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 32.dp)) {
+    Box(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 32.dp)) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Gap)) {
             Row(Modifier.fillMaxWidth().weight(0.42f), horizontalArrangement = Arrangement.spacedBy(Gap)) {
                 ClockColumn(state, Modifier.weight(1f).fillMaxHeight())
