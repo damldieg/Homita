@@ -44,3 +44,7 @@ un paso, el 04; las demás las pide cada prompt en su momento.
 
 Rutinas hechas por persona (A3), fotos como salvapantallas (A6), calendarios externos (A9), Kito en la
 pantalla (A10) y la vista por persona del Calendario (C3). Quedan en el brief para cuando toque.
+
+## Pendientes conocidos
+
+- **Residuo de la cuenta técnica al revocar una pantalla (GoTrue local).** Cada pantalla tiene una cuenta técnica en `auth.users`. Al revocarla, `fn_display_revoke` quita su membresía y su selección (la pantalla deja de leer datos del hogar) y la Edge pide a GoTrue que borre la cuenta. GoTrue registra `user_deleted`, pero la fila sigue en la base de datos local, sin `deleted_at` y con una sesión activa. No hay triggers ni reglas sobre `auth.users` que lo expliquen. Riesgo práctico: bajo, porque la pantalla ya no tiene permisos sobre el hogar; queda una cuenta sobrante que podría iniciar sesión. Estado: abierto y documentado, sin cambios de código. Pendiente de investigar la versión de GoTrue local o de reforzar la revocación (banear la cuenta y reintentar el borrado).
