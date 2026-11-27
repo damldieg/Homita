@@ -7,9 +7,6 @@ import {
 import {
     handleEventCreate, handleEventDelete, handleEventDetail, handleEventUpdate,
 } from "../../../api/usecases/events.ts";
-import { handleMealPlanItems, handleMealProfileMemberUpdate } from "../../../api/usecases/meals.ts";
-import { handleRecipeCreate } from "../../../api/usecases/recipes.ts";
-import { handleShoppingItemCreate } from "../../../api/usecases/shopping.ts";
 import { handleRoutineCreate, handleRoutineDelete, handleRoutineDetail, handleRoutineUpdate } from "../../../api/usecases/routines.ts";
 import {
     handleTaskListCreate, handleTaskListDelete, handleTaskListUpdate,
@@ -17,12 +14,12 @@ import {
 import {
     handleTaskComplete, handleTaskCreate, handleTaskDelete, handleTaskDetail, handleTaskUpdate,
 } from "../../../api/usecases/tasks.ts";
-import type { Escribir, RespuestaApi } from "../../core.ts";
-
-type Manejador = (req: Request, token: string, uid: string) => Promise<Response>;
+import { crearEscritorCon, RUTAS_MENUS_COMUNES } from "../../../_shared/homita/escritor.ts";
+import type { RutasEscritura } from "../../../_shared/homita/escritor.ts";
+import type { Escribir } from "../../core.ts";
 
 /** Rutas permitidas: «METODO ruta». Lo que no esté aquí no se puede llamar desde Kito. */
-const RUTAS: Record<string, Manejador> = {
+const RUTAS: RutasEscritura = {
     "POST task-list/create": (r, t) => handleTaskListCreate(r, t),
     "PATCH task-list/update": (r, t) => handleTaskListUpdate(r, t),
     "DELETE task-list/delete": (r, t) => handleTaskListDelete(r, t),
@@ -43,50 +40,12 @@ const RUTAS: Record<string, Manejador> = {
     "PATCH calendar/update": (r, t) => handleCalendarUpdate(r, t),
     "DELETE calendar/delete": (r, t) => handleCalendarDelete(r, t),
     "PATCH calendar/user": (r, t) => handleCalendarUserAccess(r, t),
-    // Skill `menus` (kito-menus). Solo lo que escribe Kito: borrador del menú (origin kito; la RPC no toca un
-    // plan aceptado ni casillas locked), recetas con pasos, artículos de compra y preferencias de una persona.
+    // Skill `menus` (kito-menus): las rutas comunes de menús (borrador, recetas, compra, preferencias).
     // `POST meal/plan/accept` NO está y no debe estar nunca: Kito no acepta el menú, lo acepta la persona en
     // la app. Tampoco archive, copy, schedule ni el perfil del hogar.
-    "PATCH meal/plan/items": (r, t) => handleMealPlanItems(r, t),
-    "POST recipe/create": (r, t) => handleRecipeCreate(r, t),
-    "POST shopping/item/create": (r, t) => handleShoppingItemCreate(r, t),
-    "PATCH meal/profile/member": (r, t) => handleMealProfileMemberUpdate(r, t),
-};
-
-const respuesta = async (res: Response): Promise<RespuestaApi> => {
-    const texto = await res.text();
-    let data: unknown = texto;
-    try {
-        data = texto === "" ? null : JSON.parse(texto);
-    } catch { /* se queda el texto */ }
-    const error = data !== null && typeof data === "object" && typeof (data as { error?: unknown }).error === "string"
-        ? (data as { error: string }).error
-        : undefined;
-    return { ok: res.ok, status: res.status, data, ...(error !== undefined ? { error } : {}) };
+    ...RUTAS_MENUS_COMUNES,
 };
 
 /** Escritor con el JWT, el uid y la zona del usuario. `homeId` lo aporta `runInHome` (contexto del hogar). */
 export const crearEscritor = (token: string, uid: string, tz: string, _homeId?: string | null): Escribir =>
-async (metodo, ruta, cuerpo = {}) => {
-    const manejador = RUTAS[`${metodo} ${ruta}`];
-    if (!manejador) return { ok: false, status: 400, data: null, error: "ruta no permitida" };
-    const url = new URL(`https://asistente.local/api/${ruta}`);
-    url.searchParams.set("timezone", tz);
-    let req: Request;
-    if (metodo === "GET") {
-        for (const [k, v] of Object.entries(cuerpo)) if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
-        req = new Request(url.toString(), { method: "GET" });
-    } else {
-        req = new Request(url.toString(), {
-            method: metodo,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ timezone: tz, ...cuerpo }),
-        });
-    }
-    try {
-        return await respuesta(await manejador(req, token, uid));
-    } catch {
-        // En proceso no hay capa superior que convierta la excepción en 500: se devuelve como fallo del api.
-        return { ok: false, status: 500, data: null };
-    }
-};
+    crearEscritorCon(RUTAS, token, uid, tz);
