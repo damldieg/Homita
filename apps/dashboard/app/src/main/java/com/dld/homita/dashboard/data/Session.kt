@@ -69,12 +69,10 @@ class Session(
             val body = response.body()
             when {
                 response.isSuccessful && body?.token != null -> {
-                    // R1-01: si la sesión cambió mientras esperábamos, no se escribe nada. Un cierre voluntario no es una
-                    // caducidad (no se cierra de nuevo); un inicio de sesión nuevo en esa ventana se respeta (no se borra).
-                    if (store.token != current || store.refreshToken != refresh) {
-                        val now = store.token
-                        return@withLock if (now != null) Outcome.Renewed(now) else Outcome.Unavailable
-                    }
+                    // R1-01 / R3-01: si la sesión cambió mientras esperábamos (cierre o login nuevo), no se escribe nada y no se
+                    // devuelve el token nuevo: la petición en curso (de la sesión anterior) no debe reenviarse con la nueva.
+                    // Es un fallo recuperable; la siguiente pasada usa la sesión actual. No se cierra sesión aquí.
+                    if (store.token != current || store.refreshToken != refresh) return@withLock Outcome.Unavailable
                     store.token = body.token
                     // GoTrue rota el refresh_token: el nuevo sustituye al anterior (que ya no vale).
                     store.refreshToken = body.refresh_token ?: refresh
