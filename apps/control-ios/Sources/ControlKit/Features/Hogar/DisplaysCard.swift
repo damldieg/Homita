@@ -89,12 +89,27 @@ struct LinkDisplaySheet: View {
     @State private var code = ""
     @State private var name = ""
     @State private var working = false
+    @State private var scanning = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Escribe el código que aparece en la pantalla. Caduca en 10 minutos.")
+                Text("Escanea el QR de la pantalla o escribe su código de 6 dígitos. Caduca en 10 minutos.")
                     .font(HomitaFont.inter(16, relativeTo: .body)).foregroundStyle(Palette.inkMuted)
+                #if os(iOS)
+                HomitaButton(title: "Escanear QR", kind: .accentOutline) { scanning = true }
+                    .sheet(isPresented: $scanning) {
+                        NavigationStack {
+                            CodeScanner { raw in
+                                if let parsed = PairingCode.parse(raw) { code = parsed }
+                                scanning = false
+                            }
+                            .ignoresSafeArea()
+                            .navigationTitle("Escanear QR")
+                            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cerrar") { scanning = false } } }
+                        }
+                    }
+                #endif
                 HomitaField(placeholder: "Código de 6 dígitos", text: $code, isCode: true)
                 HomitaField(placeholder: "Nombre (p. ej. Salón)", text: $name)
                 if let error = store.lastError {

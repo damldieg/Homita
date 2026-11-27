@@ -1,6 +1,7 @@
 package com.dld.homita.dashboard.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -57,8 +58,13 @@ fun PairingScreen(state: UiState, onWifi: () -> Unit, onLogoTap: () -> Unit) {
                         textAlign = TextAlign.Center,
                         maxLines = 1
                     )
+                    Image(
+                        bitmap = remember(pairing.code) { PairingQr.image(pairing.code, 720) },
+                        contentDescription = "Código QR de vinculación",
+                        modifier = Modifier.size(300.dp)
+                    )
                     Text(
-                        "En Homita, ve a Perfil → Hogar → Pantallas → Vincular pantalla y escribe este código.",
+                        "En Homita, ve a Perfil → Hogar → Pantallas → Vincular pantalla y escanea este QR (o escribe el código).",
                         style = Type.Body.copy(color = Palette.InkSoft),
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
