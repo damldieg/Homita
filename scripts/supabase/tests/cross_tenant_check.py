@@ -295,7 +295,7 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 367  # 266 + 3 de prioridad (0037) + 4 XT-AL de acceso a la lista (0038)
+EXPECTED_CASES = 377  # 367 + 10 de la pantalla del hogar (0049, DP1–DP10)
                       # + 9 XH de ocultas (0039: 6 XH-B, 1 XH-A-lista, 2 XH-V)
                       # + 7 de PATCH /task-list/order (0040)
                       # + 13 XM de /meal/* (0043, menus-perfil-hogar)
@@ -2534,6 +2534,43 @@ i5c = psql("select count(*) from home_member hm join person p on p.home_member_i
 check("I5: sin person huérfana de home_member", i5a == "0", f"n={i5a}")
 check("I5: sin home_member huérfano de person (tras K1–K21)", i5b == "0", f"n={i5b}")
 check("I5: todo home_member con person del mismo home_id", i5c == "0", f"n={i5c}")
+
+# ── 0049 (dashboard-pantalla-hogar): pantalla del hogar de A (cuenta técnica, selección y revocación) ──
+st_s, body_s = edge("POST", "/home/display/link-start")
+check("DP1 link-start sin sesión → 201 con código de 6 dígitos", st_s == 201 and len(parse(body_s)["code"]) == 6,
+      f"status={st_s}")
+dp_code, dp_secret = parse(body_s)["code"], parse(body_s)["poll_secret"]
+st_c, body_c = edge("POST", "/home/display/link-confirm", {"code": dp_code, "name": "XT-Pantalla"}, a_tok, home=home_a)
+check("DP2 link-confirm del admin A con su hogar → 201", st_c == 201, f"status={st_c} body={body_c[:160]}")
+dp_id = parse(body_c)["id"] if st_c == 201 else 0
+st_p, body_p = edge("POST", "/home/display/link-poll", {"poll_secret": dp_secret})
+dp_tok = parse(body_p).get("token") if st_p == 200 else None
+check("DP3 link-poll → ready con la sesión de la pantalla", st_p == 200 and parse(body_p).get("status") == "ready" and bool(dp_tok),
+      f"status={st_p} body={body_p[:160]}")
+if dp_tok:
+    st_u, _ = edge("PATCH", "/home/display/update", {"id": dp_id, "calendar_ids": [cal], "task_list_ids": [lst]}, a_tok, home=home_a)
+    check("DP4 A selecciona calendario y lista para su pantalla → 200", st_u == 200, f"status={st_u}")
+    st_t, body_t = edge("GET", "/task?dashboard=true", None, dp_tok)
+    titles = [t["title"] for t in parse(body_t)] if st_t == 200 else []
+    check("DP5 la pantalla lee las tareas de la lista seleccionada (GET /task?dashboard=true)",
+          "XT-Tarea" in titles, f"status={st_t} titles={titles[:5]}")
+    st_cfg, body_cfg = edge("GET", "/display/config", None, dp_tok)
+    check("DP6 la pantalla lee su configuración con su sesión",
+          st_cfg == 200 and parse(body_cfg).get("calendar_ids") == [cal], f"status={st_cfg} body={body_cfg[:160]}")
+    expect("DP7 B (otro hogar) no puede cambiar la pantalla de A → 404 Not Found",
+           edge("PATCH", "/home/display/update", {"id": dp_id, "name": "XT-Robada"}, b_tok, home=home_b),
+           (404, '{"error":"Not Found"}'))
+    st_r, _ = edge("POST", "/home/display/revoke", {"id": dp_id}, a_tok, home=home_a)
+    check("DP8 A revoca la pantalla → 200", st_r == 200, f"status={st_r}")
+    # La revocación quita membresía y selección: la pantalla ya no lee ningún dato del hogar. El borrado de la
+    # cuenta en GoTrue (DELETE admin) se pide desde la Edge, pero en la BD local la fila de auth.users permanece;
+    # por eso el caso comprueba el efecto (sin tareas y sin configuración), no el 401 de la sesión.
+    st_rv, body_rv = edge("GET", "/task?dashboard=true", None, dp_tok)
+    check("DP9 la pantalla revocada no lee tareas del hogar", st_rv in (200, 401) and (st_rv == 401 or parse(body_rv) == []),
+          f"status={st_rv} body={body_rv[:120]}")
+    st_cf, _ = edge("GET", "/display/config", None, dp_tok)
+    check("DP10 la pantalla revocada no tiene configuración (404 o 401)", st_cf in (404, 401), f"status={st_cf}")
+    psql(f"delete from home_display_link where home_id = {home_a}; delete from home_display where home_id = {home_a};")
 
 clean_xt()
 fallos = results.count(False)

@@ -1,6 +1,8 @@
 package com.dld.homita.dashboard.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -49,7 +51,7 @@ import com.dld.homita.dashboard.ui.theme.Type
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun LoginScreen(state: UiState, onLogin: (String, String) -> Unit, onWifi: () -> Unit) {
+fun LoginScreen(state: UiState, onLogin: (String, String) -> Unit, onWifi: () -> Unit, onLogoTap: () -> Unit = {}) {
     if (!state.connected) {
         WaitingForNetwork(onWifi)
         return
@@ -71,10 +73,12 @@ fun LoginScreen(state: UiState, onLogin: (String, String) -> Unit, onWifi: () ->
     ) {
         Column(Modifier.width(760.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
             if (!keyboardOpen) {
+                // Un toque en el logo vuelve al código de vinculación (el formulario técnico queda oculto)
                 Image(
                     painterResource(R.drawable.homita_icon),
                     contentDescription = "Homita",
                     modifier = Modifier.size(144.dp).align(Alignment.CenterHorizontally).padding(bottom = 8.dp)
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onLogoTap)
                 )
             }
             Text(
@@ -120,7 +124,7 @@ private fun Spinner() {
 }
 
 @Composable
-private fun WaitingForNetwork(onWifi: () -> Unit) {
+internal fun WaitingForNetwork(onWifi: () -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(40.dp)) {
             Spinner()

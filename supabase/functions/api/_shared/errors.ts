@@ -58,6 +58,14 @@ const RPC_STATUS: Record<string, number> = {
     "Meal plan exists": 409,
     // 0045 (menus-compra): artículo de la compra (valor, unidad, sección, estado o alimento no válidos)
     "Invalid shopping item": 400,
+    // 0049 (dashboard-pantalla-hogar): vinculación de pantallas. Código incorrecto o caducado, límite de intentos
+    // y de pantallas activas, selección fuera del hogar y ajustes no objeto.
+    "Invalid link code": 400,
+    "Too many attempts": 429,
+    "Too many pending links": 429,
+    "Display limit reached": 400,
+    "Invalid display selection": 400,
+    "Invalid display settings": 400,
 };
 
 // Router::error de PHP: InvalidArgumentException → 400; el resto → 500 con el mensaje

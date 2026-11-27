@@ -36,8 +36,8 @@ begin
        or not exists (select 1 from pg_indexes where indexname = 'food_home_name_uq') then
         raise exception 'menu_semana_reapply RA3: faltan los índices únicos parciales';
     end if;
-    if (select count(*) from permission) <> 28 or (select count(*) from member_kind_default) <> 47 then
-        raise exception 'menu_semana_reapply RA3: catálogo de permisos distinto de 28/47';
+    if (select count(*) from permission) <> 29 or (select count(*) from member_kind_default) <> 47 then
+        raise exception 'menu_semana_reapply RA3: catálogo de permisos distinto de 29/47';
     end if;
     raise notice 'ok RA3: tablas, 16 RPC, índices parciales y RLS tras reaplicar';
 end $$;

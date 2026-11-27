@@ -4,13 +4,13 @@
 -- Cada bloque DO emite 'ok P…' o aborta con 'permisos_kind_check: …'. Impersonación vía
 -- set_config('request.jwt.claim.sub', …, true) (auth.uid() → fn_my_user_id).
 --
--- Cubre (§6.1): P1 catálogo 28/47 y conjuntos exactos por kind (§5.5, collate "C"); P2 adult
+-- Cubre (§6.1): P1 catálogo 29/47 (28 + display.manage, 0049) y conjuntos exactos por kind (§5.5, collate "C"); P2 adult
 -- (23 filas, task.delete=true, home.view=false); P3 child (task.create=true, task.delete=false,
 -- home.view=true); P4 relative (task.assign=true, event.edit=true, event.delete=false,
 -- event.assign=false); P5 guest (task.complete=true, task.create=false); P6 reemplazo
 -- adult→guest = 3 filas sin residuos; P7 pet/null → 'Invalid member' P0001, membership_id null
 -- → 'Not Found' P0002, snapshot sin cambios (R1-01); P8 admin: fn_has_permission = true en los
--- 28 códigos sin filas (A4) y el helper rechaza admin ('Not Allowed' 42501) y membresía
+-- 29 códigos sin filas (A4) y el helper rechaza admin ('Not Allowed' 42501) y membresía
 -- inexistente ('Not Found' P0002) (R1-02); P9 ACL inmutable (md5 de calendar_user y
 -- task_list_user idénticos tras cada seed); P10 las aserciones de 0019 abortan sin persistir;
 -- P11 orden de locks home → home_membership → membership_permission, sin app_user.
@@ -61,8 +61,8 @@ do $$
 declare v_n bigint; v_set text; v_exp text;
 begin
     select count(*) into v_n from permission;
-    if v_n <> 28 then
-        raise exception 'permisos_kind_check: P1 permission = % (esperado 28)', v_n;
+    if v_n <> 29 then
+        raise exception 'permisos_kind_check: P1 permission = % (esperado 29)', v_n;
     end if;
     select count(*) into v_n from member_kind_default;
     if v_n <> 47 then
@@ -107,7 +107,7 @@ begin
     if v_n <> 0 then
         raise exception 'permisos_kind_check: P1 pet con % filas (esperado 0)', v_n;
     end if;
-    raise notice 'ok P1 catálogo: 28/47 y conjuntos exactos por kind (§5.5)';
+    raise notice 'ok P1 catálogo: 29/47 y conjuntos exactos por kind (§5.5)';
 end $$;
 
 -- ── P2 (§6.1): seed adult — 23 filas = member_kind_default, task.delete=true, home.view=false ──
@@ -358,8 +358,8 @@ begin
         delete from permission where code = 'home.permissions.manage';
         -- ── copia literal del bloque de aserciones de 0019 §3.2 ──
         select count(*) into v_n from permission;
-        if v_n <> 28 then
-            raise exception 'Aserción 0019: permission = % (esperado 28)', v_n;
+        if v_n <> 29 then
+            raise exception 'Aserción 0019: permission = % (esperado 29)', v_n;
         end if;
         select count(*) into v_n from member_kind_default;
         if v_n <> 47 then
@@ -425,7 +425,7 @@ begin
         raise exception 'permisos_kind_check: P10 corrupción del catálogo sin abortar';
     end if;
     select count(*) into v_n from permission;
-    if v_n <> 28 then
+    if v_n <> 29 then
         raise exception 'permisos_kind_check: P10 la corrupción persistió (permission = %)', v_n;
     end if;
 

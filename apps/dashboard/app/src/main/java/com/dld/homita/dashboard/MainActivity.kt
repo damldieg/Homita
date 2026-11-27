@@ -68,13 +68,17 @@ class MainActivity : ComponentActivity() {
             // Se diseña en píxeles nativos del panel (1920×1200): 1 dp = 1 sp = 1 px.
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 1f)) {
                 ProvideIconClock {
-                    DashboardApp(state, actions, viewModel::login, viewModel::loadWeek, settings, viewModel::peek, viewModel::dismissDue)
+                    DashboardApp(state, actions, viewModel::login, viewModel::loadWeek, settings, viewModel::peek, viewModel::dismissDue, viewModel::logoTap)
                 }
             }
         }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) { viewModel.run() }
+        }
+        // Vinculación de la pantalla (sin sesión): sondea cada 3 s mientras la actividad está visible
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) { viewModel.runPairing() }
         }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {

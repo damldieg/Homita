@@ -59,6 +59,10 @@ import {
 } from "./usecases/tasks.ts";
 import { handleFeedbackCreate } from "./usecases/feedback.ts";
 import {
+    handleDisplayConfig, handleDisplayLinkConfirm, handleDisplayLinkPoll, handleDisplayLinkStart,
+    handleDisplayList, handleDisplayRevoke, handleDisplayUpdate,
+} from "./usecases/displays.ts";
+import {
     handleHomeCreate, handleHomeDefault, handleHomeDetail, handleHomeIndex, handleHomeMemberCreate,
     handleHomeMemberIndex, handleHomeMemberUpdate, handleHomeMembership, handleHomeMembershipRemove,
     handleHomeMembershipRole, handleHomeMembershipTransfer, handleHomeUpdate,
@@ -199,6 +203,17 @@ const ROUTES: Record<string, { auth: boolean; home?: boolean; homeContext?: bool
     "PATCH /shopping/item/update": { auth: true, home: true, handler: (req, t) => handleShoppingItemQty(req, t) },
     "DELETE /shopping/item/delete": { auth: true, home: true, handler: (req, t) => handleShoppingItemDelete(req, t) },
     "DELETE /shopping/checked": { auth: true, home: true, handler: (req, t) => handleShoppingClearChecked(req, t) },
+
+    // dashboard-pantalla-hogar (0049, D-008): pantallas del hogar. La vinculación empieza sin sesión (la pantalla
+    // muestra un código); confirmar y gestionar exigen X-Home-Id y display.manage (o calendar.manage) en la RPC.
+    "POST /home/display/link-start": { auth: false, handler: () => handleDisplayLinkStart() },
+    "POST /home/display/link-poll": { auth: false, handler: (req) => handleDisplayLinkPoll(req) },
+    "POST /home/display/link-confirm": { auth: true, home: true, handler: (req, t) => handleDisplayLinkConfirm(req, t) },
+    "GET /home/display": { auth: true, home: true, handler: (req, t) => handleDisplayList(req, t) },
+    "PATCH /home/display/update": { auth: true, home: true, handler: (req, t) => handleDisplayUpdate(req, t) },
+    "POST /home/display/revoke": { auth: true, home: true, handler: (req, t) => handleDisplayRevoke(req, t) },
+    // La pantalla lee su propia configuración con su sesión; no envía cabecera de hogar.
+    "GET /display/config": { auth: true, homeContext: false, handler: (req, t) => handleDisplayConfig(req, t) },
 
     // change control-ios-feedback: ruta aditiva (D-008), fuera de las 43 legacy; sin X-Home-Id.
     "POST /feedback": { auth: true, handler: (req, t) => handleFeedbackCreate(req, t) },

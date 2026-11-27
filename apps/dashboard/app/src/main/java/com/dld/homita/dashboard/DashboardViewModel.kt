@@ -7,6 +7,18 @@ import android.net.NetworkCapabilities
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dld.homita.dashboard.data.Api
+import com.dld.homita.dashboard.data.Diagnostics
+import com.dld.homita.dashboard.data.HttpError
+import com.dld.homita.dashboard.data.DisplayApi
+import com.dld.homita.dashboard.data.DisplayConfig
+import com.dld.homita.dashboard.data.DisplayPoll
+import com.dld.homita.dashboard.data.DisplayPollRequest
+import com.dld.homita.dashboard.data.DisplayLinkStart
+import com.dld.homita.dashboard.data.Pairing
+import com.dld.homita.dashboard.data.PairingApi
+import com.dld.homita.dashboard.data.PairingState
+import com.dld.homita.dashboard.data.bodyOrThrow
+import com.dld.homita.dashboard.data.repository.bearer
 import com.dld.homita.dashboard.data.AuthRequest
 import com.dld.homita.dashboard.data.Content
 import com.dld.homita.dashboard.data.Forecast
@@ -53,6 +65,12 @@ data class UiState(
     val contentFetchedAt: Long? = null,
     /** Avisos de vencimiento cerrados (N4), guardados en Store. */
     val dismissedDue: Set<String> = emptySet(),
+    /** Vinculación de la pantalla con el hogar (sin sesión): código a la vista o estado de espera. */
+    val pairing: PairingState = PairingState.Idle,
+    /** Acceso técnico (formulario de email y contraseña), tras cinco toques en el logo (Q4). */
+    val technical: Boolean = false,
+    /** Último resultado de cada dato remoto, para Ajustes → Diagnóstico (N6). */
+    val diagnostics: Map<String, Diagnostics.Entry> = emptyMap(),
     /** false si el último intento de sincronizar falló: se muestra lo que hay en caché. */
     val online: Boolean = true,
     /** Hay una red con salida a Internet (sin ella, el login muestra la espera y "Ir a Ajustes"). */
@@ -90,6 +108,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val mealRepository = MealRepository(api, cache)
     private val clock = ReferenceClock(BuildConfig.BUILD_TIME, { store.lastValidTime }, { store.lastValidTime = it })
     private val session = Session(store, { refresh -> api.refresh(RefreshRequest(refresh)) })
+    private val diagnostics = Diagnostics()
+    private val displayApi = DisplayApi.client
+    private var configFetchedAt = 0L
+    private val logoTaps = ArrayDeque<Long>()
+    private val pairing = Pairing(object : PairingApi {
+        override suspend fun linkStart(): Result<DisplayLinkStart> = runCatching { displayApi.linkStart().bodyOrThrow() }
+        override suspend fun linkPoll(secret: String): Result<DisplayPoll> =
+            runCatching { displayApi.linkPoll(DisplayPollRequest(secret)).bodyOrThrow() }
+    })
 
     private val _state = MutableStateFlow(
         clock.current().let { time ->
@@ -150,6 +177,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 if (contentRepository.isStale()) refreshContent()
                 if (weatherRepository.isStale()) refreshWeather()
                 if (mealRepository.isStale(_state.value.now.toLocalDate())) refreshMeals()
+                // Pantalla del hogar: su configuración se relee cada 5 minutos (lo que decide el móvil)
+                if (store.displayId != null && System.currentTimeMillis() - configFetchedAt >= CONFIG_MAX_AGE_MS) refreshDisplayConfig()
             }
             delay(60_000 - System.currentTimeMillis() % 60_000 + 50)
         }
@@ -184,19 +213,99 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private suspend fun refreshMeals() {
         if (_state.value.token == null) return
         val result = session.authorized { mealRepository.refresh(it, _state.value.now.toLocalDate()) }
+        recordDiagnostic("menú de hoy", result)
         if (result.exceptionOrNull() is SessionExpired || result.exceptionOrNull()?.isUnauthorized == true) logout(expired = true)
+    }
+
+    /** Relee la configuración de la pantalla (horario, brillo, ubicación) y la aplica. Sin red, queda la última. */
+    private suspend fun refreshDisplayConfig() {
+        if (store.displayId == null || _state.value.token == null) return
+        val result = session.authorized { token -> runCatching { displayApi.config(bearer(token)).bodyOrThrow() } }
+        recordDiagnostic("configuración de la pantalla", result)
+        val error = result.exceptionOrNull()
+        // 401: la sesión ya no vale. 404: el hogar revocó la pantalla (su configuración ya no existe): vuelve a vincularse.
+        if (error is SessionExpired || error?.isUnauthorized == true || (error is HttpError && error.code == 404)) {
+            logout(expired = true)
+            return
+        }
+        result.onSuccess { applyDisplayConfig(it) }
+    }
+
+    /** La configuración del hogar manda: brillo, horario y ubicación de la pantalla se guardan como los de la app. */
+    private fun applyDisplayConfig(config: DisplayConfig) {
+        configFetchedAt = System.currentTimeMillis()
+        val settings = config.settings ?: return
+        store.brightness = settings.brightness?.toFloat()?.coerceIn(0.05f, 1f)
+        settings.schedule?.let { store.schedule = it }
+        settings.location?.let { store.location = it }
+        _state.update { it.copy(brightness = store.brightness, schedule = store.schedule, location = store.location) }
+        ScreenSchedule.reschedule(getApplication())
+        // Una selección nueva de calendarios o listas cambia el contenido: se descarga ya, sin esperar a caducar
+        refreshNow()
+    }
+
+    private fun recordDiagnostic(endpoint: String, result: Result<*>) {
+        diagnostics.record(endpoint, result)
+        _state.update { it.copy(diagnostics = diagnostics.snapshot()) }
+    }
+
+    /**
+     * Vinculación de la pantalla (sin sesión): pide código y sondea cada 3 s hasta que el móvil lo confirma. Mientras
+     * hay sesión no hace nada; sin red espera.
+     */
+    suspend fun runPairing() {
+        while (true) {
+            if (_state.value.token == null && _state.value.connected) {
+                val current = _state.value.pairing
+                val next = when (current) {
+                    is PairingState.Waiting -> pairing.poll(current)
+                    is PairingState.Linked -> pairing.start()
+                    else -> pairing.start()
+                }
+                if (next is PairingState.Linked) {
+                    store.token = next.token
+                    store.refreshToken = next.refreshToken
+                    store.displayId = next.displayId
+                    store.email = null
+                    _state.update { it.copy(token = next.token, email = null, pairing = PairingState.Idle, sessionExpired = false) }
+                    refreshNow()
+                    refreshDisplayConfig()
+                } else {
+                    _state.update { it.copy(pairing = next) }
+                }
+            }
+            delay(PAIRING_POLL_MS)
+        }
+    }
+
+    /**
+     * Cinco toques en el logo en menos de tres segundos muestran el formulario de email y contraseña (modo técnico, Q4).
+     */
+    fun logoTap() {
+        // En el formulario técnico, un toque vuelve al código de vinculación
+        if (_state.value.technical) {
+            _state.update { it.copy(technical = false) }
+            return
+        }
+        val now = System.currentTimeMillis()
+        logoTaps.addLast(now)
+        while (logoTaps.isNotEmpty() && now - logoTaps.first() > TECHNICAL_TAP_WINDOW_MS) logoTaps.removeFirst()
+        if (logoTaps.size >= TECHNICAL_TAPS) {
+            logoTaps.clear()
+            _state.update { it.copy(technical = !it.technical) }
+        }
     }
 
     private suspend fun refreshWeather() {
         val location = _state.value.location ?: return
-        report(weatherRepository.refresh(location))
+        report(weatherRepository.refresh(location), "tiempo")
     }
 
     /** Carga la semana del calendario que empieza en [monday] si no está en caché o ha caducado. */
     fun loadWeek(monday: LocalDate) {
         if (_state.value.token == null) return
         if (!calendarRepository.isStale(monday)) return
-        viewModelScope.launch { report(session.authorized { calendarRepository.refresh(it, monday) }) }
+        viewModelScope.launch { report(session.authorized { calendarRepository.refresh(it, monday) }, "calendario") }
     }
 
     /** Cierra el aviso de vencimiento de [key] (N4): no vuelve tras reiniciar el marco. */
@@ -219,7 +328,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             if (_state.value.clockValid) {
                 refreshContent()
                 if (_state.value.token != null) {
-                    calendarRepository.loaded().forEach { monday -> report(session.authorized { calendarRepository.refresh(it, monday) }) }
+                    calendarRepository.loaded().forEach { monday -> report(session.authorized { calendarRepository.refresh(it, monday) }, "calendario") }
                 }
                 refreshWeather()
                 refreshMeals()
@@ -230,8 +339,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     /** Estado de la conexión según la última petición. Si falla, la pantalla sigue con la copia en caché. */
-    private fun report(result: Result<*>) {
+    private fun report(result: Result<*>, endpoint: String = "eventos y tareas") {
         if (_state.value.token == null) return
+        recordDiagnostic(endpoint, result)
         val error = result.exceptionOrNull()
         when {
             error == null -> _state.update { it.copy(online = true) }
@@ -267,7 +377,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         contentRepository.clear()
         calendarRepository.clear()
         mealRepository.clear()
-        _state.update { it.copy(token = null, sessionExpired = expired) }
+        configFetchedAt = 0L
+        _state.update { it.copy(token = null, sessionExpired = expired, pairing = PairingState.Idle) }
     }
 
     fun searchLocation(query: String) {
@@ -320,5 +431,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun setBrightness(value: Float?) {
         store.brightness = value
         _state.update { it.copy(brightness = value) }
+    }
+
+    private companion object {
+        /** La configuración de la pantalla se relee cada 5 minutos. */
+        const val CONFIG_MAX_AGE_MS = 5 * 60_000L
+        /** Intervalo de sondeo de la vinculación. */
+        const val PAIRING_POLL_MS = 3_000L
+        /** Toques en el logo para el modo técnico, dentro de la ventana. */
+        const val TECHNICAL_TAPS = 5
+        const val TECHNICAL_TAP_WINDOW_MS = 3_000L
     }
 }

@@ -136,3 +136,26 @@ export const hasTaskListAccess = async (token: string, taskListId: number): Prom
     const rows = chk.ok ? await chk.json() : [];
     return rows.length > 0;
 };
+
+// --- Pantallas del hogar (0049, dashboard-pantalla-hogar): service_role solo para la vinculación y la
+// administración de la cuenta técnica de cada pantalla en GoTrue. Sin cabeceras de hogar.
+const serviceHeaders = (): Record<string, string> => ({
+    apikey: SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+    "Content-Type": "application/json",
+});
+
+export const serviceRpc = (name: string, args: Record<string, unknown>): Promise<Response> =>
+    fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, { method: "POST", headers: serviceHeaders(), body: JSON.stringify(args) });
+
+// Cuenta técnica de la pantalla: correo sintético, contraseña aleatoria que no se guarda (solo sirve el refresh token).
+export const adminCreateUser = (email: string, password: string, name: string): Promise<Response> =>
+    fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+        method: "POST",
+        headers: serviceHeaders(),
+        body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { name } }),
+    });
+
+export const adminDeleteUser = (uid: string): Promise<Response> =>
+    fetch(`${SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(uid)}`, { method: "DELETE", headers: serviceHeaders() });
+

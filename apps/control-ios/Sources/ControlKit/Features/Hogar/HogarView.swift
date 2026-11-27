@@ -8,6 +8,9 @@ public struct HogarView: View {
     let home: HomeItem
     @State private var store: HogarStore
     @State private var invitationStore: InvitationStore
+    @State private var displaysStore: DisplaysStore
+    @State private var calendars: [CalendarEntry] = []
+    @State private var taskLists: [TaskListEntry] = []
     @State private var showInvite = false
     @State private var permissionsRow: HogarMemberRow?
     /// Aviso «No se pudo guardar el hogar activo» (E4-02, P-10): toast descartable.
@@ -26,6 +29,10 @@ public struct HogarView: View {
             repo: services.homes, homeId: home.homeId,
             activeHomeId: { homeContext.activeHomeId }
         ))
+        _displaysStore = State(initialValue: DisplaysStore(
+            repo: services.homes, homeId: home.homeId,
+            activeHomeId: { homeContext.activeHomeId }
+        ))
     }
 
     public var body: some View {
@@ -35,6 +42,8 @@ public struct HogarView: View {
                     HomitaHeader(title: "Hogar")
                     switcherCard
                     membersCard
+                    DisplaysCard(store: displaysStore, canManage: store.canManageDisplays,
+                                 calendars: calendars, taskLists: taskLists)
                     if store.canInvite {
                         inviteCard
                     }
@@ -45,8 +54,16 @@ public struct HogarView: View {
             }
             .background(Palette.background.ignoresSafeArea())
             .homitaHiddenNavigationBar()
-            .refreshable { await store.load() }
-            .task { await store.load() }
+            .refreshable {
+                await store.load()
+                await displaysStore.load()
+            }
+            .task {
+                await store.load()
+                await displaysStore.load()
+                calendars = (try? await services.calendars.index()) ?? []
+                taskLists = (try? await services.taskLists.index()) ?? []
+            }
             .homitaToast($activeHomeNotice)
             .onChange(of: services.homeContext.persistenceError) { _, message in
                 activeHomeNotice = message

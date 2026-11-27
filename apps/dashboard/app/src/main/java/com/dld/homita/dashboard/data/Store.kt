@@ -32,6 +32,11 @@ class Store(context: Context) : TokenStore {
         get() = prefs.getString("refresh_token", null)
         set(value) = prefs.edit { if (value == null) remove("refresh_token") else putString("refresh_token", value) }
 
+    /** Pantalla del hogar vinculada (dashboard-pantalla-hogar); null si la sesión es de una persona. */
+    var displayId: Int?
+        get() = prefs.getInt("display_id", -1).takeIf { it > 0 }
+        set(value) = prefs.edit { if (value == null) remove("display_id") else putInt("display_id", value) }
+
     var email: String?
         get() = prefs.getString("email", null)
         set(value) = prefs.edit { putString("email", value) }
@@ -65,6 +70,7 @@ class Store(context: Context) : TokenStore {
     fun logout() = prefs.edit {
         remove("token")
         remove("refresh_token")
+        remove("display_id")
     }
 
     init {

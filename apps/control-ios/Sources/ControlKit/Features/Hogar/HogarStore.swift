@@ -8,6 +8,8 @@ public final class HogarStore {
     public private(set) var rows: [HogarMemberRow] = []
     public private(set) var state: HomeAdminLoadState = .idle
     public private(set) var canInvite = false
+    /// Gestionar pantallas: admin, o quien gestiona calendarios (`display.manage` o `calendar.manage`).
+    public private(set) var canManageDisplays = false
     public private(set) var callerRole: String
 
     private let repo: HomeRepository
@@ -38,6 +40,8 @@ public final class HogarStore {
             let own = permissions.memberships.first { $0.appUserId == callerAppUserId }
             if let own { callerRole = own.role }
             canInvite = HomeAdminAccess.canInvite(role: callerRole, permissions: own?.permissions ?? [])
+            let codes = own?.permissions ?? []
+            canManageDisplays = callerRole == "admin" || codes.contains("display.manage") || codes.contains("calendar.manage")
             state = .loaded
         } catch {
             guard isActive else { return }

@@ -32,8 +32,8 @@ begin
     if (select count(*) from recipe where home_id is null) <> 20 then
         raise exception 'recetas_precargadas_reapply RA5: se esperaban 20 recetas comunes tras recargar el seed';
     end if;
-    if (select count(*) from permission) <> 28 or (select count(*) from member_kind_default) <> 47 then
-        raise exception 'recetas_precargadas_reapply RA5: catálogo de permisos distinto de 28/47';
+    if (select count(*) from permission) <> 29 or (select count(*) from member_kind_default) <> 47 then
+        raise exception 'recetas_precargadas_reapply RA5: catálogo de permisos distinto de 29/47';
     end if;
     raise notice 'ok RA5: country, índice único, check, home_id nulable, policies y 20 comunes tras reaplicar';
 end $$;
