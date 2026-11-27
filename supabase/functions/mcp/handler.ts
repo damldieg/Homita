@@ -98,6 +98,7 @@ export const createHandler = (deps: HandlerDeps) => async (req: Request): Promis
         token,
         uid: quien.uid,
         leerRuta: deps.leerRuta,
+        crearEscritor: deps.crearEscritor,
         checkHomeMember: deps.checkHomeMember,
         runInHome: deps.runInHome,
         appUserId: deps.appUserId,
