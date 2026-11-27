@@ -39,7 +39,15 @@ object TaskDue {
         now: LocalDateTime,
         dismissed: Set<String>,
         zone: ZoneId = ZoneId.systemDefault(),
-    ): DueBanner? = tasks
+    ): DueBanner? = banners(tasks, now, dismissed, zone).firstOrNull()
+
+    /** Todos los avisos abiertos (los de [banner]), del que vence antes al último. La columna de avisos los lista con scroll. */
+    fun banners(
+        tasks: List<Task>,
+        now: LocalDateTime,
+        dismissed: Set<String>,
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): List<DueBanner> = tasks
         .asSequence()
         .filter { it.completed_at == null && it.priorityValue == TaskPriority.ALTA && key(it) !in dismissed }
         .mapNotNull { task ->
@@ -47,7 +55,8 @@ object TaskDue {
                 ?.takeIf { it.isBefore(now.plusHours(WINDOW_HOURS)) }
                 ?.let { DueBanner(task, it, key(task)) }
         }
-        .minByOrNull { it.due }
+        .sortedBy { it.due }
+        .toList()
 
     /**
      * Cuándo vence, en el aviso: «Vencida hace 2 h» si ya pasó; «Hoy 19:00», «Mañana 19:00» o «vie 4 dic 19:00».

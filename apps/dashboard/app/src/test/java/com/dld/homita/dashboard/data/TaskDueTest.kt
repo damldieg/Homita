@@ -90,4 +90,16 @@ class TaskDueTest {
         assertEquals("Vencida hace 2 h", TaskDue.whenText(now.minusHours(2), now))
         assertEquals("Vencida hace 3 d", TaskDue.whenText(now.minusDays(3), now))
     }
+
+    @Test
+    fun `banners lista todos los avisos abiertos, del que vence antes al ultimo`() {
+        val tasks = listOf(
+            task(1, "2026-12-01 12:00:00"),
+            task(2, "2026-12-01 09:00:00"),
+            task(3, "2026-12-01 11:00:00", priority = "media"),
+            task(4, "2026-12-03 09:00:00"),
+        )
+        assertEquals(listOf(2, 1, 4), TaskDue.banners(tasks, now, emptySet(), utc).map { it.task.id })
+        assertEquals(listOf(1, 4), TaskDue.banners(tasks, now, setOf(TaskDue.key(tasks[1])), utc).map { it.task.id })
+    }
 }

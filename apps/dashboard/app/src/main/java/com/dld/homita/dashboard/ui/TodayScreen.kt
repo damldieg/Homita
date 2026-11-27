@@ -83,12 +83,12 @@ private const val MEAL_ROWS = 6
  */
 @Composable
 fun TodayScreen(state: UiState, lastTouch: Long, onOpenWeather: () -> Unit, onDismissDue: (String) -> Unit) {
-    val due = state.content?.tasks?.let { TaskDue.banner(it, state.now, state.dismissedDue) }
+    val dues = state.content?.tasks?.let { TaskDue.banners(it, state.now, state.dismissedDue) }.orEmpty()
     Box(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 32.dp)) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Gap)) {
             Row(Modifier.fillMaxWidth().weight(0.42f), horizontalArrangement = Arrangement.spacedBy(Gap)) {
                 ClockColumn(state, Modifier.weight(1f).fillMaxHeight())
-                AlertsColumn(due, state.now, onDismissDue, Modifier.weight(1f).fillMaxHeight())
+                AlertsColumn(dues, state.now, onDismissDue, Modifier.weight(1f).fillMaxHeight())
                 Box(Modifier.weight(1f).fillMaxHeight()) {
                     val forecast = state.forecast
                     val location = state.location
@@ -194,13 +194,16 @@ private fun ClockColumn(state: UiState, modifier: Modifier) {
  * antes, o un «Sin avisos» tranquilo. Así el reloj no se recorta cuando hay uno.
  */
 @Composable
-private fun AlertsColumn(due: TaskDue.DueBanner?, now: LocalDateTime, onDismissDue: (String) -> Unit, modifier: Modifier) {
+private fun AlertsColumn(dues: List<TaskDue.DueBanner>, now: LocalDateTime, onDismissDue: (String) -> Unit, modifier: Modifier) {
     Card(modifier) {
-        CardHeader("Avisos", Icons.Outlined.Warning, Palette.Accent, count = if (due != null) 1 else null)
-        if (due != null) {
-            DueCard(due, now) { onDismissDue(due.key) }
-        } else {
+        CardHeader("Avisos", Icons.Outlined.Warning, Palette.Accent, count = dues.size.takeIf { it > 0 })
+        if (dues.isEmpty()) {
             EmptyState(Icons.Outlined.EventAvailable, Palette.Sage, "Sin avisos", "Nada vence pronto", Modifier.weight(1f).fillMaxWidth())
+            return@Card
+        }
+        // Lista con scroll, como el resto de tarjetas: los avisos van uno debajo de otro
+        Column(Modifier.weight(1f).padding(top = 12.dp).fadingScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            dues.forEach { due -> DueCard(due, now) { onDismissDue(due.key) } }
         }
     }
 }
@@ -215,7 +218,6 @@ private fun DueCard(due: TaskDue.DueBanner, now: LocalDateTime, onDismiss: () ->
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(top = 16.dp)
             .background(Palette.Accent.copy(alpha = 0.14f), RoundedCornerShape(28.dp))
             .padding(start = 26.dp, end = 12.dp, top = 14.dp, bottom = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
