@@ -1,0 +1,51 @@
+---
+# Publica SOLO web/ (página de consentimiento OAuth del MCP de Claude) en GitHub Pages.
+# PREPARADO, SIN ACTIVAR (fase 1): solo `workflow_dispatch`, y además Pages no está habilitado en el repositorio.
+# Fase 4: habilitar Pages (fuente: GitHub Actions), crear las variables del repositorio SUPABASE_URL y
+# SUPABASE_ANON_KEY (públicas, sin secretos) y añadir `push` a `master` en `on:` (ver supabase/functions/mcp/README.md).
+name: pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      # config.js solo lleva la URL y la anon key (públicas), de variables del repositorio.
+      - name: config.js de la página de consentimiento
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ] || { echo "faltan las variables SUPABASE_URL y SUPABASE_ANON_KEY"; exit 1; }
+          printf 'window.HOMITA_CONFIG = { SUPABASE_URL: "%s", SUPABASE_ANON_KEY: "%s" };\n' \
+            "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > web/oauth/consent/config.js
+
+      - name: Subir web/
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: web
+
+      - name: Publicar
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

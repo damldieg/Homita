@@ -52,3 +52,6 @@ ExportOptions.plist
 
 # Basura de Finder en macOS
 .DS_Store
+
+# Página de consentimiento OAuth del MCP: config.js se genera (scripts/oauth/local-config.sh o el workflow de Pages)
+web/oauth/consent/config.js

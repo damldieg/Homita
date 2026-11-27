@@ -1,0 +1,25 @@
+:root { color-scheme: light dark; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+body { margin: 0; padding: 1.5rem 1rem; background: #f6f5f1; color: #1d1d1b; }
+main { max-width: 30rem; margin: 0 auto; background: #fff; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 1px 6px rgb(0 0 0 / 12%); }
+h1 { margin: 0 0 0.5rem; font-size: 1.6rem; }
+h2 { font-size: 1.2rem; }
+h3 { font-size: 1rem; margin-bottom: 0.25rem; }
+label { display: block; margin: 0.75rem 0 0.25rem; font-weight: 600; }
+input, select { width: 100%; box-sizing: border-box; padding: 0.55rem; font: inherit; border: 1px solid #b8b6ae; border-radius: 0.4rem; }
+button { font: inherit; padding: 0.6rem 1.1rem; border: 0; border-radius: 0.4rem; background: #2f6b4f; color: #fff; cursor: pointer; }
+button.secundario { background: #e4e2da; color: #1d1d1b; }
+button.enlace { background: none; color: #2f6b4f; padding: 0; text-decoration: underline; }
+button:disabled { opacity: 0.55; cursor: wait; }
+.acciones { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
+.nota { font-size: 0.85rem; color: #5b5a54; }
+.aviso { padding: 0.6rem 0.75rem; background: #fff4d6; border-radius: 0.4rem; }
+.error { color: #a21d1d; }
+[hidden] { display: none !important; }
+@media (prefers-color-scheme: dark) {
+  body { background: #1b1b19; color: #eeeee8; }
+  main { background: #262624; box-shadow: none; }
+  input, select { background: #1b1b19; color: inherit; border-color: #55544e; }
+  button.secundario { background: #3a3a36; color: #eeeee8; }
+  .nota { color: #b4b3ab; }
+  .aviso { background: #4a3f1c; }
+}
