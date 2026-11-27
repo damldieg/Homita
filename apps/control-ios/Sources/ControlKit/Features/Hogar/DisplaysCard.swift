@@ -49,6 +49,16 @@ struct DisplaysCard: View {
         }
     }
 
+    /// «Canal pruebas · v1.2 (3)»: lo que reporta la pantalla y el canal que le toca (dashboard-pantallas-canal).
+    private func versionLine(_ display: HomeDisplay) -> String? {
+        guard display.appVersionName != nil || display.appVersionCode != nil || display.updateChannel != nil else { return nil }
+        var parts: [String] = []
+        if let channel = display.updateChannel { parts.append("Canal \(channel)") }
+        if let name = display.appVersionName, let code = display.appVersionCode { parts.append("v\(name) (\(code))") }
+        else if let code = display.appVersionCode { parts.append("versión \(code)") }
+        return parts.joined(separator: " · ")
+    }
+
     private func row(_ display: HomeDisplay) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "tv")
@@ -60,6 +70,9 @@ struct DisplaysCard: View {
                 Text(display.name).font(HomitaFont.inter(17, weight: .semibold, relativeTo: .body)).foregroundStyle(Palette.ink)
                 Text(display.lastSeenAt.map { "Última conexión \($0.prefix(16))" } ?? "Sin conexiones todavía")
                     .font(HomitaFont.inter(14, relativeTo: .footnote)).foregroundStyle(Palette.inkMuted)
+                if let line = versionLine(display) {
+                    Text(line).font(HomitaFont.inter(13, relativeTo: .footnote)).foregroundStyle(Palette.inkMuted)
+                }
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right").foregroundStyle(Palette.inkMuted).accessibilityHidden(true)
