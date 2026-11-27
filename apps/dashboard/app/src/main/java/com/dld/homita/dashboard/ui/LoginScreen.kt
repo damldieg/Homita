@@ -46,7 +46,7 @@ import com.dld.homita.dashboard.ui.theme.Palette
 import com.dld.homita.dashboard.ui.theme.Type
 
 /**
- * Inicio de sesión con la cuenta de Homita. El dashboard solo lee: nunca modifica contenido.
+ * Inicio de sesión con la cuenta de Homita. El dashboard lee el contenido y solo puede marcar tareas hechas.
  * Sin Internet no tiene sentido el formulario: se espera a la red, con acceso a los ajustes de Wi-Fi.
  */
 @OptIn(ExperimentalLayoutApi::class)

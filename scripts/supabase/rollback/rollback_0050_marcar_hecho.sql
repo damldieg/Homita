@@ -1,7 +1,7 @@
 -- rollback_0050_marcar_hecho.sql — Revierte 0050_marcar_hecho.sql (change dashboard-marcar-hecho).
--- Quita la capacidad de completar de las pantallas (task.complete de sus membresías), los registros de
--- auditoría de pantallas por completar y las filas client_request de kind 'task_complete' (se pierde la
--- idempotencia de los toques en cola). Restaura complete_task de 0039 y fn_display_link_complete de 0049.
+-- Quita la capacidad de completar de las pantallas (task.complete de sus membresías) y las filas client_request de
+-- kind 'task_complete' (se pierde la idempotencia de los toques en cola). La auditoría de pantallas (source: display)
+-- se CONSERVA: no se borra nada de audit_log. Restaura complete_task de 0039 y fn_display_link_complete de 0049.
 -- Idempotente. La fila '0050' de schema_migrations no se borra aquí.
 
 begin;

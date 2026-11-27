@@ -61,6 +61,7 @@ import com.dld.homita.dashboard.data.Person
 import com.dld.homita.dashboard.data.Task
 import com.dld.homita.dashboard.data.TaskDue
 import com.dld.homita.dashboard.data.TaskPriority
+import com.dld.homita.dashboard.data.isDone
 import com.dld.homita.dashboard.data.partitionEvents
 import com.dld.homita.dashboard.data.priorityValue
 import com.dld.homita.dashboard.ui.theme.Palette
@@ -89,7 +90,10 @@ private const val MEAL_ROWS = 6
  */
 @Composable
 fun TodayScreen(state: UiState, lastTouch: Long, onOpenWeather: () -> Unit, onDismissDue: (String) -> Unit) {
-    val dues = state.content?.tasks?.let { TaskDue.banners(it, state.now, state.dismissedDue) }.orEmpty()
+    // Avisos de lo que ve la persona filtrada (R1-08) y sin las tareas ya marcadas, también las de la ventana de «Deshacer»
+    val dues = state.shownContent?.tasks
+        ?.filterNot { it.isDone(state.pending[it.id] ?: state.queued[it.id]) }
+        ?.let { TaskDue.banners(it, state.now, state.dismissedDue) }.orEmpty()
     Box(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 32.dp)) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Gap)) {
             Row(Modifier.fillMaxWidth().weight(0.42f), horizontalArrangement = Arrangement.spacedBy(Gap)) {

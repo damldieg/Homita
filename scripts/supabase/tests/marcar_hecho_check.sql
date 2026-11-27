@@ -176,6 +176,23 @@ begin
     raise notice 'ok MH7: la pantalla no edita, no crea y no borra';
 end $$;
 
+-- ── MH8 ── ACL: anon no ejecuta complete_task ni fn_is_display_for_list; authenticated sí complete_task (R1-04a)
+do $$
+begin
+    if has_function_privilege('anon', 'public.complete_task(bigint,boolean,uuid)', 'EXECUTE')
+       or has_function_privilege('public', 'public.complete_task(bigint,boolean,uuid)', 'EXECUTE') then
+        raise exception 'marcar_hecho MH8: anon o public pueden completar';
+    end if;
+    if not has_function_privilege('authenticated', 'public.complete_task(bigint,boolean,uuid)', 'EXECUTE') then
+        raise exception 'marcar_hecho MH8: authenticated no puede completar';
+    end if;
+    if has_function_privilege('anon', 'public.fn_is_display_for_list(bigint,bigint)', 'EXECUTE')
+       or has_function_privilege('authenticated', 'public.fn_is_display_for_list(bigint,bigint)', 'EXECUTE') then
+        raise exception 'marcar_hecho MH8: fn_is_display_for_list expuesta';
+    end if;
+    raise notice 'ok MH8: anon no completa; fn_is_display_for_list no expuesta';
+end $$;
+
 do $$
 begin
     perform pg_temp.clean();

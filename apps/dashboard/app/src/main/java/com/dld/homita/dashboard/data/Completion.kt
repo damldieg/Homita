@@ -29,6 +29,10 @@ class CompletionQueue(private val file: File) {
     @Synchronized
     fun remove(requestId: String) = write(all().filterNot { it.requestId == requestId })
 
+    /** Vacía la cola (cierre de sesión explícito o desvinculación: los toques eran de otra sesión). */
+    @Synchronized
+    fun clear() = write(emptyList())
+
     private fun write(items: List<Completion>) {
         runCatching {
             file.parentFile?.mkdirs()
@@ -37,6 +41,21 @@ class CompletionQueue(private val file: File) {
             tmp.renameTo(file)
         }
     }
+}
+
+/**
+ * Qué hacer con un toque tras intentar enviarlo (R1-01, R2-01). Un error permanente (la tarea ya no existe o está oculta,
+ * la pantalla no tiene permiso, la clave no vale, un 500 de la RPC) quita el toque y avisa, para que no bloquee los
+ * siguientes. Sin red, 408, 429, 502-504 (pasarela) u otro fallo transitorio se queda en la cola para el próximo intento.
+ */
+enum class CompletionOutcome { Sent, Retry, Discard, Unauthorized }
+
+fun completionOutcome(error: Throwable?): CompletionOutcome = when {
+    error == null -> CompletionOutcome.Sent
+    error is SessionExpired || error.isUnauthorized -> CompletionOutcome.Unauthorized
+    error is HttpError && (error.code == 408 || error.code == 429 || error.code in 502..504) -> CompletionOutcome.Retry
+    error is HttpError -> CompletionOutcome.Discard
+    else -> CompletionOutcome.Retry
 }
 
 /** Estado visible de una tarea: el toque pendiente (ventana o cola) manda sobre lo que dice el servidor. */
