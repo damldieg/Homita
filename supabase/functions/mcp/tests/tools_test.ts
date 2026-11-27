@@ -1,4 +1,4 @@
-// Las 12 herramientas: cada una llama a los casos de uso correctos con el JWT del usuario y el hogar resuelto.
+// Las 12 herramientas de lectura: cada una llama a los casos de uso correctos con el JWT del usuario y el hogar resuelto.
 import { assert, assertEquals, assertFalse } from "jsr:@std/assert@1";
 import { crearMundo, llamarTool, TOKEN, UID } from "./util.ts";
 import type { Mundo } from "./util.ts";
