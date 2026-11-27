@@ -60,7 +60,7 @@ import {
 import { handleFeedbackCreate } from "./usecases/feedback.ts";
 import {
     handleDisplayConfig, handleDisplayLinkConfirm, handleDisplayLinkPoll, handleDisplayLinkStart,
-    handleDisplayList, handleDisplayRevoke, handleDisplayUpdate,
+    handleDisplayList, handleDisplayRevoke, handleDisplayUpdate, handleDisplayReleaseCheck, handleDisplaySetChannel,
 } from "./usecases/displays.ts";
 import {
     handleHomeCreate, handleHomeDefault, handleHomeDetail, handleHomeIndex, handleHomeMemberCreate,
@@ -214,6 +214,8 @@ const ROUTES: Record<string, { auth: boolean; home?: boolean; homeContext?: bool
     "POST /home/display/revoke": { auth: true, home: true, handler: (req, t) => handleDisplayRevoke(req, t) },
     // La pantalla lee su propia configuración con su sesión; no envía cabecera de hogar.
     "GET /display/config": { auth: true, homeContext: false, handler: (req, t) => handleDisplayConfig(req, t) },
+    "GET /display/update": { auth: true, homeContext: false, handler: (req, t) => handleDisplayReleaseCheck(req, t) },
+    "PATCH /home/display/channel": { auth: true, home: true, handler: (req, t) => handleDisplaySetChannel(req, t) },
 
     // change control-ios-feedback: ruta aditiva (D-008), fuera de las 43 legacy; sin X-Home-Id.
     "POST /feedback": { auth: true, handler: (req, t) => handleFeedbackCreate(req, t) },

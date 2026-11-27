@@ -32,6 +32,16 @@ Las tarjetas llevan una cabecera común (`CardHeader`): icono en un cuadro tinta
   - ubicación (Open-Meteo); horario de pantalla; **brillo** (en el título, el porcentaje elegido o «automático»; deslizador propio, del 5 al 100 % de 5 en 5, y a su derecha «A», el brillo automático del sistema, que deja el deslizador desactivado y translúcido) y **Conexión** (estado del Wi-Fi) en una caja, y debajo, en otra, Wi-Fi, Ajustes de Android, Cerrar sesión y Apagar o reiniciar;
   - todos los botones, a lo ancho y del mismo alto.
 
+## Actualización de las pantallas (0051, dashboard-actualizacion-remota)
+
+- **Canal por pantalla:** `home_display.update_channel` (`estable` por defecto, `pruebas` para probar una versión en un marco). Lo cambia `PATCH /home/display/channel` (`fn_display_set_channel`, con `display.manage` o `calendar.manage`); la pantalla no puede cambiarse su propio canal.
+- **Publicación:** `scripts/dashboard/publish.sh` sube el APK y el manifiesto `<canal>.json` al bucket privado `display-releases` con la clave de servicio de Damian (fuera del repo). El manifiesto lleva `version_code`, `version_name`, `sha256`, `size` y `file`. Un APK firmado con la clave debug no se publica.
+- **Comprobación:** `GET /display/update` (sesión de la pantalla). Registra la versión de la pantalla (`fn_display_report`), lee el manifiesto de su canal y, si la versión es mayor que la instalada, devuelve una URL firmada de vida corta (900 s) para el APK. Sin versión reportada o sin nada nuevo, no firma nada.
+- **Informe:** cada `GET /display/config` lleva `X-Display-App-Version`, `X-Display-App-Name` y `X-Display-Update-Result` (último resultado de la app). Se guardan en `home_display` (`app_version_code`, `app_version_name`, `last_update_result`); `last_seen_at` ya lo actualizaba 0049.
+- **En el marco:** comprobación al día (una hora tras un fallo), descarga reanudable con `Range` en trozos a disco (1 GB de RAM, Wi-Fi 2,4 GHz), verificación de tamaño y SHA-256, y `PackageInstaller` como Device Owner **solo con la pantalla apagada por horario y el reloj válido**. El resultado de la instalación vuelve al servidor en la siguiente petición de configuración. Diagnóstico muestra versión, canal, última comprobación y último resultado.
+- **Límites:** `PackageInstaller` no baja versiones (la vuelta atrás es publicar la anterior con un `versionCode` mayor). Las pantallas sin horario de apagado no se actualizan solas. Las URL firmadas caducan: una descarga cortada se reanuda con una URL nueva en la siguiente comprobación.
+- **Firma:** la release se firma con la clave de Damian (`homita.releaseStoreFile` en `~/.gradle/gradle.properties`). Sin esas propiedades la release sigue firmada con debug para la instalación por ADB, y `publish.sh` la rechaza.
+
 ## Cómo funciona
 
 - **App nativa** con Jetpack Compose, minSdk 29 y sin librerías nativas (el marco es de 32 bits).

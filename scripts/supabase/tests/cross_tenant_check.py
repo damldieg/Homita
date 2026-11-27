@@ -295,7 +295,7 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 379  # 367 + 10 de la pantalla del hogar (0049, DP1–DP10) + 2 de completar (0050, DM1–DM2)
+EXPECTED_CASES = 382  # 367 + 10 de la pantalla del hogar (0049, DP1–DP10) + 2 de completar (0050, DM1–DM2) + 3 de actualización (0051, DU1–DU3)
                       # + 9 XH de ocultas (0039: 6 XH-B, 1 XH-A-lista, 2 XH-V)
                       # + 7 de PATCH /task-list/order (0040)
                       # + 13 XM de /meal/* (0043, menus-perfil-hogar)
@@ -2556,6 +2556,15 @@ if dp_tok:
           f"status={st_dc} body={body_dc[:120]}")
     expect("DM2 la pantalla no edita tareas (PATCH /task/update) → 403 Not Allowed",
            edge("PATCH", "/task/update", {"id": tsk, "title": "XT-Editada"}, dp_tok), NOT_ALLOWED)
+    # 0051 (actualizacion remota): canal por pantalla y comprobación de versión
+    expect("DU1 B (otro hogar) no puede cambiar el canal de la pantalla de A → 404 Not Found",
+           edge("PATCH", "/home/display/channel", {"id": dp_id, "channel": "pruebas"}, b_tok, home=home_b),
+           (404, '{"error":"Not Found"}'))
+    expect("DU2 la pantalla no puede cambiarse su propio canal → 403 Not Allowed",
+           edge("PATCH", "/home/display/channel", {"id": dp_id, "channel": "pruebas"}, dp_tok, home=home_a), NOT_ALLOWED)
+    st_u, body_u = edge("GET", "/display/update", None, dp_tok)
+    check("DU3 la pantalla comprueba actualización sin publicación → 200 update false",
+          st_u == 200 and parse(body_u).get("update") is False, f"status={st_u} body={body_u[:120]}")
     st_t, body_t = edge("GET", "/task?dashboard=true", None, dp_tok)
     titles = [t["title"] for t in parse(body_t)] if st_t == 200 else []
     check("DP5 la pantalla lee las tareas de la lista seleccionada (GET /task?dashboard=true)",

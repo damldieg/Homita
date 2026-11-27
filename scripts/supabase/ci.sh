@@ -250,6 +250,14 @@ run "SQL kito_menus_check" sql-kito-menus sql "$HERE/scripts/supabase/tests/kito
 mk_pat=(); for i in $(seq 1 7); do mk_pat+=("ok MK$i([^0-9a-z]|\$)"); done
 expect_log "SQL kito_menus_check" sql-kito-menus "${mk_pat[@]}"
 
+# 0051 (dashboard-actualizacion-remota): canal, informe de versión y bucket de publicaciones. Es la migración más nueva:
+# su rollback va ANTES del de 0049 (LIFO) y no se reaplica hasta después (si no, las funciones fn_display* de 0051 harían
+# fallar la comprobación de rollback_0049). Como rollback_0049 borra
+# home_display, 0051 se vuelve a aplicar después de 0049 (idempotente) y antes de cross_tenant_check.py (DU1–DU3).
+run "SQL 0051 rollback (LIFO antes de 0049)" sql-rb0051 sql "$HERE/scripts/supabase/rollback/rollback_0051_actualizacion_remota.sql"
+run "SQL 0051 rollback: sin columnas ni funciones" sql-rb0051-check sql "$HERE/scripts/supabase/tests/actualizacion_remota_rollback_check.sql"
+expect_log "SQL 0051 rollback: sin columnas ni funciones" sql-rb0051-check 'ok V1([^0-9]|$)' 'ok V2([^0-9]|$)'
+
 # 0049 (dashboard-pantalla-hogar): pantalla del hogar (cuenta técnica, vinculación de un solo uso, límites, selección,
 # revocación y grants). Ida y vuelta: rollback_0049 → comprobaciones de ausencia → reaplicar 0049 → de nuevo la suite.
 run "SQL home_display_check" sql-home-display sql "$HERE/scripts/supabase/tests/home_display_check.sql"
@@ -264,6 +272,10 @@ run "deno test api displays" deno-test-api-displays env NO_COLOR=1 deno test --n
 expect_log "deno test api displays" deno-test-api-displays '^ok \| [0-9]+ passed \| 0 failed'
 # La reaplicación de 0049 recrea fn_display_link_complete sin task.complete: se reaplica 0050 encima (cross_tenant DM1 lo necesita).
 run "SQL 0050 reaplicada (tras 0049)" sql-ra0050-tras0049 sql "$HERE/supabase/migrations/0050_marcar_hecho.sql"
+# 0051 otra vez: el ida y vuelta de 0049 borra home_display (y con él las columnas de 0051).
+run "SQL 0051 reaplicada (tras 0049)" sql-ra0051-tras0049 sql "$HERE/supabase/migrations/0051_actualizacion_remota.sql"
+run "SQL actualizacion_remota_check (tras 0049)" sql-ra0051-tras0049-check sql "$HERE/scripts/supabase/tests/actualizacion_remota_check.sql"
+expect_log "SQL actualizacion_remota_check (tras 0049)" sql-ra0051-tras0049-check 'ok U-clean'
 
 # 0050 (dashboard-marcar-hecho): la pantalla completa y descompleta tareas de sus listas (y nada más), auditado e
 # idempotente con client_request. Ida y vuelta: rollback_0050 → comprobaciones → reaplicar 0050 → de nuevo la suite.
@@ -271,6 +283,9 @@ run "SQL marcar_hecho_check" sql-marcar-hecho sql "$HERE/scripts/supabase/tests/
 expect_log "SQL marcar_hecho_check" sql-marcar-hecho 'ok MH1([^0-9]|$)' 'ok MH5([^0-9]|$)' 'ok MH7([^0-9]|$)' 'ok MH-clean'
 run "deno test api tasks (complete)" deno-test-api-tasks-complete env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/tasks_complete_test.ts"
 expect_log "deno test api tasks (complete)" deno-test-api-tasks-complete '^ok \| [0-9]+ passed \| 0 failed'
+
+run "deno test api display update" deno-test-api-display-update env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/display_update_test.ts"
+expect_log "deno test api display update" deno-test-api-display-update '^ok \| [0-9]+ passed \| 0 failed'
 
 # 0046 (menus-paises-hogar): países del hogar en meal_profile; guardado, rechazo, cross-tenant, permisos y grants.
 run "SQL meal_profile_countries_check" sql-mp-countries sql "$HERE/scripts/supabase/tests/meal_profile_countries_check.sql"

@@ -19,6 +19,10 @@ val releaseBaseUrl = homitaSetting("homita.baseUrl", "HOMITA_BASE_URL")
 val debugBaseUrl = homitaSetting("homita.debugBaseUrl", "HOMITA_DEBUG_BASE_URL") ?: "http://10.0.2.2:54321/functions/v1/api/"
 fun cleartext(url: String?) = (url?.startsWith("http://") == true).toString()
 
+// Firma de release (dashboard-actualizacion-remota): la clave es de Damian y vive fuera del repo.
+val releaseStoreFile: String? = providers.gradleProperty("homita.releaseStoreFile").orNull
+val releaseSigningReady = releaseStoreFile != null && file(releaseStoreFile).exists()
+
 android {
     namespace = "com.dld.homita.dashboard"
     compileSdk = 37
@@ -27,10 +31,22 @@ android {
         applicationId = "com.dld.homita.dashboard"
         minSdk = 29 // XORO CPF 10PF: Android 10
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        // La publicación fija la versión (scripts/dashboard/publicar-version.sh): -Phomita.versionCode=N -Phomita.versionName=X
+        versionCode = (project.findProperty("homita.versionCode") as String?)?.toInt() ?: 1
+        versionName = (project.findProperty("homita.versionName") as String?) ?: "1.0"
         // El RTC del marco no conserva la hora: cualquier fecha anterior a la compilación es falsa.
         buildConfigField("long", "BUILD_TIME", "${System.currentTimeMillis()}L")
+    }
+
+    signingConfigs {
+        if (releaseSigningReady) {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = providers.gradleProperty("homita.releaseStorePassword").get()
+                keyAlias = providers.gradleProperty("homita.releaseKeyAlias").get()
+                keyPassword = providers.gradleProperty("homita.releaseKeyPassword").get()
+            }
+        }
     }
 
     buildTypes {
@@ -40,7 +56,9 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("String", "BASE_URL", "\"${releaseBaseUrl.orEmpty()}\"")
             manifestPlaceholders["cleartext"] = cleartext(releaseBaseUrl)
-            signingConfig = signingConfigs.getByName("debug") // Instalación local por ADB, como la app
+            // Firma de release: clave privada de Damian (propiedades en ~/.gradle/gradle.properties, nunca en el repo).
+            // Sin ellas, la release sigue firmada con debug para la instalación local por ADB (no publicable).
+            signingConfig = if (releaseSigningReady) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
         debug {
             buildConfigField("String", "BASE_URL", "\"$debugBaseUrl\"")

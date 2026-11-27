@@ -36,6 +36,17 @@ data class DisplayConfig(
     val task_list_ids: List<Int>? = null
 )
 
+/** Respuesta de `GET /display/update`: si `update` es true, hay una versión nueva para el canal de la pantalla. */
+data class UpdateCheck(
+    val channel: String,
+    val update: Boolean,
+    val version_code: Int? = null,
+    val version_name: String? = null,
+    val sha256: String? = null,
+    val size: Long? = null,
+    val url: String? = null
+)
+
 /** Ajustes de la pantalla. Brillo null = automático; horario y ubicación como en la app. */
 data class DisplaySettings(
     val brightness: Double? = null,
@@ -52,7 +63,21 @@ interface DisplayApi {
     suspend fun linkPoll(@Body request: DisplayPollRequest): Response<DisplayPoll>
 
     @GET("display/config")
-    suspend fun config(@Header("Authorization") auth: String): Response<DisplayConfig>
+    suspend fun config(
+        @Header("Authorization") auth: String,
+        @Header("X-Display-App-Version") appVersion: String? = null,
+        @Header("X-Display-App-Name") appName: String? = null,
+        @Header("X-Display-Update-Result") updateResult: String? = null
+    ): Response<DisplayConfig>
+
+    /** Comprobación de actualización (0051): canal y, si hay versión nueva, la URL firmada del APK. */
+    @GET("display/update")
+    suspend fun update(
+        @Header("Authorization") auth: String,
+        @Header("X-Display-App-Version") appVersion: String? = null,
+        @Header("X-Display-App-Name") appName: String? = null,
+        @Header("X-Display-Update-Result") updateResult: String? = null
+    ): Response<UpdateCheck>
 
     companion object {
         val client: DisplayApi by lazy {

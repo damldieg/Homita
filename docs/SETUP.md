@@ -136,6 +136,50 @@ scripts/boot/install.sh --restore   # vuelve a los de fábrica (guardados en bac
 - comprueba que el último clúster de `bootlogo.bmp` termina antes del sector 65536 y que `fsck.vfat` no encuentra nada, salvo el aviso de la etiqueta de volumen, que ya viene así de fábrica;
 - escribe la imagen con `dd` y la vuelve a leer para compararla.
 
+## Actualizar las pantallas sin ADB (publicar una versión)
+
+Las pantallas comprueban una vez al día (o una hora después de un fallo) si hay una versión nueva para su canal. Si la hay, la descargan en segundo plano, la verifican (tamaño y SHA-256 del manifiesto) y la instalan con `PackageInstaller` **solo con la pantalla apagada por horario** y con el reloj válido. Las pantallas sin horario de apagado no se actualizan solas; se ve en Ajustes → Diagnóstico.
+
+**Una sola vez, antes de entregar pantallas a otros hogares: firma de release.** Las pantallas actuales están firmadas con la clave debug (pública). Hay que crear una clave de release en el Mac de Damian, fuera del repo:
+
+```sh
+keytool -genkeypair -v -keystore ~/.homita/release.jks -alias homita -keyalg RSA -keysize 4096 -validity 10000
+```
+
+y añadir a `~/.gradle/gradle.properties` (nunca al repo):
+
+```properties
+homita.releaseStoreFile=/Users/<tu-usuario>/.homita/release.jks
+homita.releaseStorePassword=...
+homita.releaseKeyAlias=homita
+homita.releaseKeyPassword=...
+```
+
+Android no permite cambiar la firma en una actualización: cada marco se reinstala **una vez por ADB** con esa APK (`scripts/install.sh --build`). Esa reinstalación pierde el Device Owner, así que la pantalla hay que volver a vincularla en Ajustes.
+
+**Publicar** (cada versión): la versión se fija en Gradle y la APK se firma en el Mac:
+
+```sh
+cd apps/dashboard
+./gradlew :app:assembleRelease -Phomita.baseUrl=https://<ref>.supabase.co/functions/v1/api/ \
+    -Phomita.versionCode=7 -Phomita.versionName=1.1
+cd ../..
+export HOMITA_SUPABASE_URL=https://<ref>.supabase.co
+export HOMITA_SERVICE_ROLE_KEY=...            # desde tu gestor de secretos; nunca en el repo ni en el historial
+scripts/dashboard/publish.sh --apk apps/dashboard/app/build/outputs/apk/release/app-release.apk \
+    --code 7 --name 1.1 --channel pruebas     # o --channel estable
+```
+
+`publish.sh` se niega a publicar una APK firmada con debug, sube `v<code>/homita.apk` y reescribe `<canal>.json` en el bucket privado `display-releases`. Antes de subir nada puedes ver el manifiesto con `--dry-run`.
+
+**Poner una pantalla en el canal de pruebas:** `PATCH /home/display/channel` con `{"id": <pantalla>, "channel": "pruebas"}` y el encabezado `X-Home-Id` del hogar (lo hace quien gestiona pantallas). Vuelve a `estable` con el mismo cambio. La pantalla recibe el cambio en su siguiente comprobación.
+
+**Volver a la versión anterior:** `PackageInstaller` no baja versiones. Para volver a una versión buena, se publica esa APK con un `--code` mayor (p. ej. `--code 8` con el contenido de la 6). Si ni eso sirve, por ADB:
+
+```sh
+adb install -r apps/dashboard/app/build/outputs/apk/release/app-release.apk   # la versión buena, firmada con la release
+```
+
 ## Mantenimiento y vuelta atrás
 
 El dashboard no tiene opciones de mantenimiento: todo se hace por ADB, que en este marco es root.
