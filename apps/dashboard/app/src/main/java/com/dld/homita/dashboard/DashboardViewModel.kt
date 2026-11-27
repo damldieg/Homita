@@ -259,8 +259,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val result = session.authorized { token -> runCatching { displayApi.config(bearer(token)).bodyOrThrow() } }
         recordDiagnostic("configuración de la pantalla", result)
         val error = result.exceptionOrNull()
-        // 401: la sesión ya no vale. 404: el hogar revocó la pantalla (su configuración ya no existe): vuelve a vincularse.
-        if (error is SessionExpired || error?.isUnauthorized == true || (error is HttpError && error.code == 404)) {
+        // 401: la sesión ya no vale (se conserva la cola). 404: el hogar revocó la pantalla: sus toques pendientes no se
+        // envían con la sesión nueva (R2-02), así que el cierre no es por caducidad.
+        if (error is HttpError && error.code == 404) {
+            logout(expired = false)
+            return
+        }
+        if (error is SessionExpired || error?.isUnauthorized == true) {
             logout(expired = true)
             return
         }

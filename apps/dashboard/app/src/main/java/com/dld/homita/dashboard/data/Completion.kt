@@ -44,16 +44,16 @@ class CompletionQueue(private val file: File) {
 }
 
 /**
- * Qué hacer con un toque tras intentar enviarlo (R1-01). Un error permanente (la tarea ya no existe o está oculta, la
- * pantalla no tiene permiso, la clave no vale, un 5xx del servidor) quita el toque y avisa, para que no bloquee los
- * siguientes. Sin red, 408/429 u otro fallo transitorio se queda en la cola para el próximo intento.
+ * Qué hacer con un toque tras intentar enviarlo (R1-01, R2-01). Un error permanente (la tarea ya no existe o está oculta,
+ * la pantalla no tiene permiso, la clave no vale, un 500 de la RPC) quita el toque y avisa, para que no bloquee los
+ * siguientes. Sin red, 408, 429, 502-504 (pasarela) u otro fallo transitorio se queda en la cola para el próximo intento.
  */
 enum class CompletionOutcome { Sent, Retry, Discard, Unauthorized }
 
 fun completionOutcome(error: Throwable?): CompletionOutcome = when {
     error == null -> CompletionOutcome.Sent
     error is SessionExpired || error.isUnauthorized -> CompletionOutcome.Unauthorized
-    error is HttpError && (error.code == 408 || error.code == 429) -> CompletionOutcome.Retry
+    error is HttpError && (error.code == 408 || error.code == 429 || error.code in 502..504) -> CompletionOutcome.Retry
     error is HttpError -> CompletionOutcome.Discard
     else -> CompletionOutcome.Retry
 }
