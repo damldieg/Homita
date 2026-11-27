@@ -7,6 +7,9 @@
 // Los nombres de herramienta devueltos por el modelo se validan contra las herramientas disponibles.
 
 import { construirContexto } from "./contexto.ts";
+import type { Leer } from "../_shared/homita/tipos.ts";
+
+export type { Leer };
 
 /** Respuesta de una escritura al `api`: `data` es el JSON (o texto) y `error` el mensaje del api si lo hay. */
 export interface RespuestaApi {
@@ -56,9 +59,6 @@ const efectosDe = (v: unknown): { valor: unknown; efectos: Efectos } | null => {
     }
     return null;
 };
-
-/** Lectura de una ruta GET del `api` (con el JWT y la zona del usuario). Un error HTTP vuelve como `{error, detalle}`. */
-export type Leer = (ruta: string, params?: Record<string, string | undefined>) => Promise<unknown>;
 
 export interface ToolCtx {
     token: string;

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Sin scripts ni estilos en línea; solo este origen y el supabase-js fijado por jsDelivr (con SRI). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; connect-src 'self' https: http://127.0.0.1:* http://localhost:*; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex">
+  <title>Homita: conectar con Claude</title>
+  <link rel="stylesheet" href="consent.css">
+</head>
+<body>
+  <main>
+    <h1>Homita</h1>
+    <p id="estado" role="status">Cargando…</p>
+
+    <form id="login" hidden>
+      <h2>Entra con tu cuenta de Homita</h2>
+      <label for="email">Correo electrónico</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="password">Contraseña</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button type="submit">Entrar</button>
+    </form>
+
+    <section id="consent" hidden>
+      <h2 id="titulo"></h2>
+      <p>Cuenta: <strong id="cuenta"></strong> <button id="cambiar" type="button" class="enlace">No soy yo</button></p>
+      <p>Al aprobar, volverás a: <strong id="destino"></strong></p>
+
+      <h3>Qué podrá hacer</h3>
+      <ul>
+        <li>Leer tus hogares, calendarios, eventos, rutinas, tareas, listas, personas, menús y compra.</li>
+        <li>Solo lectura: no podrá crear, cambiar ni borrar nada.</li>
+      </ul>
+      <p id="alcances" class="nota"></p>
+      <p id="salud" class="aviso">En esta versión Claude no recibe datos de salud (objetivos ni notas de dieta).</p>
+
+      <label for="hogar">Hogar predeterminado</label>
+      <select id="hogar"></select>
+      <p class="nota">Claude usa este hogar cuando no se le indica otro. Puedes cambiarlo después en Homita.</p>
+
+      <div class="acciones">
+        <button id="aprobar" type="button">Aprobar</button>
+        <button id="denegar" type="button" class="secundario">Denegar</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.js"
+          integrity="sha384-A97u3Qnt9GZHURO9YJZRe7VQgGUeFzcv6I1oIGnUTxQrCxnpQMwR0/G8F2zt9abZ"
+          crossorigin="anonymous"></script>
+  <script src="consent.js"></script>
+</body>
+</html>

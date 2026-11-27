@@ -367,13 +367,16 @@ enabled = false
 # domain = "example.clerk.accounts.dev"
 
 # OAuth server configuration
+# SOLO LOCAL (MCP de Claude, fase 1): el servidor OAuth y el registro dinámico se activan aquí para probar el MCP.
+# La configuración de Auth de producción es otra y se decide en la fase 4 (ver supabase/functions/mcp/README.md).
 [auth.oauth_server]
 # Enable OAuth server functionality
-enabled = false
-# Path for OAuth consent flow UI
+enabled = true
+# Path for OAuth consent flow UI. Se concatena a `site_url` (no admite URL absoluta): en local, la página de
+# web/oauth/consent servida en http://127.0.0.1:3000.
 authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
-allow_dynamic_registration = false
+allow_dynamic_registration = true
 
 [edge_runtime]
 enabled = true
@@ -425,4 +428,9 @@ verify_jwt = false
 
 # Edge Function asistente (Kito, change kito-asistente): auth manual con el Bearer del usuario, como `api`.
 [functions.asistente]
+verify_jwt = false
+
+# Edge Function mcp (MCP remoto de Claude para Homita, solo lectura): auth manual, solo tokens OAuth de Supabase Auth
+# (ver supabase/functions/mcp/auth.ts); deploy con --no-verify-jwt.
+[functions.mcp]
 verify_jwt = false

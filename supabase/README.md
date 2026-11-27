@@ -544,6 +544,7 @@ Change `prioridad-tarea`. Extensión aditiva de D-008 en `task`: cada tarea tien
   Orden obligatorio: merge (aplica 0037) y verificación SELECT-only; después
   `supabase functions deploy api`; después la release de los clientes. Nunca la Edge nueva antes que
   0037, y en un rollback, siempre la Edge anterior antes que `rollback_0037` (ver «Rollback»).
+- **MCP de Claude (`mcp`, solo lectura, fase 1):** Edge Function con OAuth de Supabase Auth; ver `functions/mcp/README.md`. La lógica de lectura que comparte con Kito vive en `functions/_shared/homita/`. Sus tests (`mcp/tests`, `_shared/homita/tests`) y el bloque `MCP` de `cross_tenant_check.py` corren en `ci.sh`.
 - **Kito (`asistente`):** la skill `consulta` (`ver_tareas`) reutiliza `handleTask` de
   `api/usecases/tasks.ts` sin `priority` ni `sort`: su llamada a la RPC no cambia y su salida gana la
   clave `priority`. Kito se despliega aparte y empaqueta su propia copia de `api/usecases`; no hace
