@@ -63,6 +63,11 @@
                 android:resource="@xml/power_menu_service" />
         </service>
 
+        <!-- Resultado de la instalación de la actualización remota (PackageInstaller). No es público. -->
+        <receiver
+            android:name=".update.UpdateResultReceiver"
+            android:exported="false" />
+
         <receiver
             android:name=".power.ScheduleReceiver"
             android:exported="false" />

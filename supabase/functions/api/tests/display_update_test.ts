@@ -48,6 +48,7 @@ Deno.test("manifiesto: solo versión entera, hash hex de 64, tamaño y ruta .apk
     assertFalse(isDisplayRelease({ ...release, version_code: 0 }));
     assertFalse(isDisplayRelease({ ...release, version_code: 1.5 }));
     assertFalse(isDisplayRelease({ ...release, size: 0 }));
+    assertFalse(isDisplayRelease({ ...release, size: 104857601 }), "más de 100 MiB");
     assertFalse(isDisplayRelease({ ...release, file: "../secreto.apk" }));
     assertFalse(isDisplayRelease({ ...release, file: "homita.zip" }));
     assertFalse(isDisplayRelease(null));

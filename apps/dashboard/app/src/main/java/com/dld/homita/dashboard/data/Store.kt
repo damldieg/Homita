@@ -49,7 +49,6 @@ class Store(context: Context) : TokenStore {
         get() = read("schedule") ?: Schedule()
         set(value) = write("schedule", value)
 
-    /** Brillo de la ventana (0.05–1); null = el del sistema. */
     /** Última comprobación de actualización (epoch ms); 0 = nunca. */
     var updateLastCheckAt: Long
         get() = prefs.getLong("update_last_check_at", 0L)
@@ -70,6 +69,12 @@ class Store(context: Context) : TokenStore {
         get() = prefs.getString("update_channel", null)
         set(value) = prefs.edit { putString("update_channel", value) }
 
+    /** Momento del último intento de instalar una versión descargada (epoch ms); 0 = nunca. Limita los reintentos (R1-01). */
+    var updateInstallAttemptAt: Long
+        get() = prefs.getLong("update_install_attempt_at", 0L)
+        set(value) = prefs.edit { putLong("update_install_attempt_at", value) }
+
+    /** Brillo de la ventana (0.05–1); null = el del sistema. */
     var brightness: Float?
         get() = prefs.getFloat("brightness", -1f).takeIf { it > 0f }
         set(value) = prefs.edit { putFloat("brightness", value ?: -1f) }

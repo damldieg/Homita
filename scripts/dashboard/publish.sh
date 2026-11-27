@@ -48,9 +48,22 @@ else
     die "no se encuentra apksigner (PATH o Android SDK build-tools): no se puede comprobar la firma"
 fi
 
+# El versionCode y el paquete del APK deben ser los que se declaran (R1-06): si no, Android rechazaría la instalación.
+AAPT2="$(ls -1d "${ANDROID_HOME:-$HOME/Library/Android/sdk}"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1 || true)"
+if [ -n "$AAPT2" ] && [ -x "$AAPT2" ]; then
+    BADGING="$("$AAPT2" dump badging "$APK" 2>/dev/null || true)"
+    echo "$BADGING" | grep -q "package: name='com.dld.homita.dashboard'" || die "el APK no es el paquete com.dld.homita.dashboard"
+    echo "$BADGING" | grep -q "versionCode='${CODE}'" || die "el versionCode del APK no es $CODE"
+else
+    die "no se encuentra aapt2 (Android SDK build-tools): no se puede comprobar el versionCode"
+fi
+
 SHA="$(shasum -a 256 "$APK" | cut -d' ' -f1)"
 SIZE="$(wc -c < "$APK" | tr -d ' ')"
-FILE="v${CODE}/homita.apk"
+# Tope del bucle (ver la migración 0052): por encima no se sube.
+[ "$SIZE" -le 104857600 ] || die "el APK pesa más de 100 MiB (límite del bucle display-releases)"
+# La ruta lleva el hash: otro binario con el mismo versionCode no pisa al publicado (R1-06).
+FILE="v${CODE}-${SHA:0:12}/homita.apk"
 MANIFEST="$(python3 -I -c '
 import json, sys
 print(json.dumps({"version_code": int(sys.argv[1]), "version_name": sys.argv[2], "sha256": sys.argv[3],
@@ -67,15 +80,16 @@ fi
 [ -n "${HOMITA_SUPABASE_URL:-}" ] || die "falta HOMITA_SUPABASE_URL"
 [ -n "${HOMITA_SERVICE_ROLE_KEY:-}" ] || die "falta HOMITA_SERVICE_ROLE_KEY"
 
-upload() { # $1 = ruta en el bucket, $2 = tipo, $3 = fichero
-    local status
-    status="$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
-        "${HOMITA_SUPABASE_URL%/}/storage/v1/object/${BUCKET}/$1" \
-        -H "apikey: ${HOMITA_SERVICE_ROLE_KEY}" \
-        -H "Authorization: Bearer ${HOMITA_SERVICE_ROLE_KEY}" \
-        -H "x-upsert: true" \
-        -H "Content-Type: $2" \
-        --data-binary "@$3")"
+upload() { # $1 = ruta en el bucket, $2 = tipo, $3 = fichero, $4 = 'overwrite' para el manifiesto
+    local status upsert="false"
+    [ "${4:-}" = "overwrite" ] && upsert="true"
+    # Las cabeceras con la clave van por stdin a curl -K: no aparecen en la línea de comandos (ps) (R1-14).
+    status="$(printf 'header = "apikey: %s"\nheader = "Authorization: Bearer %s"\nheader = "x-upsert: %s"\nheader = "Content-Type: %s"\n' \
+        "$HOMITA_SERVICE_ROLE_KEY" "$HOMITA_SERVICE_ROLE_KEY" "$upsert" "$2" \
+        | curl -sS -K - -o /dev/null -w '%{http_code}' -X POST \
+            "${HOMITA_SUPABASE_URL%/}/storage/v1/object/${BUCKET}/$1" --data-binary "@$3")"
+    # 409 en el APK: ya estaba con este mismo hash (la ruta lo lleva): se da por bueno.
+    if [ "$status" = "409" ] && [ "$4" != "overwrite" ]; then return 0; fi
     [ "$status" = "200" ] || die "subida de $1 fallida (HTTP $status)"
 }
 
@@ -83,5 +97,5 @@ upload() { # $1 = ruta en el bucket, $2 = tipo, $3 = fichero
 upload "$FILE" "application/vnd.android.package-archive" "$APK"
 TMP="$(mktemp)"; trap 'rm -f "$TMP"' EXIT
 printf '%s\n' "$MANIFEST" > "$TMP"
-upload "${CHANNEL}.json" "application/json" "$TMP"
+upload "${CHANNEL}.json" "application/json" "$TMP" overwrite
 echo "Publicada la versión $NAME ($CODE) en el canal $CHANNEL: $FILE ($SIZE bytes, sha256 $SHA)."
