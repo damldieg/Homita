@@ -192,7 +192,7 @@ export const isDisplayRelease = (value: unknown): value is DisplayRelease => {
     return Number.isInteger(m.version_code) && (m.version_code as number) > 0 &&
         typeof m.version_name === "string" && m.version_name.length > 0 && m.version_name.length <= 40 &&
         typeof m.sha256 === "string" && /^[0-9a-f]{64}$/.test(m.sha256) &&
-        Number.isInteger(m.size) && (m.size as number) > 0 &&
+        Number.isInteger(m.size) && (m.size as number) > 0 && (m.size as number) <= 104857600 &&
         typeof m.file === "string" && /^[A-Za-z0-9._/-]+\.apk$/.test(m.file) && !m.file.includes("..");
 };
 

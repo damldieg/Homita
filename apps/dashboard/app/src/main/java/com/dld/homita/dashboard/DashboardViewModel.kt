@@ -17,6 +17,7 @@ import com.dld.homita.dashboard.data.Person
 import com.dld.homita.dashboard.data.Task
 import com.dld.homita.dashboard.data.Diagnostics
 import com.dld.homita.dashboard.data.Freshness
+import com.dld.homita.dashboard.data.UpdateCheck
 import com.dld.homita.dashboard.update.DisplayUpdater
 import com.dld.homita.dashboard.update.UpdatePolicy
 import com.dld.homita.dashboard.BuildConfig
@@ -281,18 +282,42 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             recordDiagnostic("actualización", result)
             result.onSuccess { offer ->
                 updater.recordCheck(offer, now)
-                if (UpdatePolicy.offerIsNewer(offer, BuildConfig.VERSION_CODE)) {
-                    val absolute = offer.copy(url = UpdatePolicy.absoluteUrl(BuildConfig.BASE_URL, offer.url!!))
-                    val download = withContext(Dispatchers.IO) { runCatching { updater.download(absolute) } }
-                    recordDiagnostic("descarga de actualización", download)
+                // Solo se descarga si la pantalla puede instalar (horario); sin horario no se baja nada (R1-03).
+                if (UpdatePolicy.offerIsNewer(offer, BuildConfig.VERSION_CODE) && _state.value.schedule.enabled) {
+                    startDownload(offer)
                 }
             }.onFailure { updater.recordCheckFailure(now, Diagnostics.describe(it)) }
         }
         val schedule = _state.value.schedule
         val screenOn = !schedule.enabled || ScreenSchedule.isOn(schedule, LocalDateTime.now())
         val mayInstall = UpdatePolicy.mayInstall(clockValid = true, scheduleEnabled = schedule.enabled, screenOn = screenOn)
-        withContext(Dispatchers.IO) { updater.installIfReady(getApplication(), mayInstall) }
+        // La instalación va protegida: un fallo se registra y no tumba el bucle (R1-01).
+        val install = withContext(Dispatchers.IO) {
+            runCatching { updater.installIfReady(getApplication(), mayInstall, System.currentTimeMillis()) }
+        }
+        recordDiagnostic("instalación de actualización", install)
         _state.update { it.copy(updateInfo = updateSummary()) }
+    }
+
+    @Volatile private var downloading = false
+
+    /**
+     * Descarga en su propia corrutina (R1-04): el reloj, la cola de «hecho» y los refrescos no esperan a los 64 MiB. Un fallo
+     * reprograma la comprobación en una hora (la descarga se reanuda con Range).
+     */
+    private fun startDownload(offer: UpdateCheck) {
+        if (downloading) return
+        downloading = true
+        val absolute = offer.copy(url = UpdatePolicy.absoluteUrl(BuildConfig.BASE_URL, offer.url!!))
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val download = runCatching { updater.download(absolute) }
+                recordDiagnostic("descarga de actualización", download)
+                download.onFailure { updater.recordCheckFailure(System.currentTimeMillis(), Diagnostics.describe(it)) }
+            } finally {
+                downloading = false
+            }
+        }
     }
 
     /** Línea de Diagnóstico: versión instalada, canal, última comprobación y último resultado. */

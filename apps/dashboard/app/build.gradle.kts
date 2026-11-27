@@ -22,6 +22,10 @@ fun cleartext(url: String?) = (url?.startsWith("http://") == true).toString()
 // Firma de release (dashboard-actualizacion-remota): la clave es de Damian y vive fuera del repo.
 val releaseStoreFile: String? = providers.gradleProperty("homita.releaseStoreFile").orNull
 val releaseSigningReady = releaseStoreFile != null && file(releaseStoreFile).exists()
+// Si la propiedad apunta a un archivo que no existe, se avisa en vez de firmar en silencio con debug (R1-09).
+if (releaseStoreFile != null && !releaseSigningReady) {
+    logger.warn("homita.releaseStoreFile apunta a un archivo que no existe: la release se firma con debug")
+}
 
 android {
     namespace = "com.dld.homita.dashboard"
@@ -31,7 +35,7 @@ android {
         applicationId = "com.dld.homita.dashboard"
         minSdk = 29 // XORO CPF 10PF: Android 10
         targetSdk = 37
-        // La publicación fija la versión (scripts/dashboard/publicar-version.sh): -Phomita.versionCode=N -Phomita.versionName=X
+        // La publicación fija la versión (scripts/dashboard/publish.sh): -Phomita.versionCode=N -Phomita.versionName=X
         versionCode = (project.findProperty("homita.versionCode") as String?)?.toInt() ?: 1
         versionName = (project.findProperty("homita.versionName") as String?) ?: "1.0"
         // El RTC del marco no conserva la hora: cualquier fecha anterior a la compilación es falsa.

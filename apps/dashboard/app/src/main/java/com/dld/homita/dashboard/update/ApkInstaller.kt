@@ -43,17 +43,13 @@ class UpdateResultReceiver : BroadcastReceiver() {
                 store.updateReadyCode = null
             }
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
-                // Sin Device Owner el sistema pide confirmación: se lanza, pero el marco no debería llegar aquí.
-                @Suppress("DEPRECATION")
-                intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)?.let {
-                    it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    context.startActivity(it)
-                }
-                store.updateResult = "pendiente de confirmación"
+                // Sin Device Owner el sistema pediría confirmación: no se puede en un marco sin pantalla de usuario.
+                // Se cuenta como fallo: la versión lista se reintenta más tarde (con freno de 6 h), sin bucle.
+                store.updateResult = "fallo: requiere confirmacion"
             }
             else -> {
+                // La versión lista se conserva para reintentar con freno (R1-01); el motivo llega al servidor.
                 store.updateResult = "fallo: ${intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: status}"
-                store.updateReadyCode = null
             }
         }
     }

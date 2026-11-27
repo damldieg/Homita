@@ -44,6 +44,10 @@ class DisplayUpdater(
         val sha = requireNotNull(offer.sha256)
         val size = requireNotNull(offer.size)
         dir.mkdirs()
+        // Ya descargada y verificada: no se vuelve a bajar (R1-03).
+        if (store.updateReadyCode == code && readyFile(code).exists()) return readyFile(code)
+        // Se borran las descargas de otras versiones (R1-12): no quedan 64 MiB por cada versión publicada.
+        dir.listFiles()?.filter { it.name.startsWith("homita-") && !it.name.startsWith("homita-$code.") }?.forEach { it.delete() }
         val part = partFile(code)
         downloader.download(url, size, part)
         if (!UpdatePolicy.verify(sha, size, part)) {
@@ -59,8 +63,11 @@ class DisplayUpdater(
         return ready
     }
 
-    /** Instala la versión lista si toca (horario de apagado, reloj válido) y es de verdad más nueva. */
-    fun installIfReady(context: Context, mayInstall: Boolean) {
+    /**
+     * Instala la versión lista si toca: horario de apagado, reloj válido, versión mayor y sin un intento reciente (R1-01:
+     * un fallo no se repite cada minuto). Los errores los recoge quien llama.
+     */
+    fun installIfReady(context: Context, mayInstall: Boolean, nowMs: Long) {
         val code = store.updateReadyCode ?: return
         val ready = readyFile(code)
         // Ya instalada (o el archivo no está): se limpia para no reinstalar ni dejar el APK en disco.
@@ -70,6 +77,8 @@ class DisplayUpdater(
             return
         }
         if (!mayInstall) return
+        if (!UpdatePolicy.mayRetryInstall(store.updateInstallAttemptAt, nowMs)) return
+        store.updateInstallAttemptAt = nowMs
         ApkInstaller.install(context, ready)
     }
 }

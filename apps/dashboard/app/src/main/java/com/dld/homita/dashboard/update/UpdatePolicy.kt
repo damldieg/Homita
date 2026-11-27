@@ -9,11 +9,16 @@ import java.security.MessageDigest
  * es de verdad más nueva, cuándo se puede instalar y si lo descargado coincide con lo publicado.
  */
 object UpdatePolicy {
-    /** Una comprobación al día; si falla, se reintenta en una hora (ver [retryAfterFailureMs]). */
+    /** Una comprobación al día; si falla, se reintenta en una hora (ver [lastCheckAfterFailure]). */
     const val CHECK_EVERY_MS = 24L * 60 * 60 * 1000
     const val RETRY_AFTER_FAILURE_MS = 60L * 60 * 1000
 
     fun shouldCheck(lastCheckMs: Long, nowMs: Long): Boolean = nowMs - lastCheckMs >= CHECK_EVERY_MS
+
+    /** Un intento de instalación fallido no se repite antes de este plazo (R1-01: sin bucle de escrituras al eMMC). */
+    const val INSTALL_RETRY_EVERY_MS = 6L * 60 * 60 * 1000
+
+    fun mayRetryInstall(lastAttemptMs: Long, nowMs: Long): Boolean = nowMs - lastAttemptMs >= INSTALL_RETRY_EVERY_MS
 
     /** Tras un fallo de comprobación, la próxima se pide antes: la marca se adelanta para que [shouldCheck] la deje pasar. */
     fun lastCheckAfterFailure(nowMs: Long): Long = nowMs - CHECK_EVERY_MS + RETRY_AFTER_FAILURE_MS

@@ -62,6 +62,14 @@ class UpdatePolicyTest {
     }
 
     @Test
+    fun unFalloDeInstalacionNoSeRepiteAntesDeSeisHoras() {
+        val now = 100 * day
+        assertFalse(UpdatePolicy.mayRetryInstall(lastAttemptMs = now - hour, nowMs = now))
+        assertTrue(UpdatePolicy.mayRetryInstall(lastAttemptMs = now - 6 * hour, nowMs = now))
+        assertTrue("nunca se intentó", UpdatePolicy.mayRetryInstall(lastAttemptMs = 0L, nowMs = now))
+    }
+
+    @Test
     fun lasCabecerasSonASCII() {
         assertEquals("al dia", UpdatePolicy.headerValue("al día"))
         assertEquals("disponible 7", UpdatePolicy.headerValue("disponible 7"))
