@@ -14,7 +14,7 @@ import retrofit2.http.Query
 import retrofit2.http.Url
 import java.util.concurrent.TimeUnit
 
-/** Homita (solo lectura: autenticación y listados del dashboard) y Open-Meteo. */
+/** Homita (autenticación, listados del dashboard y marcar tareas hechas) y Open-Meteo. */
 interface Api {
     @POST("user/auth")
     suspend fun auth(@Body request: AuthRequest): Response<UserResponse>

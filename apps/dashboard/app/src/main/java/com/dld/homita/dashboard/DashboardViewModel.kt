@@ -9,7 +9,9 @@ import androidx.lifecycle.viewModelScope
 import com.dld.homita.dashboard.data.Api
 import com.dld.homita.dashboard.data.CompleteTaskRequest
 import com.dld.homita.dashboard.data.Completion
+import com.dld.homita.dashboard.data.CompletionOutcome
 import com.dld.homita.dashboard.data.CompletionQueue
+import com.dld.homita.dashboard.data.completionOutcome
 import com.dld.homita.dashboard.data.PersonFilter
 import com.dld.homita.dashboard.data.Person
 import com.dld.homita.dashboard.data.Task
@@ -375,11 +377,14 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     /**
-     * Envía la cola en orden. Un 403 o 404 revierte el toque (se quita de la cola y se pide el contenido de nuevo) y
-     * avisa; un 401 cierra sesión; sin red se queda en la cola para la próxima vez.
+     * Envía la cola en orden (R1-01/R1-02). Éxito: quita el toque y refleja el estado en el contenido en memoria. Error
+     * permanente (403, 404, 500 «Not Found» de una tarea borrada u oculta...): quita el toque, avisa y pide el contenido
+     * de nuevo, para que la casilla vuelva a la verdad del servidor sin bloquear la cola. Un 401 cierra sesión; sin red,
+     * 408 o 429 se queda en la cola para la próxima vez.
      */
     private suspend fun flushCompletions() {
         flushLock.withLock {
+            var changed = false
             for (completion in completionQueue.all()) {
                 if (_state.value.token == null) return
                 val result = session.authorized { token ->
@@ -387,24 +392,35 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         api.completeTask(bearer(token), CompleteTaskRequest(completion.taskId, completion.completed, completion.requestId)).bodyOrThrow()
                     }
                 }
-                val error = result.exceptionOrNull()
-                when {
-                    error == null -> completionQueue.remove(completion.requestId)
-                    error is SessionExpired || error.isUnauthorized -> {
+                when (completionOutcome(result.exceptionOrNull())) {
+                    CompletionOutcome.Sent -> {
+                        completionQueue.remove(completion.requestId)
+                        _state.update { it.copy(content = it.content?.withTaskDone(completion.taskId, completion.completed)) }
+                    }
+                    CompletionOutcome.Discard -> {
+                        completionQueue.remove(completion.requestId)
+                        _state.update { it.copy(completionNotice = "No se pudo marcar la tarea: no tienes permiso o ya no existe.") }
+                    }
+                    CompletionOutcome.Unauthorized -> {
                         logout(expired = true)
                         return
                     }
-                    error is HttpError && (error.code == 403 || error.code == 404) -> {
-                        completionQueue.remove(completion.requestId)
-                        _state.update { it.copy(completionNotice = "No se pudo marcar la tarea: no tienes permiso o ya no existe.") }
-                        refreshContent()
-                    }
-                    else -> return
+                    CompletionOutcome.Retry -> return
                 }
+                changed = true
                 _state.update { it.copy(queued = completionQueue.all().associateBy { c -> c.taskId }) }
             }
+            // Al terminar un lote, el servidor manda: vuelve a pedir el contenido (sale de la lista lo completado y reaparece lo descompletado).
+            if (changed) refreshContent()
         }
     }
+
+    /** Marca la tarea en el contenido en memoria mientras llega el refresco del servidor. */
+    private fun Content.withTaskDone(taskId: Int, done: Boolean): Content = copy(
+        tasks = tasks.map { t ->
+            if (t.id != taskId) t else t.copy(completed_at = if (done) java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).toString() else null)
+        }
+    )
 
     fun dismissCompletionNotice() {
         _state.update { it.copy(completionNotice = null) }
@@ -479,13 +495,31 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     /** [expired]: la sesión caducó y no se pudo renovar; el login lo explica. */
+    /**
+     * Cierra la sesión. Un cierre explícito (o desvincular la pantalla) descarta los toques pendientes y en cola: eran de
+     * esta sesión y no deben enviarse con otra (R1-05). Un 401 (sesión caducada) conserva la cola para el próximo inicio.
+     */
     fun logout(expired: Boolean = false) {
         store.logout()
         contentRepository.clear()
         calendarRepository.clear()
         mealRepository.clear()
         configFetchedAt = 0L
-        _state.update { it.copy(token = null, sessionExpired = expired, pairing = PairingState.Idle) }
+        if (!expired) {
+            undoJobs.values.forEach { it.cancel() }
+            undoJobs.clear()
+            completionQueue.clear()
+        }
+        _state.update {
+            it.copy(
+                token = null,
+                sessionExpired = expired,
+                pairing = PairingState.Idle,
+                pending = if (expired) it.pending else emptyMap(),
+                queued = if (expired) it.queued else emptyMap(),
+                personFilter = null
+            )
+        }
     }
 
     fun searchLocation(query: String) {

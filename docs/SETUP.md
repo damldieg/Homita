@@ -80,7 +80,7 @@ Lo que no se toca: la densidad del sistema (la app se diseña en píxeles nativo
 1. **Wi-Fi:** el chip (Realtek RTL8189FS, driver `8189fs`) **no soporta WPA3**. Con un router en modo mixto WPA2/WPA3, Android 10 guarda la red como WPA3 (SAE) y el driver rechaza la asociación al instante ("Association request to the driver failed" en `logcat`). Para evitarlo, añade la red a mano (Añadir red → Seguridad **WPA/WPA2-Personal**) o pon el router en WPA2. Si ya está guardada como SAE, se corrige en `/data/misc/wifi/WifiConfigStore.xml` con el framework parado (`stop`): `ConfigKey` `"red"SAE` → `"red"WPA_PSK`, `AllowedKeyMgmt` `num="2">0001` → `num="1">02` y `RequirePMF` → `false`; después, `start`. La contraseña ya está en `PreSharedKey`.
 
    Hasta que haya red y NTP, el reloj del marco marca la fecha de fábrica y el dashboard muestra "Sincronizando hora…" (no se fía de ninguna hora anterior a su compilación).
-2. **Inicia sesión** con la cuenta de Homita. El dashboard solo lee: eventos, rutinas y tareas de los calendarios y listas marcados en la app (interruptor «Mostrar en el dashboard» de cada calendario y lista).
+2. **Inicia sesión** con la cuenta de Homita. El dashboard solo lee eventos, rutinas y tareas de los calendarios y listas marcados en la app, y puede marcar tareas como hechas (nada más: no crea, edita ni borra) (interruptor «Mostrar en el dashboard» de cada calendario y lista).
 3. **Ajustes del dashboard:**
    - ubicación del tiempo (búsqueda en Open-Meteo);
    - horario de pantalla para lunes–viernes y sábado–domingo;

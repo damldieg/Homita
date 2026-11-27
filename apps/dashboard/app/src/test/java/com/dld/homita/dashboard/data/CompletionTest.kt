@@ -58,4 +58,29 @@ class CompletionTest {
         assertEquals(listOf(1), filtered.tasks.map { it.id })
         assertEquals(content, PersonFilter.content(content, null))
     }
+
+    @Test
+    fun elResultadoDelEnvioDecideSiSeQuedaOSeDescarta() {
+        assertEquals(CompletionOutcome.Sent, completionOutcome(null))
+        assertEquals(CompletionOutcome.Unauthorized, completionOutcome(HttpError(401)))
+        assertEquals(CompletionOutcome.Unauthorized, completionOutcome(SessionExpired()))
+        // Sin red o transitorio: se queda en la cola
+        assertEquals(CompletionOutcome.Retry, completionOutcome(java.io.IOException("sin red")))
+        assertEquals(CompletionOutcome.Retry, completionOutcome(HttpError(408)))
+        assertEquals(CompletionOutcome.Retry, completionOutcome(HttpError(429)))
+        // Permanentes: el 500 «Not Found» de complete_task, 403, 404 y 400 no deben bloquear la cola (R1-01)
+        assertEquals(CompletionOutcome.Discard, completionOutcome(HttpError(500)))
+        assertEquals(CompletionOutcome.Discard, completionOutcome(HttpError(403)))
+        assertEquals(CompletionOutcome.Discard, completionOutcome(HttpError(404)))
+        assertEquals(CompletionOutcome.Discard, completionOutcome(HttpError(400)))
+    }
+
+    @Test
+    fun clearVaciaLaCola() {
+        val file = folder.newFile("completions.json")
+        val queue = CompletionQueue(file)
+        queue.add(completion(1, true, "k1"))
+        queue.clear()
+        assertTrue(CompletionQueue(file).all().isEmpty())
+    }
 }

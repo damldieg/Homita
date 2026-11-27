@@ -230,7 +230,7 @@ La ficha completa, con todas las particiones y el software de fábrica, está en
 
 ### Fase 3: decide qué app vas a instalar
 
-La app de este repositorio (`apps/dashboard/`) es un dashboard nativo en Kotlin y Jetpack Compose, que lee el hogar y solo marca tareas hechas, que habla con la API de Homita (la Edge Function `https://<ref>.supabase.co/functions/v1/api` de Supabase, el único backend desde el corte del 2026-11-08) y con Open-Meteo. Tienes tres caminos:
+La app de este repositorio (`apps/dashboard/`) es un dashboard nativo en Kotlin y Jetpack Compose, que lee el hogar y solo marca tareas como hechas. Habla con la API de Homita (la Edge Function `https://<ref>.supabase.co/functions/v1/api` de Supabase, el único backend desde el corte del 2026-11-08) y con Open-Meteo. Tienes tres caminos:
 
 1. **Usarla con Homita** (lo más rápido): despliega la [Edge Function de Supabase](supabase/), crea tu cuenta con [Homita](apps/control/) y marca en la APP qué calendarios y listas se ven (interruptor «Mostrar en el dashboard»).
 2. **Usarla con otra fuente de datos:** la app solo necesita esto del backend, así que basta con reimplementarlo (o cambiar `data/Api.kt` y los repositorios de `data/repository/`):

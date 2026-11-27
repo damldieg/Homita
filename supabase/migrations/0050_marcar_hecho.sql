@@ -23,6 +23,8 @@ language sql stable security definer set search_path = public as $$
         where d.app_user_id = p_user and d.revoked_at is null and t.task_list_id = p_list
     )
 $$;
+-- La usa complete_task (security definer), así que no necesita grant. Sin esto, PUBLIC y anon la ejecutan (R1-03).
+revoke all on function fn_is_display_for_list(bigint, bigint) from public, anon, authenticated;
 
 -- Backfill: las pantallas ya vinculadas (0049) ganan task.complete.
 insert into membership_permission (home_membership_id, permission_code)
