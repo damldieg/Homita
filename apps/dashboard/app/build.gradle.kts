@@ -110,6 +110,7 @@ dependencies {
     implementation("com.airbnb.android:lottie:6.7.1")
 
     implementation("androidx.work:work-runtime-ktx:2.10.0")
+    implementation("com.google.zxing:core:3.5.3")
     implementation("com.squareup.retrofit2:retrofit:3.0.0")
     implementation("com.squareup.retrofit2:converter-gson:3.0.0")
 

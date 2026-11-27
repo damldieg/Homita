@@ -26,6 +26,9 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Escanear el QR de vinculación de una pantalla (Hogar → Pantallas → Vincular pantalla). -->
+	<key>NSCameraUsageDescription</key>
+	<string>Homita usa la cámara para leer el QR que muestra la pantalla y vincularla al hogar.</string>
 	<!-- Dictado de Kito: se piden la primera vez que se pulsa el micro del chat. -->
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Homita usa el micrófono para que puedas dictarle tus mensajes a Kito.</string>
