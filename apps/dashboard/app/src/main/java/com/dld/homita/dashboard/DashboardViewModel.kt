@@ -283,12 +283,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             result.onSuccess { offer ->
                 updater.recordCheck(offer, now)
                 // Solo se descarga si la pantalla puede instalar (horario); sin horario no se baja nada (R1-03).
-                if (UpdatePolicy.offerIsNewer(offer, BuildConfig.VERSION_CODE) && _state.value.schedule.enabled) {
+                // Se mira el horario persistido (store), no el del estado: el estado puede no estar cargado aún en el arranque.
+                if (UpdatePolicy.offerIsNewer(offer, BuildConfig.VERSION_CODE) && store.schedule.enabled) {
                     startDownload(offer)
                 }
             }.onFailure { updater.recordCheckFailure(now, Diagnostics.describe(it)) }
         }
-        val schedule = _state.value.schedule
+        val schedule = store.schedule
         val screenOn = !schedule.enabled || ScreenSchedule.isOn(schedule, LocalDateTime.now())
         val mayInstall = UpdatePolicy.mayInstall(clockValid = true, scheduleEnabled = schedule.enabled, screenOn = screenOn)
         // La instalación va protegida: un fallo se registra y no tumba el bucle (R1-01).
