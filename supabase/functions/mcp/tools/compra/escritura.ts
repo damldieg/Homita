@@ -11,6 +11,8 @@ import type { EscrituraCtx } from "../comun.ts";
 
 const MAX_ARTICULOS = 20;
 const MAX_ITEMS = 50;
+/** Claves distintas que se prueban para un mismo artículo si el anterior ya no existe o no está pendiente. */
+const MAX_INTENTOS = 5;
 const UNIDADES = ["g", "kg", "ml", "l", "ud", "cda", "cdta", "pizca"] as const;
 const ESTADOS = ["pending", "checked", "skipped"] as const;
 
@@ -19,7 +21,7 @@ const diaLocal = (ctx: EscrituraCtx): string => ctx.now.toLocaleDateString("sv-S
 
 const texto = (r: { status: number; error?: string }): string => textoDeEscritura(r.status, r.error);
 
-/** `apuntar_compra`: hasta 20 artículos; mismo artículo el mismo día local = un solo apunte. */
+/** `apuntar_compra`: hasta 20 artículos; mismo artículo (mismo contenido) el mismo día local = un solo apunte mientras siga pendiente; si se borró o se marcó, se apunta de nuevo. */
 export const apuntarCompra = async (ctx: EscrituraCtx, a: Obj): Promise<Obj> => {
     const lista = arr(a.articulos).map(obj);
     if (lista.length === 0) return { ok: false, error: "Pasa al menos un artículo." };
@@ -53,10 +55,20 @@ export const apuntarCompra = async (ctx: EscrituraCtx, a: Obj): Promise<Obj> => 
             ...(art.cantidad !== undefined ? { quantity: art.cantidad } : {}),
             ...(art.unidad !== undefined ? { unit: art.unidad } : {}),
         };
-        cuerpo.client_request_id = await idCompra(ctx.uid, ctx.homeId, dia, {
+        // La clave sale del contenido (etiqueta normalizada, alimento, cantidad y unidad) y del día. Un reintento
+        // idéntico devuelve el mismo artículo; pero si ese artículo ya no existe (404) o ya no está pendiente (se marcó
+        // comprado o «ya lo tengo»), devolverlo sería decirle al cliente que quedó apuntado cuando no es así: se
+        // vuelve a crear con la clave siguiente (`intento`), que también es determinista.
+        const contenido = {
             e: etiqueta === undefined ? null : norm(etiqueta), a: alimentoId ?? null, c: art.cantidad ?? null, u: art.unidad ?? null,
-        });
-        const r = await ctx.escribir("POST", "shopping/item/create", cuerpo);
+        };
+        let r: { ok: boolean; status: number; data: unknown; error?: string } = { ok: false, status: 500, data: null };
+        for (let intento = 0; intento < MAX_INTENTOS; intento++) {
+            cuerpo.client_request_id = await idCompra(ctx.uid, ctx.homeId, dia, intento === 0 ? contenido : { ...contenido, intento });
+            r = await ctx.escribir("POST", "shopping/item/create", cuerpo);
+            const viejo = r.ok && obj(r.data).state !== undefined && obj(r.data).state !== "pending";
+            if (!(viejo || r.status === 404 || (r.status === 500 && r.error === "Not Found"))) break;
+        }
         if (r.ok) {
             const d = obj(r.data);
             apuntados.push({ item_id: d.id ?? null, etiqueta: d.label ?? etiqueta ?? null });
@@ -92,7 +104,7 @@ export const registrarCompraEscritura = (server: McpServer, env: Entorno): void 
     server.registerTool("apuntar_compra", {
         title: "Apuntar en la compra",
         description:
-            `Apunta artículos sueltos en la Compra del hogar (hasta ${MAX_ARTICULOS}). Úsala solo si la persona lo pide («apunta leche y huevos»): los ingredientes del menú entran solos al aceptarlo. Cada artículo lleva etiqueta o alimento_id. Reintentar es seguro dentro del mismo día: el mismo artículo apuntado dos veces el mismo día no se duplica. Si algunos fallan, devuelve los apuntados y los fallos. ${AVISO_DATOS}`,
+            `Apunta artículos sueltos en la Compra del hogar (hasta ${MAX_ARTICULOS}). Úsala solo si la persona lo pide («apunta leche y huevos»): los ingredientes del menú entran solos al aceptarlo. Cada artículo lleva etiqueta o alimento_id. Reintentar es seguro dentro del mismo día: el mismo artículo apuntado dos veces el mismo día no se duplica mientras siga pendiente; si ya se borró o se marcó como comprado, se vuelve a apuntar. Si algunos fallan, devuelve los apuntados y los fallos. ${AVISO_DATOS}`,
         inputSchema: z.object({
             hogar: campoHogar,
             timezone: campoZona,

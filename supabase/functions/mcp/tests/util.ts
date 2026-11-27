@@ -90,7 +90,7 @@ export const crearMundo = (
             return Promise.resolve({ ok: true, status: 200, body, texto: JSON.stringify(body), json: true });
         },
         crearEscritor: (token, uid, tz) => (metodo, ruta, cuerpo = {}) => {
-            escrituras.push({ metodo, ruta, cuerpo, token, uid, tz, hogar: currentHome() });
+            escrituras.push({ metodo, ruta, cuerpo: { ...cuerpo }, token, uid, tz, hogar: currentHome() });
             orden.push(`${metodo} ${ruta}`);
             const clave = `${metodo} ${ruta}`;
             const n = (contadores.get(clave) ?? 0) + 1;

@@ -81,3 +81,80 @@ Deno.test("marcar_comprado: éxito parcial, todo falla -> error; estado inválid
         assertEquals(x.escrituras, []);
     }
 });
+
+// Servidor falso de artículos: replay por client_request_id (devuelve el artículo tal como está, 404 si se borró).
+const servidorCompra = () => {
+    const porClave = new Map<string, number>();
+    const items = new Map<number, { id: number; label: unknown; state: string }>();
+    let sig = 1;
+    return {
+        items,
+        porClave,
+        crea: ((c: Record<string, unknown>) => {
+            const k = String(c.client_request_id);
+            if (porClave.has(k)) {
+                const it = items.get(porClave.get(k)!);
+                return it ? { ok: true, status: 201, data: { ...it } } : { ok: false, status: 404, data: null, error: "Not Found" };
+            }
+            const it = { id: sig++, label: c.label, state: "pending" };
+            items.set(it.id, it);
+            porClave.set(k, it.id);
+            return { ok: true, status: 201, data: { ...it } };
+        }) as EscrituraFalsa,
+    };
+};
+const ids = (d: unknown) => ((d as { apuntados: { item_id: number }[] }).apuntados).map((a) => a.item_id);
+
+Deno.test("reintento idéntico el mismo día: mismo artículo, sin duplicar", async () => {
+    const srv = servidorCompra();
+    const m = crearMundo({}, {}, {}, { "POST shopping/item/create": srv.crea });
+    const a = await llamarTool(m, "apuntar_compra", { articulos: [{ etiqueta: "Leche" }] });
+    const b = await llamarTool(m, "apuntar_compra", { articulos: [{ etiqueta: "leche" }] });
+    assertEquals(ids(a.datos), ids(b.datos));
+    assertEquals(srv.items.size, 1);
+    assertEquals(m.escrituras.length, 2);
+});
+
+Deno.test("reintento tras borrar el artículo (404 del replay): se recrea con otra clave y el cliente recibe el nuevo", async () => {
+    const srv = servidorCompra();
+    const m = crearMundo({}, {}, {}, { "POST shopping/item/create": srv.crea });
+    const a = await llamarTool(m, "apuntar_compra", { articulos: [{ etiqueta: "Leche" }] });
+    srv.items.delete(ids(a.datos)[0]);
+    const b = await llamarTool(m, "apuntar_compra", { articulos: [{ etiqueta: "Leche" }] });
+    assertEquals(b.resultado?.isError, undefined);
+    assertNotEquals(ids(b.datos)[0], ids(a.datos)[0]);
+    assertEquals(srv.items.get(ids(b.datos)[0])?.state, "pending");
+    assertEquals(m.escrituras.length, 3, "alta, replay 404 y alta con la clave siguiente");
+    assertNotEquals(m.escrituras[2].cuerpo.client_request_id, m.escrituras[1].cuerpo.client_request_id);
+    // un tercer intento idéntico vuelve a ser idempotente sobre el artículo recreado
+    const c = await llamarTool(m, "apuntar_compra", { articulos: [{ etiqueta: "Leche" }] });
+    assertEquals(ids(c.datos), ids(b.datos));
+});
+
+Deno.test("reintento cuando el artículo ya está comprado o «ya lo tengo»: se vuelve a apuntar como pendiente", async () => {
+    const srv = servidorCompra();
+    const m = crearMundo({}, {}, {}, { "POST shopping/item/create": srv.crea });
+    const a = await llamarTool(m, "apuntar_compra", { articulos: [{ etiqueta: "Pan" }] });
+    srv.items.get(ids(a.datos)[0])!.state = "checked";
+    const b = await llamarTool(m, "apuntar_compra", { articulos: [{ etiqueta: "Pan" }] });
+    assertNotEquals(ids(b.datos)[0], ids(a.datos)[0]);
+    assertEquals(srv.items.get(ids(b.datos)[0])?.state, "pending");
+    assertEquals(srv.items.size, 2);
+});
+
+Deno.test("mismo día con etiqueta distinta (o alimento distinto): artículo nuevo", async () => {
+    const srv = servidorCompra();
+    const m = crearMundo({}, {}, {}, { "POST shopping/item/create": srv.crea });
+    const a = await llamarTool(m, "apuntar_compra", { articulos: [{ etiqueta: "Leche" }] });
+    const b = await llamarTool(m, "apuntar_compra", { articulos: [{ etiqueta: "Leche entera" }] });
+    const c = await llamarTool(m, "apuntar_compra", { articulos: [{ etiqueta: "Leche", alimento_id: 5 }] });
+    assertEquals(new Set([...ids(a.datos), ...ids(b.datos), ...ids(c.datos)]).size, 3);
+    assertEquals(srv.items.size, 3);
+});
+
+Deno.test("si el servidor sigue dando 404 en todos los intentos: fallo del artículo, sin bucle infinito", async () => {
+    const m = crearMundo({}, {}, {}, { "POST shopping/item/create": { ok: false, status: 404, data: null, error: "Not Found" } });
+    const { resultado } = await llamarTool(m, "apuntar_compra", { articulos: [{ etiqueta: "Leche" }] });
+    assertEquals(resultado?.isError, true);
+    assertEquals(m.escrituras.length, 5);
+});
