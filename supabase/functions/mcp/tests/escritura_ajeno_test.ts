@@ -10,6 +10,7 @@ export const ARGS_MINIMOS: Record<string, Record<string, unknown>> = {
     apuntar_compra: { articulos: [{ etiqueta: "x" }] },
     marcar_comprado: { item_ids: [1], estado: "checked" },
     guardar_borrador: { rango: { desde: { fecha: "2030-01-07", franja: "lunch" }, hasta: { fecha: "2030-01-07", franja: "dinner" } }, casillas: [{ fecha: "2030-01-07", franja: "lunch", tipo: "texto", titulo: "x" }] },
+    cambiar_casillas: { plan_id: 1, expected_revision: 0, cambios: [{ fecha: "2030-01-07", franja: "lunch", tipo: "texto", titulo: "x" }] },
     apuntar_preferencia: { persona_id: 1, campo: "picante", valor: "1", confirmado_por_usuario: true },
 };
 
