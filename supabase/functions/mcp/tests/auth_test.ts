@@ -1,7 +1,8 @@
 // Verificador solo-OAuth (R4): sin token, sesión sin client_id, aud incorrecto, sub distinto, token válido.
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { verificarToken } from "../auth.ts";
+import { AuthNoDisponible, verificarToken } from "../auth.ts";
 import { createHandler } from "../handler.ts";
+import { userInfoReal } from "../userinfo.ts";
 import { CLIENTE, crearMundo, jwt, peticion, rpcDe, TOKEN, UID, URL_MCP } from "./util.ts";
 
 const LIST = { jsonrpc: "2.0", id: 1, method: "tools/list" };
@@ -51,12 +52,40 @@ Deno.test("sub distinto del que devuelve /auth/v1/user -> 401", async () => {
     await res.body?.cancel();
 });
 
-Deno.test("Auth rechaza el token (firma, caducidad o sesión) o falla -> 401", async () => {
-    for (const userInfo of [() => Promise.resolve(null), () => Promise.reject(new Error("red"))]) {
-        const mundo = crearMundo({}, { userInfo });
+Deno.test("Auth rechaza el token (firma, caducidad o sesión) -> 401", async () => {
+    const mundo = crearMundo({}, { userInfo: () => Promise.resolve(null) });
+    const res = await createHandler(mundo.deps)(peticion(LIST));
+    assertEquals(res.status, 401);
+    await res.body?.cancel();
+});
+
+Deno.test("Auth no responde (5xx, 429 o red) -> 503 con Retry-After, sin WWW-Authenticate ni invalid_token", async () => {
+    for (const fallo of [new AuthNoDisponible("auth 500"), new AuthNoDisponible("auth 429"), new Error("red")]) {
+        const mundo = crearMundo({}, { userInfo: () => Promise.reject(fallo) });
         const res = await createHandler(mundo.deps)(peticion(LIST));
-        assertEquals(res.status, 401);
-        await res.body?.cancel();
+        assertEquals(res.status, 503);
+        assertEquals(res.headers.get("Retry-After"), "5");
+        assertEquals(res.headers.get("WWW-Authenticate"), null);
+        assertEquals((await res.json()).error, "temporarily_unavailable");
+    }
+});
+
+Deno.test("userInfo de index.ts: 401/403 -> inválido; 5xx y 429 -> no disponible", async () => {
+    const original = globalThis.fetch;
+    try {
+        for (const [status, esperado] of [[401, "null"], [403, "null"], [500, "no"], [503, "no"], [429, "no"]] as const) {
+            globalThis.fetch = (() => Promise.resolve(new Response("{}", { status }))) as typeof fetch;
+            
+            let r: string;
+            try {
+                r = (await userInfoReal("http://x.test", "k")("t")) === null ? "null" : "dato";
+            } catch (e) {
+                r = e instanceof AuthNoDisponible ? "no" : "otro";
+            }
+            assertEquals(r, esperado, String(status));
+        }
+    } finally {
+        globalThis.fetch = original;
     }
 });
 

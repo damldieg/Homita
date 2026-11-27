@@ -5,6 +5,7 @@
 // del usuario.
 import { createHandler } from "./handler.ts";
 import { AUDIENCIA_POR_DEFECTO } from "./auth.ts";
+import { userInfoReal } from "./userinfo.ts";
 import { leerRuta } from "../_shared/homita/lector.ts";
 import { appUserRow } from "../api/_shared/supabase.ts";
 import { checkHomeMember, runWithHome } from "../api/_shared/home.ts";
@@ -13,15 +14,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 Deno.serve(createHandler({
-    // Supabase Auth valida firma, caducidad y sesión del token y devuelve el usuario.
-    userInfo: async (token) => {
-        const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-            headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) return null;
-        const who = await res.json() as { id?: unknown };
-        return typeof who.id === "string" ? { id: who.id } : null;
-    },
+    // Supabase Auth valida firma, caducidad y sesión del token y devuelve el usuario (503 si Auth no responde).
+    userInfo: userInfoReal(SUPABASE_URL, ANON_KEY),
     audience: Deno.env.get("MCP_TOKEN_AUDIENCE") || AUDIENCIA_POR_DEFECTO,
     publicUrl: Deno.env.get("MCP_PUBLIC_URL") || undefined,
     authUrl: Deno.env.get("MCP_AUTH_URL") || undefined,

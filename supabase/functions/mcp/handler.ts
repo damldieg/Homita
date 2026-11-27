@@ -2,7 +2,7 @@
 // un McpServer nuevo por petición con `createMcpHandler`). Sin Deno.serve ni env: todo entra por `HandlerDeps`
 // (los tests inyectan falsos; el cableado real está en index.ts).
 import { createMcpHandler } from "./deps.ts";
-import { bearerDe, verificarToken } from "./auth.ts";
+import { AuthNoDisponible, bearerDe, verificarToken } from "./auth.ts";
 import type { UserInfo } from "./auth.ts";
 import type { Entorno } from "./entorno.ts";
 import { crearServidor } from "./tools/registro.ts";
@@ -83,7 +83,15 @@ export const createHandler = (deps: HandlerDeps) => async (req: Request): Promis
 
     const token = bearerDe(req);
     if (token === null) return desafio();
-    const quien = await verificarToken(token, { userInfo: deps.userInfo, audience: deps.audience });
+    let quien;
+    try {
+        quien = await verificarToken(token, { userInfo: deps.userInfo, audience: deps.audience });
+    } catch (e) {
+        if (!(e instanceof AuthNoDisponible)) throw e;
+        // Auth caído o limitado: no es un token inválido; el cliente debe reintentar, no reconectar.
+        console.error("mcp: Supabase Auth no disponible");
+        return json({ error: "temporarily_unavailable" }, 503, { "Retry-After": "5" });
+    }
     if (quien === null) return desafio("invalid_token");
 
     const env: Entorno = {
