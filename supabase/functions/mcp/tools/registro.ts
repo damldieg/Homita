@@ -1,4 +1,4 @@
-// Registro de las herramientas de lectura del MCP (fase 1). Un McpServer nuevo por petición, ya con el entorno del
+// Registro de las herramientas del MCP (lectura y escritura). Un McpServer nuevo por petición, ya con el entorno del
 // usuario autenticado: ninguna herramienta ve el token de otro.
 import { McpServer } from "../deps.ts";
 import type { Entorno } from "../entorno.ts";
@@ -7,10 +7,16 @@ import { registrarMenus } from "./menus/menus.ts";
 import { registrarVerCompra } from "./compra/ver_compra.ts";
 import { registrarOrganizar } from "./organizar/organizar.ts";
 
-export const NOMBRES_HERRAMIENTAS = [
+/** Herramientas de lectura (fase 1): todas `readOnlyHint: true`. */
+export const NOMBRES_LECTURA = [
     "ver_hogares", "leer_perfil", "leer_semana", "buscar_recetas", "buscar_alimento", "ver_compra",
     "ver_listas", "ver_tareas", "ver_eventos", "ver_rutinas", "ver_calendarios", "ver_personas",
 ] as const;
+
+/** Herramientas de escritura (fase 2): menú, recetas, alimentos, compra y preferencias. */
+export const NOMBRES_ESCRITURA: readonly string[] = [];
+
+export const NOMBRES_HERRAMIENTAS: readonly string[] = [...NOMBRES_LECTURA, ...NOMBRES_ESCRITURA];
 
 export const INSTRUCCIONES =
     "Homita es la app con la que una familia organiza su hogar: calendarios, eventos, rutinas, listas de tareas, personas, menús y compra. " +
