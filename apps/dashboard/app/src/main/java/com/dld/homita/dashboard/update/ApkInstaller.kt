@@ -41,6 +41,14 @@ class UpdateResultReceiver : BroadcastReceiver() {
             PackageInstaller.STATUS_SUCCESS -> {
                 store.updateResult = "instalada ${store.updateReadyCode ?: "?"}"
                 store.updateReadyCode = null
+                // Éxito: el freno de reintentos de la versión anterior no debe bloquear la siguiente.
+                store.updateInstallAttemptAt = 0L
+                // Tras reemplazar el paquete el sistema solo arranca el proceso del receptor: sin la actividad, el marco
+                // se queda sin interfaz ni bucle. Se relanza la app (verificado en el emulador).
+                context.packageManager.getLaunchIntentForPackage(context.packageName)?.let {
+                    it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(it)
+                }
             }
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 // Sin Device Owner el sistema pediría confirmación: no se puede en un marco sin pantalla de usuario.

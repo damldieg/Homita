@@ -59,6 +59,8 @@ class DisplayUpdater(
         ready.delete()
         if (!part.renameTo(ready)) throw IOException("No se pudo dejar listo el APK")
         store.updateReadyCode = code
+        // Una versión nueva empieza sin intentos previos: el freno solo aplica a reintentos de la misma (R1-01).
+        store.updateInstallAttemptAt = 0L
         store.updateResult = "descargada $code"
         return ready
     }
