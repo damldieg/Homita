@@ -89,6 +89,8 @@ Acceso técnico (cinco toques en el logo de la pantalla de vinculación). Sin In
 
 `apps/dashboard/` es la app que va instalada en el marco: Android, Kotlin y Jetpack Compose (minSdk 29), que lee el hogar y solo puede escribir una cosa: marcar tareas hechas (y deshacerlo durante 5 s). Diseñada en los píxeles nativos del panel (1920×1200). Muestra lo que hay en la API y en Open-Meteo. Compilar y probar, desde su carpeta:
 
+La app se actualiza sola desde su canal (`estable` o `pruebas`) cuando la pantalla está apagada por horario; cómo publicar una versión y volver atrás, en [`docs/SETUP.md`](docs/SETUP.md#actualizar-las-pantallas-sin-adb-publicar-una-versión).
+
 ```sh
 cd apps/dashboard
 ./gradlew :app:assembleDebug          # build (debug)

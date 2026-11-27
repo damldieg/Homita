@@ -166,6 +166,109 @@ export const handleDisplayRevoke = async (req: Request, token: string): Promise<
     return json({ id: displayId, revoked: true });
 };
 
+// --- Actualización remota (0051, dashboard-actualizacion-remota) ---
+
+/** Lo que la app reporta de sí misma en cabeceras (sin ellas no se escribe nada). */
+type DisplayReport = { code: number | null; name: string | null; result: string | null };
+
+export const displayReportOf = (req: Request): DisplayReport => {
+    const code = req.headers.get("X-Display-App-Version");
+    const name = req.headers.get("X-Display-App-Name");
+    const result = req.headers.get("X-Display-Update-Result");
+    return {
+        code: code !== null && /^\d{1,9}$/.test(code) ? Number(code) : null,
+        name: name !== null && name.trim() !== "" ? name.trim().slice(0, 40) : null,
+        result: result !== null && result.trim() !== "" ? result.trim().slice(0, 200) : null,
+    };
+};
+
+// Manifiesto por canal en el bucket privado `display-releases` (lo publica scripts/dashboard/publish.sh).
+export type DisplayRelease = { version_code: number; version_name: string; sha256: string; size: number; file: string };
+
+/** Manifiesto válido: versión entera, hash SHA-256 en hex y ruta del APK dentro del bucket. */
+export const isDisplayRelease = (value: unknown): value is DisplayRelease => {
+    if (typeof value !== "object" || value === null) return false;
+    const m = value as Record<string, unknown>;
+    return Number.isInteger(m.version_code) && (m.version_code as number) > 0 &&
+        typeof m.version_name === "string" && m.version_name.length > 0 && m.version_name.length <= 40 &&
+        typeof m.sha256 === "string" && /^[0-9a-f]{64}$/.test(m.sha256) &&
+        Number.isInteger(m.size) && (m.size as number) > 0 &&
+        typeof m.file === "string" && /^[A-Za-z0-9._/-]+\.apk$/.test(m.file) && !m.file.includes("..");
+};
+
+/** Solo se ofrece una versión estrictamente mayor que la instalada (PackageInstaller no baja versiones). */
+export const releaseNewerThan = (release: DisplayRelease, installedCode: number): boolean =>
+    release.version_code > installedCode;
+
+const CHANNELS = ["estable", "pruebas"] as const;
+
+const storageHeaders = (): Record<string, string> => ({
+    apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""}`,
+});
+
+const storageUrl = (): string => `${Deno.env.get("SUPABASE_URL") ?? ""}/storage/v1`;
+
+// Lee el manifiesto del canal. Null si no hay publicación o si no es válido.
+const readRelease = async (channel: string): Promise<DisplayRelease | null> => {
+    const res = await fetch(`${storageUrl()}/object/display-releases/${channel}.json`, { headers: storageHeaders() });
+    if (!res.ok) return null;
+    const body = await res.json().catch(() => null);
+    return isDisplayRelease(body) ? body : null;
+};
+
+// URL firmada de vida corta para el APK (la app la descarga en segundo plano).
+const signedApkUrl = async (file: string): Promise<string | null> => {
+    const res = await fetch(`${storageUrl()}/object/sign/display-releases/${file}`, {
+        method: "POST",
+        headers: { ...storageHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ expiresIn: 900 }),
+    });
+    if (!res.ok) return null;
+    const body = await res.json().catch(() => null) as { signedURL?: string } | null;
+    // La URL que ve la pantalla: SUPABASE_PUBLIC_URL si está (demo local: el emulador llega por 10.0.2.2, no por kong).
+    // En producción no hace falta: SUPABASE_URL ya es la pública.
+    const publicBase = Deno.env.get("SUPABASE_PUBLIC_URL") ?? Deno.env.get("SUPABASE_URL") ?? "";
+    return body?.signedURL ? `${publicBase.replace(/\/$/, "")}/storage/v1${body.signedURL}` : null;
+};
+
+// GET /display/update (sesión de la pantalla, sin cabecera de hogar): canal, y la versión nueva si la hay.
+export const handleDisplayReleaseCheck = async (req: Request, token: string): Promise<Response> => {
+    const report = displayReportOf(req);
+    // Primero: el canal y la marca de comprobación (la RPC devuelve el canal de esta pantalla).
+    const rep = await rpc("fn_display_report", { p_version_code: report.code, p_version_name: report.name, p_result: report.result, p_checked: true }, token);
+    if (!rep.ok) return rpcPassHome(rep);
+    const { channel } = await rep.json() as { channel: string };
+    if (!(CHANNELS as readonly string[]).includes(channel)) return error("Invalid channel", 500);
+
+    const release = await readRelease(channel);
+    // Sin versión instalada reportada no se ofrece nada: la app siempre la manda.
+    if (release === null || report.code === null || !releaseNewerThan(release, report.code)) {
+        return json({ channel, update: false });
+    }
+    const url = await signedApkUrl(release.file);
+    if (url === null) return error("Internal error", 500);
+    return json({ channel, update: true, version_code: release.version_code, version_name: release.version_name, sha256: release.sha256, size: release.size, url });
+};
+
+// PATCH /home/display/channel {id, channel} (con X-Home-Id): cambia el canal de una pantalla del hogar.
+export const handleDisplaySetChannel = async (req: Request, token: string): Promise<Response> => {
+    const input = await contractInput(req);
+    const displayId = inputInt(input, "id");
+    if (displayId === null || displayId <= 0) return error("Display ID is required", 400);
+    const channel = inputString(input, "channel");
+    if (channel === null || !(CHANNELS as readonly string[]).includes(channel)) return error("Invalid channel", 400);
+    const homeId = currentHome();
+    if (homeId === null) return errHomeIdRequired();
+    return rpcPassHome(await rpc("fn_display_set_channel", { p_home_id: Number(homeId), p_display_id: displayId, p_channel: channel }, token));
+};
+
 // GET /display/config (sesión de la pantalla, sin cabecera de hogar): su configuración y selección.
-export const handleDisplayConfig = async (_req: Request, token: string): Promise<Response> =>
-    rpcPassHome(await rpc("fn_display_config", {}, token));
+// Si la petición trae la versión o el resultado de la última actualización, se guardan (sin comprobar nada más).
+export const handleDisplayConfig = async (req: Request, token: string): Promise<Response> => {
+    const report = displayReportOf(req);
+    if (report.code !== null || report.name !== null || report.result !== null) {
+        await rpc("fn_display_report", { p_version_code: report.code, p_version_name: report.name, p_result: report.result, p_checked: false }, token);
+    }
+    return rpcPassHome(await rpc("fn_display_config", {}, token));
+};

@@ -107,7 +107,12 @@ fun SettingsScreen(state: UiState, actions: DashboardActions, callbacks: Setting
                 Panel(Modifier.fillMaxWidth().weight(1f)) {
                     BrightnessSection(state.brightness, callbacks.onBrightness)
                     Section("Conexión") { WifiCard() }
-                    Section("Diagnóstico") { DiagnosticsSection(state.diagnostics) }
+                    Section("Diagnóstico") {
+                        if (state.updateInfo.isNotEmpty()) {
+                            Text(state.updateInfo, style = Type.Small.copy(color = Palette.InkSoft), modifier = Modifier.padding(bottom = 8.dp))
+                        }
+                        DiagnosticsSection(state.diagnostics)
+                    }
                 }
                 Panel(Modifier.fillMaxWidth()) {
                     Column(verticalArrangement = Arrangement.spacedBy(ButtonGap)) {

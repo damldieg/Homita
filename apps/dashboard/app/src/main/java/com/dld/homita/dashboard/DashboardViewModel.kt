@@ -16,6 +16,10 @@ import com.dld.homita.dashboard.data.PersonFilter
 import com.dld.homita.dashboard.data.Person
 import com.dld.homita.dashboard.data.Task
 import com.dld.homita.dashboard.data.Diagnostics
+import com.dld.homita.dashboard.data.Freshness
+import com.dld.homita.dashboard.update.DisplayUpdater
+import com.dld.homita.dashboard.update.UpdatePolicy
+import com.dld.homita.dashboard.BuildConfig
 import com.dld.homita.dashboard.data.isDone
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.sync.Mutex
@@ -52,11 +56,13 @@ import com.dld.homita.dashboard.data.repository.ContentRepository
 import com.dld.homita.dashboard.data.repository.MealRepository
 import com.dld.homita.dashboard.data.repository.WeatherRepository
 import com.dld.homita.dashboard.power.ScreenSchedule
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.io.File
 import java.time.LocalDateTime
@@ -84,6 +90,8 @@ data class UiState(
     val technical: Boolean = false,
     /** Último resultado de cada dato remoto, para Ajustes → Diagnóstico (N6). */
     val diagnostics: Map<String, Diagnostics.Entry> = emptyMap(),
+    /** Versión, canal y última actualización (dashboard-actualizacion-remota), para Ajustes → Diagnóstico. */
+    val updateInfo: String = "",
     /** false si el último intento de sincronizar falló: se muestra lo que hay en caché. */
     val online: Boolean = true,
     /** Hay una red con salida a Internet (sin ella, el login muestra la espera y "Ir a Ajustes"). */
@@ -144,6 +152,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val undoJobs = mutableMapOf<Int, Job>()
     private val displayApi = DisplayApi.client
     private var configFetchedAt = 0L
+
+    /** Actualización remota (dashboard-actualizacion-remota): comprobación diaria, descarga verificada, instalación de noche. */
+    private val updater = DisplayUpdater(store, File(application.filesDir, "update"), installedCode = { BuildConfig.VERSION_CODE })
     private val logoTaps = ArrayDeque<Long>()
     private val pairing = Pairing(object : PairingApi {
         override suspend fun linkStart(): Result<DisplayLinkStart> = runCatching { displayApi.linkStart().bodyOrThrow() }
@@ -214,6 +225,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 if (mealRepository.isStale(_state.value.now.toLocalDate())) refreshMeals()
                 // Pantalla del hogar: su configuración se relee cada 5 minutos (lo que decide el móvil)
                 if (store.displayId != null && System.currentTimeMillis() - configFetchedAt >= CONFIG_MAX_AGE_MS) refreshDisplayConfig()
+                updateTick()
             }
             delay(60_000 - System.currentTimeMillis() % 60_000 + 50)
         }
@@ -253,10 +265,50 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         if (result.exceptionOrNull() is SessionExpired || result.exceptionOrNull()?.isUnauthorized == true) logout(expired = true)
     }
 
+    /**
+     * Actualización remota: una comprobación al día (o una hora después de un fallo); si hay versión nueva, se descarga y
+     * verifica en segundo plano, y se instala solo con la pantalla apagada por horario y el reloj válido.
+     */
+    private suspend fun updateTick() {
+        if (store.displayId == null || _state.value.token == null || !ScreenSchedule.clockValid()) return
+        val now = System.currentTimeMillis()
+        if (UpdatePolicy.shouldCheck(store.updateLastCheckAt, now)) {
+            val result = session.authorized { token ->
+                runCatching {
+                    displayApi.update(bearer(token), BuildConfig.VERSION_CODE.toString(), BuildConfig.VERSION_NAME, store.updateResult).bodyOrThrow()
+                }
+            }
+            recordDiagnostic("actualización", result)
+            result.onSuccess { offer ->
+                updater.recordCheck(offer, now)
+                if (UpdatePolicy.offerIsNewer(offer, BuildConfig.VERSION_CODE)) {
+                    val download = withContext(Dispatchers.IO) { runCatching { updater.download(offer) } }
+                    recordDiagnostic("descarga de actualización", download)
+                }
+            }.onFailure { updater.recordCheckFailure(now, Diagnostics.describe(it)) }
+        }
+        val schedule = _state.value.schedule
+        val screenOn = !schedule.enabled || ScreenSchedule.isOn(schedule, LocalDateTime.now())
+        val mayInstall = UpdatePolicy.mayInstall(clockValid = true, scheduleEnabled = schedule.enabled, screenOn = screenOn)
+        withContext(Dispatchers.IO) { updater.installIfReady(getApplication(), mayInstall) }
+        _state.update { it.copy(updateInfo = updateSummary()) }
+    }
+
+    /** Línea de Diagnóstico: versión instalada, canal, última comprobación y último resultado. */
+    private fun updateSummary(): String {
+        val last = if (store.updateLastCheckAt == 0L) "nunca" else Freshness.ago(System.currentTimeMillis() - store.updateLastCheckAt)
+        return "Versión ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · canal ${store.updateChannel ?: "estable"} · " +
+            "comprobación: $last · ${store.updateResult ?: "sin datos"}"
+    }
+
     /** Relee la configuración de la pantalla (horario, brillo, ubicación) y la aplica. Sin red, queda la última. */
     private suspend fun refreshDisplayConfig() {
         if (store.displayId == null || _state.value.token == null) return
-        val result = session.authorized { token -> runCatching { displayApi.config(bearer(token)).bodyOrThrow() } }
+        val result = session.authorized { token ->
+            runCatching {
+                displayApi.config(bearer(token), BuildConfig.VERSION_CODE.toString(), BuildConfig.VERSION_NAME, store.updateResult).bodyOrThrow()
+            }
+        }
         recordDiagnostic("configuración de la pantalla", result)
         val error = result.exceptionOrNull()
         // 401: la sesión ya no vale (se conserva la cola). 404: el hogar revocó la pantalla: sus toques pendientes no se

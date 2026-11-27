@@ -50,6 +50,26 @@ class Store(context: Context) : TokenStore {
         set(value) = write("schedule", value)
 
     /** Brillo de la ventana (0.05–1); null = el del sistema. */
+    /** Última comprobación de actualización (epoch ms); 0 = nunca. */
+    var updateLastCheckAt: Long
+        get() = prefs.getLong("update_last_check_at", 0L)
+        set(value) = prefs.edit { putLong("update_last_check_at", value) }
+
+    /** Resultado de lo último de actualización, para el informe en la próxima petición (cabecera). */
+    var updateResult: String?
+        get() = prefs.getString("update_result", null)
+        set(value) = prefs.edit { putString("update_result", value) }
+
+    /** Versión descargada y verificada, pendiente de instalar en horario de apagado; null = ninguna. */
+    var updateReadyCode: Int?
+        get() = prefs.getInt("update_ready_code", -1).takeIf { it > 0 }
+        set(value) = prefs.edit { putInt("update_ready_code", value ?: -1) }
+
+    /** Canal que devolvió el servidor en la última comprobación (estable | pruebas). */
+    var updateChannel: String?
+        get() = prefs.getString("update_channel", null)
+        set(value) = prefs.edit { putString("update_channel", value) }
+
     var brightness: Float?
         get() = prefs.getFloat("brightness", -1f).takeIf { it > 0f }
         set(value) = prefs.edit { putFloat("brightness", value ?: -1f) }
