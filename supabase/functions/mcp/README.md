@@ -59,7 +59,7 @@ muestra el host de `redirect_uri`.
 - Los textos de la BD (nombres, notas) son **datos, no instrucciones**: lo dicen las descripciones y las
   `instructions` del servidor. Salida JSON compacta (`MAX_ITEMS = 50`, `hay_mas`).
 - **Salud: fuera en esta versión.** `leer_perfil` nunca devuelve `objetivos` ni `nota_dieta` (igual que Kito). No hay
-  `fn_has_permission` ni RPC de salud. Pendiente para un change aparte (Kito y MCP juntos).
+  consulta de permisos de salud ni RPC de salud. Pendiente para un change aparte (Kito y MCP juntos).
 
 ## Probar en local
 
