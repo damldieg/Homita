@@ -1,9 +1,12 @@
 package com.dld.homita.dashboard.data
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import retrofit2.Response
@@ -139,11 +142,39 @@ class SessionTest {
     fun `refrescos concurrentes con el mismo JWT caducado piden un solo refresco`() = runBlocking {
         val store = FakeStore("viejo", "rt-1")
         var calls = 0
-        val s = session(store) { calls++; ok("nuevo", "rt-2") }
-        val a = s.renew("viejo")
-        val b = s.renew("viejo")
-        assertTrue(a is Session.Outcome.Renewed)
-        assertTrue(b is Session.Outcome.Renewed)
+        val gate = CompletableDeferred<Unit>()
+        val s = session(store) { calls++; gate.await(); ok("nuevo", "rt-2") }
+        val a = async { s.renew("viejo") }
+        val b = async { s.renew("viejo") }
+        gate.complete(Unit)
+        assertTrue(a.await() is Session.Outcome.Renewed)
+        assertTrue(b.await() is Session.Outcome.Renewed)
         assertEquals(1, calls)
+    }
+
+    @Test
+    fun `un cierre de sesión durante el refresco no reescribe la sesión`() = runBlocking {
+        val store = FakeStore("viejo", "rt-1")
+        val started = CompletableDeferred<Unit>()
+        val gate = CompletableDeferred<Unit>()
+        val s = session(store) { started.complete(Unit); gate.await(); ok("nuevo", "rt-2") }
+        val job = async { s.renew() }
+        started.await()
+        store.token = null
+        store.refreshToken = null
+        gate.complete(Unit)
+        assertTrue(job.await() is Session.Outcome.Rejected)
+        assertNull(store.token)
+        assertNull(store.refreshToken)
+    }
+
+    @Test
+    fun `un 401 tras renovar no se trata como sesión caducada`() = runBlocking {
+        val store = FakeStore("viejo", "rt-1")
+        val s = session(store) { ok("nuevo", "rt-2") }
+        val result = s.authorized { Result.failure<Unit>(HttpError(401)) }
+        assertTrue(result.isFailure)
+        assertFalse(result.exceptionOrNull() is SessionExpired)
+        assertFalse(result.exceptionOrNull()?.let { it is HttpError && it.unauthorized } == true)
     }
 }
