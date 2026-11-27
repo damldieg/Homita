@@ -8,7 +8,7 @@ Un marco de fotos digital de unos 80 € convertido en la pantalla de la familia
 
 Homita es el monorepo de las tres piezas que lo hacen funcionar:
 
-- **[El marco (dashboard)](#el-marco-dashboard)** (`apps/dashboard/`): la app Android de solo lectura que se instala en el marco.
+- **[El marco (dashboard)](#el-marco-dashboard)** (`apps/dashboard/`): la app Android que se instala en el marco; lee la agenda del hogar y puede marcar tareas hechas.
 - **[La gestora (control)](#la-gestora-control)** (`apps/control/`): la app Android donde se crean y editan calendarios, eventos, rutinas, personas y tareas.
 - **[La API](#la-api)**: la Edge Function de Supabase ([supabase/](supabase/README.md)) que guarda todo. El único backend desde el corte de producción (2026-11-08).
 
@@ -87,7 +87,7 @@ Acceso técnico (cinco toques en el logo de la pantalla de vinculación). Sin In
 
 ## El marco (dashboard)
 
-`apps/dashboard/` es la app que va instalada en el marco: Android, Kotlin y Jetpack Compose (minSdk 29), de solo lectura, diseñada en los píxeles nativos del panel (1920×1200). Muestra lo que hay en la API y en Open-Meteo. Compilar y probar, desde su carpeta:
+`apps/dashboard/` es la app que va instalada en el marco: Android, Kotlin y Jetpack Compose (minSdk 29), que lee el hogar y solo puede escribir una cosa: marcar tareas hechas (y deshacerlo durante 5 s). Diseñada en los píxeles nativos del panel (1920×1200). Muestra lo que hay en la API y en Open-Meteo. Compilar y probar, desde su carpeta:
 
 ```sh
 cd apps/dashboard
@@ -230,7 +230,7 @@ La ficha completa, con todas las particiones y el software de fábrica, está en
 
 ### Fase 3: decide qué app vas a instalar
 
-La app de este repositorio (`apps/dashboard/`) es un dashboard nativo en Kotlin y Jetpack Compose, de solo lectura, que habla con la API de Homita (la Edge Function `https://<ref>.supabase.co/functions/v1/api` de Supabase, el único backend desde el corte del 2026-11-08) y con Open-Meteo. Tienes tres caminos:
+La app de este repositorio (`apps/dashboard/`) es un dashboard nativo en Kotlin y Jetpack Compose, que lee el hogar y solo marca tareas hechas, que habla con la API de Homita (la Edge Function `https://<ref>.supabase.co/functions/v1/api` de Supabase, el único backend desde el corte del 2026-11-08) y con Open-Meteo. Tienes tres caminos:
 
 1. **Usarla con Homita** (lo más rápido): despliega la [Edge Function de Supabase](supabase/), crea tu cuenta con [Homita](apps/control/) y marca en la APP qué calendarios y listas se ven (interruptor «Mostrar en el dashboard»).
 2. **Usarla con otra fuente de datos:** la app solo necesita esto del backend, así que basta con reimplementarlo (o cambiar `data/Api.kt` y los repositorios de `data/repository/`):

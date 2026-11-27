@@ -8,6 +8,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Query
 import retrofit2.http.Url
@@ -42,6 +43,10 @@ interface Api {
     /** Menú de hoy del hogar del marco: sin `X-Home-Id` (el servidor usa el hogar por defecto de la cuenta). */
     @GET("meal/today")
     suspend fun mealsToday(@Header("Authorization") auth: String): Response<MealsToday>
+
+    /** Marcar o desmarcar una tarea (`PATCH /task/complete`). La clave de cliente hace idempotente el reenvío (0050). */
+    @PATCH("task/complete")
+    suspend fun completeTask(@Header("Authorization") auth: String, @Body request: CompleteTaskRequest): Response<Task>
 
     @GET
     suspend fun forecast(@Url url: String): Response<Forecast>

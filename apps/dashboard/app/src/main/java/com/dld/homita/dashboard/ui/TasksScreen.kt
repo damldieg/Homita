@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.dld.homita.dashboard.UiState
 import com.dld.homita.dashboard.data.Task
 import com.dld.homita.dashboard.data.TaskPriorityView
+import com.dld.homita.dashboard.data.isDone
 import com.dld.homita.dashboard.ui.theme.Palette
 
 /**
@@ -25,8 +26,8 @@ import com.dld.homita.dashboard.ui.theme.Palette
  * orden fijo por prioridad (alta, media, baja) y, en cada tarea, sus personas (U8, C5).
  */
 @Composable
-fun TasksScreen(state: UiState) {
-    val all = state.content?.tasks.orEmpty()
+fun TasksScreen(state: UiState, onToggle: (Task) -> Unit) {
+    val all = state.shownContent?.tasks.orEmpty()
     val lists = all.groupBy { it.task_list_id }.values.map { TaskPriorityView.sortWithinList(it) }
     ScreenPadding {
         if (lists.isEmpty()) {
@@ -43,7 +44,9 @@ fun TasksScreen(state: UiState) {
                 Panel((if (width != null) Modifier.width(width.dp) else Modifier.weight(1f)).fillMaxHeight()) {
                     CardHeader(first.task_list_name.orEmpty(), Icons.Outlined.Checklist, parseColor(first.task_list_color), count = tasks.size)
                     Column(Modifier.padding(top = 8.dp).fadingScroll(rememberScrollState())) {
-                        tasks.forEach { TaskRow(it) }
+                        tasks.forEach { task ->
+                            TaskRow(task, done = task.isDone(state.pending[task.id] ?: state.queued[task.id]), onToggle = { onToggle(task) })
+                        }
                     }
                 }
             }

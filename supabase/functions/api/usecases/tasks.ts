@@ -109,7 +109,13 @@ export const handleTaskComplete = async (req: Request, token: string): Promise<R
     const id = inputInt(input, "id");
     const completed = inputBool(input, "completed");
     if (contractEmpty(id) || completed === null) return errTaskCompleteRequired();
-    return rpcPass(await rpc("complete_task", { p_id: id, p_completed: completed }, token));
+    // 0050: la clave de cliente hace idempotente el toque repetido (cola sin red de la pantalla)
+    const clientRequestId = clientRequestIdOf(input);
+    if (clientRequestId instanceof Response) return clientRequestId;
+    // La clave solo viaja si llega (como create_task): sin ella, la RPC de 0039 también sirve tras un rollback de 0050
+    const args: Record<string, unknown> = { p_id: id, p_completed: completed };
+    if (clientRequestId !== undefined) args.p_client_request_id = clientRequestId;
+    return rpcPass(await rpc("complete_task", args, token));
 };
 
 // PATCH /task/order (TaskOrder.php): position con intval() de PHP; moveToPosition en la RPC

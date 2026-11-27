@@ -74,6 +74,9 @@ data class Content(
 /** Una semana del calendario (lunes a domingo), descargada al navegar hasta ella. */
 data class Week(val events: List<Event>, val sessions: List<Event>)
 
+/** Cuerpo de `PATCH /task/complete`. */
+data class CompleteTaskRequest(val id: Int, val completed: Boolean, val client_request_id: String)
+
 /**
  * Menú de hoy (`GET /meal/today`). `now_local` (HH:mm) y `timezone` son los del hogar según el servidor. Sin plan
  * aceptado (`has_plan` false) no hay casillas. Los datos de miembros de la respuesta no se leen en el dashboard.

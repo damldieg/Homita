@@ -1,5 +1,9 @@
 package com.dld.homita.dashboard.ui
 
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +31,8 @@ import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.outlined.Weekend
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -238,7 +244,7 @@ private fun DueCard(due: TaskDue.DueBanner, now: LocalDateTime, onDismiss: () ->
 
 /** Lo siguiente: el primer evento o sesión de rutina que aún no ha empezado, si es de hoy o de mañana. */
 private fun nextUp(state: UiState): Event? {
-    val content = state.content ?: return null
+    val content = state.shownContent ?: return null
     val today = state.now.toLocalDate()
     val next = (content.events + content.sessions).filter { !it.at.isBefore(state.now) && !it.isOngoing(today) }.minByOrNull { it.at } ?: return null
     return next.takeIf { it.at.toLocalDate() <= state.now.toLocalDate().plusDays(1) }
@@ -292,7 +298,7 @@ private fun NextCard(event: Event, now: LocalDateTime, modifier: Modifier = Modi
 private fun AgendaCard(state: UiState, lastTouch: Long, modifier: Modifier) {
     val now = state.now
     val today = now.toLocalDate()
-    val parts = partitionEvents(state.content?.events.orEmpty(), now, nextUp(state))
+    val parts = partitionEvents(state.shownContent?.events.orEmpty(), now, nextUp(state))
     val todays = parts.upcoming.filter { it.at.toLocalDate() == today }
     Card(modifier) {
         CardHeader("Hoy", Icons.Outlined.Event, Palette.Rain, count = todays.count { !it.at.isBefore(now) } + parts.ongoing.size)
@@ -400,7 +406,7 @@ private fun UpcomingDaysCard(state: UiState, lastTouch: Long, modifier: Modifier
     val today = state.now.toLocalDate()
     val from = today.plusDays(1)
     val to = today.plusDays(UPCOMING_DAYS)
-    val events = state.content?.events.orEmpty()
+    val events = state.shownContent?.events.orEmpty()
         .filter { !it.isOngoing(today) && it.at.toLocalDate() in from..to }
         .sortedBy { it.at }
     Card(modifier) {
@@ -432,7 +438,7 @@ private fun UpcomingDaysCard(state: UiState, lastTouch: Long, modifier: Modifier
 @Composable
 private fun RoutinesCard(state: UiState, lastTouch: Long, modifier: Modifier) {
     val now = state.now
-    val sessions = state.content?.sessions.orEmpty().filter { it.at.toLocalDate() == now.toLocalDate() }
+    val sessions = state.shownContent?.sessions.orEmpty().filter { it.at.toLocalDate() == now.toLocalDate() }
     val upcoming = sessions.firstOrNull { !it.at.isBefore(now) }
     Card(modifier) {
         CardHeader("Rutinas de hoy", Icons.Outlined.Autorenew, Palette.Warm, count = sessions.count { !it.at.isBefore(now) })
@@ -481,11 +487,27 @@ private fun UpcomingList(items: List<Event>, now: LocalDateTime, lastTouch: Long
 // --- Tareas (pantalla de tareas) ---
 
 @Composable
-fun TaskRow(task: Task, modifier: Modifier = Modifier) {
-    // Sin casilla: el dashboard es de solo lectura y no se pueden marcar. A la derecha, las personas y la prioridad.
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+fun TaskRow(task: Task, done: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
+    // Casilla de 64 px (dashboard-marcar-hecho): marcar al momento, «Deshacer» durante 5 s en la pantalla.
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Box(Modifier.size(64.dp).clickable(onClick = onToggle), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier
+                    .size(36.dp)
+                    .border(3.dp, if (done) Palette.Online else Palette.InkMuted, CircleShape)
+                    .background(if (done) Palette.Online else Color.Transparent, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                if (done) Icon(Icons.Outlined.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+            }
+        }
         Column(Modifier.weight(1f)) {
-            Text(task.title, style = Type.Body, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(
+                task.title,
+                style = Type.Body.copy(color = if (done) Palette.InkMuted else Palette.Ink, textDecoration = if (done) TextDecoration.LineThrough else null),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
             // Fecha límite (0041) en hora local, debajo del título.
             TaskDue.label(task.due_at)?.let { Text("Vence $it", style = Type.Small.copy(color = Palette.InkMuted)) }
         }
@@ -519,13 +541,18 @@ fun PriorityBadge(priority: TaskPriority, modifier: Modifier = Modifier) {
 @Composable
 fun PersonPills(persons: List<Person>?, modifier: Modifier = Modifier) {
     if (persons.isNullOrEmpty()) return
+    val tap = LocalPersonTap.current
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier) {
         persons.forEach { person ->
             Text(
                 person.name,
                 style = Type.Small.copy(color = Color.White, fontWeight = FontWeight.SemiBold),
                 maxLines = 1,
-                modifier = Modifier.background(parseColor(person.color), RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 3.dp)
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(parseColor(person.color), RoundedCornerShape(14.dp))
+                    .clickable { tap(person) }
+                    .padding(horizontal = 12.dp, vertical = 3.dp)
             )
         }
     }
