@@ -179,10 +179,33 @@ class SessionTest {
         store.token = "nueva"
         store.refreshToken = "rt-nuevo"
         gate.complete(Unit)
-        val outcome = job.await()
-        assertTrue(outcome is Session.Outcome.Renewed && outcome.token == "nueva")
+        assertTrue(job.await() is Session.Outcome.Unavailable)
         assertEquals("nueva", store.token)
         assertEquals("rt-nuevo", store.refreshToken)
+    }
+
+    @Test
+    fun `una peticion iniciada con la sesion anterior no se reenvia con la nueva`() = runBlocking {
+        val store = FakeStore("viejo", "rt-1")
+        val started = CompletableDeferred<Unit>()
+        val gate = CompletableDeferred<Unit>()
+        val s = session(store) { started.complete(Unit); gate.await(); ok("renovado-del-viejo", "rt-2") }
+        val tokensUsed = mutableListOf<String>()
+        val job = async {
+            s.authorized { token ->
+                tokensUsed += token
+                Result.failure<Unit>(HttpError(401))
+            }
+        }
+        started.await()
+        store.token = "nueva"
+        store.refreshToken = "rt-nuevo"
+        gate.complete(Unit)
+        val result = job.await()
+        assertTrue(result.isFailure)
+        assertFalse(result.exceptionOrNull() is SessionExpired)
+        assertEquals(listOf("viejo"), tokensUsed)
+        assertEquals("nueva", store.token)
     }
 
     @Test
