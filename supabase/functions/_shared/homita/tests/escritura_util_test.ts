@@ -1,8 +1,7 @@
-// Caracterización (change mcp-menus-escritura): fija el comportamiento de `errorEscritura` y `uuidDe` de Kito antes de moverlos.
-// Vive aquí y no en asistente/tests porque Kito no cambia de tests. Tras el movimiento importa de los módulos compartidos.
+// Caracterización de `errorEscritura` y `uuidDe` (fijada antes de moverlos desde Kito, change mcp-menus-escritura).
 import { assertEquals, assertMatch } from "jsr:@std/assert@1";
-import { errorEscritura } from "../../../asistente/skills/menus/util.ts";
-import { uuidDe } from "../../../asistente/skills/organizar/uuid.ts";
+import { errorEscritura } from "../util-escritura.ts";
+import { uuidDe } from "../uuid.ts";
 
 const r = (status: number, error?: string) => ({ ok: false, status, data: null, ...(error !== undefined ? { error } : {}) });
 
