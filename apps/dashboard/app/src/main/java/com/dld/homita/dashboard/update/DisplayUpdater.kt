@@ -63,7 +63,9 @@ class DisplayUpdater(
     fun installIfReady(context: Context, mayInstall: Boolean) {
         val code = store.updateReadyCode ?: return
         val ready = readyFile(code)
+        // Ya instalada (o el archivo no está): se limpia para no reinstalar ni dejar el APK en disco.
         if (!ready.exists() || code <= installedCode()) {
+            ready.delete()
             store.updateReadyCode = null
             return
         }

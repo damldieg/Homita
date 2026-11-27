@@ -217,7 +217,7 @@ const readRelease = async (channel: string): Promise<DisplayRelease | null> => {
     return isDisplayRelease(body) ? body : null;
 };
 
-// URL firmada de vida corta para el APK (la app la descarga en segundo plano).
+// URL firmada de vida corta para el APK (la app la descarga en segundo plano). Ruta relativa al origen del proyecto.
 const signedApkUrl = async (file: string): Promise<string | null> => {
     const res = await fetch(`${storageUrl()}/object/sign/display-releases/${file}`, {
         method: "POST",
@@ -226,10 +226,9 @@ const signedApkUrl = async (file: string): Promise<string | null> => {
     });
     if (!res.ok) return null;
     const body = await res.json().catch(() => null) as { signedURL?: string } | null;
-    // La URL que ve la pantalla: SUPABASE_PUBLIC_URL si está (demo local: el emulador llega por 10.0.2.2, no por kong).
-    // En producción no hace falta: SUPABASE_URL ya es la pública.
-    const publicBase = Deno.env.get("SUPABASE_PUBLIC_URL") ?? Deno.env.get("SUPABASE_URL") ?? "";
-    return body?.signedURL ? `${publicBase.replace(/\/$/, "")}/storage/v1${body.signedURL}` : null;
+    // Ruta relativa al origen del proyecto: la app la resuelve contra su propia URL base (así sirve igual en la demo
+    // local, donde el emulador llega por 10.0.2.2, y en producción).
+    return body?.signedURL ? `/storage/v1${body.signedURL}` : null;
 };
 
 // GET /display/update (sesión de la pantalla, sin cabecera de hogar): canal, y la versión nueva si la hay.

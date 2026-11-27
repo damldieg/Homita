@@ -31,6 +31,23 @@ object UpdatePolicy {
     fun mayInstall(clockValid: Boolean, scheduleEnabled: Boolean, screenOn: Boolean): Boolean =
         clockValid && scheduleEnabled && !screenOn
 
+    /**
+     * Valor seguro para una cabecera HTTP: OkHttp rechaza caracteres no ASCII («al día» rompía la petición), así que se
+     * quitan los acentos y cualquier carácter fuera de ASCII imprimible.
+     */
+    fun headerValue(text: String?): String? = text?.let {
+        java.text.Normalizer.normalize(it, java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{M}"), "")
+            .replace(Regex("[^\\x20-\\x7E]"), "?")
+    }
+
+    /** La URL del APK llega como ruta (`/storage/v1/...`): se resuelve contra el origen de la URL base de la app. */
+    fun absoluteUrl(baseUrl: String, url: String): String {
+        if (url.startsWith("http://") || url.startsWith("https://")) return url
+        val base = java.net.URI(baseUrl)
+        return "${base.scheme}://${base.authority}$url"
+    }
+
     /** Tamaño y SHA-256 del archivo descargado frente a lo publicado. */
     fun verify(expectedSha256: String, expectedSize: Long, file: File): Boolean =
         file.length() == expectedSize && sha256(file).equals(expectedSha256, ignoreCase = true)

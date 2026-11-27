@@ -50,6 +50,25 @@ class UpdatePolicyTest {
     }
 
     @Test
+    fun laUrlRelativaSeResuelveContraElOrigenDeLaBase() {
+        assertEquals(
+            "http://10.0.2.2:54321/storage/v1/object/sign/display-releases/v2/homita.apk?token=t",
+            UpdatePolicy.absoluteUrl("http://10.0.2.2:54321/functions/v1/api/", "/storage/v1/object/sign/display-releases/v2/homita.apk?token=t")
+        )
+        assertEquals(
+            "https://ref.supabase.co/storage/v1/x.apk",
+            UpdatePolicy.absoluteUrl("https://ref.supabase.co/functions/v1/api/", "https://ref.supabase.co/storage/v1/x.apk")
+        )
+    }
+
+    @Test
+    fun lasCabecerasSonASCII() {
+        assertEquals("al dia", UpdatePolicy.headerValue("al día"))
+        assertEquals("disponible 7", UpdatePolicy.headerValue("disponible 7"))
+        assertEquals(null, UpdatePolicy.headerValue(null))
+    }
+
+    @Test
     fun laVerificacionComparaTamañoYSha256() {
         val apk = folder.newFile("homita.apk")
         apk.writeBytes("homita-apk".toByteArray())

@@ -275,14 +275,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         if (UpdatePolicy.shouldCheck(store.updateLastCheckAt, now)) {
             val result = session.authorized { token ->
                 runCatching {
-                    displayApi.update(bearer(token), BuildConfig.VERSION_CODE.toString(), BuildConfig.VERSION_NAME, store.updateResult).bodyOrThrow()
+                    displayApi.update(bearer(token), BuildConfig.VERSION_CODE.toString(), BuildConfig.VERSION_NAME, UpdatePolicy.headerValue(store.updateResult)).bodyOrThrow()
                 }
             }
             recordDiagnostic("actualización", result)
             result.onSuccess { offer ->
                 updater.recordCheck(offer, now)
                 if (UpdatePolicy.offerIsNewer(offer, BuildConfig.VERSION_CODE)) {
-                    val download = withContext(Dispatchers.IO) { runCatching { updater.download(offer) } }
+                    val absolute = offer.copy(url = UpdatePolicy.absoluteUrl(BuildConfig.BASE_URL, offer.url!!))
+                    val download = withContext(Dispatchers.IO) { runCatching { updater.download(absolute) } }
                     recordDiagnostic("descarga de actualización", download)
                 }
             }.onFailure { updater.recordCheckFailure(now, Diagnostics.describe(it)) }
@@ -306,7 +307,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         if (store.displayId == null || _state.value.token == null) return
         val result = session.authorized { token ->
             runCatching {
-                displayApi.config(bearer(token), BuildConfig.VERSION_CODE.toString(), BuildConfig.VERSION_NAME, store.updateResult).bodyOrThrow()
+                displayApi.config(bearer(token), BuildConfig.VERSION_CODE.toString(), BuildConfig.VERSION_NAME, UpdatePolicy.headerValue(store.updateResult)).bodyOrThrow()
             }
         }
         recordDiagnostic("configuración de la pantalla", result)

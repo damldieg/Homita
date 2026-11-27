@@ -79,7 +79,7 @@ Deno.test("comprobación: hay versión nueva → URL firmada del APK, y la panta
         assertEquals(body.channel, "pruebas");
         assertEquals(body.version_code, 7);
         assertEquals(body.sha256, SHA);
-        assertStringIncludes(body.url, "/storage/v1/object/sign/display-releases/v7/homita.apk?token=t");
+        assertEquals(body.url, "/storage/v1/object/sign/display-releases/v7/homita.apk?token=t");
         const report = calls.find((c) => c.url.includes("fn_display_report"))!;
         assertEquals(report.body, { p_version_code: 6, p_version_name: null, p_result: null, p_checked: true });
         assertEquals(report.auth, "Bearer tok");
