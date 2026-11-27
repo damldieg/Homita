@@ -64,6 +64,7 @@ import com.dld.homita.dashboard.data.TaskPriority
 import com.dld.homita.dashboard.data.isDone
 import com.dld.homita.dashboard.data.partitionEvents
 import com.dld.homita.dashboard.data.priorityValue
+import com.dld.homita.dashboard.data.upcomingWindowEvents
 import com.dld.homita.dashboard.ui.theme.Palette
 import com.dld.homita.dashboard.ui.theme.Type
 import kotlinx.coroutines.delay
@@ -77,16 +78,13 @@ private val Gap = 28.dp
 /** Tiempo sin tocar la pantalla tras el que Agenda y Rutinas vuelven a su posición si se han deslizado a mano. */
 private const val SCROLL_RESET_MILLIS = 60_000L
 
-/** Días que se muestran en «Próximos 3 días», a partir de mañana (C2). */
-private const val UPCOMING_DAYS = 3L
-
 /** Filas de «Hoy se come»: todas las franjas del día (N5 le da sitio propio). */
 private const val MEAL_ROWS = 6
 
 /**
  * Hoy (propuesta A, dashboard-hoy-legible): arriba, la hora y lo siguiente con el aviso de vencimiento (izquierda) y el
  * tiempo en franja (derecha, toca para ver el detalle); abajo, la agenda de hoy como bloque principal (izquierda) y
- * a la derecha «Hoy se come», «Próximos 3 días» y las rutinas de hoy.
+ * a la derecha «Hoy se come», «Próximas dos semanas» y las rutinas de hoy.
  */
 @Composable
 fun TodayScreen(state: UiState, lastTouch: Long, onOpenWeather: () -> Unit, onDismissDue: (String) -> Unit) {
@@ -402,21 +400,16 @@ private fun MealsCard(state: UiState) {
     }
 }
 
-// --- Próximos 3 días (derecha, medio) ---
+// --- Próximas dos semanas (derecha, medio) ---
 
-/** Los eventos de mañana y de los dos días siguientes, con su día como cabecera (C2: sustituye al mes de puntos). */
+/** Los eventos de mañana hasta hoy+13 (dos semanas con hoy), con su día como cabecera (C2: sustituye al mes de puntos). */
 @Composable
 private fun UpcomingDaysCard(state: UiState, lastTouch: Long, modifier: Modifier) {
-    val today = state.now.toLocalDate()
-    val from = today.plusDays(1)
-    val to = today.plusDays(UPCOMING_DAYS)
-    val events = state.shownContent?.events.orEmpty()
-        .filter { !it.isOngoing(today) && it.at.toLocalDate() in from..to }
-        .sortedBy { it.at }
+    val events = upcomingWindowEvents(state.shownContent?.events.orEmpty(), state.now.toLocalDate())
     Card(modifier) {
-        CardHeader("Próximos 3 días", Icons.Outlined.Event, Palette.Rain, count = events.size)
+        CardHeader("Próximas dos semanas", Icons.Outlined.Event, Palette.Rain, count = events.size)
         if (events.isEmpty()) {
-            EmptyState(Icons.Outlined.EventAvailable, Palette.Rain, "Nada los próximos días", "Sin eventos hasta dentro de 3 días", Modifier.weight(1f).fillMaxWidth())
+            EmptyState(Icons.Outlined.EventAvailable, Palette.Rain, "Nada en las próximas dos semanas", "Sin eventos hasta dentro de 14 días", Modifier.weight(1f).fillMaxWidth())
             return@Card
         }
         UpcomingList(events, state.now, lastTouch) { event ->
