@@ -19,6 +19,8 @@ import com.dld.homita.dashboard.data.Diagnostics
 import com.dld.homita.dashboard.data.Freshness
 import com.dld.homita.dashboard.data.UpdateCheck
 import com.dld.homita.dashboard.update.DisplayUpdater
+import com.dld.homita.dashboard.update.DisplayUpdates
+import com.dld.homita.dashboard.update.UpdateScheduler
 import com.dld.homita.dashboard.update.UpdatePolicy
 import com.dld.homita.dashboard.BuildConfig
 import com.dld.homita.dashboard.data.isDone
@@ -40,7 +42,6 @@ import com.dld.homita.dashboard.data.repository.bearer
 import com.dld.homita.dashboard.data.AuthRequest
 import com.dld.homita.dashboard.data.Content
 import com.dld.homita.dashboard.data.Forecast
-import com.dld.homita.dashboard.data.RefreshRequest
 import com.dld.homita.dashboard.data.GeoResult
 import com.dld.homita.dashboard.data.Location
 import com.dld.homita.dashboard.data.MealsToday
@@ -146,7 +147,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val calendarRepository = CalendarRepository(api, cache)
     private val mealRepository = MealRepository(api, cache)
     private val clock = ReferenceClock(BuildConfig.BUILD_TIME, { store.lastValidTime }, { store.lastValidTime = it })
-    private val session = Session(store, { refresh -> api.refresh(RefreshRequest(refresh)) })
+    private val session = DisplayUpdates.session(store)
+    private val updateJob = DisplayUpdates.job(application, store) { name, result -> recordDiagnostic(name, result) }
     private val diagnostics = Diagnostics()
     private val completionQueue = CompletionQueue(File(application.filesDir, "outbox/completions.json"))
     private val flushLock = Mutex()
@@ -155,7 +157,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private var configFetchedAt = 0L
 
     /** Actualización remota (dashboard-actualizacion-remota): comprobación diaria, descarga verificada, instalación de noche. */
-    private val updater = DisplayUpdater(store, File(application.filesDir, "update"), installedCode = { BuildConfig.VERSION_CODE })
     private val logoTaps = ArrayDeque<Long>()
     private val pairing = Pairing(object : PairingApi {
         override suspend fun linkStart(): Result<DisplayLinkStart> = runCatching { displayApi.linkStart().bodyOrThrow() }
@@ -215,6 +216,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     /** Bucle mientras la actividad está visible: reloj cada minuto; contenido y tiempo cuando caducan (5 y 30 min). */
     suspend fun run() {
+        // Pantalla vinculada: la pasada horaria (WorkManager) corre aunque la actividad esté parada (R1-02).
+        if (store.displayId != null) UpdateScheduler.ensure(getApplication())
         while (true) {
             tick()
             if (_state.value.token != null && completionQueue.all().isNotEmpty()) flushCompletions()
@@ -226,7 +229,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 if (mealRepository.isStale(_state.value.now.toLocalDate())) refreshMeals()
                 // Pantalla del hogar: su configuración se relee cada 5 minutos (lo que decide el móvil)
                 if (store.displayId != null && System.currentTimeMillis() - configFetchedAt >= CONFIG_MAX_AGE_MS) refreshDisplayConfig()
-                updateTick()
+                runUpdateTick()
             }
             delay(60_000 - System.currentTimeMillis() % 60_000 + 50)
         }
@@ -266,58 +269,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         if (result.exceptionOrNull() is SessionExpired || result.exceptionOrNull()?.isUnauthorized == true) logout(expired = true)
     }
 
-    /**
-     * Actualización remota: una comprobación al día (o una hora después de un fallo); si hay versión nueva, se descarga y
-     * verifica en segundo plano, y se instala solo con la pantalla apagada por horario y el reloj válido.
-     */
-    private suspend fun updateTick() {
-        if (store.displayId == null || _state.value.token == null || !ScreenSchedule.clockValid()) return
-        val now = System.currentTimeMillis()
-        if (UpdatePolicy.shouldCheck(store.updateLastCheckAt, now)) {
-            val result = session.authorized { token ->
-                runCatching {
-                    displayApi.update(bearer(token), BuildConfig.VERSION_CODE.toString(), BuildConfig.VERSION_NAME, UpdatePolicy.headerValue(store.updateResult)).bodyOrThrow()
-                }
-            }
-            recordDiagnostic("actualización", result)
-            result.onSuccess { offer ->
-                updater.recordCheck(offer, now)
-                // Solo se descarga si la pantalla puede instalar (horario); sin horario no se baja nada (R1-03).
-                // Se mira el horario persistido (store), no el del estado: el estado puede no estar cargado aún en el arranque.
-                if (UpdatePolicy.offerIsNewer(offer, BuildConfig.VERSION_CODE) && store.schedule.enabled) {
-                    startDownload(offer)
-                }
-            }.onFailure { updater.recordCheckFailure(now, Diagnostics.describe(it)) }
-        }
-        val schedule = store.schedule
-        val screenOn = !schedule.enabled || ScreenSchedule.isOn(schedule, LocalDateTime.now())
-        val mayInstall = UpdatePolicy.mayInstall(clockValid = true, scheduleEnabled = schedule.enabled, screenOn = screenOn)
-        // La instalación va protegida: un fallo se registra y no tumba el bucle (R1-01).
-        val install = withContext(Dispatchers.IO) {
-            runCatching { updater.installIfReady(getApplication(), mayInstall, System.currentTimeMillis()) }
-        }
-        recordDiagnostic("instalación de actualización", install)
-        _state.update { it.copy(updateInfo = updateSummary()) }
-    }
-
-    @Volatile private var downloading = false
-
-    /**
-     * Descarga en su propia corrutina (R1-04): el reloj, la cola de «hecho» y los refrescos no esperan a los 64 MiB. Un fallo
-     * reprograma la comprobación en una hora (la descarga se reanuda con Range).
-     */
-    private fun startDownload(offer: UpdateCheck) {
-        if (downloading) return
-        downloading = true
-        val absolute = offer.copy(url = UpdatePolicy.absoluteUrl(BuildConfig.BASE_URL, offer.url!!))
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val download = runCatching { updater.download(absolute) }
-                recordDiagnostic("descarga de actualización", download)
-                download.onFailure { updater.recordCheckFailure(System.currentTimeMillis(), Diagnostics.describe(it)) }
-            } finally {
-                downloading = false
-            }
+    /** Actualización remota (dashboard-actualizacion-pantalla-apagada): una pasada en su propia corrutina. */
+    private fun runUpdateTick() {
+        viewModelScope.launch {
+            updateJob.tick(clockValid = ScreenSchedule.clockValid())
+            _state.update { it.copy(updateInfo = updateSummary()) }
         }
     }
 
@@ -386,6 +342,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     store.token = next.token
                     store.refreshToken = next.refreshToken
                     store.displayId = next.displayId
+                    UpdateScheduler.ensure(getApplication())
                     store.email = null
                     _state.update { it.copy(token = next.token, email = null, pairing = PairingState.Idle, sessionExpired = false) }
                     refreshNow()
