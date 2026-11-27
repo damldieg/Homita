@@ -60,6 +60,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dld.homita.dashboard.UiState
+import com.dld.homita.dashboard.data.Diagnostics
+import com.dld.homita.dashboard.data.Freshness
 import com.dld.homita.dashboard.data.GeoResult
 import com.dld.homita.dashboard.data.Schedule
 import com.dld.homita.dashboard.data.WifiStatus
@@ -105,6 +107,7 @@ fun SettingsScreen(state: UiState, actions: DashboardActions, callbacks: Setting
                 Panel(Modifier.fillMaxWidth().weight(1f)) {
                     BrightnessSection(state.brightness, callbacks.onBrightness)
                     Section("Conexión") { WifiCard() }
+                    Section("Diagnóstico") { DiagnosticsSection(state.diagnostics) }
                 }
                 Panel(Modifier.fillMaxWidth()) {
                     Column(verticalArrangement = Arrangement.spacedBy(ButtonGap)) {
@@ -160,6 +163,29 @@ private fun HoldButton(text: String, background: Color, onHold: () -> Unit) {
             .padding(horizontal = 40.dp)
     ) {
         Text("$text · 2 s", style = Type.Body.copy(color = Palette.Ink), maxLines = 1)
+    }
+}
+
+/**
+ * Última descarga correcta y último error de cada dato (N6): un 403 del menú de hoy se ve aquí en vez de ocultar la
+ * tarjeta sin decir nada.
+ */
+@Composable
+private fun DiagnosticsSection(entries: Map<String, Diagnostics.Entry>) {
+    val now = System.currentTimeMillis()
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (entries.isEmpty()) Text("Sin datos todavía", style = Type.Small.copy(color = Palette.InkMuted))
+        entries.forEach { (name, entry) ->
+            val status = entry.lastError?.let { "error $it" }
+                ?: entry.lastOkAt?.let { "correcto hace ${Freshness.ago(now - it)}" }
+                ?: "sin datos"
+            Text(
+                "$name · $status",
+                style = Type.Small.copy(color = if (entry.lastError != null) Palette.Danger else Palette.InkSoft),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 

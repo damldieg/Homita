@@ -1,6 +1,6 @@
 -- meal_profile_reapply_check.sql — Tras reaplicar 0043_meal_profile.sql sobre la BD revertida
 -- (ci.sh la aplica justo antes). Solo BD local.
--- RA1 existen las 4 tablas, las 5 RPC y el catálogo vuelve a 28/47 (23/8/13/3).
+-- RA1 existen las 4 tablas, las 5 RPC y el catálogo vuelve a 29/47 (23/8/13/3).
 -- RA2 el backfill dio los menu.* a las membresías `member` existentes según su kind (ninguna
 --     membresía admin recibió filas) y no hay membresías `member` con kind sin sus menu.* de defecto.
 
@@ -21,14 +21,14 @@ begin
                            'set_meal_schedule', 'set_meal_slot_settings')) <> 5 then
         raise exception 'meal_profile_reapply RA1: faltan tablas o RPC';
     end if;
-    if (select count(*) from permission) <> 28 or (select count(*) from member_kind_default) <> 47
+    if (select count(*) from permission) <> 29 or (select count(*) from member_kind_default) <> 47
        or (select count(*) from member_kind_default where kind = 'adult') <> 23
        or (select count(*) from member_kind_default where kind = 'child') <> 8
        or (select count(*) from member_kind_default where kind = 'relative') <> 13
        or (select count(*) from member_kind_default where kind = 'guest') <> 3 then
-        raise exception 'meal_profile_reapply RA1: catálogo distinto de 28/47';
+        raise exception 'meal_profile_reapply RA1: catálogo distinto de 29/47';
     end if;
-    raise notice 'ok RA1: tablas, RPC y catálogo 28/47 tras reaplicar';
+    raise notice 'ok RA1: tablas, RPC y catálogo 29/47 tras reaplicar';
 end $$;
 
 do $$

@@ -10,7 +10,7 @@
 --     el resto desactivadas; perfil con defaults (E5, D3).
 -- MP2 mascotas y hogar ajeno rechazados en meal_profile_member y meal_schedule (AC2).
 -- MP3 cross-tenant (AC3): Y no lee ni escribe lo de H (SELECT vacío; RPC Not Found; tabla sin escritura).
--- MP4 matriz menu.* por kind (AC4): 28 permisos, 47 defaults (23/8/13/3), fn_has_permission por kind.
+-- MP4 matriz menu.* por kind (AC4): 29 permisos, 47 defaults (23/8/13/3), fn_has_permission por kind.
 -- MP5 backfill (AC4): solo añade los menu.* que faltan y conserva personalizaciones; idempotente.
 -- MP6 bloque C (AC5): cada persona edita solo sus C1–C4 sin menu.profile.edit; B/A propios y C ajeno → 403.
 -- MP7 permisos de lectura/escritura del perfil y validación (400) incl. lista G5 de otro hogar, task_list_id
@@ -254,7 +254,7 @@ declare
     v_codes text;
     v_exp text;
 begin
-    if (select count(*) from permission) <> 28 or (select count(*) from permission where domain = 'menu') <> 5 then
+    if (select count(*) from permission) <> 29 or (select count(*) from permission where domain = 'menu') <> 5 then
         raise exception 'meal_profile MP4: catálogo %', (select count(*) from permission);
     end if;
     if (select count(*) from member_kind_default) <> 47
@@ -297,7 +297,7 @@ begin
     if fn_has_permission(981001, 'menu.view') or fn_has_permission(981001, 'menu.shopping.edit') then
         raise exception 'meal_profile MP4: invitado con menu.*';
     end if;
-    raise notice 'ok MP4: matriz menu.* adult 23 / child 8 / relative 13 / guest 3, 28 permisos, 47 defaults';
+    raise notice 'ok MP4: matriz menu.* adult 23 / child 8 / relative 13 / guest 3, 29 permisos, 47 defaults';
 end $$;
 
 -- ── MP5: backfill solo añade lo que falta y conserva personalizaciones (AC4) ──

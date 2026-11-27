@@ -7,7 +7,7 @@
 -- reaplicar 0044 y el seed desde ci.sh) comprueba que el esquema vuelve completo.
 --
 -- RM4 no existen las tablas de menús, sus RPC ni los helpers de 0044.
--- RM5 0043 sigue entera: tablas meal_*, sus RPC y el catálogo 28/47.
+-- RM5 0043 sigue entera: tablas meal_*, sus RPC y el catálogo 29/47.
 -- RM6 rollback_0044 una segunda vez no falla y deja el mismo estado (idempotente).
 
 \set ON_ERROR_STOP 1
@@ -46,8 +46,8 @@ begin
                            'set_meal_schedule', 'set_meal_slot_settings')) <> 5 then
         return 'RM5 el rollback tocó 0043 (tablas o RPC)';
     end if;
-    if (select count(*) from permission) <> 28 or (select count(*) from member_kind_default) <> 47 then
-        return 'RM5 catálogo de permisos distinto de 28/47';
+    if (select count(*) from permission) <> 29 or (select count(*) from member_kind_default) <> 47 then
+        return 'RM5 catálogo de permisos distinto de 29/47';
     end if;
     return null;
 end $$;
@@ -62,7 +62,7 @@ begin
         raise exception 'menu_semana_rollback %', v_err;
     end if;
     raise notice 'ok RM4: sin tablas ni funciones de 0044';
-    raise notice 'ok RM5: 0043 intacta (tablas meal_*, 5 RPC, catálogo 28/47)';
+    raise notice 'ok RM5: 0043 intacta (tablas meal_*, 5 RPC, catálogo 29/47)';
 end $$;
 
 -- @ROLLBACK:rollback_0044_menus_semana.sql@

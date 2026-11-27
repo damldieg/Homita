@@ -87,7 +87,8 @@ fun DashboardApp(
     onLoadWeek: (LocalDate) -> Unit,
     settings: SettingsCallbacks,
     onPeek: () -> Unit,
-    onDismissDue: (String) -> Unit
+    onDismissDue: (String) -> Unit,
+    onLogoTap: () -> Unit
 ) {
     var intro by remember { mutableStateOf<IntroStyle?>(if (state.token == null) IntroStyle.First else IntroStyle.Returning) }
     var hadToken by remember { mutableStateOf(state.token != null) }
@@ -98,7 +99,7 @@ fun DashboardApp(
         hadToken = has
     }
     Box(Modifier.fillMaxSize()) {
-        DashboardContent(state, actions, onLogin, onLoadWeek, settings, onPeek, onDismissDue)
+        DashboardContent(state, actions, onLogin, onLoadWeek, settings, onPeek, onDismissDue, onLogoTap)
         intro?.let { BrandIntro(it) { intro = null } }
     }
 }
@@ -111,7 +112,8 @@ private fun DashboardContent(
     onLoadWeek: (LocalDate) -> Unit,
     settings: SettingsCallbacks,
     onPeek: () -> Unit,
-    onDismissDue: (String) -> Unit
+    onDismissDue: (String) -> Unit,
+    onLogoTap: () -> Unit
 ) {
     var page by remember { mutableStateOf(Page.Today) }
     var lastTouch by remember { mutableLongStateOf(0L) }
@@ -139,7 +141,9 @@ private fun DashboardContent(
             }
     ) {
         if (state.token == null) {
-            LoginScreen(state, onLogin, actions.openWifi)
+            // Sin sesión: la pantalla se vincula con un código desde el móvil; el formulario técnico queda oculto (Q4)
+            if (state.technical) LoginScreen(state, onLogin, actions.openWifi, onLogoTap)
+            else PairingScreen(state, actions.openWifi, onLogoTap)
             return@Box
         }
         if (state.night) {

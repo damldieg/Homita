@@ -9,7 +9,7 @@
 --
 -- Cubre (§7.3): get_homes sin uid → 42501; get_home_detail no miembro → P0002 y guest sin
 -- home.view → 42501; update_home por member sin home.settings.manage → 42501; create_home →
--- una membresía admin y home.is_personal = false; get_home_memberships admin → 28 códigos y
+-- una membresía admin y home.is_personal = false; get_home_memberships admin → 29 códigos y
 -- member legacy17 → 17 (incluye home.view); cabecera ≠ p_home_id → P0002; set_default_home no
 -- miembro → P0002. Más R1-02 (nombre en blanco → 'Name is required' P0001 en create_home y
 -- update_home; p_timezone null → 'Europe/Madrid' en create y conserva en update) y R1-01
@@ -259,7 +259,7 @@ begin
     raise notice 'ok set_default_home de no miembro → P0002 (§7.3)';
 end $$;
 
--- ── get_home_memberships (§7.3 + R1-03): admin → 28 códigos; member legacy17 → 17 con home.view ──
+-- ── get_home_memberships (§7.3 + R1-03): admin → 29 códigos; member legacy17 → 17 con home.view ──
 
 do $$
 declare
@@ -270,10 +270,10 @@ begin
     v := get_home_memberships(993001)::jsonb;
     select jsonb_array_length(e->'permissions') into v_n from jsonb_array_elements(v) e
     where (e->>'app_user_id')::bigint = 993001 and e->>'role' = 'admin';
-    if v_n <> 28 then
-        raise exception 'home_checks_rpc: permissions de admin = % (esperado 28)', v_n;
+    if v_n <> 29 then
+        raise exception 'home_checks_rpc: permissions de admin = % (esperado 29)', v_n;
     end if;
-    raise notice 'ok get_home_memberships: fila admin → 28 códigos (A4)';
+    raise notice 'ok get_home_memberships: fila admin → 29 códigos (A4)';
     perform set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000962', true);
     v := get_home_memberships(993001)::jsonb;
     select jsonb_array_length(e->'permissions') into v_n from jsonb_array_elements(v) e

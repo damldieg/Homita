@@ -560,7 +560,8 @@ declare
     v_n bigint;
 begin
     select count(*) into v_n from permission;
-    if v_n <> 28 then raise exception 'Aserción 0043: permission = % (esperado 28)', v_n; end if;
+    -- 28 códigos de 0019 (29 con display.manage, 0049, si ya está aplicada: el reaplicado de 0043 la ve)
+    if v_n not in (28, 29) then raise exception 'Aserción 0043: permission = % (esperado 28 o 29)', v_n; end if;
     select count(*) into v_n from member_kind_default;
     if v_n <> 47 then raise exception 'Aserción 0043: member_kind_default = % (esperado 47)', v_n; end if;
     if (select count(*) from member_kind_default where kind = 'adult') <> 23

@@ -39,8 +39,8 @@ begin
                    and pg_get_constraintdef(oid) like '%meal_shopping_sync%') then
         raise exception 'shopping_reapply RS4: el check de client_request.kind no admite los kinds nuevos';
     end if;
-    if (select count(*) from permission) <> 28 or (select count(*) from member_kind_default) <> 47 then
-        raise exception 'shopping_reapply RS4: catálogo de permisos distinto de 28/47';
+    if (select count(*) from permission) <> 29 or (select count(*) from member_kind_default) <> 47 then
+        raise exception 'shopping_reapply RS4: catálogo de permisos distinto de 29/47';
     end if;
     raise notice 'ok RS4: shopping_item, columnas, 8 RPC, índice parcial y kinds nuevos tras reaplicar';
 end $$;

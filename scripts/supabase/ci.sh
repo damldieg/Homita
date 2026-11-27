@@ -250,6 +250,19 @@ run "SQL kito_menus_check" sql-kito-menus sql "$HERE/scripts/supabase/tests/kito
 mk_pat=(); for i in $(seq 1 7); do mk_pat+=("ok MK$i([^0-9a-z]|\$)"); done
 expect_log "SQL kito_menus_check" sql-kito-menus "${mk_pat[@]}"
 
+# 0049 (dashboard-pantalla-hogar): pantalla del hogar (cuenta técnica, vinculación de un solo uso, límites, selección,
+# revocación y grants). Ida y vuelta: rollback_0049 → comprobaciones de ausencia → reaplicar 0049 → de nuevo la suite.
+run "SQL home_display_check" sql-home-display sql "$HERE/scripts/supabase/tests/home_display_check.sql"
+expect_log "SQL home_display_check" sql-home-display 'ok D1([^0-9]|$)' 'ok D2([^0-9]|$)' 'ok D5([^0-9]|$)' 'ok D6([^0-9]|$)' 'ok D8([^0-9]|$)' 'ok D10([^0-9]|$)' 'ok D12([^0-9]|$)' 'ok D-clean'
+run "SQL home_display_rollback (rollback_0049)" sql-rb0049 sql "$HERE/scripts/supabase/rollback/rollback_0049_home_display.sql"
+run "SQL home_display_rollback_check" sql-rb0049-check sql "$HERE/scripts/supabase/tests/home_display_rollback_check.sql"
+expect_log "SQL home_display_rollback_check" sql-rb0049-check 'ok R1([^0-9]|$)' 'ok R2([^0-9]|$)' 'ok R3([^0-9]|$)'
+run "SQL 0049 reaplicada" sql-ra0049 sql "$HERE/supabase/migrations/0049_home_display.sql"
+run "SQL home_display_check (tras reaplicar 0049)" sql-ra0049-check sql "$HERE/scripts/supabase/tests/home_display_check.sql"
+expect_log "SQL home_display_check (tras reaplicar 0049)" sql-ra0049-check 'ok D-clean'
+run "deno test api displays" deno-test-api-displays env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/displays_test.ts"
+expect_log "deno test api displays" deno-test-api-displays '^ok \| [0-9]+ passed \| 0 failed'
+
 # 0046 (menus-paises-hogar): países del hogar en meal_profile; guardado, rechazo, cross-tenant, permisos y grants.
 run "SQL meal_profile_countries_check" sql-mp-countries sql "$HERE/scripts/supabase/tests/meal_profile_countries_check.sql"
 mc_pat=(); for i in $(seq 1 5); do mc_pat+=("ok MC$i([^0-9a-z]|\$)"); done

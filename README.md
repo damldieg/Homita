@@ -73,8 +73,13 @@ Fuera de horario, o al pulsar la luna de la barra lateral, la pantalla no se apa
 
 <img src="docs/images/night.png" alt="Reloj nocturno" />
 
+### Vincular la pantalla
+Sin sesión, el marco enseña un código de 6 dígitos: en Homita, en **Perfil → Hogar → Pantallas → Vincular pantalla**, escribe el código y un nombre. El código caduca a los 10 minutos y cada hogar puede tener hasta 5 pantallas. Quien tenga permisos de calendarios (o sea admin) gestiona las pantallas: cambiar el horario, el brillo, qué calendarios y listas enseña, o revocarla. Cinco toques en el logo muestran el acceso técnico con email y contraseña. (Todavía sin QR: solo código.)
+
+<img src="docs/images/pairing.png" alt="Vincular la pantalla" />
+
 ### Inicio de sesión
-Con la cuenta de Homita. Sin Internet, en su lugar aparece "Esperando conexión a Internet…" con un botón a los ajustes de Wi-Fi.
+Acceso técnico (cinco toques en el logo de la pantalla de vinculación). Sin Internet, en su lugar aparece "Esperando conexión a Internet…" con un botón a los ajustes de Wi-Fi.
 
 <img src="docs/images/login.png" alt="Inicio de sesión" />
 

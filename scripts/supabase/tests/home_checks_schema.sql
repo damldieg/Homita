@@ -4,7 +4,7 @@
 --   psql -v ON_ERROR_STOP=1 -f home_checks_schema.sql
 -- Cada bloque DO emite 'ok V5x: …' o aborta con 'home_checks V5x: …'.
 --
--- Cubre: V5a conteos del seed de catálogo (28/47/0, sin pet; 0043 añade 5 menu.* y 10 defaults), V5b unicidad y check pet (23505/23514),
+-- Cubre: V5a conteos del seed de catálogo (29/47/0, sin pet; 0043 añade 5 menu.* y 10 defaults), V5b unicidad y check pet (23505/23514),
 -- V5c FK home_member↔home_membership (23503) y ON DELETE SET NULL, V5d RLS/grants/revokes de
 -- secuencias (42501), V5e fn_active_home_id (cabecera x-home-id), V5f permisos por rol (D-a:
 -- P0002/42501) y V5g fn_home_for_root_create, V5i los 12 índices (8 de §5.D + 4 de §5.B).
@@ -46,8 +46,8 @@ declare
     v_guest bigint;
 begin
     select count(*) into v_n from permission;
-    if v_n <> 28 then
-        raise exception 'home_checks V5a: permission=% (esperado 28)', v_n;
+    if v_n <> 29 then
+        raise exception 'home_checks V5a: permission=% (esperado 29)', v_n;
     end if;
     select count(*), count(*) filter (where kind = 'adult'), count(*) filter (where kind = 'child'),
            count(*) filter (where kind = 'relative'), count(*) filter (where kind = 'guest'),
@@ -68,7 +68,7 @@ begin
     if v_n <> 0 then
         raise exception 'home_checks V5a: membership_permission=% (esperado 0 tras 0012)', v_n;
     end if;
-    raise notice 'ok V5a: permission=28, member_kind_default=47 (adult 23/child 8/relative 13/guest 3), membership_permission=0, pet=0';
+    raise notice 'ok V5a: permission=29, member_kind_default=47 (adult 23/child 8/relative 13/guest 3), membership_permission=0, pet=0';
 end $$;
 
 -- ── V5b (CA-4): unicidad (h,u) y check pet sin cuenta ──

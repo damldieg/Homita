@@ -35,7 +35,7 @@ segundo lado con el que comparar. Este script fija el comportamiento documentado
   El usuario demo no abandona su hogar original: la salida feliz la hace el viewer.
 * Bloque permisos por kind (1.7, §6.2): `fn_seed_kind_permissions` de 0019 por psql sobre la
   membresía member de cc-mem → `GET /home/membership` devuelve `permissions` = el conjunto exacto
-  del kind (child 8, adult 23; collate "C"); admin = 28 del catálogo (A4, sin snapshot). R1-02:
+  del kind (child 8, adult 23; collate "C"); admin = 29 del catálogo (A4, sin snapshot; 0049 añade display.manage). R1-02:
   el helper rechaza una membresía admin (`'Not Allowed'`, sin filas). Sin rutas nuevas (D-008).
 * Bloque 1.10 (contratos de /home/*, 34 casos = 15 + 15 + 4; `docs/CONTRATOS_HOME.md`): por cada
   ruta home un caso sin Bearer → `401 Unauthorized` y otro con `X-Home-Id: abc` → `400 Invalid
@@ -796,7 +796,7 @@ def scenario_permisos_config():
           repr({k: bool(v) for k, v in toks.items()}))
     atok, mtok, ktok, xtok = toks['a'], toks['m'], toks['k'], toks['x']
 
-    # PG1–PG3: GET admin → 200 PERMISSION_GET; catálogo 28, defaults 23/8/13/3 con home.view en
+    # PG1–PG3: GET admin → 200 PERMISSION_GET; catálogo 29, defaults 23/8/13/3 con home.view en
     # child/relative; fila admin editable=false/permissions=28 y fila member editable=true
     b = check("GET /home/permission", "PG1 GET /home/permission admin → 200 PERMISSION_GET",
               request("GET", f"/home/permission?home_id={hc}", None, atok), 200, PERMISSION_GET)
@@ -805,16 +805,16 @@ def scenario_permisos_config():
             if isinstance(b, dict) else {})
     counts = {k: len(v or []) for k, v in defs.items()}
     value("GET /home/permission",
-          "PG2 catálogo 28 y defaults 23/8/13/3 con home.view en child/relative",
-          len(cat) == 28 and counts == PERM_KIND_COUNTS
+          "PG2 catálogo 29 y defaults 23/8/13/3 con home.view en child/relative",
+          len(cat) == 29 and counts == PERM_KIND_COUNTS
           and 'home.view' in (defs.get('child') or []) and 'home.view' in (defs.get('relative') or []),
           f"catalog={len(cat)} defaults={counts}")
     rows = {r.get("app_user_id"): r for r in b.get("memberships", [])} if isinstance(b, dict) else {}
     ra = rows.get(uid['a'], {})
     value("GET /home/permission",
-          "PG3 admin editable=false/permissions=28 y member editable=true",
+          "PG3 admin editable=false/permissions=29 y member editable=true",
           ra.get("editable") is False and ra.get("permissions") == cat
-          and len(ra.get("permissions") or []) == 28
+          and len(ra.get("permissions") or []) == 29
           and rows.get(uid['m'], {}).get("editable") is True,
           repr(rows)[:300])
 
@@ -2566,7 +2566,7 @@ PERMS_ADULT = ['calendar.manage', 'calendar.view', 'event.assign', 'event.create
                'routine.delete', 'routine.edit',
                'routine.view', 'task.assign', 'task.complete', 'task.create', 'task.delete',
                'task.edit', 'task.view', 'tasklist.manage']
-PERMS_CATALOG = ['calendar.manage', 'calendar.view', 'event.assign', 'event.create',
+PERMS_CATALOG = ['calendar.manage', 'calendar.view', 'display.manage', 'event.assign', 'event.create',  # display.manage: 0049
                  'event.delete', 'event.edit', 'home.invite', 'home.members.manage',
                  'home.permissions.manage', 'home.settings.manage', 'home.view',
                  'menu.health.view', 'menu.plan.manage', 'menu.profile.edit', 'menu.shopping.edit',
@@ -2595,7 +2595,7 @@ def scenario_permisos_kind(hM, mem_m, demo_m, mid):
           next((x.get("permissions") for x in b
                 if isinstance(x, dict) and x.get("app_user_id") == mid), None) == PERMS_CHILD,
           repr(b)[:300])
-    value("GET /home/membership", "K3 admin (demo) = 28 del catálogo (A4, sin snapshot)",
+    value("GET /home/membership", "K3 admin (demo) = 29 del catálogo (A4, sin snapshot)",
           next((x.get("permissions") for x in b
                 if isinstance(x, dict) and x.get("app_user_id") == aid), None) == PERMS_CATALOG,
           repr(b)[:300])
