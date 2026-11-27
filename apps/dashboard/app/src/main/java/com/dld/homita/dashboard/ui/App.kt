@@ -49,6 +49,11 @@ import com.dld.homita.dashboard.UiState
 import com.dld.homita.dashboard.data.Freshness
 import com.dld.homita.dashboard.ui.theme.Palette
 import com.dld.homita.dashboard.ui.theme.Type
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.foundation.layout.heightIn
+import com.dld.homita.dashboard.data.Person
+import com.dld.homita.dashboard.data.Task
+import androidx.compose.runtime.CompositionLocalProvider
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.delay
@@ -88,7 +93,11 @@ fun DashboardApp(
     settings: SettingsCallbacks,
     onPeek: () -> Unit,
     onDismissDue: (String) -> Unit,
-    onLogoTap: () -> Unit
+    onLogoTap: () -> Unit,
+    onToggleTask: (Task) -> Unit,
+    onUndoTask: (Int) -> Unit,
+    onPersonFilter: (Person?) -> Unit,
+    onDismissNotice: () -> Unit
 ) {
     var intro by remember { mutableStateOf<IntroStyle?>(if (state.token == null) IntroStyle.First else IntroStyle.Returning) }
     var hadToken by remember { mutableStateOf(state.token != null) }
@@ -99,7 +108,7 @@ fun DashboardApp(
         hadToken = has
     }
     Box(Modifier.fillMaxSize()) {
-        DashboardContent(state, actions, onLogin, onLoadWeek, settings, onPeek, onDismissDue, onLogoTap)
+        DashboardContent(state, actions, onLogin, onLoadWeek, settings, onPeek, onDismissDue, onLogoTap, onToggleTask, onUndoTask, onPersonFilter, onDismissNotice)
         intro?.let { BrandIntro(it) { intro = null } }
     }
 }
@@ -113,7 +122,11 @@ private fun DashboardContent(
     settings: SettingsCallbacks,
     onPeek: () -> Unit,
     onDismissDue: (String) -> Unit,
-    onLogoTap: () -> Unit
+    onLogoTap: () -> Unit,
+    onToggleTask: (Task) -> Unit,
+    onUndoTask: (Int) -> Unit,
+    onPersonFilter: (Person?) -> Unit,
+    onDismissNotice: () -> Unit
 ) {
     var page by remember { mutableStateOf(Page.Today) }
     var lastTouch by remember { mutableLongStateOf(0L) }
@@ -123,6 +136,12 @@ private fun DashboardContent(
         if (page == Page.Today) return@LaunchedEffect
         delay(IDLE_MILLIS)
         page = Page.Today
+    }
+    // El filtro por persona (U4) también vuelve a «todos» tras 2 minutos sin tocar.
+    LaunchedEffect(state.personFilter, lastTouch) {
+        if (state.personFilter == null) return@LaunchedEffect
+        delay(IDLE_MILLIS)
+        onPersonFilter(null)
     }
     // Es el launcher: "atrás" vuelve a Hoy y nunca cierra la actividad.
     BackHandler { page = Page.Today }
@@ -153,6 +172,7 @@ private fun DashboardContent(
             })
             return@Box
         }
+        CompositionLocalProvider(LocalPersonTap provides { person -> onPersonFilter(if (state.personFilter?.id == person.id) null else person) }) {
         Row(Modifier.fillMaxSize()) {
             Rail(page, state, onSelect = { page = it }, onSleep = actions.sleep)
             Box(Modifier.weight(1f).fillMaxHeight()) {
@@ -160,9 +180,49 @@ private fun DashboardContent(
                     Page.Today -> TodayScreen(state, lastTouch, onOpenWeather = { page = Page.Weather }, onDismissDue = onDismissDue)
                     Page.Calendar -> CalendarScreen(state, onLoadWeek)
                     Page.Weather -> WeatherScreen(state)
-                    Page.Tasks -> TasksScreen(state)
+                    Page.Tasks -> TasksScreen(state, onToggleTask)
                     Page.Settings -> SettingsScreen(state, actions, settings)
                 }
+            }
+        }
+        // Píldora del filtro por persona (arriba, a la derecha) y «Deshacer» de la última marca (abajo)
+        state.personFilter?.let { person ->
+            Row(
+                Modifier.align(Alignment.TopEnd).padding(top = 24.dp, end = 24.dp)
+                    .height(64.dp)
+                    .background(parseColor(person.color), RoundedCornerShape(32.dp))
+                    .padding(start = 24.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Viendo: ${person.name}", style = Type.Small.copy(color = Color.White, fontWeight = FontWeight.SemiBold))
+                Box(Modifier.size(64.dp).clickable { onPersonFilter(null) }, contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.Close, contentDescription = "Quitar filtro", tint = Color.White, modifier = Modifier.size(28.dp))
+                }
+            }
+        }
+        }
+        state.pending.keys.lastOrNull()?.let { taskId ->
+            Row(
+                Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)
+                    .height(64.dp)
+                    .background(Palette.Ink, RoundedCornerShape(32.dp))
+                    .padding(start = 28.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Tarea marcada", style = Type.Small.copy(color = Palette.Card))
+                Box(Modifier.heightIn(min = 64.dp).clickable { onUndoTask(taskId) }.padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
+                    Text("Deshacer", style = Type.Small.copy(color = Palette.Card, fontWeight = FontWeight.SemiBold))
+                }
+            }
+        }
+        state.completionNotice?.let { notice ->
+            Row(
+                Modifier.align(Alignment.BottomCenter).padding(bottom = 112.dp)
+                    .background(Palette.Card, RoundedCornerShape(32.dp))
+                    .clickable(onClick = onDismissNotice)
+                    .padding(horizontal = 28.dp, vertical = 16.dp)
+            ) {
+                Text(notice, style = Type.Small.copy(color = Palette.Danger))
             }
         }
     }

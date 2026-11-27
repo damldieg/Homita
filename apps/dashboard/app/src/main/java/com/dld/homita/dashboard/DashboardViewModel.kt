@@ -7,7 +7,18 @@ import android.net.NetworkCapabilities
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dld.homita.dashboard.data.Api
+import com.dld.homita.dashboard.data.CompleteTaskRequest
+import com.dld.homita.dashboard.data.Completion
+import com.dld.homita.dashboard.data.CompletionQueue
+import com.dld.homita.dashboard.data.PersonFilter
+import com.dld.homita.dashboard.data.Person
+import com.dld.homita.dashboard.data.Task
 import com.dld.homita.dashboard.data.Diagnostics
+import com.dld.homita.dashboard.data.isDone
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.UUID
 import com.dld.homita.dashboard.data.HttpError
 import com.dld.homita.dashboard.data.DisplayApi
 import com.dld.homita.dashboard.data.DisplayConfig
@@ -88,8 +99,25 @@ data class UiState(
     /** Tocar el reloj nocturno enseña el dashboard hasta esta hora. */
     val peekUntil: LocalDateTime? = null,
     /** Reloj nocturno pedido con la luna de la barra lateral: hasta que se toque o hasta el siguiente encendido. */
-    val nightUntil: LocalDateTime? = null
+    val nightUntil: LocalDateTime? = null,
+    /** Toques de «hecho» dentro de la ventana de 5 s para «Deshacer», por tarea. */
+    val pending: Map<Int, Completion> = emptyMap(),
+    /** Toques enviables que siguen en la cola del marco (sin red o aún no enviados), por tarea. */
+    val queued: Map<Int, Completion> = emptyMap(),
+    /** Persona del filtro (U4); null = todos. Vuelve sola a los 2 min sin tocar (en DashboardContent). */
+    val personFilter: Person? = null,
+    /** Aviso puntual de una tarea que no se pudo marcar (el servidor la rechazó). */
+    val completionNotice: String? = null,
 ) {
+
+    /** Contenido de Hoy, Tareas y Calendario con el filtro por persona aplicado. */
+    val shownContent: Content?
+        get() = PersonFilter.content(content, personFilter?.id)
+
+    /** Semanas del calendario con el filtro por persona aplicado. */
+    val shownWeeks: Map<LocalDate, Week>
+        get() = personFilter?.let { person -> weeks.mapValues { PersonFilter.week(it.value, person.id) } } ?: weeks
+
     /** Reloj nocturno: fuera de horario (salvo mientras se mira el dashboard un momento) o pedido con la luna. */
     val night: Boolean
         get() = clockValid && token != null && (
@@ -109,6 +137,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val clock = ReferenceClock(BuildConfig.BUILD_TIME, { store.lastValidTime }, { store.lastValidTime = it })
     private val session = Session(store, { refresh -> api.refresh(RefreshRequest(refresh)) })
     private val diagnostics = Diagnostics()
+    private val completionQueue = CompletionQueue(File(application.filesDir, "outbox/completions.json"))
+    private val flushLock = Mutex()
+    private val undoJobs = mutableMapOf<Int, Job>()
     private val displayApi = DisplayApi.client
     private var configFetchedAt = 0L
     private val logoTaps = ArrayDeque<Long>()
@@ -147,6 +178,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     init {
+        _state.update { it.copy(queued = completionQueue.all().associateBy { c -> c.taskId }) }
         // Los repositorios publican la copia en disco y cada descarga buena: la pantalla siempre tiene lo último.
         viewModelScope.launch { contentRepository.content.collect { c -> _state.update { it.copy(content = c?.value, contentFetchedAt = c?.fetchedAt) } } }
         viewModelScope.launch { weatherRepository.forecast.collect { f -> _state.update { it.copy(forecast = f?.value) } } }
@@ -171,6 +203,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     suspend fun run() {
         while (true) {
             tick()
+            if (_state.value.token != null && completionQueue.all().isNotEmpty()) flushCompletions()
             if (_state.value.clockValid) {
                 // dashboard-sesion: renovar antes de que el JWT caduque (y al arrancar, si ya toca).
                 if (session.needsProactiveRenewal() && session.renew() is Session.Outcome.Rejected) logout(expired = true)
@@ -192,6 +225,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     /** Fuerza la sincronización (al recuperar la red, tras iniciar sesión...). */
     fun refreshNow() {
         viewModelScope.launch {
+            flushCompletions()
             tick()
             if (!_state.value.clockValid) return@launch
             refreshContent()
@@ -306,6 +340,79 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         if (_state.value.token == null) return
         if (!calendarRepository.isStale(monday)) return
         viewModelScope.launch { report(session.authorized { calendarRepository.refresh(it, monday) }, "calendario") }
+    }
+
+    /**
+     * Marca o desmarca [task] (dashboard-marcar-hecho). El cambio se ve al momento y queda 5 s para «Deshacer»; después
+     * pasa a la cola del marco y se envía. Tocar otra vez durante la ventana lo deshace.
+     */
+    fun toggleTask(task: Task) {
+        if (_state.value.pending.containsKey(task.id)) {
+            undoCompletion(task.id)
+            return
+        }
+        val done = task.isDone(_state.value.queued[task.id])
+        val next = Completion(task.id, completed = !done, requestId = UUID.randomUUID().toString(), createdAt = System.currentTimeMillis())
+        _state.update { it.copy(pending = it.pending + (task.id to next)) }
+        undoJobs[task.id] = viewModelScope.launch {
+            delay(UNDO_MILLIS)
+            commitCompletion(task.id)
+        }
+    }
+
+    /** «Deshacer»: nada sale hacia el servidor. */
+    fun undoCompletion(taskId: Int) {
+        undoJobs.remove(taskId)?.cancel()
+        _state.update { it.copy(pending = it.pending - taskId) }
+    }
+
+    private fun commitCompletion(taskId: Int) {
+        undoJobs.remove(taskId)
+        val completion = _state.value.pending[taskId] ?: return
+        completionQueue.add(completion)
+        _state.update { it.copy(pending = it.pending - taskId, queued = completionQueue.all().associateBy { c -> c.taskId }) }
+        viewModelScope.launch { flushCompletions() }
+    }
+
+    /**
+     * Envía la cola en orden. Un 403 o 404 revierte el toque (se quita de la cola y se pide el contenido de nuevo) y
+     * avisa; un 401 cierra sesión; sin red se queda en la cola para la próxima vez.
+     */
+    private suspend fun flushCompletions() {
+        flushLock.withLock {
+            for (completion in completionQueue.all()) {
+                if (_state.value.token == null) return
+                val result = session.authorized { token ->
+                    runCatching {
+                        api.completeTask(bearer(token), CompleteTaskRequest(completion.taskId, completion.completed, completion.requestId)).bodyOrThrow()
+                    }
+                }
+                val error = result.exceptionOrNull()
+                when {
+                    error == null -> completionQueue.remove(completion.requestId)
+                    error is SessionExpired || error.isUnauthorized -> {
+                        logout(expired = true)
+                        return
+                    }
+                    error is HttpError && (error.code == 403 || error.code == 404) -> {
+                        completionQueue.remove(completion.requestId)
+                        _state.update { it.copy(completionNotice = "No se pudo marcar la tarea: no tienes permiso o ya no existe.") }
+                        refreshContent()
+                    }
+                    else -> return
+                }
+                _state.update { it.copy(queued = completionQueue.all().associateBy { c -> c.taskId }) }
+            }
+        }
+    }
+
+    fun dismissCompletionNotice() {
+        _state.update { it.copy(completionNotice = null) }
+    }
+
+    /** Filtro por persona (U4): tocar un avatar. Tocarlo otra vez, o la ✕ de la píldora, lo quita. */
+    fun setPersonFilter(person: Person?) {
+        _state.update { it.copy(personFilter = person) }
     }
 
     /** Cierra el aviso de vencimiento de [key] (N4): no vuelve tras reiniciar el marco. */
@@ -441,5 +548,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         /** Toques en el logo para el modo técnico, dentro de la ventana. */
         const val TECHNICAL_TAPS = 5
         const val TECHNICAL_TAP_WINDOW_MS = 3_000L
+        /** Ventana de «Deshacer» antes de enviar un toque de «hecho». */
+        const val UNDO_MILLIS = 5_000L
     }
 }

@@ -100,10 +100,10 @@ fun CalendarScreen(state: UiState, onLoadWeek: (LocalDate) -> Unit) {
 
 /** Eventos y sesiones de la semana: los descargados para ella o, mientras llegan, los del contenido de Hoy. */
 private fun weekContent(state: UiState, monday: LocalDate): Pair<List<Event>, List<Event>> {
-    state.weeks[monday]?.let { return it.events to it.sessions }
+    state.shownWeeks[monday]?.let { return it.events to it.sessions }
     val sunday = monday.plusDays(6)
     fun inWeek(event: Event) = event.at.toLocalDate().let { it >= monday && it <= sunday }
-    return state.content?.events.orEmpty().filter(::inWeek) to state.content?.sessions.orEmpty().filter(::inWeek)
+    return state.shownContent?.events.orEmpty().filter(::inWeek) to state.shownContent?.sessions.orEmpty().filter(::inWeek)
 }
 
 @Composable

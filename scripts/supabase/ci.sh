@@ -262,6 +262,15 @@ run "SQL home_display_check (tras reaplicar 0049)" sql-ra0049-check sql "$HERE/s
 expect_log "SQL home_display_check (tras reaplicar 0049)" sql-ra0049-check 'ok D-clean'
 run "deno test api displays" deno-test-api-displays env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/displays_test.ts"
 expect_log "deno test api displays" deno-test-api-displays '^ok \| [0-9]+ passed \| 0 failed'
+# La reaplicación de 0049 recrea fn_display_link_complete sin task.complete: se reaplica 0050 encima (cross_tenant DM1 lo necesita).
+run "SQL 0050 reaplicada (tras 0049)" sql-ra0050-tras0049 sql "$HERE/supabase/migrations/0050_marcar_hecho.sql"
+
+# 0050 (dashboard-marcar-hecho): la pantalla completa y descompleta tareas de sus listas (y nada más), auditado e
+# idempotente con client_request. Ida y vuelta: rollback_0050 → comprobaciones → reaplicar 0050 → de nuevo la suite.
+run "SQL marcar_hecho_check" sql-marcar-hecho sql "$HERE/scripts/supabase/tests/marcar_hecho_check.sql"
+expect_log "SQL marcar_hecho_check" sql-marcar-hecho 'ok MH1([^0-9]|$)' 'ok MH5([^0-9]|$)' 'ok MH7([^0-9]|$)' 'ok MH-clean'
+run "deno test api tasks (complete)" deno-test-api-tasks-complete env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/tasks_complete_test.ts"
+expect_log "deno test api tasks (complete)" deno-test-api-tasks-complete '^ok \| [0-9]+ passed \| 0 failed'
 
 # 0046 (menus-paises-hogar): países del hogar en meal_profile; guardado, rechazo, cross-tenant, permisos y grants.
 run "SQL meal_profile_countries_check" sql-mp-countries sql "$HERE/scripts/supabase/tests/meal_profile_countries_check.sql"
@@ -417,6 +426,12 @@ run "cross_tenant_check.py" cross-tenant python3 "$HERE/scripts/supabase/tests/c
 expected="$(sed -n 's/^EXPECTED_CASES = \([0-9]*\).*/\1/p' "$HERE/scripts/supabase/tests/cross_tenant_check.py")"
 [ -n "$expected" ] || FAILED+=("cross_tenant_check.py (sin EXPECTED_CASES)")
 expect_log "cross_tenant_check.py" cross-tenant "^${expected}/${expected} casos ok"
+
+# 0050 (marcar-hecho) es la más nueva: su rollback va ANTES de las de 0039..0035, que redefinen complete_task, y su
+# reaplicación va al final (orden LIFO). Mientras está revertida, complete_task es la de 0039.
+run "SQL marcar_hecho (rollback_0050, LIFO antes de 0039)" sql-rb0050 sql "$HERE/scripts/supabase/rollback/rollback_0050_marcar_hecho.sql"
+run "SQL marcar_hecho_rollback_check" sql-rb0050-check sql "$HERE/scripts/supabase/tests/marcar_hecho_rollback_check.sql"
+expect_log "SQL marcar_hecho_rollback_check" sql-rb0050-check 'ok MR1([^0-9]|$)' 'ok MR2([^0-9]|$)' 'ok MR3([^0-9]|$)'
 
 # Ida y vuelta exterior 0039 → rollback_0039 → [ida y vuelta 0038] → 0039 (ocultar-completadas-3-dias).
 # rollback_0039 restaura los 7 cuerpos vigentes antes de 0039 y quita task.hidden_at. Va por fuera de la
@@ -772,6 +787,11 @@ if [ "$RB0048_OK" = 1 ]; then
     run "SQL kito_menus_check (tras reaplicar 0048)" sql-ra0048-mk sql "$HERE/scripts/supabase/tests/kito_menus_check.sql"
     expect_log "SQL kito_menus_check (tras reaplicar 0048)" sql-ra0048-mk "${mk_pat[@]}"
 fi
+
+# Reaplicación de 0050 (la más nueva) tras todas las ida y vueltas de migraciones anteriores.
+run "SQL 0050 reaplicada (final)" sql-ra0050 sql "$HERE/supabase/migrations/0050_marcar_hecho.sql"
+run "SQL marcar_hecho_check (tras reaplicar 0050, final)" sql-ra0050-check sql "$HERE/scripts/supabase/tests/marcar_hecho_check.sql"
+expect_log "SQL marcar_hecho_check (tras reaplicar 0050, final)" sql-ra0050-check 'ok MH-clean'
 
 if [ "${#FAILED[@]}" -gt 0 ]; then
     echo

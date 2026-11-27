@@ -1,6 +1,7 @@
 package com.dld.homita.dashboard.data.repository
 
 import com.dld.homita.dashboard.data.Api
+import com.dld.homita.dashboard.data.CompleteTaskRequest
 import com.dld.homita.dashboard.data.AuthRequest
 import com.dld.homita.dashboard.data.Event
 import com.dld.homita.dashboard.data.Forecast
@@ -48,6 +49,7 @@ class MealRepositoryTest {
 
         override suspend fun auth(request: AuthRequest): Response<UserResponse> = error("no se usa")
         override suspend fun refresh(request: RefreshRequest): Response<SessionResponse> = error("no se usa")
+        override suspend fun completeTask(auth: String, request: CompleteTaskRequest): Response<Task> = error("no se usa")
         override suspend fun events(auth: String, start: Long, end: Long?, routine: Boolean, timezone: String, dashboard: Boolean): Response<List<Event>> = error("no se usa")
         override suspend fun tasks(auth: String, dashboard: Boolean): Response<List<Task>> = error("no se usa")
         override suspend fun forecast(url: String): Response<Forecast> = error("no se usa")
