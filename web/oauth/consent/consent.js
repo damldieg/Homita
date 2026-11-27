@@ -4,6 +4,15 @@
 (function () {
   "use strict";
 
+  // Anticlickjacking. GitHub Pages no permite cabeceras (X-Frame-Options / frame-ancestors) y en un <meta> el
+  // navegador ignora frame-ancestors, así que se rompe el marco por script: dentro de un iframe la página sigue
+  // oculta (ver consent.css) y se intenta sacarla del marco. Con una cabecera real habría que quitar esto.
+  if (window.top !== window.self) {
+    try { window.top.location = window.location.href; } catch (e) { /* sandbox: se queda oculta */ }
+    return;
+  }
+  document.documentElement.classList.add("libre");
+
   var cfg = window.HOMITA_CONFIG || {};
   var $ = function (id) { return document.getElementById(id); };
   var estado = $("estado");

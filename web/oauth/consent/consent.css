@@ -1,3 +1,5 @@
+/* Anticlickjacking: la página queda oculta hasta que consent.js comprueba que no va en un marco. */
+html:not(.libre) body { display: none; }
 :root { color-scheme: light dark; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
 body { margin: 0; padding: 1.5rem 1rem; background: #f6f5f1; color: #1d1d1b; }
 main { max-width: 30rem; margin: 0 auto; background: #fff; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 1px 6px rgb(0 0 0 / 12%); }

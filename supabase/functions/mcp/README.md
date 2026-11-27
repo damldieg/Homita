@@ -119,5 +119,11 @@ concatena a `site_url` (no admite URL absoluta) y `/auth/v1/user` acepta tokens 
    activar Pages (fuente: GitHub Actions) y el `push` de `.github/workflows/pages.yml` (hoy solo `workflow_dispatch`);
    variables del repositorio `SUPABASE_URL` y `SUPABASE_ANON_KEY` para `config.js`.
 
+**Límite del antiframe (clickjacking) de la página de consentimiento:** GitHub Pages no deja poner cabeceras
+(`X-Frame-Options`, `frame-ancestors`) y en un `<meta http-equiv>` el navegador ignora `frame-ancestors`, así que la
+protección es por script: `consent.js` deja la página oculta dentro de un iframe (CSS `html:not(.libre) body`) e
+intenta sacarla del marco. Sin JavaScript la página no funciona. Es una defensa más débil que la cabecera: si se
+aloja en un host que permita cabeceras (dominio propio con proxy), añadir `Content-Security-Policy: frame-ancestors 'none'`.
+
 No verificable en local: el cliente real de Claude (versión de spec), GitHub Pages sirviendo `/oauth/consent`, la beta
 del OAuth server en el proyecto alojado.

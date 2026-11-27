@@ -48,6 +48,9 @@ check("detalles del cliente", "getAuthorizationDetails" in js)
 check("login por contraseña", "signInWithPassword" in js)
 check("muestra el host de redirect_uri", "hostDe(d.redirect_uri)" in js)
 check("aviso de salud", "no recibe datos de salud" in html)
+check("antiframe: se rompe el marco y la página está oculta hasta comprobarlo",
+      "window.top !== window.self" in js and 'classList.add("libre")' in js
+      and "html:not(.libre) body { display: none; }" in (PAGE / "consent.css").read_text())
 check("redirección solo http(s)", '"https:"' in js and '"http:"' in js)
 
 on = re.search(r"^on:\n((?:[ \t]+.*\n|\n)+)", wf, re.M)
