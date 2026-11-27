@@ -6,7 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** Prioridad de tarea (0037): parseo tolerante, orden y filtro en cliente y caché antigua sin la clave. */
+/** Prioridad de tarea (0037): parseo tolerante, orden fijo por prioridad en cliente y caché antigua sin la clave. */
 class TaskPriorityTest {
     private fun task(id: Int, priority: String?, order: Int, completed: Boolean = false) =
         Task(id, 2, "Compra", "#6923E2", "T$id", order, if (completed) "2026-11-20 10:00:00" else null, priority)
@@ -33,27 +33,11 @@ class TaskPriorityTest {
     }
 
     @Test
-    fun defaultsKeepServerOrderWithoutFilter() {
-        val tasks = listOf(task(1, "baja", 1), task(2, "alta", 2), task(3, null, 3))
-        assertEquals(TaskSort.LIST, TaskSort.from(null))
-        assertEquals(TaskSort.LIST, TaskSort.from("desconocido"))
-        assertEquals(tasks, TaskPriorityView.apply(tasks, TaskSort.LIST, null))
-    }
-
-    @Test
     fun prioritySortTieBreaksByOrderThenIdAndCompletedLast() {
         val tasks = listOf(
             task(1, "baja", 1), task(2, "alta", 3), task(3, null, 2), task(4, "alta", 1),
             task(5, "alta", 1, completed = true), task(6, "media", 4), task(7, "alta", 3)
         )
-        assertEquals(listOf(4, 2, 7, 3, 6, 1, 5), TaskPriorityView.sortTasks(tasks, TaskSort.PRIORITY).map { it.id })
-    }
-
-    @Test
-    fun filterKeepsOnlyThatPriority() {
-        val tasks = listOf(task(1, "baja", 1), task(2, "alta", 2), task(3, null, 3))
-        assertEquals(listOf(3), TaskPriorityView.filterTasks(tasks, TaskPriority.MEDIA).map { it.id })
-        assertEquals(listOf(2), TaskPriorityView.apply(tasks, TaskSort.PRIORITY, TaskPriority.ALTA).map { it.id })
-        assertEquals(tasks, TaskPriorityView.filterTasks(tasks, null))
+        assertEquals(listOf(4, 2, 7, 3, 6, 1, 5), TaskPriorityView.sortWithinList(tasks).map { it.id })
     }
 }

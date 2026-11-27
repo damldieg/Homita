@@ -27,7 +27,6 @@ import com.dld.homita.dashboard.ui.DashboardActions
 import com.dld.homita.dashboard.ui.DashboardApp
 import com.dld.homita.dashboard.ui.ProvideIconClock
 import com.dld.homita.dashboard.ui.SettingsCallbacks
-import com.dld.homita.dashboard.ui.TaskViewCallbacks
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -60,16 +59,16 @@ class MainActivity : ComponentActivity() {
             onSelectLocation = viewModel::selectLocation,
             onSchedule = viewModel::setSchedule,
             onBrightness = viewModel::setBrightness,
-            onLogout = viewModel::logout
+            onLogout = viewModel::logout,
+            onSync = viewModel::syncAll
         )
-        val taskView = TaskViewCallbacks(onSort = viewModel::setTaskSort, onFilter = viewModel::setTaskFilter)
 
         setContent {
             val state by viewModel.state.collectAsStateWithLifecycle()
             // Se diseña en píxeles nativos del panel (1920×1200): 1 dp = 1 sp = 1 px.
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 1f)) {
                 ProvideIconClock {
-                    DashboardApp(state, actions, viewModel::login, viewModel::loadWeek, viewModel::syncAll, settings, viewModel::peek, taskView)
+                    DashboardApp(state, actions, viewModel::login, viewModel::loadWeek, settings, viewModel::peek, viewModel::dismissDue)
                 }
             }
         }

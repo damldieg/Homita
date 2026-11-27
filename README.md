@@ -44,33 +44,27 @@ Homita es el monorepo de las tres piezas que lo hacen funcionar:
 Todas las secciones de la app, en el emulador con las medidas del marco (1920×1200) y datos de demostración.
 
 ### Hoy
-La pantalla principal: reloj de paletas, el siguiente evento o rutina con cuenta atrás (si es de hoy o de mañana), el tiempo (ahora, el día de hoy de 00 a 23 h con la hora actual marcada y los próximos días; deslizando sobre la curva se cambia de día), el calendario del mes, los próximos eventos y las rutinas de hoy. Al tocar un día del calendario, la lista pasa a ser la de ese día. Las listas de eventos y rutinas se abren con un solo elemento pasado a la vista, el último, y vuelven a esa posición tras un minuto sin tocar la pantalla.
+La pantalla principal, en dos mitades. Arriba, a la izquierda, el reloj de paletas, el aviso de la tarea de alta prioridad que vence antes (vencida hasta completarse; «Cerrar» lo oculta hasta que cambie su fecha) y lo siguiente con su cuenta atrás; a la derecha, el tiempo en franja (ahora, el día de hoy de 00 a 23 h con la hora actual marcada, 8 días y la sensación térmica; tocarlo abre el detalle). Abajo, a la izquierda, la agenda de hoy como bloque principal (en curso, de hoy y los pasados en gris); a la derecha, «Hoy se come» con todas las franjas del día, los próximos 3 días con sus títulos y las rutinas de hoy.
 
 <img src="docs/images/today.png" alt="Hoy" />
 
 ### Calendario
-Dos filas, la semana actual y la siguiente, de lunes a domingo, deslizando en vertical de semana en semana. Cada día, en su tarjeta: el día y el número (hoy, en rojo), el tiempo en una línea, los eventos y abajo, en una caja, las rutinas. Los días pasados, atenuados.
+Dos filas, la semana actual y la siguiente, de lunes a domingo, deslizando en vertical de semana en semana. Cada día, en su tarjeta: el día y el número (hoy, en rojo), el tiempo en una línea, los eventos y abajo, en una caja, las rutinas. Las rutinas que se repiten a diario se resumen en «+N rutinas diarias». Los días pasados, atenuados.
 
 <img src="docs/images/calendar.png" alt="Calendario" />
 
 ### Tiempo
-Dos páginas que se deslizan. La primera: el día de hoy por horas, de 00 a 23 con la hora actual marcada, y 7 días. La segunda: la semana siguiente en gráfica (máximas, mínimas, lluvia y viento). Tocar cualquier día abre sus 24 horas con su propia cabecera, y deslizar sobre la gráfica pasa de un día a otro. La lluvia se dibuja por cantidad: el alto de la barra son los mm de esa hora, y la opacidad del relleno, la probabilidad (maciza al 100 %, vacía al 0 %).
+Una página: el día de hoy por horas, de 00 a 23 con la hora actual marcada, la sensación térmica y 8 días. Se abre tocando la tarjeta del tiempo de Hoy; «atrás» o dos minutos sin tocar vuelven a Hoy. Tocar cualquier día abre sus 24 horas con su propia cabecera, y deslizar sobre la gráfica pasa de un día a otro. La lluvia se dibuja por cantidad: el alto de la barra son los mm de esa hora, y la opacidad del relleno, la probabilidad (maciza al 100 %, vacía al 0 %).
 
-<p align="center">
-  <img src="docs/images/weather.png" width="49%" alt="Tiempo: hoy por horas y 7 días" />
-  <img src="docs/images/weather-week.png" width="49%" alt="Tiempo: la semana siguiente" />
-</p>
-<p align="center">
-  <img src="docs/images/weather-day.png" width="49%" alt="Tiempo: un día de la semana siguiente por horas" />
-</p>
+<img src="docs/images/weather.png" alt="Tiempo: hoy por horas y 8 días" />
 
 ### Tareas
-Las tareas pendientes de las listas elegidas en la APP, una columna por lista.
+Las tareas pendientes de las listas elegidas en la APP, una columna por lista. Dentro de cada lista, primero las de prioridad alta, después media y baja, y las personas asignadas en cada una.
 
 <img src="docs/images/tasks.png" alt="Tareas" />
 
 ### Ajustes
-Ubicación del tiempo (búsqueda en Open-Meteo), horario de pantalla (entre semana y fin de semana, con el interruptor «Reloj nocturno»: si se desactiva, fuera de horario la pantalla se apaga del todo), brillo (un deslizador, con el porcentaje en el título, y «A» para el automático del sistema), Conexión (estado del Wi-Fi) y, en su propia caja, Wi-Fi, Ajustes de Android, cerrar sesión y apagar o reiniciar.
+Ubicación del tiempo (búsqueda en Open-Meteo), horario de pantalla (entre semana y fin de semana, con el interruptor «Reloj nocturno»: si se desactiva, fuera de horario la pantalla se apaga del todo), brillo (un deslizador, con el porcentaje en el título, y «A» para el automático del sistema), Conexión (estado del Wi-Fi) y, arriba, «Sincronizar ahora». Wi-Fi, Ajustes de Android, cerrar sesión y apagar o reiniciar solo responden a una pulsación de dos segundos, para que nadie los active por error.
 
 <img src="docs/images/settings.png" alt="Ajustes" />
 

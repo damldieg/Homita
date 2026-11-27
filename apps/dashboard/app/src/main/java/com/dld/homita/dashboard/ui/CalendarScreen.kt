@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.dld.homita.dashboard.R
 import com.dld.homita.dashboard.UiState
 import com.dld.homita.dashboard.data.Event
+import com.dld.homita.dashboard.data.RoutineSummary
 import com.dld.homita.dashboard.ui.theme.Palette
 import com.dld.homita.dashboard.ui.theme.Type
 import kotlinx.coroutines.launch
@@ -72,14 +73,18 @@ fun CalendarScreen(state: UiState, onLoadWeek: (LocalDate) -> Unit) {
         VerticalPager(pager, Modifier.fillMaxSize(), pageSize = PageSize.Fixed(row), pageSpacing = GAP, beyondViewportPageCount = 1) { page ->
             val monday = mondayOf(page)
             val (events, sessions) = weekContent(state, monday)
+            // Las rutinas que se repiten a diario se resumen en cada día («+3 rutinas diarias») en vez de listarse (U5)
+            val daily = RoutineSummary.dailyKeys(sessions)
             Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(GAP)) {
                 (0 until 7).forEach { offset ->
                     val date = monday.plusDays(offset.toLong())
+                    val (dayRoutines, dailyCount) = RoutineSummary.split(date, sessions, daily)
                     DayCard(
                         date = date,
                         state = state,
                         events = events.filter { it.at.toLocalDate() == date },
-                        sessions = sessions.filter { it.at.toLocalDate() == date },
+                        sessions = dayRoutines,
+                        dailyRoutines = dailyCount,
                         modifier = Modifier.weight(1f).fillMaxHeight().alpha(if (date < today) 0.6f else 1f)
                     )
                 }
@@ -102,7 +107,7 @@ private fun weekContent(state: UiState, monday: LocalDate): Pair<List<Event>, Li
 }
 
 @Composable
-private fun DayCard(date: LocalDate, state: UiState, events: List<Event>, sessions: List<Event>, modifier: Modifier) {
+private fun DayCard(date: LocalDate, state: UiState, events: List<Event>, sessions: List<Event>, dailyRoutines: Int, modifier: Modifier) {
     val isToday = date == state.now.toLocalDate()
     val forecast = state.forecast
     val day = forecast?.dayIndex(date) ?: -1
@@ -153,6 +158,14 @@ private fun DayCard(date: LocalDate, state: UiState, events: List<Event>, sessio
         }
 
         // Las rutinas del día, en una caja abajo: hora, color de cada persona y nombre, que sigue en la línea de debajo
+        if (dailyRoutines > 0) {
+            Text(
+                "+$dailyRoutines rutinas diarias",
+                style = Type.Small.copy(color = Palette.InkSoft),
+                maxLines = 1,
+                modifier = Modifier.padding(top = 10.dp)
+            )
+        }
         if (sessions.isNotEmpty()) {
             Column(
                 Modifier
@@ -170,10 +183,10 @@ private fun DayCard(date: LocalDate, state: UiState, events: List<Event>, sessio
                             append(" ")
                             append(session.title)
                         },
-                        style = Type.Tiny.copy(color = Palette.Ink),
+                        style = Type.Small.copy(color = Palette.Ink),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.alpha(if (session.at.isBefore(state.now)) 0.4f else 1f)
+                        modifier = Modifier.alpha(if (session.at.isBefore(state.now)) 0.6f else 1f)
                     )
                 }
             }
@@ -183,10 +196,10 @@ private fun DayCard(date: LocalDate, state: UiState, events: List<Event>, sessio
 
 @Composable
 private fun WeekEvent(event: Event, past: Boolean) {
-    Row(Modifier.fillMaxWidth().alpha(if (past) 0.4f else 1f)) {
+    Row(Modifier.fillMaxWidth().alpha(if (past) 0.6f else 1f)) {
         Box(Modifier.width(5.dp).height(56.dp).background(parseColor(event.calendar_color), RoundedCornerShape(3.dp)))
         Column(Modifier.padding(start = 10.dp)) {
-            Text(event.at.format(HourMinute), style = Type.Tiny.copy(color = Palette.InkMuted))
+            Text(event.at.format(HourMinute), style = Type.Small.copy(color = Palette.InkMuted))
             Text(event.title, style = Type.Small.copy(color = Palette.Ink), maxLines = 3, overflow = TextOverflow.Ellipsis)
             PersonInitials(event.persons, Modifier.padding(top = 4.dp), size = 26)
         }

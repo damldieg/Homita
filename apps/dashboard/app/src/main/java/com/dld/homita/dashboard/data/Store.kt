@@ -49,15 +49,13 @@ class Store(context: Context) : TokenStore {
         get() = prefs.getFloat("brightness", -1f).takeIf { it > 0f }
         set(value) = prefs.edit { putFloat("brightness", value ?: -1f) }
 
-    /** Orden de la pantalla de tareas (0037): Lista por defecto, el de siempre. */
-    var taskSort: TaskSort
-        get() = TaskSort.from(prefs.getString("task_sort", null))
-        set(value) = prefs.edit { putString("task_sort", value.name) }
-
-    /** Filtro por prioridad de la pantalla de tareas (0037): null = todas, por defecto. */
-    var taskFilter: TaskPriority?
-        get() = prefs.getString("task_filter", null)?.let { raw -> TaskPriority.entries.firstOrNull { it.raw == raw } }
-        set(value) = prefs.edit { if (value == null) remove("task_filter") else putString("task_filter", value.raw) }
+    /**
+     * Avisos de vencimiento cerrados (N4): claves de [TaskDue.key]. Se guardan para que no vuelvan tras reiniciar el
+     * marco; se recortan a las más recientes para no crecer sin límite.
+     */
+    var dismissedDue: Set<String>
+        get() = prefs.getString("dismissed_due_list", null).orEmpty().split('\n').filter { it.isNotEmpty() }.toSet()
+        set(value) = prefs.edit { putString("dismissed_due_list", value.toList().takeLast(MAX_DISMISSED).joinToString("\n")) }
 
     /** Última hora válida (epoch ms), para ReferenceClock. */
     var lastValidTime: Long
@@ -78,10 +76,23 @@ class Store(context: Context) : TokenStore {
                 remove("weeks")
             }
         }
+        // Lista de cierres en un string ordenado (un StringSet no conserva el orden). El formato anterior se descarta.
+        prefs.edit { remove("dismissed_due") }
+        // Orden y filtro de la pantalla de tareas (0037): se quitaron con la lista fija por prioridad (dashboard-hoy-legible).
+        if (prefs.contains("task_sort") || prefs.contains("task_filter")) {
+            prefs.edit {
+                remove("task_sort")
+                remove("task_filter")
+            }
+        }
     }
 
     private inline fun <reified T> read(key: String): T? =
         prefs.getString(key, null)?.let { runCatching { gson.fromJson(it, T::class.java) }.getOrNull() }
 
     private fun write(key: String, value: Any?) = prefs.edit { if (value == null) remove(key) else putString(key, gson.toJson(value)) }
+
+    private companion object {
+        const val MAX_DISMISSED = 50
+    }
 }
