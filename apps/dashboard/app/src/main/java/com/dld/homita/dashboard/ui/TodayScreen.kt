@@ -91,7 +91,8 @@ fun TodayScreen(state: UiState, lastTouch: Long, onOpenWeather: () -> Unit, onDi
                     val forecast = state.forecast
                     val location = state.location
                     if (forecast != null && location != null) {
-                        WeatherCard(forecast, location.name, state.now, days = 7, modifier = Modifier.fillMaxSize(), compact = true)
+                        // 8 días en una fila (Q1): sin segunda página, como la pantalla del tiempo
+                        WeatherCard(forecast, location.name, state.now, days = 8, modifier = Modifier.fillMaxSize(), compact = true)
                     } else {
                         Card(Modifier.fillMaxSize()) {
                             CardHeader("Tiempo", Icons.Outlined.Thermostat, Palette.Warm)

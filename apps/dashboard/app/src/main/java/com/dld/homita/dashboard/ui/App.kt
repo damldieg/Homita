@@ -50,6 +50,7 @@ import com.dld.homita.dashboard.data.Freshness
 import com.dld.homita.dashboard.ui.theme.Palette
 import com.dld.homita.dashboard.ui.theme.Type
 import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.delay
 
 /**
@@ -236,7 +237,9 @@ private fun RailClock(state: UiState) {
  */
 @Composable
 private fun RailStatus(state: UiState, modifier: Modifier = Modifier) {
-    val text = Freshness.label(state.contentFetchedAt, System.currentTimeMillis(), state.online, state.connected) ?: return
+    // Con la hora sin sincronizar (RTC de fábrica) no se puede medir la edad de la copia: solo el estado de la red.
+    val nowMillis = if (state.clockValid) state.now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() else null
+    val text = Freshness.label(if (nowMillis != null) state.contentFetchedAt else null, nowMillis ?: 0L, state.online, state.connected) ?: return
     Text(
         text,
         style = Type.Small.copy(color = if (!state.online || !state.connected) Palette.Danger else Palette.InkSoft),

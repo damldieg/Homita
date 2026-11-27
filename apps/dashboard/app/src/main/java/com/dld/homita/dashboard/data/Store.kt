@@ -54,8 +54,8 @@ class Store(context: Context) : TokenStore {
      * marco; se recortan a las más recientes para no crecer sin límite.
      */
     var dismissedDue: Set<String>
-        get() = prefs.getStringSet("dismissed_due", emptySet()).orEmpty()
-        set(value) = prefs.edit { putStringSet("dismissed_due", value.toList().takeLast(MAX_DISMISSED).toSet()) }
+        get() = prefs.getString("dismissed_due_list", null).orEmpty().split('\n').filter { it.isNotEmpty() }.toSet()
+        set(value) = prefs.edit { putString("dismissed_due_list", value.toList().takeLast(MAX_DISMISSED).joinToString("\n")) }
 
     /** Última hora válida (epoch ms), para ReferenceClock. */
     var lastValidTime: Long
@@ -76,6 +76,8 @@ class Store(context: Context) : TokenStore {
                 remove("weeks")
             }
         }
+        // Lista de cierres en un string ordenado (un StringSet no conserva el orden). El formato anterior se descarta.
+        prefs.edit { remove("dismissed_due") }
         // Orden y filtro de la pantalla de tareas (0037): se quitaron con la lista fija por prioridad (dashboard-hoy-legible).
         if (prefs.contains("task_sort") || prefs.contains("task_filter")) {
             prefs.edit {

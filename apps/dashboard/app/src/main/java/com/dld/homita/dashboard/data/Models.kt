@@ -164,8 +164,8 @@ data class Hourly(
     val precipitation: List<Double?>,
     val weather_code: List<Int?>,
     val is_day: List<Int?>,
-    /** Sensación térmica por hora; vacía si la copia es anterior a pedirla. */
-    val apparent_temperature: List<Double?> = emptyList()
+    /** Sensación térmica por hora; null si la copia es anterior a pedirla (Gson ignora los defaults de Kotlin). */
+    val apparent_temperature: List<Double?>? = null
 )
 
 data class Daily(
