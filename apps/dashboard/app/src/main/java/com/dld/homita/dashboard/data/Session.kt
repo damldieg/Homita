@@ -69,6 +69,8 @@ class Session(
             val body = response.body()
             when {
                 response.isSuccessful && body?.token != null -> {
+                    // R1-01: si la sesión cambió mientras esperábamos (cierre de sesión o emparejamiento nuevo), no se escribe.
+                    if (store.token != current || store.refreshToken != refresh) return@withLock Outcome.Rejected
                     store.token = body.token
                     // GoTrue rota el refresh_token: el nuevo sustituye al anterior (que ya no vale).
                     store.refreshToken = body.refresh_token ?: refresh
@@ -100,7 +102,12 @@ class Session(
         val first = request(token)
         if (first.exceptionOrNull()?.let { it is HttpError && it.unauthorized } != true) return first
         return when (val outcome = renew(token)) {
-            is Outcome.Renewed -> request(outcome.token)
+            is Outcome.Renewed -> request(outcome.token).let { second ->
+                // R1-02: un 401 tras renovar no prueba que la sesión haya caducado: es un fallo recuperable (no cierra sesión).
+                if (second.exceptionOrNull()?.let { it is HttpError && it.unauthorized } == true) {
+                    Result.failure(IOException("La petición fue rechazada tras renovar la sesión"))
+                } else second
+            }
             Outcome.Rejected -> Result.failure(SessionExpired())
             Outcome.Unavailable -> Result.failure(IOException("No se pudo renovar la sesión"))
         }
