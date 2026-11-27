@@ -1,7 +1,7 @@
 // Lectura de menús compartida entre Kito y el MCP: lectura de argumentos, fechas de semana (aritmética en UTC, sin
 // zona), reglas de franjas y rangos, y lectores del perfil y del plan sobre un `Leer` (sin ToolCtx). Es la parte de
-// lectura de lo que antes era `asistente/skills/menus/util.ts`; la de escritura se queda en Kito. Sin dependencias
-// de `api` ni de `asistente`.
+// lectura de lo que antes era el util.ts de la skill de menús de Kito; la de escritura se queda en Kito. Sin dependencias
+// de `api` ni de Kito.
 import type { Leer } from "./tipos.ts";
 
 export type Obj = Record<string, unknown>;

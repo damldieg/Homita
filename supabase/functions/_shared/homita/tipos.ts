@@ -1,5 +1,5 @@
 // Tipos comunes de la lectura de Homita (los comparten Kito y el MCP). Este módulo no importa nada de
-// `asistente/` ni de `mcp/`: son ellos los que importan de aquí.
+// Kito ni del MCP: son ellos los que importan de aquí.
 
 /** Lectura de una ruta GET del `api` (con el JWT y la zona del usuario). Un error HTTP vuelve como `{error, detalle}`. */
 export type Leer = (ruta: string, params?: Record<string, string | undefined>) => Promise<unknown>;
@@ -19,3 +19,12 @@ export interface LecturaCtx {
     /** Lector del api. */
     leer?: Leer;
 }
+
+/** Argumento no válido (fecha mal escrita, valor fuera de lista…): el mensaje, en español, se puede enseñar tal cual. */
+export class ErrorEntrada extends Error {}
+
+/** Lector del contexto; lanza si quien llama no lo ha inyectado. */
+export const leerDe = (ctx: LecturaCtx): Leer => {
+    if (!ctx.leer) throw new Error("lectura de datos no disponible");
+    return ctx.leer;
+};
