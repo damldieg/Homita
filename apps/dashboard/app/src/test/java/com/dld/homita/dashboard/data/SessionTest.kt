@@ -163,9 +163,26 @@ class SessionTest {
         store.token = null
         store.refreshToken = null
         gate.complete(Unit)
-        assertTrue(job.await() is Session.Outcome.Rejected)
+        assertTrue(job.await() is Session.Outcome.Unavailable)
         assertNull(store.token)
         assertNull(store.refreshToken)
+    }
+
+    @Test
+    fun `un inicio de sesion nuevo durante el refresco se respeta`() = runBlocking {
+        val store = FakeStore("viejo", "rt-1")
+        val started = CompletableDeferred<Unit>()
+        val gate = CompletableDeferred<Unit>()
+        val s = session(store) { started.complete(Unit); gate.await(); ok("renovado-del-viejo", "rt-2") }
+        val job = async { s.renew() }
+        started.await()
+        store.token = "nueva"
+        store.refreshToken = "rt-nuevo"
+        gate.complete(Unit)
+        val outcome = job.await()
+        assertTrue(outcome is Session.Outcome.Renewed && outcome.token == "nueva")
+        assertEquals("nueva", store.token)
+        assertEquals("rt-nuevo", store.refreshToken)
     }
 
     @Test
