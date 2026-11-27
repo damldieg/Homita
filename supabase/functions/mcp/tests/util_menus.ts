@@ -15,7 +15,7 @@ type Obj = Record<string, unknown>;
 
 /** Dependencias del MCP respaldadas por los mundos de Kito. `semanas` = [semana del mundo A, semana del mundo B]. */
 export const mundoMenus = (
-    a: MundoKito, b?: MundoKito, extra: { respuestas?: Record<string, unknown>; escribir?: Record<string, (c: Obj) => { ok: boolean; status: number; data: unknown; error?: string }> } = {},
+    a: MundoKito, b?: MundoKito, extra: { respuestas?: Record<string, unknown>; leerHook?: (ruta: string, params: Record<string, string | undefined>, n: number) => unknown; escribir?: Record<string, (c: Obj) => { ok: boolean; status: number; data: unknown; error?: string }> } = {},
 ): Mundo => {
     const esB = (semana: unknown) => b !== undefined && semana === SEMANA2;
     const aB = <T extends Obj>(o: T): T => ({ ...o, week_start: "2030-01-07" });
@@ -33,7 +33,10 @@ export const mundoMenus = (
             mundo.llamadas.push({ ruta, params, token, uid, tz, hogar: currentHome() });
             mundo.orden.push(`GET ${ruta}`);
             let body: unknown;
-            if (ruta === "home") body = HOGARES;
+            const n = mundo.llamadas.filter((l) => l.ruta === ruta).length;
+            const hook = extra.leerHook?.(ruta, params, n);
+            if (hook !== undefined) body = hook;
+            else if (ruta === "home") body = HOGARES;
             else if (extra.respuestas && ruta in extra.respuestas) body = extra.respuestas[ruta];
             else body = await leerKito(ruta, params);
             return { ok: true, status: 200, body, texto: JSON.stringify(body), json: true };
