@@ -7,6 +7,8 @@ import { crearMundo, llamarTool } from "./util.ts";
 export const ARGS_MINIMOS: Record<string, Record<string, unknown>> = {
     guardar_receta: { nombre: "x", pasos: ["a"], ingredientes: [{ alimento_id: 1 }] },
     crear_alimento: { nombre: "x" },
+    apuntar_compra: { articulos: [{ etiqueta: "x" }] },
+    marcar_comprado: { item_ids: [1], estado: "checked" },
 };
 
 Deno.test("hogar ajeno en las herramientas de escritura: error claro, sin leer ni escribir", async () => {

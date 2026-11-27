@@ -6,6 +6,7 @@ import { registrarVerHogares } from "./hogar/ver_hogares.ts";
 import { registrarMenus } from "./menus/menus.ts";
 import { registrarReceta } from "./menus/receta.ts";
 import { registrarVerCompra } from "./compra/ver_compra.ts";
+import { registrarCompraEscritura } from "./compra/escritura.ts";
 import { registrarOrganizar } from "./organizar/organizar.ts";
 
 /** Herramientas de lectura (fase 1): todas `readOnlyHint: true`. */
@@ -15,7 +16,7 @@ export const NOMBRES_LECTURA = [
 ] as const;
 
 /** Herramientas de escritura (fase 2): menú, recetas, alimentos, compra y preferencias. */
-export const NOMBRES_ESCRITURA: readonly string[] = ["guardar_receta", "crear_alimento"];
+export const NOMBRES_ESCRITURA: readonly string[] = ["guardar_receta", "crear_alimento", "apuntar_compra", "marcar_comprado"];
 
 export const NOMBRES_HERRAMIENTAS: readonly string[] = [...NOMBRES_LECTURA, ...NOMBRES_ESCRITURA];
 
@@ -31,6 +32,7 @@ export const crearServidor = (env: Entorno): McpServer => {
     registrarMenus(server, env);
     registrarReceta(server, env);
     registrarVerCompra(server, env);
+    registrarCompraEscritura(server, env);
     registrarOrganizar(server, env);
     return server;
 };
