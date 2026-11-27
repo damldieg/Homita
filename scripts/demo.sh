@@ -2,7 +2,7 @@
 # Entorno de demo para probar el dashboard en el emulador y hacer las capturas del README sin datos reales.
 #
 # Uso: scripts/demo.sh <orden>
-#   up       Edge Function `api` en local para la demo: reset de la BD del stack local
+#   up       Edge Functions en local (`api` y también `mcp`; `functions serve` las sirve todas) para la demo: reset de la BD del stack local
 #            (supabase db reset --local), env local propio (.demo/functions.env, git lo ignora) y
 #            `supabase functions serve` con datos ficticios de hoy (scripts/demo/seed.py). Cada up
 #            parte de cero (reset + seed), así que siempre está al día y es repetible.
@@ -83,6 +83,10 @@ up() {
     for _ in $(seq 50); do curl -fsS -o /dev/null "$URL/config" 2>/dev/null && break; sleep 0.2; done
     curl -fsS -o /dev/null "$URL/config" \
         || { echo "La Edge no responde en $URL/config (ver $DEMO/serve.log)"; exit 1; }
+    # `functions serve` sirve todas las funciones; el MCP (change mcp-base-lectura) también debe responder.
+    for _ in $(seq 50); do curl -fsS -o /dev/null "$URL/../mcp/.well-known/oauth-protected-resource" 2>/dev/null && break; sleep 0.2; done
+    curl -fsS -o /dev/null "$URL/../mcp/.well-known/oauth-protected-resource" \
+        || { echo "La Edge mcp no responde en ${URL%/api}/mcp (ver $DEMO/serve.log)"; exit 1; }
     step "Datos de demo"
     python3 -I "$HERE/scripts/demo/seed.py" "$URL"
     date +%F > "$DEMO/seeded"

@@ -11,6 +11,9 @@
 #   4. Deno: `deno check` y `deno test` de procesar-feedback y de asistente (Kito, fase 1; mocks, sin
 #      red; asistente con --allow-env porque importa los casos de uso de `api`) y el test de
 #      PATCH /task-list/order de `api` (0040, con --allow-env).
+#      Y de la Edge `mcp` (MCP de Claude, fase 1) y de `_shared/homita` (deno check y deno test con --allow-env) y
+#      oauth_page_check.py (página de consentimiento web/oauth/consent y workflow de Pages, estático). `demo.sh up`
+#      sirve todas las funciones (también `mcp`) y espera a que responda.
 #   5. SQL (invitaciones_check N1-N22, home_checks_compat, acl_can_edit_check K1-K8,
 #      permisos_matriz_check, client_request_check C1-C9 (0035), assistant_usage_check U1-U7 (0036),
 #      task_priority_check P1-P10 (0037), task_person_access_check A1-A9 (0038),
@@ -25,7 +28,8 @@
 #      task_priority_rollback_guard_check G0-G3 (guardas LIFO de rollback_0035/0029 con 0037 aplicada),
 #      task_person_access_rollback_guard_check G38-1 (guarda LIFO de rollback_0037 con 0038 aplicada),
 #      task_hidden_rollback_guard_check G39-1 (guarda LIFO de rollback_0038 con 0039 aplicada),
-#      contract_check.py (502 + prioridad + ocultas + orden de listas) y cross_tenant_check.py.
+#      contract_check.py (502 + prioridad + ocultas + orden de listas) y cross_tenant_check.py (incluye el bloque MCP:
+#      tokens OAuth reales de A y B contra la Edge mcp, aislamiento entre hogares y 401 sin token / con JWT de sesión).
 #   5c. Ida y vuelta 0048 → rollback_0048_menus_kito → [rollbacks de 0047, 0046, 0045 y 0044] → 0048 (kito-menus): RK1-RK3 y, tras
 #      reaplicar, RK4 y kito_menus_check MK1-MK7 otra vez (MK1-MK7 también corre en el paso 5). La más exterior de menús (LIFO).
 #   5-0047. recetas_seed.py --check, seed de recetas precargadas (dos cargas, la segunda INSERT 0 0), recetas_precargadas_check
@@ -190,6 +194,20 @@ ASIST_FN="$HERE/supabase/functions/asistente"
 run "deno check asistente" deno-check-asistente env NO_COLOR=1 deno check "$ASIST_FN/index.ts"
 run "deno test asistente" deno-test-asistente env NO_COLOR=1 deno test --no-prompt --allow-env "$ASIST_FN/tests/"
 expect_log "deno test asistente" deno-test-asistente '^ok \| [0-9]+ passed \| 0 failed'
+
+# Edge Function mcp (MCP de Claude, fase 1, solo lectura) y el módulo compartido _shared/homita (lo usan Kito y el MCP):
+# deno check del cableado y tests con casos de uso y Auth falsos (verificador solo-OAuth, hogar, 12 herramientas,
+# protocolo real con createMcpHandler). --allow-env: importan los casos de uso de `api`, que leen el entorno al cargar.
+# El flujo con tokens OAuth reales va en cross_tenant_check.py (bloque MCP). La página de consentimiento
+# (web/oauth/consent) y su workflow de Pages se comprueban de forma estática.
+MCP_FN="$HERE/supabase/functions/mcp"
+run "deno check mcp" deno-check-mcp env NO_COLOR=1 deno check "$MCP_FN/index.ts"
+run "deno test mcp" deno-test-mcp env NO_COLOR=1 deno test --no-prompt --allow-env "$MCP_FN/tests/"
+expect_log "deno test mcp" deno-test-mcp '^ok \| [0-9]+ passed \| 0 failed'
+run "deno test _shared/homita" deno-test-shared env NO_COLOR=1 deno test --no-prompt --allow-env "$HERE/supabase/functions/_shared/homita/tests/"
+expect_log "deno test _shared/homita" deno-test-shared '^ok \| [0-9]+ passed \| 0 failed'
+run "oauth_page_check.py" oauth-page python3 -I "$HERE/scripts/supabase/tests/oauth_page_check.py"
+expect_log "oauth_page_check.py" oauth-page '[0-9]+/[0-9]+ casos ok'
 
 # Test de PATCH /task-list/order (0040): fetch falso, solo validación local y paso de errores de la RPC.
 API_FN="$HERE/supabase/functions/api"

@@ -82,10 +82,18 @@ Variables de entorno: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 SUPABASE_FUNCTIONS_URL (defaults = stack local) y PSQL (comando psql contra la BD local; para el
 stack local `docker exec`: `PSQL="docker exec -i supabase_db_homita-api psql -U postgres -d postgres"`).
 Python stdlib. Uso: python3 scripts/supabase/tests/cross_tenant_check.py
+
+MCP de Claude (fase 1, bloque `MCP`, XT_ONLY=MCP): con tokens OAuth reales de A y B (registro dinámico, authorize,
+consentimiento por API y canje PKCE contra el Auth local, sin navegador) el MCP responde 401 sin token, con el JWT
+de sesión y con un token manipulado; cada uno ve solo su hogar y A con `hogar` = hogar de B (y B con el de A)
+recibe un error de herramienta sin datos del otro en las herramientas de lectura. Corre antes de la fase 1.
 """
+import base64
 import datetime
+import hashlib
 import json
 import os
+import secrets
 import shlex
 import subprocess
 import sys
@@ -170,6 +178,104 @@ def parse(text):
         return json.loads(text)
     except ValueError:
         return text
+
+
+# ── MCP de Claude (fase 1, solo lectura): tokens OAuth reales y JSON-RPC por urllib ──
+MCP = URL + "/functions/v1/mcp"
+assert_local(MCP, "URL del MCP")
+MCP_REDIRECT = "http://127.0.0.1:8976/callback"  # nunca se visita: el código se lee de la respuesta de consentimiento
+
+
+class _SinRedireccion(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+_opener_sin_redir = urllib.request.build_opener(_SinRedireccion)
+
+
+def raw(method, url, body=None, headers=None, form=False):
+    """Petición sin seguir redirecciones; devuelve (status, cabeceras, texto)."""
+    h = dict(headers or {})
+    data = None
+    if body is not None:
+        if form:
+            data, h["Content-Type"] = urllib.parse.urlencode(body).encode(), "application/x-www-form-urlencoded"
+        else:
+            data, h["Content-Type"] = json.dumps(body).encode(), "application/json"
+    req = urllib.request.Request(url, data=data, method=method, headers=h)
+    try:
+        with _opener_sin_redir.open(req) as r:
+            return r.status, dict(r.headers), r.read().decode()
+    except urllib.error.HTTPError as e:
+        return e.code, dict(e.headers), e.read().decode()
+    except urllib.error.URLError:
+        sys.exit(f"No responde {url}: arranca el stack local (supabase start + functions serve)")
+
+
+_mcp_client = {}
+
+
+def oauth_token(session_token):
+    """Token OAuth de Supabase Auth local para el usuario de `session_token` (JWT de /user/auth): registro dinámico
+    del cliente de pruebas (una vez), authorize, consentimiento por API con el JWT del usuario y canje con PKCE.
+    Sin navegador: el código sale de la respuesta de consentimiento."""
+    auth = URL + "/auth/v1"
+    if "id" not in _mcp_client:
+        st, _, body = raw("POST", auth + "/oauth/clients/register", {
+            "client_name": "xt-mcp", "redirect_uris": [MCP_REDIRECT], "grant_types": ["authorization_code", "refresh_token"],
+            "response_types": ["code"], "token_endpoint_auth_method": "none"})
+        if st != 201:
+            sys.exit(f"oauth_token: registro dinámico {st} {body[:200]} (¿[auth.oauth_server] enabled y allow_dynamic_registration?)")
+        _mcp_client["id"] = parse(body)["client_id"]
+    cid = _mcp_client["id"]
+    verifier = secrets.token_urlsafe(48)
+    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+    q = urllib.parse.urlencode({"response_type": "code", "client_id": cid, "redirect_uri": MCP_REDIRECT,
+                                "code_challenge": challenge, "code_challenge_method": "S256", "state": "xt",
+                                "scope": "openid email profile"})
+    st, h, _ = raw("GET", f"{auth}/oauth/authorize?{q}")
+    loc = h.get("Location") or h.get("location") or ""
+    ids = urllib.parse.parse_qs(urllib.parse.urlparse(loc).query).get("authorization_id")
+    if st != 302 or not ids:
+        sys.exit(f"oauth_token: authorize {st} sin authorization_id")
+    hdr = {"Authorization": "Bearer " + session_token, "apikey": ANON}
+    # Los detalles asocian la autorización al usuario (como hace la página de consentimiento); sin ellos el consentimiento da 404.
+    st, _, body = raw("GET", f"{auth}/oauth/authorizations/{ids[0]}", None, hdr)
+    if st != 200:
+        sys.exit(f"oauth_token: detalles {st} {body[:200]}")
+    st, _, body = raw("POST", f"{auth}/oauth/authorizations/{ids[0]}/consent", {"action": "approve"}, hdr)
+    codes = urllib.parse.parse_qs(urllib.parse.urlparse(parse(body)["redirect_url"]).query).get("code") if st == 200 else None
+    if not codes:
+        sys.exit(f"oauth_token: consentimiento {st} {body[:200]}")
+    st, _, body = raw("POST", f"{auth}/oauth/token", {"grant_type": "authorization_code", "code": codes[0],
+                                                       "redirect_uri": MCP_REDIRECT, "client_id": cid,
+                                                       "code_verifier": verifier}, form=True)
+    if st != 200:
+        sys.exit(f"oauth_token: canje {st} {body[:200]}")
+    return parse(body)["access_token"]
+
+
+def mcp_rpc(token, method, params=None):
+    """JSON-RPC al MCP; devuelve (status HTTP, objeto JSON-RPC o texto). Sin token si `token` es None."""
+    h = {"Accept": "application/json, text/event-stream", "MCP-Protocol-Version": "2025-06-18"}
+    if token:
+        h["Authorization"] = "Bearer " + token
+    st, _, text = raw("POST", MCP, {"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}, h)
+    linea = next((l for l in text.splitlines() if l.startswith("data:")), None)
+    return st, parse(linea[5:].strip() if linea else text)
+
+
+def mcp_call(token, tool, args=None, home=None):
+    """tools/call; `home` se manda como argumento `hogar`. Devuelve (status, isError, texto del resultado)."""
+    a = dict(args or {})
+    if home is not None:
+        a["hogar"] = str(home)
+    st, rpc = mcp_rpc(token, "tools/call", {"name": tool, "arguments": a})
+    if st != 200 or not isinstance(rpc, dict) or "result" not in rpc:
+        return st, True, json.dumps(rpc)
+    r = rpc["result"]
+    return st, bool(r.get("isError")), "".join(c.get("text", "") for c in r.get("content", []))
 
 
 # Variables de libpq/entorno que pueden redirigir psql a un host remoto sin que PSQL lo diga.
@@ -295,7 +401,9 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 382  # 367 + 10 de la pantalla del hogar (0049, DP1–DP10) + 2 de completar (0050, DM1–DM2) + 3 de actualización (0051, DU1–DU3)
+EXPECTED_CASES = 404  # 382 + 22 del MCP de Claude (fase 1: 3 de token, 1 de herramientas, 2 de ver_hogares, 3 de hogar por defecto/explícito,
+                      # 11 de hogar ajeno de A en las herramientas con `hogar`, 2 de hogar ajeno de B), con tokens OAuth reales
+                      # 367 + 10 de la pantalla del hogar (0049, DP1–DP10) + 2 de completar (0050, DM1–DM2) + 3 de actualización (0051, DU1–DU3)
                       # + 9 XH de ocultas (0039: 6 XH-B, 1 XH-A-lista, 2 XH-V)
                       # + 7 de PATCH /task-list/order (0040)
                       # + 13 XM de /meal/* (0043, menus-perfil-hogar)
@@ -379,6 +487,53 @@ edge("PATCH", "/task/complete", {"id": tsk_h, "completed": True}, a_tok)
 psql(f"update task set completed_at = (now() at time zone 'UTC') - interval '3 days 1 minute', "
      f"hidden_at = (((now() at time zone 'UTC') - interval '3 days 1 minute') + interval '3 days') at time zone 'UTC' "
      f"where id = {int(tsk_h)}")
+
+# ── MCP de Claude (fase 1): el token OAuth de A no lee nada del hogar de B (y viceversa) ──
+# Antes de la fase 1 (A y B aún no comparten hogar). B recibe filas XT-B-* que se borran al terminar el bloque.
+XT_BLOCK = "MCP"
+if xt_on("MCP"):
+    b_lst = parse(edge("POST", "/task-list/create", {"name": "XT-B-Lista", "color": "#333333", "sort": "title"}, b_tok)[1])["id"]
+    b_tsk = parse(edge("POST", "/task/create", {"task_list_id": b_lst, "title": "XT-B-Tarea"}, b_tok)[1])["id"]
+    b_cal = parse(edge("POST", "/calendar/create", {"name": "XT-B-Cal", "color": "#445566"}, b_tok)[1])["id"]
+    b_evt = parse(edge("POST", f"/event/create?timezone={TZ}",
+                       {"calendar_id": b_cal, "title": "XT-B-Evento", "date_at": "2026-12-21 10:00:00"}, b_tok)[1])["id"]
+    b_per_mcp = parse(edge("POST", "/person/create", {"name": "XT-B-Persona", "color": "#AABBCC"}, b_tok)[1])["id"]
+    a_oauth, b_oauth = oauth_token(a_tok), oauth_token(b_tok)
+
+    check("MCP sin token → 401", mcp_rpc(None, "tools/list")[0] == 401)
+    check("MCP con el token de sesión de A (sin client_id) → 401", mcp_rpc(a_tok, "tools/list")[0] == 401)
+    head, payload, sig = a_oauth.split(".")
+    check("MCP con un token OAuth manipulado → 401",
+          mcp_rpc(f"{head}.{payload}.{sig[:-4]}{'AAAA' if sig[-4:] != 'AAAA' else 'BBBB'}", "tools/list")[0] == 401)
+    st, rpc = mcp_rpc(a_oauth, "tools/list")
+    check("MCP: el token OAuth de A lista las 12 herramientas",
+          st == 200 and len(rpc["result"]["tools"]) == 12, f"status={st}")
+    _, err, txt = mcp_call(a_oauth, "ver_hogares")
+    check("MCP A ver_hogares: solo su hogar", not err and f'"id":"{home_a}"' in txt and f'"id":"{home_b}"' not in txt, txt[:200])
+    _, err, txt = mcp_call(b_oauth, "ver_hogares")
+    check("MCP B ver_hogares: solo su hogar", not err and f'"id":"{home_b}"' in txt and f'"id":"{home_a}"' not in txt, txt[:200])
+    _, err, txt = mcp_call(a_oauth, "ver_tareas")
+    check("MCP A lee su hogar por defecto: ve XT-Tarea y nada de B", not err and "XT-Tarea" in txt and "XT-B-" not in txt, txt[:200])
+    _, err, txt = mcp_call(b_oauth, "ver_tareas")
+    check("MCP B lee su hogar por defecto: ve XT-B-Tarea y nada de A", not err and "XT-B-Tarea" in txt and "XT-Tarea\"" not in txt, txt[:200])
+    _, err, txt = mcp_call(a_oauth, "ver_tareas", home=home_a)
+    check("MCP A con hogar explícito propio → lee", not err and "XT-Tarea" in txt, txt[:200])
+    herramientas = [("leer_perfil", {}), ("leer_semana", {}), ("buscar_recetas", {}), ("buscar_alimento", {"texto": "a"}),
+                    ("ver_compra", {}), ("ver_listas", {}), ("ver_tareas", {}),
+                    ("ver_eventos", {"desde": "2026-01-01"}), ("ver_rutinas", {}), ("ver_calendarios", {}),
+                    ("ver_personas", {})]
+    for tool, args in herramientas:
+        st, err, txt = mcp_call(a_oauth, tool, args, home=home_b)
+        check(f"MCP A con hogar=home(B) en {tool} → error de herramienta sin datos de B",
+              st == 200 and err and "XT-B-" not in txt and "No tienes acceso a ese hogar" in txt, f"status={st} {txt[:160]}")
+    for tool, args, marca in (("ver_tareas", {}, "XT-Tarea"), ("ver_eventos", {"desde": "2026-01-01"}, "XT-Evento")):
+        st, err, txt = mcp_call(b_oauth, tool, args, home=home_a)
+        check(f"MCP B con hogar=home(A) en {tool} → error de herramienta sin datos de A",
+              st == 200 and err and marca not in txt, f"status={st} {txt[:160]}")
+    for path, body in (("/task/delete", {"id": b_tsk}), ("/event/delete", {"id": b_evt}), ("/person/delete", {"id": b_per_mcp}),
+                       ("/task-list/delete", {"id": b_lst}), ("/calendar/delete", {"id": b_cal})):
+        edge("DELETE", path, body, b_tok)
+XT_BLOCK = "BASE"
 
 # ── Fase 1: B aislado — lecturas Edge de ids de A → 500 Not Found ──
 for name, method, path, body in [
