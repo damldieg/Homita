@@ -52,14 +52,26 @@ public struct HomeDisplay: Codable, Equatable, Identifiable, Sendable {
     public let lastSeenAt: String?
     public let calendarIds: [Int]
     public let taskListIds: [Int]
+    /// Canal de actualización (`estable` | `pruebas`); nil si el servidor es anterior a 0053.
+    public let updateChannel: String?
+    /// Versión que la pantalla tiene instalada (informe de la app, 0051/0053).
+    public let appVersionCode: Int?
+    public let appVersionName: String?
+    /// Último resultado de la comprobación/instalación que reportó la pantalla (p. ej. «instalada 4»).
+    public let lastUpdateResult: String?
 
-    public init(id: Int, name: String, settings: DisplaySettings, lastSeenAt: String?, calendarIds: [Int], taskListIds: [Int]) {
+    public init(id: Int, name: String, settings: DisplaySettings, lastSeenAt: String?, calendarIds: [Int], taskListIds: [Int],
+                updateChannel: String? = nil, appVersionCode: Int? = nil, appVersionName: String? = nil, lastUpdateResult: String? = nil) {
         self.id = id
         self.name = name
         self.settings = settings
         self.lastSeenAt = lastSeenAt
         self.calendarIds = calendarIds
         self.taskListIds = taskListIds
+        self.updateChannel = updateChannel
+        self.appVersionCode = appVersionCode
+        self.appVersionName = appVersionName
+        self.lastUpdateResult = lastUpdateResult
     }
 
     enum CodingKeys: String, CodingKey {
@@ -67,6 +79,10 @@ public struct HomeDisplay: Codable, Equatable, Identifiable, Sendable {
         case lastSeenAt = "last_seen_at"
         case calendarIds = "calendar_ids"
         case taskListIds = "task_list_ids"
+        case updateChannel = "update_channel"
+        case appVersionCode = "app_version_code"
+        case appVersionName = "app_version_name"
+        case lastUpdateResult = "last_update_result"
     }
 }
 

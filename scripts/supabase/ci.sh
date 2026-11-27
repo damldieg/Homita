@@ -250,6 +250,12 @@ run "SQL kito_menus_check" sql-kito-menus sql "$HERE/scripts/supabase/tests/kito
 mk_pat=(); for i in $(seq 1 7); do mk_pat+=("ok MK$i([^0-9a-z]|\$)"); done
 expect_log "SQL kito_menus_check" sql-kito-menus "${mk_pat[@]}"
 
+# 0053 (dashboard-pantallas-canal): fn_display_list expone canal y versión. Es la más nueva: su rollback va antes del de
+# 0051 y del de 0049 (LIFO) y no se reaplica hasta después de 0051, porque fn_display_list usa esas columnas.
+run "SQL 0053 rollback (LIFO antes de 0051 y 0049)" sql-rb0053 sql "$HERE/scripts/supabase/rollback/rollback_0053_pantallas_canal_version.sql"
+run "SQL 0053 rollback: fn_display_list de 0049" sql-rb0053-check sql "$HERE/scripts/supabase/tests/pantallas_canal_version_rollback_check.sql"
+expect_log "SQL 0053 rollback: fn_display_list de 0049" sql-rb0053-check 'ok V1([^0-9]|$)'
+
 # 0051 (dashboard-actualizacion-remota): canal, informe de versión y bucket de publicaciones. Es la migración más nueva:
 # su rollback va ANTES del de 0049 (LIFO) y no se reaplica hasta después (si no, las funciones fn_display* de 0051 harían
 # fallar la comprobación de rollback_0049). Como rollback_0049 borra
@@ -276,6 +282,9 @@ run "SQL 0050 reaplicada (tras 0049)" sql-ra0050-tras0049 sql "$HERE/supabase/mi
 run "SQL 0051 reaplicada (tras 0049)" sql-ra0051-tras0049 sql "$HERE/supabase/migrations/0051_actualizacion_remota.sql"
 run "SQL actualizacion_remota_check (tras 0049)" sql-ra0051-tras0049-check sql "$HERE/scripts/supabase/tests/actualizacion_remota_check.sql"
 expect_log "SQL actualizacion_remota_check (tras 0049)" sql-ra0051-tras0049-check 'ok U-clean'
+run "SQL 0053 reaplicada (tras 0051)" sql-ra0053-tras0051 sql "$HERE/supabase/migrations/0053_pantallas_canal_version.sql"
+run "SQL pantallas_canal_version_check" sql-pantallas-canal sql "$HERE/scripts/supabase/tests/pantallas_canal_version_check.sql"
+expect_log "SQL pantallas_canal_version_check" sql-pantallas-canal 'ok F1([^0-9]|$)' 'ok F2([^0-9]|$)' 'ok F3([^0-9]|$)' 'ok F-clean'
 
 # 0050 (dashboard-marcar-hecho): la pantalla completa y descompleta tareas de sus listas (y nada más), auditado e
 # idempotente con client_request. Ida y vuelta: rollback_0050 → comprobaciones → reaplicar 0050 → de nuevo la suite.

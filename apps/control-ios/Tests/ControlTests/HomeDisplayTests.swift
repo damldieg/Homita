@@ -22,10 +22,27 @@ final class HomeDisplayTests: XCTestCase {
         XCTAssertEqual(display.settings.location?.name, "Madrid")
     }
 
+    func testDisplayDecodesChannelAndVersionFromTheListAndAcceptsOlderServers() throws {
+        let withVersion = displayJSON.replacingOccurrences(of: #""task_list_ids": [2]}"#,
+            with: #""task_list_ids": [2], "update_channel": "pruebas", "app_version_code": 4, "app_version_name": "1.3", "last_update_result": "instalada 4"}"#)
+        let display = try JSONDecoder().decode(HomeDisplay.self, from: Data(withVersion.utf8))
+        XCTAssertEqual(display.updateChannel, "pruebas")
+        XCTAssertEqual(display.appVersionCode, 4)
+        XCTAssertEqual(display.appVersionName, "1.3")
+        XCTAssertEqual(display.lastUpdateResult, "instalada 4")
+        // Un servidor anterior a 0053 no manda los campos: se decodifica igual
+        let old = try JSONDecoder().decode(HomeDisplay.self, from: Data(displayJSON.utf8))
+        XCTAssertNil(old.updateChannel)
+        XCTAssertNil(old.appVersionCode)
+    }
+
     func testUpdateBodyOmitsNilFieldsAndUsesSnakeKeysForSelection() throws {
         let body = UpdateDisplayBody(id: 3, name: nil, settings: nil, calendarIds: [1], taskListIds: nil)
-        let json = String(data: try JSONEncoder().encode(body), encoding: .utf8)
-        XCTAssertEqual(json, #"{"id":3,"calendar_ids":[1]}"#)
+        // Comparación por contenido: JSONEncoder no garantiza el orden de las claves.
+        let object = try JSONSerialization.jsonObject(with: try JSONEncoder().encode(body)) as? [String: Any]
+        XCTAssertEqual(object?["id"] as? Int, 3)
+        XCTAssertEqual(object?["calendar_ids"] as? [Int], [1])
+        XCTAssertEqual(object?.count, 2)
     }
 
     func testUpdateSendsSettingsAndSelectionWithHomeHeader() async throws {
