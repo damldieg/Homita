@@ -9,7 +9,7 @@ import { crearCallModel } from "./modelo.ts";
 import { createHandler } from "./handler.ts";
 import type { UsageDb, UsoResultado } from "./handler.ts";
 import { SKILLS } from "./skills/registry.ts";
-import { crearLector } from "./skills/consulta/api.ts";
+import { crearLector } from "../_shared/homita/lector.ts";
 import { crearEscritor } from "./skills/organizar/api.ts";
 import { appUserRow, verifyUser } from "../api/_shared/supabase.ts";
 import { checkHomeMember, runWithHome } from "../api/_shared/home.ts";
