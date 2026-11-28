@@ -61,7 +61,7 @@ private enum class MenuView { Week, Shopping }
  * entre las dos. Solo lectura: editar, comprobar alergias y aceptar siguen en la app de control.
  */
 @Composable
-fun MenuScreen(state: UiState, onShift: (Int) -> Unit) {
+fun MenuScreen(state: UiState, onShift: (Int) -> Unit, onToggleShopping: (ShoppingWebItem) -> Unit, onUndoShopping: () -> Unit) {
     var view by rememberSaveable { mutableStateOf(MenuView.Week) }
     val current = MealWeekGrid.weekStartOf(LocalDate.now(), state.weekStartDay)
     val monday = state.mealWeekStart ?: current
@@ -73,7 +73,7 @@ fun MenuScreen(state: UiState, onShift: (Int) -> Unit) {
         Header(view, { view = it }, state, days, current, onShift)
         when (view) {
             MenuView.Week -> WeekPanel(state, days, Modifier.fillMaxWidth().weight(1f))
-            MenuView.Shopping -> ShoppingView(state, Modifier.fillMaxWidth().weight(1f))
+            MenuView.Shopping -> ShoppingView(state, onToggleShopping, onUndoShopping, Modifier.fillMaxWidth().weight(1f))
         }
     }
 }
@@ -260,24 +260,26 @@ private fun Cell(modifier: Modifier, background: Color, content: @Composable () 
 
 /** Vista de compra: tres columnas con las secciones enteras a la izquierda y el resumen a la derecha. */
 @Composable
-private fun ShoppingView(state: UiState, modifier: Modifier) {
+private fun ShoppingView(state: UiState, onToggle: (ShoppingWebItem) -> Unit, onUndo: () -> Unit, modifier: Modifier) {
     val list = state.shopping
-    val items = list?.items.orEmpty()
+    // Lo que el usuario acaba de marcar (ventana o cola) se ve ya, antes de que llegue el servidor.
+    val overlay = ShoppingSections.overlay(state.shoppingQueued, state.shoppingPending)
+    val items = ShoppingSections.withOverlay(list?.items.orEmpty(), overlay)
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         Box(Modifier.weight(2f).fillMaxHeight().background(Palette.Card, PanelShape).border(1.dp, Palette.CardBorder, PanelShape).clip(PanelShape)) {
             when {
                 state.shoppingFailed -> Centered("No se pudo cargar la compra")
                 list == null -> Centered("Cargando la compra…")
                 ShoppingSections.listed(items).isEmpty() -> Centered("La compra está vacía", "Acepta el menú de la semana o añade algo desde la app.")
-                else -> ShoppingColumns(ShoppingSections.columns(ShoppingSections.group(items), 3))
+                else -> ShoppingColumns(ShoppingSections.columns(ShoppingSections.group(items), 3), onToggle)
             }
         }
-        SummaryPanel(ShoppingSections.summary(items), Modifier.weight(1f).fillMaxHeight())
+        SummaryPanel(ShoppingSections.summary(items), state.shoppingPending.isNotEmpty(), onUndo, Modifier.weight(1f).fillMaxHeight())
     }
 }
 
 @Composable
-private fun ShoppingColumns(columns: List<List<Pair<String, List<ShoppingWebItem>>>>) {
+private fun ShoppingColumns(columns: List<List<Pair<String, List<ShoppingWebItem>>>>, onToggle: (ShoppingWebItem) -> Unit) {
     Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         columns.forEach { column ->
             Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
@@ -290,7 +292,7 @@ private fun ShoppingColumns(columns: List<List<Pair<String, List<ShoppingWebItem
                         )
                         Text("${group.count { !ShoppingSections.isDone(it) }}", style = Type.Tiny.copy(color = Palette.InkMuted))
                     }
-                    group.forEach { ShoppingRow(it) }
+                    group.forEach { ShoppingRow(it, onToggle) }
                 }
             }
         }
@@ -298,9 +300,12 @@ private fun ShoppingColumns(columns: List<List<Pair<String, List<ShoppingWebItem
 }
 
 @Composable
-private fun ShoppingRow(item: ShoppingWebItem) {
+private fun ShoppingRow(item: ShoppingWebItem, onToggle: (ShoppingWebItem) -> Unit) {
     val done = ShoppingSections.isDone(item)
-    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onToggle(item) }.padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Box(
             Modifier
                 .size(34.dp)
@@ -334,7 +339,7 @@ private fun ShoppingRow(item: ShoppingWebItem) {
 
 /** Resumen de la compra: lo que queda, el progreso y de dónde viene. */
 @Composable
-private fun SummaryPanel(summary: ShoppingSummary, modifier: Modifier) {
+private fun SummaryPanel(summary: ShoppingSummary, undoable: Boolean, onUndo: () -> Unit, modifier: Modifier) {
     Column(
         modifier
             .background(Palette.Card, PanelShape)
@@ -360,6 +365,7 @@ private fun SummaryPanel(summary: ShoppingSummary, modifier: Modifier) {
         Text("${summary.done} de ${summary.total} comprados", style = Type.Small)
         Text("Del menú: ${summary.fromMenu} · A mano: ${summary.manual}", style = Type.Small)
         Text("Ya lo tenéis: ${summary.skipped}", style = Type.Small)
+        if (undoable) Pill("Deshacer", primary = false, onClick = onUndo)
         Text(
             "Para añadir o cambiar cantidades, usa la app Homita.",
             style = Type.Tiny.copy(color = Palette.InkMuted),

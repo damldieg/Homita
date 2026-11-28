@@ -184,6 +184,20 @@ Deno.test("PATCH /shopping/item/check valida id y state sin RPC y manda p_item_i
     }
 });
 
+Deno.test("PATCH /shopping/item/check con client_request_id (0055) manda la clave y valida el formato sin RPC", async () => {
+    const key = "11111111-1111-4111-8111-111111111111";
+    await withFetch(ok, async (calls) => {
+        const res = await handleShoppingItemCheck(req("PATCH", { id: 4, state: "checked", client_request_id: key }), "tok");
+        assertEquals(res.status, 200);
+        assertEquals(calls[0].body, { p_item_id: 4, p_state: "checked", p_client_request_id: key });
+    });
+    await withFetch(ok, async (calls) => {
+        const res = await handleShoppingItemCheck(req("PATCH", { id: 4, state: "checked", client_request_id: "no-es-uuid" }), "tok");
+        assertEquals(res.status, 400);
+        assertEquals(calls.length, 0);
+    });
+});
+
 Deno.test("PATCH /shopping/item/check: estado inválido de la RPC es 400, inexistente 404, invitado 403", async () => {
     const cases: [number, string, number][] = [[400, "Invalid shopping item", 400], [404, "Not Found", 404], [403, "Not Allowed", 403]];
     for (const [rpcStatus, message, expected] of cases) {

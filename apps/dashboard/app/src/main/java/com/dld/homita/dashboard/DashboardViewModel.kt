@@ -21,7 +21,12 @@ import com.dld.homita.dashboard.data.HttpError
 import com.dld.homita.dashboard.data.MealPlanWeekResponse
 import com.dld.homita.dashboard.data.MealProfileSafe
 import com.dld.homita.dashboard.data.MealWeekGrid
+import com.dld.homita.dashboard.data.ShoppingCheck
+import com.dld.homita.dashboard.data.ShoppingCheckQueue
+import com.dld.homita.dashboard.data.ShoppingCheckRequest
 import com.dld.homita.dashboard.data.ShoppingListResponse
+import com.dld.homita.dashboard.data.ShoppingSections
+import com.dld.homita.dashboard.data.ShoppingWebItem
 import com.dld.homita.dashboard.data.UpdateCheck
 import com.dld.homita.dashboard.update.DisplayUpdater
 import com.dld.homita.dashboard.update.DisplayUpdates
@@ -108,6 +113,9 @@ data class UiState(
     /** Compra del hogar (solo lectura) que se ve junto al menú. */
     val shopping: ShoppingListResponse? = null,
     val shoppingFailed: Boolean = false,
+    /** Marcados de la compra en la ventana de «Deshacer» (5 s) y en la cola sin enviar (fase B). */
+    val shoppingPending: Map<Long, ShoppingCheck> = emptyMap(),
+    val shoppingQueued: Map<Long, ShoppingCheck> = emptyMap(),
     /** Versión, canal y última actualización (dashboard-actualizacion-remota), para Ajustes → Diagnóstico. */
     val updateInfo: String = "",
     /** false si el último intento de sincronizar falló: se muestra lo que hay en caché. */
@@ -169,6 +177,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val completionQueue = CompletionQueue(File(application.filesDir, "outbox/completions.json"))
     private val flushLock = Mutex()
     private val undoJobs = mutableMapOf<Int, Job>()
+    private val shoppingChecks = ShoppingCheckQueue(File(application.filesDir, "outbox/shopping-checks.json"))
+    private val shoppingFlushLock = Mutex()
+    private val shoppingUndoJobs = mutableMapOf<Long, Job>()
     private val displayApi = DisplayApi.client
     private var configFetchedAt = 0L
 
@@ -209,7 +220,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     init {
-        _state.update { it.copy(queued = completionQueue.all().associateBy { c -> c.taskId }) }
+        _state.update { it.copy(queued = completionQueue.all().associateBy { c -> c.taskId }, shoppingQueued = shoppingChecks.all().associateBy { c -> c.itemId }) }
         // Los repositorios publican la copia en disco y cada descarga buena: la pantalla siempre tiene lo último.
         viewModelScope.launch { contentRepository.content.collect { c -> _state.update { it.copy(content = c?.value, contentFetchedAt = c?.fetchedAt) } } }
         viewModelScope.launch { weatherRepository.forecast.collect { f -> _state.update { it.copy(forecast = f?.value) } } }
@@ -408,6 +419,88 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             val s = _state.value
             loadMealWeek(s.mealWeekStart ?: MealWeekGrid.weekStartOf(LocalDate.now(), s.weekStartDay))
             loadShopping()
+            // Los marcados que se quedaron sin red se reenvían al volver a Menú.
+            if (shoppingChecks.all().isNotEmpty()) flushShoppingChecks()
+        }
+    }
+
+    /**
+     * Marca o desmarca un artículo de la compra (fase B). Se ve al momento y queda 5 s para «Deshacer»; tocar otra vez
+     * durante la ventana lo deshace. Después pasa a la cola del marco y se envía.
+     */
+    fun toggleShoppingItem(item: ShoppingWebItem) {
+        if (shoppingUndoJobs.containsKey(item.id)) {
+            undoShoppingCheck(item.id)
+            return
+        }
+        val checkedNow = _state.value.shoppingQueued[item.id]?.checked ?: ShoppingSections.isDone(item)
+        val next = ShoppingCheck(item.id, !checkedNow, UUID.randomUUID().toString(), System.currentTimeMillis())
+        _state.update { it.copy(shoppingPending = it.shoppingPending + (item.id to next)) }
+        shoppingUndoJobs[item.id] = viewModelScope.launch {
+            delay(UNDO_MILLIS)
+            commitShoppingCheck(item.id)
+        }
+    }
+
+    /** «Deshacer»: nada sale hacia el servidor. */
+    fun undoShoppingCheck(itemId: Long) {
+        shoppingUndoJobs.remove(itemId)?.cancel()
+        _state.update { it.copy(shoppingPending = it.shoppingPending - itemId) }
+    }
+
+    /** «Deshacer» del último marcado dentro de la ventana. */
+    fun undoLastShoppingCheck() {
+        _state.value.shoppingPending.values.maxByOrNull { it.createdAt }?.let { undoShoppingCheck(it.itemId) }
+    }
+
+    private fun commitShoppingCheck(itemId: Long) {
+        shoppingUndoJobs.remove(itemId)
+        val check = _state.value.shoppingPending[itemId] ?: return
+        shoppingChecks.add(check)
+        _state.update {
+            it.copy(shoppingPending = it.shoppingPending - itemId, shoppingQueued = shoppingChecks.all().associateBy { c -> c.itemId })
+        }
+        viewModelScope.launch { flushShoppingChecks() }
+    }
+
+    /**
+     * Envía la cola de la compra en orden. Éxito: quita el marcado y deja el estado del servidor en la lista. Error
+     * permanente (403, 404, clave no válida): quita el marcado y avisa. Sin red o fallo transitorio: se queda en la cola.
+     */
+    private suspend fun flushShoppingChecks() {
+        shoppingFlushLock.withLock {
+            for (check in shoppingChecks.all()) {
+                if (_state.value.token == null) return
+                val result = session.authorized { token ->
+                    runCatching {
+                        api.checkShoppingItem(
+                            bearer(token),
+                            ShoppingCheckRequest(check.itemId, if (check.checked) "checked" else "pending", check.requestId)
+                        ).bodyOrThrow()
+                    }
+                }
+                when (completionOutcome(result.exceptionOrNull())) {
+                    CompletionOutcome.Sent -> {
+                        shoppingChecks.remove(check.requestId)
+                        val newState = if (check.checked) "checked" else "pending"
+                        _state.update { s ->
+                            s.copy(shopping = s.shopping?.let { list ->
+                                list.copy(items = list.items?.map { if (it.id == check.itemId) it.copy(state = newState) else it })
+                            })
+                        }
+                    }
+                    CompletionOutcome.Discard -> {
+                        shoppingChecks.remove(check.requestId)
+                        _state.update { it.copy(completionNotice = "No se pudo marcar un artículo de la compra: no tienes permiso o ya no existe.") }
+                    }
+                    CompletionOutcome.Unauthorized -> {
+                        logout(expired = true)
+                        return
+                    }
+                    CompletionOutcome.Retry -> return
+                }
+                _state.update { it.copy(shoppingQueued = shoppingChecks.all().associateBy { c -> c.itemId }) }
+            }
         }
     }
 

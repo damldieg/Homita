@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dld.homita.dashboard.UiState
+import com.dld.homita.dashboard.data.ShoppingWebItem
 import com.dld.homita.dashboard.data.Freshness
 import com.dld.homita.dashboard.ui.theme.Palette
 import com.dld.homita.dashboard.ui.theme.Type
@@ -78,6 +79,9 @@ class DashboardActions(
     /** Menú de la semana: abrir la página (semana actual o la seleccionada) y cambiar de semana (−1, +1). */
     val openMenu: () -> Unit = {},
     val shiftMenu: (Int) -> Unit = {},
+    /** Compra del menú (fase B): marcar o desmarcar un artículo, y «Deshacer» de la ventana de 5 s. */
+    val toggleShopping: (ShoppingWebItem) -> Unit = {},
+    val undoShopping: () -> Unit = {},
 )
 
 private const val IDLE_MILLIS = 120_000L
@@ -187,7 +191,7 @@ private fun DashboardContent(
                     Page.Calendar -> CalendarScreen(state, onLoadWeek)
                     Page.Weather -> WeatherScreen(state)
                     Page.Tasks -> TasksScreen(state, onToggleTask)
-                    Page.Menu -> MenuScreen(state, actions.shiftMenu)
+                    Page.Menu -> MenuScreen(state, actions.shiftMenu, actions.toggleShopping, actions.undoShopping)
                     Page.Settings -> SettingsScreen(state, actions, settings)
                 }
             }

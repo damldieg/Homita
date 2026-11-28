@@ -56,6 +56,10 @@ interface Api {
     @GET("shopping")
     suspend fun shopping(@Header("Authorization") auth: String): Response<ShoppingListResponse>
 
+    /** Marcar o desmarcar un artículo de la compra (0055): la pantalla solo pasa pending ↔ checked. */
+    @PATCH("shopping/item/check")
+    suspend fun checkShoppingItem(@Header("Authorization") auth: String, @Body request: ShoppingCheckRequest): Response<ShoppingWebItem>
+
     /** Marcar o desmarcar una tarea (`PATCH /task/complete`). La clave de cliente hace idempotente el reenvío (0050). */
     @PATCH("task/complete")
     suspend fun completeTask(@Header("Authorization") auth: String, @Body request: CompleteTaskRequest): Response<Task>

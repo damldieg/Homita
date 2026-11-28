@@ -9,7 +9,9 @@ import com.dld.homita.dashboard.data.GeoResponse
 import com.dld.homita.dashboard.data.MealsToday
 import com.dld.homita.dashboard.data.MealPlanWeekResponse
 import com.dld.homita.dashboard.data.MealProfileSafe
+import com.dld.homita.dashboard.data.ShoppingCheckRequest
 import com.dld.homita.dashboard.data.ShoppingListResponse
+import com.dld.homita.dashboard.data.ShoppingWebItem
 import com.dld.homita.dashboard.data.RefreshRequest
 import com.dld.homita.dashboard.data.SessionResponse
 import com.dld.homita.dashboard.data.Task
@@ -48,6 +50,7 @@ class CalendarRepositoryTest {
         override suspend fun completeTask(auth: String, request: CompleteTaskRequest): Response<Task> = error("no se usa")
         override suspend fun tasks(auth: String, dashboard: Boolean): Response<List<Task>> = error("no se usa")
         override suspend fun mealProfile(auth: String): Response<MealProfileSafe> = error("no se usa")
+        override suspend fun checkShoppingItem(auth: String, request: ShoppingCheckRequest): Response<ShoppingWebItem> = error("no se usa")
         override suspend fun shopping(auth: String): Response<ShoppingListResponse> = error("no se usa")
         override suspend fun mealPlan(auth: String, weekStart: String): Response<MealPlanWeekResponse> = error("no se usa")
         override suspend fun mealsToday(auth: String): Response<MealsToday> = error("no se usa")

@@ -127,6 +127,14 @@ object ShoppingSections {
         else -> "Otros"
     }
 
+    /** Lo que el usuario acaba de marcar: la ventana de «Deshacer» manda sobre la cola, y la cola sobre la lista. */
+    fun overlay(queued: Map<Long, ShoppingCheck>, pending: Map<Long, ShoppingCheck>): Map<Long, Boolean> =
+        (queued + pending).mapValues { it.value.checked }
+
+    /** Los artículos con el marcado superpuesto (estado «checked» o «pending») mientras llega el servidor. */
+    fun withOverlay(items: List<ShoppingWebItem>, overlay: Map<Long, Boolean>): List<ShoppingWebItem> =
+        items.map { item -> overlay[item.id]?.let { item.copy(state = if (it) "checked" else "pending") } ?: item }
+
     /** Un artículo está comprado si su estado es «checked». */
     fun isDone(item: ShoppingWebItem): Boolean = item.state == "checked"
 

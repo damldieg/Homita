@@ -67,11 +67,17 @@ export const handleShoppingItemCreate = async (req: Request, token: string): Pro
 };
 
 // PATCH /shopping/item/check {id, state: pending|checked|skipped} — marca, desmarca o «ya lo tengo»
+// PATCH /shopping/item/check {id, state, client_request_id?} (0055): la pantalla puede pasar pending ↔ checked; con
+// client_request_id, un reenvío de la cola sin red no repite el cambio.
 export const handleShoppingItemCheck = async (req: Request, token: string): Promise<Response> => {
     const input = await contractBodyOnly(req);
     if (!isIntId(input.id)) return errShoppingItemIdRequired();
     if (typeof input.state !== "string") return errInvalidShoppingItem();
-    return rpcPassHome(await rpc("set_shopping_item_state", { p_item_id: input.id, p_state: input.state }, token));
+    const clientRequestId = clientRequestIdOf(input);
+    if (clientRequestId instanceof Response) return clientRequestId;
+    const args: Record<string, unknown> = { p_item_id: input.id, p_state: input.state };
+    if (clientRequestId !== undefined) args.p_client_request_id = clientRequestId;
+    return rpcPassHome(await rpc("set_shopping_item_state", args, token));
 };
 
 // PATCH /shopping/item/update {id, quantity, unit?} — la cantidad editada deja de sincronizarse

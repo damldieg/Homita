@@ -74,4 +74,14 @@ class ShoppingSectionsTest {
         assertEquals("500 g", ShoppingSections.quantity(ShoppingWebItem(quantity = 500.0, unit = "g")))
         assertEquals(null, ShoppingSections.quantity(ShoppingWebItem(quantity = null, unit = "kg")))
     }
+
+    @Test
+    fun laVentanaManda_SobreLaColaYLaColaSobreLaLista() {
+        val items = listOf(ShoppingWebItem(id = 1, label = "Pan", state = "pending"), ShoppingWebItem(id = 2, label = "Leche", state = "checked"))
+        val cola = mapOf(1L to ShoppingCheck(1, true, "a", 1L), 2L to ShoppingCheck(2, false, "b", 1L))
+        val ventana = mapOf(2L to ShoppingCheck(2, true, "c", 2L))
+        val vistos = ShoppingSections.withOverlay(items, ShoppingSections.overlay(cola, ventana))
+        assertEquals("checked", vistos.first { it.id == 1L }.state)
+        assertEquals("checked", vistos.first { it.id == 2L }.state)
+    }
 }
