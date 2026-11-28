@@ -71,6 +71,7 @@ public struct ProfileView: View {
                     invitationsCard
                     notificationsCard
                     inicioCard
+                    claudeCard
                     feedbackCard
                     HomitaCard {
                         HomitaToggle(title: "Modo oscuro", isOn: darkModeBinding)
@@ -170,6 +171,23 @@ public struct ProfileView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("ajustes.inicio")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Palette.card, in: RoundedRectangle(cornerRadius: 24))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Palette.cardBorder, lineWidth: 1))
+    }
+
+    private var claudeCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HomitaSectionHeader(title: "Claude", systemImage: "sparkles")
+            NavigationLink {
+                ClaudeConnectionsView(repo: services.claudeConnections)
+            } label: {
+                linkRow(title: "Apps conectadas y revocar acceso", systemImage: "link", tint: Palette.accentHex)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("ajustes.claude")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
