@@ -68,3 +68,21 @@ Deno.test("Kito sigue con 24 rutas y sin accept (comprobado por comportamiento)"
     });
     assertEquals(llamadas, 0);
 });
+
+Deno.test("RUTAS_ORGANIZAR: 20 rutas (16 operaciones, compartir y 3 detalles), sin accept ni alarmas ni administración", async () => {
+    const { RUTAS_ORGANIZAR } = await import("../escritor.ts");
+    const { OPS } = await import("../organizar/acciones.ts");
+    const claves = Object.keys(RUTAS_ORGANIZAR).sort();
+    assertEquals(claves.length, 20);
+    for (const o of Object.values(OPS)) assert(`${o.metodo} ${o.ruta}` in RUTAS_ORGANIZAR, o.ruta);
+    assertEquals(claves.filter((k) => k.startsWith("GET ")), ["GET event/detail", "GET routine/detail", "GET task/detail"]);
+    assert(claves.includes("PATCH calendar/user"));
+    for (const k of claves) assert(!/accept|alarm|invit|membership|home\/|food|shopping|meal/.test(k), k);
+});
+
+Deno.test("Kito compone organizar + menús comunes: 24 rutas, sin accept", async () => {
+    const { RUTAS } = await import("../../../asistente/skills/organizar/api.ts");
+    const claves = Object.keys(RUTAS);
+    assertEquals(claves.length, 24);
+    assert(!claves.some((k) => /accept/.test(k)));
+});
