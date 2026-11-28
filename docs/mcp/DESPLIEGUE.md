@@ -11,7 +11,9 @@ no despliega nada por sí mismo: cada paso lo ejecuta Damian y **pide confirmaci
 - Placeholders: `<PROJECT_REF>` (ref del proyecto Supabase), `<USUARIO>` (usuario de GitHub dueño del repo),
   `<URL>` = `https://<PROJECT_REF>.supabase.co`, `<ANON_KEY>` (clave pública anon). Nunca se pegan secretos
   (`service_role`, tokens de acceso) en este documento ni en git.
-- Los comandos de producción de la CLI usan `--project-ref <PROJECT_REF>` explícito y **no** `supabase link`.
+- Los comandos de producción de la CLI llevan el proyecto explícito y **no** usan `supabase link`. Se escriben con
+  `--project-ref <PROJECT_REF>` (CLI v2); en la CLI v3 (la 3.1.0 instalada aquí) el flag es `--remote=<PROJECT_REF>`.
+  Comprueba el tuyo con `supabase functions deploy --help` antes de ejecutar y sustituye el flag en todos los comandos.
 - Prohibido en todo el runbook: `supabase config push` con `supabase/config.toml` (ver «Por qué no `config push`»),
   `supabase db push` y cualquier migración (el MCP no tiene ninguna).
 
@@ -42,7 +44,7 @@ función acepte, así que desplegarla no expone nada. Si algo falla en 5-6 se bo
 con ese fichero sobrescribiría la Auth de producción: cambiaría las URLs (rompe correos y enlaces), **abriría el registro**
 en Auth y fijaría la caducidad del token. Por eso Auth se configura por dashboard (paso 7). Si en el futuro se quiere
 gestionar Auth por código, debe hacerse con un fichero de producción separado, revisado línea a línea, con
-`supabase config push --dry-run` y un diff previo; no forma parte de este runbook.
+`supabase config diff` y un diff previo; no forma parte de este runbook.
 
 ## 0. Prerrequisitos y decisiones
 
@@ -196,7 +198,7 @@ con esos dos valores). Si `resource` no coincide con `MCP_PUBLIC_URL`, revisa el
 4. **No tocar** *Allow new users to sign up* ni el resto de proveedores: el registro sigue cerrado.
 
 Alternativa avanzada (solo si prefieres código): `supabase config push` con un **fichero de producción separado**
-(copia solo con `[auth]` mínimo), revisado línea a línea y con `--dry-run` y diff antes. No con `supabase/config.toml`.
+(copia solo con `[auth]` mínimo), revisado línea a línea y con `supabase config diff` antes. No con `supabase/config.toml`.
 
 **Rollback (en este orden):** desactivar el OAuth Server; restaurar *Site URL* y *Redirect URLs* a lo anotado en el paso 1;
 restaurar las plantillas si se tocaron; revocar los clientes registrados (Authentication → OAuth Apps, borrar los de
