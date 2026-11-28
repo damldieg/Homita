@@ -52,7 +52,11 @@ class MainActivity : ComponentActivity() {
             },
             openWifi = { openSystemSettings(Settings.ACTION_WIFI_SETTINGS) },
             openSettings = { openSystemSettings(Settings.ACTION_SETTINGS) },
-            powerMenu = { if (!PowerMenuService.open()) Toast.makeText(this, "Falta activar el servicio de apagado (scripts/install.sh)", Toast.LENGTH_LONG).show() }
+            powerMenu = { if (!PowerMenuService.open()) Toast.makeText(this, "Falta activar el servicio de apagado (scripts/install.sh)", Toast.LENGTH_LONG).show() },
+            openMenu = viewModel::openMealWeek,
+            shiftMenu = viewModel::shiftMealWeek,
+            toggleShopping = viewModel::toggleShoppingItem,
+            undoShopping = viewModel::undoLastShoppingCheck
         )
         val settings = SettingsCallbacks(
             onSearch = viewModel::searchLocation,

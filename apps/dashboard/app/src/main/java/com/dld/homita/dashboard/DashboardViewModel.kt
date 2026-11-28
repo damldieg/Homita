@@ -17,6 +17,16 @@ import com.dld.homita.dashboard.data.Person
 import com.dld.homita.dashboard.data.Task
 import com.dld.homita.dashboard.data.Diagnostics
 import com.dld.homita.dashboard.data.Freshness
+import com.dld.homita.dashboard.data.HttpError
+import com.dld.homita.dashboard.data.MealPlanWeekResponse
+import com.dld.homita.dashboard.data.MealProfileSafe
+import com.dld.homita.dashboard.data.MealWeekGrid
+import com.dld.homita.dashboard.data.ShoppingCheck
+import com.dld.homita.dashboard.data.ShoppingCheckQueue
+import com.dld.homita.dashboard.data.ShoppingCheckRequest
+import com.dld.homita.dashboard.data.ShoppingListResponse
+import com.dld.homita.dashboard.data.ShoppingSections
+import com.dld.homita.dashboard.data.ShoppingWebItem
 import com.dld.homita.dashboard.data.UpdateCheck
 import com.dld.homita.dashboard.update.DisplayUpdater
 import com.dld.homita.dashboard.update.DisplayUpdates
@@ -28,7 +38,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.UUID
-import com.dld.homita.dashboard.data.HttpError
 import com.dld.homita.dashboard.data.DisplayApi
 import com.dld.homita.dashboard.data.DisplayConfig
 import com.dld.homita.dashboard.data.DisplayPoll
@@ -92,6 +101,21 @@ data class UiState(
     val technical: Boolean = false,
     /** Último resultado de cada dato remoto, para Ajustes → Diagnóstico (N6). */
     val diagnostics: Map<String, Diagnostics.Entry> = emptyMap(),
+    /** Semana del menú que se ve (lunes) y su plan; solo lectura en el marco (Menú). */
+    val mealWeekStart: LocalDate? = null,
+    val mealWeek: MealPlanWeekResponse? = null,
+    val mealWeekFailed: Boolean = false,
+    /** Primer día de la semana del hogar (1 = lunes … 7 = domingo) y franjas que usa (null = todas). */
+    val weekStartDay: Int = 1,
+    val enabledSlots: Set<String>? = null,
+    /** false si el servidor niega el menú (403/400): Menú sale de la barra. */
+    val menuAccess: Boolean = true,
+    /** Compra del hogar (solo lectura) que se ve junto al menú. */
+    val shopping: ShoppingListResponse? = null,
+    val shoppingFailed: Boolean = false,
+    /** Marcados de la compra en la ventana de «Deshacer» (5 s) y en la cola sin enviar (fase B). */
+    val shoppingPending: Map<Long, ShoppingCheck> = emptyMap(),
+    val shoppingQueued: Map<Long, ShoppingCheck> = emptyMap(),
     /** Versión, canal y última actualización (dashboard-actualizacion-remota), para Ajustes → Diagnóstico. */
     val updateInfo: String = "",
     /** false si el último intento de sincronizar falló: se muestra lo que hay en caché. */
@@ -153,6 +177,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val completionQueue = CompletionQueue(File(application.filesDir, "outbox/completions.json"))
     private val flushLock = Mutex()
     private val undoJobs = mutableMapOf<Int, Job>()
+    private val shoppingChecks = ShoppingCheckQueue(File(application.filesDir, "outbox/shopping-checks.json"))
+    private val shoppingFlushLock = Mutex()
+    private val shoppingUndoJobs = mutableMapOf<Long, Job>()
     private val displayApi = DisplayApi.client
     private var configFetchedAt = 0L
 
@@ -193,7 +220,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     init {
-        _state.update { it.copy(queued = completionQueue.all().associateBy { c -> c.taskId }) }
+        _state.update { it.copy(queued = completionQueue.all().associateBy { c -> c.taskId }, shoppingQueued = shoppingChecks.all().associateBy { c -> c.itemId }) }
         // Los repositorios publican la copia en disco y cada descarga buena: la pantalla siempre tiene lo último.
         viewModelScope.launch { contentRepository.content.collect { c -> _state.update { it.copy(content = c?.value, contentFetchedAt = c?.fetchedAt) } } }
         viewModelScope.launch { weatherRepository.forecast.collect { f -> _state.update { it.copy(forecast = f?.value) } } }
@@ -383,6 +410,168 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         if (_state.value.token == null) return
         if (!calendarRepository.isStale(monday)) return
         viewModelScope.launch { report(session.authorized { calendarRepository.refresh(it, monday) }, "calendario") }
+    }
+
+    /** Abre la página Menú: primero el perfil (día de inicio y franjas), después la semana y la compra. */
+    fun openMealWeek() {
+        viewModelScope.launch {
+            loadMealProfile()
+            val s = _state.value
+            loadMealWeek(s.mealWeekStart ?: MealWeekGrid.weekStartOf(LocalDate.now(), s.weekStartDay))
+            loadShopping()
+            // Los marcados que se quedaron sin red se reenvían al volver a Menú.
+            if (shoppingChecks.all().isNotEmpty()) flushShoppingChecks()
+        }
+    }
+
+    /**
+     * Marca o desmarca un artículo de la compra (fase B). Se ve al momento y queda 5 s para «Deshacer»; tocar otra vez
+     * durante la ventana lo deshace. Después pasa a la cola del marco y se envía.
+     */
+    fun toggleShoppingItem(item: ShoppingWebItem) {
+        if (shoppingUndoJobs.containsKey(item.id)) {
+            undoShoppingCheck(item.id)
+            return
+        }
+        val checkedNow = _state.value.shoppingQueued[item.id]?.checked ?: ShoppingSections.isDone(item)
+        val next = ShoppingCheck(item.id, !checkedNow, UUID.randomUUID().toString(), System.currentTimeMillis())
+        _state.update { it.copy(shoppingPending = it.shoppingPending + (item.id to next)) }
+        shoppingUndoJobs[item.id] = viewModelScope.launch {
+            delay(UNDO_MILLIS)
+            commitShoppingCheck(item.id)
+        }
+    }
+
+    /** «Deshacer»: nada sale hacia el servidor. */
+    fun undoShoppingCheck(itemId: Long) {
+        shoppingUndoJobs.remove(itemId)?.cancel()
+        _state.update { it.copy(shoppingPending = it.shoppingPending - itemId) }
+    }
+
+    /** «Deshacer» del último marcado dentro de la ventana. */
+    fun undoLastShoppingCheck() {
+        _state.value.shoppingPending.values.maxByOrNull { it.createdAt }?.let { undoShoppingCheck(it.itemId) }
+    }
+
+    private fun commitShoppingCheck(itemId: Long) {
+        shoppingUndoJobs.remove(itemId)
+        val check = _state.value.shoppingPending[itemId] ?: return
+        shoppingChecks.add(check)
+        _state.update {
+            it.copy(shoppingPending = it.shoppingPending - itemId, shoppingQueued = shoppingChecks.all().associateBy { c -> c.itemId })
+        }
+        viewModelScope.launch { flushShoppingChecks() }
+    }
+
+    /**
+     * Envía la cola de la compra en orden. Éxito: quita el marcado y deja el estado del servidor en la lista. Error
+     * permanente (403, 404, clave no válida): quita el marcado y avisa. Sin red o fallo transitorio: se queda en la cola.
+     */
+    private suspend fun flushShoppingChecks() {
+        shoppingFlushLock.withLock {
+            for (check in shoppingChecks.all()) {
+                if (_state.value.token == null) return
+                val result = session.authorized { token ->
+                    runCatching {
+                        api.checkShoppingItem(
+                            bearer(token),
+                            ShoppingCheckRequest(check.itemId, if (check.checked) "checked" else "pending", check.requestId)
+                        ).bodyOrThrow()
+                    }
+                }
+                when (completionOutcome(result.exceptionOrNull())) {
+                    CompletionOutcome.Sent -> {
+                        shoppingChecks.remove(check.requestId)
+                        val newState = if (check.checked) "checked" else "pending"
+                        _state.update { s ->
+                            s.copy(shopping = s.shopping?.let { list ->
+                                list.copy(items = list.items?.map { if (it.id == check.itemId) it.copy(state = newState) else it })
+                            })
+                        }
+                    }
+                    CompletionOutcome.Discard -> {
+                        shoppingChecks.remove(check.requestId)
+                        _state.update { it.copy(completionNotice = "No se pudo marcar un artículo de la compra: no tienes permiso o ya no existe.") }
+                    }
+                    CompletionOutcome.Unauthorized -> {
+                        logout(expired = true)
+                        return
+                    }
+                    CompletionOutcome.Retry -> return
+                }
+                _state.update { it.copy(shoppingQueued = shoppingChecks.all().associateBy { c -> c.itemId }) }
+            }
+        }
+    }
+
+    /** Día de inicio de semana y franjas del hogar. Sin ellos se usan los valores por defecto. */
+    private suspend fun loadMealProfile() {
+        if (_state.value.token == null) return
+        val result = session.authorized { token ->
+            runCatching {
+                val response = api.mealProfile(bearer(token))
+                if (!response.isSuccessful) throw HttpError(response.code())
+                response.body() ?: MealProfileSafe()
+            }
+        }
+        recordDiagnostic("perfil del menú", result)
+        result.onSuccess { profile ->
+            _state.update {
+                it.copy(
+                    weekStartDay = profile.week_start_day?.takeIf { d -> d in 1..7 } ?: 1,
+                    enabledSlots = profile.slots?.filter { s -> s.enabled }?.mapNotNull { s -> s.slot }?.toSet()
+                )
+            }
+        }
+        result.onFailure { error -> if (error.menuDenied()) _state.update { it.copy(menuAccess = false) } }
+    }
+
+    /** Compra del hogar para el panel de Menú; sin sesión o con fallo, el panel lo dice. */
+    private fun loadShopping() {
+        if (_state.value.token == null) return
+        viewModelScope.launch {
+            val result = session.authorized { token ->
+                runCatching {
+                    val response = api.shopping(bearer(token))
+                    if (!response.isSuccessful) throw HttpError(response.code())
+                    response.body() ?: ShoppingListResponse()
+                }
+            }
+            recordDiagnostic("compra", result)
+            result.onSuccess { list -> _state.update { it.copy(shopping = list, shoppingFailed = false) } }
+            result.onFailure { _state.update { s -> s.copy(shoppingFailed = true) } }
+        }
+    }
+
+    /** Cambia de semana en el menú (−1 anterior, +1 siguiente), sin salir de una semana atrás y dos adelante. */
+    fun shiftMealWeek(weeks: Int) {
+        val s = _state.value
+        val current = MealWeekGrid.weekStartOf(LocalDate.now(), s.weekStartDay)
+        val target = (s.mealWeekStart ?: current).plusWeeks(weeks.toLong())
+        if (target.isBefore(current.minusWeeks(1)) || target.isAfter(current.plusWeeks(2))) return
+        loadMealWeek(target)
+    }
+
+    private fun loadMealWeek(monday: LocalDate) {
+        _state.update { it.copy(mealWeekStart = monday, mealWeek = null, mealWeekFailed = false) }
+        if (_state.value.token == null) return
+        viewModelScope.launch {
+            val result = session.authorized { token ->
+                // Sin plan para la semana el servidor responde null (get_meal_plan): es semana vacía, no un fallo.
+                runCatching {
+                    val response = api.mealPlan(bearer(token), monday.toString())
+                    if (!response.isSuccessful) throw HttpError(response.code())
+                    response.body() ?: MealPlanWeekResponse()
+                }
+            }
+            recordDiagnostic("menú de la semana", result)
+            result.onSuccess { plan -> _state.update { if (it.mealWeekStart == monday) it.copy(mealWeek = plan, mealWeekFailed = false) else it } }
+            result.onFailure { error ->
+                _state.update { s -> if (s.mealWeekStart == monday) s.copy(mealWeekFailed = true) else s }
+                if (error.menuDenied()) _state.update { it.copy(menuAccess = false) }
+            }
+            if (result.exceptionOrNull() is SessionExpired || result.exceptionOrNull()?.isUnauthorized == true) logout(expired = true)
+        }
     }
 
     /**
@@ -627,3 +816,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         const val UNDO_MILLIS = 5_000L
     }
 }
+
+/** El servidor niega el menú a esta cuenta (sin `menu.view` o sin hogar): Menú no se ofrece. */
+private fun Throwable.menuDenied(): Boolean = this is HttpError && (code == 403 || code == 400)

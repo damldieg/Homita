@@ -44,6 +44,22 @@ interface Api {
     @GET("meal/today")
     suspend fun mealsToday(@Header("Authorization") auth: String): Response<MealsToday>
 
+    /** Semana del menú del hogar del marco (solo lectura): sin `X-Home-Id`, como `meal/today`. */
+    @GET("meal/plan")
+    suspend fun mealPlan(@Header("Authorization") auth: String, @Query("week_start") weekStart: String): Response<MealPlanWeekResponse>
+
+    /** Perfil del menú del hogar: solo se usan `week_start_day` y las franjas (ver [MealProfileSafe]). */
+    @GET("meal/profile")
+    suspend fun mealProfile(@Header("Authorization") auth: String): Response<MealProfileSafe>
+
+    /** Compra del hogar del marco (solo lectura). */
+    @GET("shopping")
+    suspend fun shopping(@Header("Authorization") auth: String): Response<ShoppingListResponse>
+
+    /** Marcar o desmarcar un artículo de la compra (0055): la pantalla solo pasa pending ↔ checked. */
+    @PATCH("shopping/item/check")
+    suspend fun checkShoppingItem(@Header("Authorization") auth: String, @Body request: ShoppingCheckRequest): Response<ShoppingWebItem>
+
     /** Marcar o desmarcar una tarea (`PATCH /task/complete`). La clave de cliente hace idempotente el reenvío (0050). */
     @PATCH("task/complete")
     suspend fun completeTask(@Header("Authorization") auth: String, @Body request: CompleteTaskRequest): Response<Task>

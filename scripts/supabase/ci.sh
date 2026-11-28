@@ -268,6 +268,9 @@ run "SQL kito_menus_check" sql-kito-menus sql "$HERE/scripts/supabase/tests/kito
 mk_pat=(); for i in $(seq 1 7); do mk_pat+=("ok MK$i([^0-9a-z]|\$)"); done
 expect_log "SQL kito_menus_check" sql-kito-menus "${mk_pat[@]}"
 
+# 0055 (dashboard-menu-compra, fase B): la pantalla marca la compra (menu.shopping.check). Es la más nueva: su rollback
+# va antes del de 0053 (LIFO). Los checks de la compra de pantalla corren con 0055 aplicada.
+run "SQL 0055 rollback (LIFO antes de 0053)" sql-rb0055 sql "$HERE/scripts/supabase/rollback/rollback_0055_compra_pantalla.sql"
 # 0053 (dashboard-pantallas-canal): fn_display_list expone canal y versión. Es la más nueva: su rollback va antes del de
 # 0051 y del de 0049 (LIFO) y no se reaplica hasta después de 0051, porque fn_display_list usa esas columnas.
 run "SQL 0053 rollback (LIFO antes de 0051 y 0049)" sql-rb0053 sql "$HERE/scripts/supabase/rollback/rollback_0053_pantallas_canal_version.sql"
@@ -305,6 +308,9 @@ run "SQL 0051 reaplicada (tras 0049)" sql-ra0051-tras0049 sql "$HERE/supabase/mi
 run "SQL actualizacion_remota_check (tras 0049)" sql-ra0051-tras0049-check sql "$HERE/scripts/supabase/tests/actualizacion_remota_check.sql"
 expect_log "SQL actualizacion_remota_check (tras 0049)" sql-ra0051-tras0049-check 'ok U-clean'
 run "SQL 0053 reaplicada (tras 0051)" sql-ra0053-tras0051 sql "$HERE/supabase/migrations/0053_pantallas_canal_version.sql"
+run "SQL 0055 reaplicada (tras 0053)" sql-ra0055 sql "$HERE/supabase/migrations/0055_compra_pantalla.sql"
+run "SQL shopping_check (0055)" sql-shopping-check sql "$HERE/scripts/supabase/tests/shopping_check_check.sql"
+expect_log "SQL shopping_check (0055)" sql-shopping-check 'ok S1([^0-9]|$)' 'ok S4([^0-9]|$)' 'ok S6([^0-9]|$)' 'ok S7([^0-9]|$)' 'ok S10([^0-9]|$)' 'ok S-clean'
 run "SQL pantallas_canal_version_check" sql-pantallas-canal sql "$HERE/scripts/supabase/tests/pantallas_canal_version_check.sql"
 expect_log "SQL pantallas_canal_version_check" sql-pantallas-canal 'ok F1([^0-9]|$)' 'ok F2([^0-9]|$)' 'ok F3([^0-9]|$)' 'ok F-clean'
 
