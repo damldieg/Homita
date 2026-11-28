@@ -8,6 +8,7 @@
 
 import { construirContexto } from "./contexto.ts";
 import type { Leer } from "../_shared/homita/tipos.ts";
+import type { Cambio } from "../_shared/homita/organizar/tipos.ts";
 
 export type { Leer };
 
@@ -26,12 +27,8 @@ export type Escribir = (
     cuerpo?: Record<string, unknown>,
 ) => Promise<RespuestaApi>;
 
-/** Qué ha cambiado una escritura, para que la app recargue (aditivo en la respuesta). */
-export interface Cambio {
-    tipo: "tarea" | "lista" | "evento" | "rutina" | "calendario" | "menu" | "receta" | "compra";
-    id: number | string | null;
-    op: "crear" | "editar" | "borrar";
-}
+/** Qué ha cambiado una escritura, para que la app recargue (aditivo en la respuesta). Vive en el módulo compartido. */
+export type { Cambio };
 
 const EFECTOS = Symbol("efectos");
 
