@@ -107,6 +107,12 @@ conexión el token OAuth deja de valer en el acto en el MCP (la función valida 
 la sesión), así que la caducidad larga no deja un acceso colgado tras revocar. Aun así, un `jwt_expiry` menor reduce
 la ventana si Auth cambiara ese comportamiento; es decisión tuya y **este runbook no lo cambia**.
 
+**Rollback:** el paso es solo una decisión, no cambia nada en producción. Si decidiste algo y te arrepientes, descártalo
+(no se ha aplicado todavía). Si ya cambiaste `site_url` o `jwt_expiry` en el paso 7, se deshacen allí (Authentication → URL
+Configuration y Sessions, con los valores anotados en el paso 1).
+**Comprobación del rollback:** en el dashboard, *Site URL*, *Redirect URLs* y *JWT expiry* coinciden con las notas del paso 1,
+y `curl -s -H "apikey: <ANON_KEY>" <URL>/auth/v1/settings` da el mismo `disable_signup` que entonces.
+
 ## 3. Publicar la página de consentimiento (GitHub Pages)
 
 **SOLO PRODUCCIÓN. No verificable (pantallas de GitHub).** `.github/workflows/pages.yml` ya existe con solo
@@ -255,6 +261,12 @@ curl -s -X DELETE "<URL>/auth/v1/user/oauth/grants?client_id=<CLIENT_ID>" -H "ap
 
 Medido en local tras revocar: el token OAuth da `403` en `GET /auth/v1/user` (así que el MCP responde `401`), el
 refresh token da `400 refresh_token_not_found` y la lista de grants queda vacía.
+
+**Rollback:** revocar no se puede deshacer (el grant y su refresh token se borran). Para recuperar el acceso, el usuario
+vuelve a conectar el conector desde claude.ai (paso 9) y aprueba otra vez en la página de consentimiento; se crea un grant nuevo.
+**Comprobación del rollback:** tras reconectar, `GET <URL>/auth/v1/user/oauth/grants` (con el JWT del usuario) vuelve a
+listar el cliente y iOS → Ajustes › Claude lo muestra; una herramienta de solo lectura (`ver_hogares`) responde en claude.ai.
+Si lo que querías deshacer era una revocación por error de un cliente ajeno, no hay nada que restaurar: ese cliente queda revocado.
 
 ## R. Rollback completo (orden inverso)
 
