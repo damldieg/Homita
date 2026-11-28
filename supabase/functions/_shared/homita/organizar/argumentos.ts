@@ -1,6 +1,6 @@
 // Lectura de argumentos y lecturas auxiliares de «organizar», con el lector y el escritor recibidos (no `ToolCtx`).
 import type { Leer } from "../tipos.ts";
-import { esNoExiste, traducir } from "./errores.ts";
+import { ErrorLectura, esNoExiste, traducir } from "./errores.ts";
 import type { Input, Obj, OrgCtx } from "./tipos.ts";
 
 export type { Input, Obj };
@@ -46,7 +46,7 @@ export const YA_NO_EXISTE = { ok: false, error: "Ya no existe." };
 /** Una fila de una lista del api por id, o `null` si ya no existe. Lanza si no hay lector o falla la lectura. */
 export const filaPorId = async (c: OrgCtx, ruta: string, id: number): Promise<Obj | null> => {
     const todas = await filas(c.leer, ruta);
-    if (todas === null) throw new Error("No he podido leer los datos ahora mismo.");
+    if (todas === null) throw new ErrorLectura("No he podido leer los datos ahora mismo.");
     return todas.find((f) => Number(f.id) === id) ?? null;
 };
 
@@ -55,7 +55,7 @@ export const detalle = async (c: OrgCtx, ruta: string, id: number): Promise<Obj 
     const r = await c.escribir!("GET", ruta, { id });
     if (r.ok) return objeto(r.data);
     if (esNoExiste(r.status, r.error)) return null;
-    throw new Error(traducir(r.status, r.error));
+    throw new ErrorLectura(traducir(r.status, r.error));
 };
 
 /**

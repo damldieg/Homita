@@ -17,3 +17,6 @@ export const traducir = (status: number, error: unknown, nombre?: string): strin
     }
     return "No he podido hacerlo ahora mismo.";
 };
+
+/** Fallo al leer un dato necesario para preparar una acción; el mensaje ya es una frase para el usuario. */
+export class ErrorLectura extends Error {}
