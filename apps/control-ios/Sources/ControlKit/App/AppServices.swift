@@ -78,6 +78,7 @@ public struct AppServices {
         feedback = FeedbackRepository(client: client)
         claudeConnections = ClaudeConnectionsRepository(
             config: config, http: http, tokenProvider: { [weak session] in session?.accessToken }, refresher: auth)
+        claudeConnections.onSessionExpired = client.onSessionExpired
         meals = MealRepository(client: client)
         recipes = RecipeRepository(client: client)
         shopping = ShoppingRepository(client: client)

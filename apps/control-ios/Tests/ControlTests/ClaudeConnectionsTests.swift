@@ -11,6 +11,13 @@ final class ClaudeConnectionsTests: XCTestCase {
         func refreshSession() async throws { calls += 1; token = "jwt-nuevo" }
     }
 
+    private final class Counter: @unchecked Sendable {
+        private let lock = NSLock()
+        private var count = 0
+        func increment() { lock.lock(); count += 1; lock.unlock() }
+        var value: Int { lock.lock(); defer { lock.unlock() }; return count }
+    }
+
     private static let grantsJSON = """
     [{"client":{"id":"c-1","name":"Claude"},"scopes":["openid","email"],"granted_at":"2026-11-28T16:07:30.555033Z"}]
     """
@@ -72,6 +79,20 @@ final class ClaudeConnectionsTests: XCTestCase {
             XCTAssertEqual(error, .sessionExpired)
         }
         XCTAssertEqual(fake.calls, 1)
+    }
+
+    func testSessionExpiredCallsHandlerBeforeThrowing() async throws {
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(status: 401, json: #"{"msg":"expired"}"#) }
+        let (repo, _) = try makeRepo()
+        let called = Counter()
+        repo.onSessionExpired = { called.increment() }
+        do {
+            _ = try await repo.list()
+            XCTFail("debía fallar")
+        } catch let error as APIError {
+            XCTAssertEqual(error, .sessionExpired)
+        }
+        XCTAssertEqual(called.value, 1)
     }
 
     func testServerErrorKeepsGoTrueMessage() async throws {

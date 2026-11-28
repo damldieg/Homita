@@ -53,6 +53,8 @@ public final class ClaudeConnectionsRepository {
     private let http: URLSession
     private let tokenProvider: () -> String?
     private weak var refresher: (any TokenRefreshing)?
+    /// Se llama antes de lanzar `.sessionExpired` (como `APIClient`): `AppServices` cierra la sesión local.
+    public var onSessionExpired: (@Sendable () -> Void)?
 
     public init(config: AppConfig, http: URLSession = .shared, tokenProvider: @escaping () -> String?,
                 refresher: (any TokenRefreshing)?) {
@@ -77,7 +79,7 @@ public final class ClaudeConnectionsRepository {
     }
 
     private func perform(method: String, query: [URLQueryItem], allowRefresh: Bool = true) async throws -> Data {
-        guard let token = tokenProvider() else { throw APIError.sessionExpired }
+        guard let token = tokenProvider() else { throw expireSession() }
         var components = URLComponents(url: config.supabaseURL, resolvingAgainstBaseURL: false)
         components?.path += "/auth/v1/user/oauth/grants"
         components?.queryItems = query.isEmpty ? nil : query
@@ -97,11 +99,20 @@ public final class ClaudeConnectionsRepository {
         guard let status = (response as? HTTPURLResponse)?.statusCode else { throw APIError.network("Respuesta inválida") }
         if (200...299).contains(status) { return data }
         if status == 401 {
-            guard allowRefresh, let refresher else { throw APIError.sessionExpired }
-            try await refresher.refreshSession()
+            guard allowRefresh, let refresher else { throw expireSession() }
+            do {
+                try await refresher.refreshSession()
+            } catch APIError.sessionExpired {
+                throw expireSession()
+            }
             return try await perform(method: method, query: query, allowRefresh: false)
         }
         throw APIError.http(status: status, message: Self.message(from: data))
+    }
+
+    private func expireSession() -> APIError {
+        onSessionExpired?()
+        return .sessionExpired
     }
 
     /// GoTrue responde `{"code":…,"error_code":…,"msg":"…"}`.
