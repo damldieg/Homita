@@ -14,7 +14,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlinx.coroutines.CancellationException
 import java.time.LocalDateTime
+
+/**
+ * runCatching que deja pasar la cancelación de la corrutina (WorkManager o el ViewModel la paran): si se tragara la
+ * CancellationException, el trabajo seguiría como si fallara y se registraría un fallo falso.
+ */
+inline fun <T> runCatchingNonCancel(block: () -> T): Result<T> = try {
+    Result.success(block())
+} catch (e: CancellationException) {
+    throw e
+} catch (e: Throwable) {
+    Result.failure(e)
+}
 
 /**
  * Una pasada de la actualización remota (dashboard-actualizacion-pantalla-apagada): comprobación si toca, descarga si hay
@@ -43,7 +56,7 @@ class DisplayUpdateJob(
     private suspend fun check(nowMs: Long) {
         if (!UpdatePolicy.shouldCheck(store.updateLastCheckAt, nowMs)) return
         val result = session.authorized { token ->
-            runCatching {
+            runCatchingNonCancel {
                 displayApi.update(bearer(token), BuildConfig.VERSION_CODE.toString(), BuildConfig.VERSION_NAME,
                     UpdatePolicy.headerValue(store.updateResult)).bodyOrThrow()
             }
@@ -58,7 +71,7 @@ class DisplayUpdateJob(
 
     private suspend fun download(offer: UpdateCheck) {
         val absolute = offer.copy(url = UpdatePolicy.absoluteUrl(BuildConfig.BASE_URL, offer.url!!))
-        val result = runCatching { withContext(Dispatchers.IO) { updater.download(absolute) } }
+        val result = runCatchingNonCancel { withContext(Dispatchers.IO) { updater.download(absolute) } }
         report("descarga de actualización", result)
         result.onFailure { updater.recordCheckFailure(System.currentTimeMillis(), Diagnostics.describe(it)) }
     }
@@ -68,7 +81,7 @@ class DisplayUpdateJob(
         val screenOn = !schedule.enabled || ScreenSchedule.isOn(schedule, LocalDateTime.now())
         val mayInstall = UpdatePolicy.mayInstall(clockValid = true, scheduleEnabled = schedule.enabled, screenOn = screenOn)
         val result = withContext(Dispatchers.IO) {
-            runCatching { updater.installIfReady(context, mayInstall, System.currentTimeMillis()) }
+            runCatchingNonCancel { updater.installIfReady(context, mayInstall, System.currentTimeMillis()) }
         }
         report("instalación de actualización", result)
     }
