@@ -9,6 +9,8 @@ import com.dld.homita.dashboard.data.GeoResponse
 import com.dld.homita.dashboard.data.MealItem
 import com.dld.homita.dashboard.data.MealsToday
 import com.dld.homita.dashboard.data.MealPlanWeekResponse
+import com.dld.homita.dashboard.data.MealProfileSafe
+import com.dld.homita.dashboard.data.ShoppingListResponse
 import com.dld.homita.dashboard.data.RefreshRequest
 import com.dld.homita.dashboard.data.SessionResponse
 import com.dld.homita.dashboard.data.Task
@@ -41,6 +43,8 @@ class MealRepositoryTest {
         )
         var auth: String? = null
 
+        override suspend fun mealProfile(auth: String): Response<MealProfileSafe> = error("no se usa")
+        override suspend fun shopping(auth: String): Response<ShoppingListResponse> = error("no se usa")
         override suspend fun mealPlan(auth: String, weekStart: String): Response<MealPlanWeekResponse> = error("no se usa")
         override suspend fun mealsToday(auth: String): Response<MealsToday> {
             this.auth = auth

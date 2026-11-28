@@ -183,7 +183,7 @@ private fun DashboardContent(
             Rail(page, state, onSelect = { page = it }, onSleep = actions.sleep)
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 when (page) {
-                    Page.Today -> TodayScreen(state, lastTouch, onOpenWeather = { page = Page.Weather }, onDismissDue = onDismissDue)
+                    Page.Today -> TodayScreen(state, lastTouch, onOpenWeather = { page = Page.Weather }, onOpenMenu = { page = Page.Menu }, onDismissDue = onDismissDue)
                     Page.Calendar -> CalendarScreen(state, onLoadWeek)
                     Page.Weather -> WeatherScreen(state)
                     Page.Tasks -> TasksScreen(state, onToggleTask)
@@ -247,7 +247,9 @@ private fun Rail(current: Page, state: UiState, onSelect: (Page) -> Unit, onSlee
     ) {
         // Las pantallas arriba, con su nombre bajo el icono (U6); el apagado, con su nombre
         Column(verticalArrangement = Arrangement.spacedBy(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            listOf(Page.Today, Page.Calendar, Page.Weather, Page.Tasks, Page.Menu, Page.Settings).forEach { page ->
+            listOf(Page.Today, Page.Calendar, Page.Weather, Page.Tasks, Page.Menu, Page.Settings)
+                .filter { it != Page.Menu || state.menuAccess }
+                .forEach { page ->
                 RailItem(page.label, page.icon, page == current) { onSelect(page) }
             }
             RailItem("Apagar", Icons.Outlined.Bedtime, false, onClick = onSleep)

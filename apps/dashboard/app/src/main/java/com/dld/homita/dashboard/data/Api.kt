@@ -48,6 +48,14 @@ interface Api {
     @GET("meal/plan")
     suspend fun mealPlan(@Header("Authorization") auth: String, @Query("week_start") weekStart: String): Response<MealPlanWeekResponse>
 
+    /** Perfil del menú del hogar: solo se usan `week_start_day` y las franjas (ver [MealProfileSafe]). */
+    @GET("meal/profile")
+    suspend fun mealProfile(@Header("Authorization") auth: String): Response<MealProfileSafe>
+
+    /** Compra del hogar del marco (solo lectura). */
+    @GET("shopping")
+    suspend fun shopping(@Header("Authorization") auth: String): Response<ShoppingListResponse>
+
     /** Marcar o desmarcar una tarea (`PATCH /task/complete`). La clave de cliente hace idempotente el reenvío (0050). */
     @PATCH("task/complete")
     suspend fun completeTask(@Header("Authorization") auth: String, @Body request: CompleteTaskRequest): Response<Task>

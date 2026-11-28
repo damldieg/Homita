@@ -87,7 +87,7 @@ private const val MEAL_ROWS = 6
  * a la derecha «Hoy se come», «Próximas dos semanas» y las rutinas de hoy.
  */
 @Composable
-fun TodayScreen(state: UiState, lastTouch: Long, onOpenWeather: () -> Unit, onDismissDue: (String) -> Unit) {
+fun TodayScreen(state: UiState, lastTouch: Long, onOpenWeather: () -> Unit, onOpenMenu: () -> Unit, onDismissDue: (String) -> Unit) {
     // Avisos de lo que ve la persona filtrada (R1-08) y sin las tareas ya marcadas, también las de la ventana de «Deshacer»
     val dues = state.shownContent?.tasks
         ?.filterNot { it.isDone(state.pending[it.id] ?: state.queued[it.id]) }
@@ -113,7 +113,7 @@ fun TodayScreen(state: UiState, lastTouch: Long, onOpenWeather: () -> Unit, onDi
             Row(Modifier.fillMaxWidth().weight(0.58f), horizontalArrangement = Arrangement.spacedBy(Gap)) {
                 AgendaCard(state, lastTouch, Modifier.weight(1f).fillMaxHeight())
                 Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(Gap)) {
-                    MealsCard(state)
+                    MealsCard(state, onOpenMenu)
                     UpcomingDaysCard(state, lastTouch, Modifier.weight(1f).fillMaxWidth())
                     RoutinesCard(state, lastTouch, Modifier.weight(1f).fillMaxWidth())
                 }
@@ -379,9 +379,9 @@ private fun EventRow(event: Event, now: LocalDateTime, ongoing: Boolean = false)
  * Sin plan aceptado no se pinta.
  */
 @Composable
-private fun MealsCard(state: UiState) {
+private fun MealsCard(state: UiState, onOpenMenu: () -> Unit) {
     val view: MealsTodayView = MealsTodayState.of(state.meals, state.now, MEAL_ROWS) ?: return
-    Card(Modifier.fillMaxWidth()) {
+    Card(Modifier.fillMaxWidth().clickable(onClick = onOpenMenu)) {
         CardHeader("Hoy se come", Icons.Outlined.Restaurant, Palette.Sage, count = view.rows.size + view.more)
         Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             view.rows.forEach { row ->

@@ -51,4 +51,18 @@ class MealWeekGridTest {
         assertNull(MealWeekGrid.cell(items, monday.plusDays(1), "lunch"))
         assertNull(MealWeekGrid.cell(items, monday, "dinner"))
     }
+
+    @Test
+    fun laSemanaEmpiezaElDiaQueDiceElHogar() {
+        val sabado = LocalDate.of(2026, 11, 28)
+        assertEquals(LocalDate.of(2026, 11, 22), MealWeekGrid.weekStartOf(sabado, 7))
+        assertEquals(LocalDate.of(2026, 11, 23), MealWeekGrid.weekStartOf(sabado, 1))
+    }
+
+    @Test
+    fun laFranjaSeOcultaSiEstaDeshabilitadaOSinCasillas() {
+        val items = listOf(item(monday, "lunch", "Lentejas"), item(monday, "dinner", "Sopa"), item(monday, "snack", "Fruta"))
+        assertEquals(listOf("lunch", "dinner"), MealWeekGrid.visibleSlots(items, setOf("lunch", "dinner", "breakfast")))
+        assertEquals(listOf("lunch", "snack", "dinner"), MealWeekGrid.visibleSlots(items, null))
+    }
 }

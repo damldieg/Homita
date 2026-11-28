@@ -19,7 +19,9 @@ import com.dld.homita.dashboard.data.Diagnostics
 import com.dld.homita.dashboard.data.Freshness
 import com.dld.homita.dashboard.data.HttpError
 import com.dld.homita.dashboard.data.MealPlanWeekResponse
+import com.dld.homita.dashboard.data.MealProfileSafe
 import com.dld.homita.dashboard.data.MealWeekGrid
+import com.dld.homita.dashboard.data.ShoppingListResponse
 import com.dld.homita.dashboard.data.UpdateCheck
 import com.dld.homita.dashboard.update.DisplayUpdater
 import com.dld.homita.dashboard.update.DisplayUpdates
@@ -98,6 +100,14 @@ data class UiState(
     val mealWeekStart: LocalDate? = null,
     val mealWeek: MealPlanWeekResponse? = null,
     val mealWeekFailed: Boolean = false,
+    /** Primer día de la semana del hogar (1 = lunes … 7 = domingo) y franjas que usa (null = todas). */
+    val weekStartDay: Int = 1,
+    val enabledSlots: Set<String>? = null,
+    /** false si el servidor niega el menú (403/400): Menú sale de la barra. */
+    val menuAccess: Boolean = true,
+    /** Compra del hogar (solo lectura) que se ve junto al menú. */
+    val shopping: ShoppingListResponse? = null,
+    val shoppingFailed: Boolean = false,
     /** Versión, canal y última actualización (dashboard-actualizacion-remota), para Ajustes → Diagnóstico. */
     val updateInfo: String = "",
     /** false si el último intento de sincronizar falló: se muestra lo que hay en caché. */
@@ -391,14 +401,62 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch { report(session.authorized { calendarRepository.refresh(it, monday) }, "calendario") }
     }
 
-    /** Abre la página Menú: la semana actual, o la que ya estaba seleccionada. */
+    /** Abre la página Menú: primero el perfil (día de inicio y franjas), después la semana y la compra. */
     fun openMealWeek() {
-        loadMealWeek(_state.value.mealWeekStart ?: MealWeekGrid.mondayOf(LocalDate.now()))
+        viewModelScope.launch {
+            loadMealProfile()
+            val s = _state.value
+            loadMealWeek(s.mealWeekStart ?: MealWeekGrid.weekStartOf(LocalDate.now(), s.weekStartDay))
+            loadShopping()
+        }
     }
 
-    /** Cambia de semana en el menú (−1 anterior, +1 siguiente). */
+    /** Día de inicio de semana y franjas del hogar. Sin ellos se usan los valores por defecto. */
+    private suspend fun loadMealProfile() {
+        if (_state.value.token == null) return
+        val result = session.authorized { token ->
+            runCatching {
+                val response = api.mealProfile(bearer(token))
+                if (!response.isSuccessful) throw HttpError(response.code())
+                response.body() ?: MealProfileSafe()
+            }
+        }
+        recordDiagnostic("perfil del menú", result)
+        result.onSuccess { profile ->
+            _state.update {
+                it.copy(
+                    weekStartDay = profile.week_start_day?.takeIf { d -> d in 1..7 } ?: 1,
+                    enabledSlots = profile.slots?.filter { s -> s.enabled }?.mapNotNull { s -> s.slot }?.toSet()
+                )
+            }
+        }
+        result.onFailure { error -> if (error.menuDenied()) _state.update { it.copy(menuAccess = false) } }
+    }
+
+    /** Compra del hogar para el panel de Menú; sin sesión o con fallo, el panel lo dice. */
+    private fun loadShopping() {
+        if (_state.value.token == null) return
+        viewModelScope.launch {
+            val result = session.authorized { token ->
+                runCatching {
+                    val response = api.shopping(bearer(token))
+                    if (!response.isSuccessful) throw HttpError(response.code())
+                    response.body() ?: ShoppingListResponse()
+                }
+            }
+            recordDiagnostic("compra", result)
+            result.onSuccess { list -> _state.update { it.copy(shopping = list, shoppingFailed = false) } }
+            result.onFailure { _state.update { s -> s.copy(shoppingFailed = true) } }
+        }
+    }
+
+    /** Cambia de semana en el menú (−1 anterior, +1 siguiente), sin salir de una semana atrás y dos adelante. */
     fun shiftMealWeek(weeks: Int) {
-        loadMealWeek((_state.value.mealWeekStart ?: MealWeekGrid.mondayOf(LocalDate.now())).plusWeeks(weeks.toLong()))
+        val s = _state.value
+        val current = MealWeekGrid.weekStartOf(LocalDate.now(), s.weekStartDay)
+        val target = (s.mealWeekStart ?: current).plusWeeks(weeks.toLong())
+        if (target.isBefore(current.minusWeeks(1)) || target.isAfter(current.plusWeeks(2))) return
+        loadMealWeek(target)
     }
 
     private fun loadMealWeek(monday: LocalDate) {
@@ -415,7 +473,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             }
             recordDiagnostic("menú de la semana", result)
             result.onSuccess { plan -> _state.update { if (it.mealWeekStart == monday) it.copy(mealWeek = plan, mealWeekFailed = false) else it } }
-            result.onFailure { _state.update { s -> if (s.mealWeekStart == monday) s.copy(mealWeekFailed = true) else s } }
+            result.onFailure { error ->
+                _state.update { s -> if (s.mealWeekStart == monday) s.copy(mealWeekFailed = true) else s }
+                if (error.menuDenied()) _state.update { it.copy(menuAccess = false) }
+            }
             if (result.exceptionOrNull() is SessionExpired || result.exceptionOrNull()?.isUnauthorized == true) logout(expired = true)
         }
     }
@@ -662,3 +723,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         const val UNDO_MILLIS = 5_000L
     }
 }
+
+/** El servidor niega el menú a esta cuenta (sin `menu.view` o sin hogar): Menú no se ofrece. */
+private fun Throwable.menuDenied(): Boolean = this is HttpError && (code == 403 || code == 400)
