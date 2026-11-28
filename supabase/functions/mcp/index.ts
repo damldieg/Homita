@@ -1,10 +1,11 @@
-// Edge Function `mcp` (MCP remoto de Claude para Homita, fase 1: solo lectura). Solo cableado: la lógica está en
+// Edge Function `mcp` (MCP remoto de Claude para Homita: lectura y escritura del menú, la compra y las preferencias). Solo cableado: la lógica está en
 // handler.ts. Se despliega con --no-verify-jwt (auth manual: solo tokens OAuth de Supabase Auth, ver auth.ts).
 // Variables opcionales: MCP_PUBLIC_URL, MCP_AUTH_URL, MCP_TOKEN_AUDIENCE (ver README). SUPABASE_URL y
 // SUPABASE_ANON_KEY las inyecta el runtime. No usa la clave de servicio: todo va por los casos de uso de `api` con el JWT
 // del usuario.
 import { createHandler } from "./handler.ts";
 import { AUDIENCIA_POR_DEFECTO } from "./auth.ts";
+import { crearEscritorMcp } from "./escritor.ts";
 import { userInfoReal } from "./userinfo.ts";
 import { leerRuta } from "../_shared/homita/lector.ts";
 import { appUserRow } from "../api/_shared/supabase.ts";
@@ -20,6 +21,7 @@ Deno.serve(createHandler({
     publicUrl: Deno.env.get("MCP_PUBLIC_URL") || undefined,
     authUrl: Deno.env.get("MCP_AUTH_URL") || undefined,
     leerRuta,
+    crearEscritor: crearEscritorMcp,
     checkHomeMember,
     runInHome: (homeId, fn) => runWithHome(homeId, fn),
     appUserId: async (uid, token) => {

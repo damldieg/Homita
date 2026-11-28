@@ -1,8 +1,9 @@
 # Edge Function `mcp` (MCP de Claude para Homita)
 
-Fase 1 de 4: servidor MCP remoto **de solo lectura** (Streamable HTTP sin estado) para que Claude consulte los
-hogares, menús, compra, tareas, eventos, rutinas, calendarios y personas de Homita. Solo local: producción, el
-despliegue y Pages son de la fase 4 (ver «Producción / fase 4»).
+Servidor MCP remoto (Streamable HTTP sin estado) para que Claude consulte los hogares, menús, compra, tareas, eventos,
+rutinas, calendarios y personas de Homita (fase 1, solo lectura) y **escriba el menú semanal, las recetas, los
+alimentos, la compra y las preferencias** (fase 2: 8 herramientas de escritura). Solo local: producción, el despliegue
+y Pages son de la fase 4 (ver «Producción / fase 4»). Las herramientas de organizar (listas, tareas, eventos) son de la fase 3.
 
 ## Arquitectura
 
@@ -44,7 +45,7 @@ muestra el host de `redirect_uri`.
 
 `SUPABASE_URL` y `SUPABASE_ANON_KEY` las inyecta el runtime. Sin secretos propios.
 
-## Herramientas (12, todas `readOnlyHint: true`)
+## Herramientas de lectura (12, todas `readOnlyHint: true`)
 
 `ver_hogares`, `leer_perfil`, `leer_semana`, `buscar_recetas`, `buscar_alimento`, `ver_compra`, `ver_listas`,
 `ver_tareas`, `ver_eventos`, `ver_rutinas`, `ver_calendarios`, `ver_personas`.
@@ -60,6 +61,58 @@ muestra el host de `redirect_uri`.
   `instructions` del servidor. Salida JSON compacta (`MAX_ITEMS = 50`, `hay_mas`).
 - **Salud: fuera en esta versión.** `leer_perfil` nunca devuelve `objetivos` ni `nota_dieta` (igual que Kito). No hay
   consulta de permisos de salud ni RPC de salud. Pendiente para un change aparte (Kito y MCP juntos).
+
+## Herramientas de escritura (fase 2: 8)
+
+Todas aceptan `hogar` y `timezone`, devuelven JSON compacto en español y marcan `isError: true` en lo que no se hizo.
+`readOnlyHint: false`, `openWorldHint: false`, `destructiveHint: false` salvo `aceptar_menu` (`true`).
+
+| Herramienta | Qué hace |
+|---|---|
+| `guardar_receta` | Receta nueva con pasos e **ingredientes obligatorios** (`alimento_id` o `texto` que coincida exacto con el catálogo; si no, error que pide `crear_alimento`). Idempotente. |
+| `crear_alimento` | Alta en el catálogo del hogar; si ya existe uno con ese nombre lo reutiliza (`creado: false`). |
+| `guardar_borrador` | Borrador (origen Kito) de un rango de casillas, un plan por semana. Solo casillas libres. |
+| `cambiar_casillas` | Cambia casillas libres o `rejected` de un plan (`plan_id` + `expected_revision`). |
+| `aceptar_menu` | Acepta el menú (`destructiveHint: true`). Exige `plan_id`, `expected_revision` y `fecha` (un día de la semana del plan). |
+| `apuntar_compra` | Hasta 20 artículos. Éxito parcial (`apuntados`, `fallos`). |
+| `marcar_comprado` | `checked`, `pending` (desmarcar) o `skipped` (ya lo tengo), hasta 50 ids. Idempotente. |
+| `apuntar_preferencia` | `no_le_gusta` (C1), `le_encanta` (C2) o `picante` (C4, 0-3); exige `confirmado_por_usuario: true`; no toca manías (C3). |
+
+**Ciclo del menú.** Claude lee (`leer_perfil`, `leer_semana`, `buscar_recetas`) → guarda recetas y alimentos nuevos
+ANTES (para que la Compra salga completa) → `guardar_borrador` → la persona lo revisa → `cambiar_casillas` si pide
+cambios → `aceptar_menu` solo con un sí explícito. El MCP no llama a ningún modelo: valida, escribe con el JWT del
+usuario **dentro de `runInHome`** (tras `resolverHogar`, que comprueba que es miembro), comprueba y devuelve.
+
+**Lista blanca de escritura propia** (`escritor.ts`): las 4 rutas comunes de menús (`PATCH meal/plan/items`,
+`POST recipe/create`, `POST shopping/item/create`, `PATCH meal/profile/member`, de `_shared/homita/escritor.ts`) más
+`POST meal/plan/accept`, `POST food/create` y `PATCH shopping/item/check`. **Kito no tiene `accept`**: su lista blanca
+(`asistente/skills/organizar/api.ts`) sigue sin él y hay tests que lo fijan. Las reglas de seguridad (comprobación de
+conflictos y bloqueo por «sin comprobar» con dieta o alergias, casillas libres, `locked`) tienen una sola copia en
+`_shared/homita/` que usan Kito y el MCP.
+
+**`guardar_borrador`.** Solo rellena casillas libres: no borra nada, no toca `locked` ni casillas ocupadas, y salta las
+semanas aceptadas o hechas por la persona (`origin ≠ kito` con casillas) con aviso. Cruzar semanas = un plan por
+semana, sin transacción entre ellas: se informa por semana (`escrito`, `ya_estaba`, `saltada`, `fallo`) y si una falla las
+demás siguen. Reintento idempotente (`client_request_id` por contenido y revisión, prefijo `mcp-`). Devuelve los
+conflictos por semana; el borrador se guarda aunque los haya, pero no se puede aceptar así.
+
+**`cambiar_casillas`.** Más estricto que «cualquier casilla»: solo toca casillas libres o marcadas `rejected` por la
+persona; las bloqueadas y las ocupadas con un plato normal vuelven en `rechazadas` con el motivo. La revisión la envía quien
+llama (así detecta que el plan cambió desde que se mostró): si no coincide no escribe y devuelve `plan_vigente`. Un plan
+aceptado no se edita. Una semana por llamada (el api solo busca el plan por semana).
+
+**`aceptar_menu` y su (no) atomicidad.** El «sí» del usuario lo exigen la descripción de la herramienta y
+`destructiveHint`; el servidor no ve la conversación. `accept_meal_plan` solo comprueba la revisión, no los conflictos. Por
+eso, en la misma invocación: (1) lee el plan; (2) `check_meal_plan` + regla «sin comprobar» justo antes; con conflictos NO
+acepta; (3) `accept` con la revisión que vio la persona (un 409 devuelve `plan_vigente` y no se reintenta); (4) resumen de la
+Compra generada; (5) segunda comprobación: si apareciera un conflicto (un cambio ajeno al plan, que no sube la revisión) se
+acepta igualmente (no hay deshacer) con `avisos`/`conflictos_tras_aceptar`. Riesgo residual: la ventana entre (2) y (3).
+
+**Idempotencia de la compra.** `apuntar_compra` deduplica por artículo normalizado y **día local** del usuario: reintentar es
+seguro dentro del mismo día; apuntar lo mismo otro día crea otro artículo. `marcar_comprado` es idempotente por naturaleza.
+
+**Fuera de la herramienta:** archivar, copiar un menú, el horario, las manías (C3) y los datos de salud. No hay `enlace_app`
+(sin URL pública estable de la app).
 
 ## Probar en local
 
@@ -102,7 +155,7 @@ concatena a `site_url` (no admite URL absoluta) y `/auth/v1/user` acepta tokens 
 
 ## Producción / fase 4 (documentación; nada de esto está hecho)
 
-**Pendiente de Damian (no bloquea la fase 1):** valor actual de `site_url` en producción y si los correos de Auth
+**Pendiente de Damian (no bloquea las fases 1 y 2):** valor actual de `site_url` en producción y si los correos de Auth
 (confirmación, restablecer contraseña) están en uso. Qué mirar en el panel de Supabase antes de decidir:
 
 1. Authentication → URL Configuration: `site_url` actual y redirect URLs. Si `site_url` pasa a ser el origen de Pages

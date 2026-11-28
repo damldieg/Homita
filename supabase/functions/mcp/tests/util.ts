@@ -27,7 +27,26 @@ export interface Llamada {
     hogar: string | null;
 }
 
+/** Una escritura que hizo una herramienta (con el hogar activo en ese momento). */
+export interface Escritura {
+    metodo: string;
+    ruta: string;
+    cuerpo: Record<string, unknown>;
+    token: string;
+    uid: string;
+    tz: string;
+    hogar: string | null;
+}
+
+/** Respuesta falsa de una escritura: valor fijo o función del cuerpo y del nº de llamada a esa ruta. */
+export type RespuestaEscrituraFalsa = { ok: boolean; status: number; data: unknown; error?: string };
+export type EscrituraFalsa = RespuestaEscrituraFalsa | ((cuerpo: Record<string, unknown>, n: number) => RespuestaEscrituraFalsa);
+
 export interface Mundo {
+    /** Escrituras recibidas por el escritor falso, en orden. */
+    escrituras: Escritura[];
+    /** Orden de TODAS las llamadas (lecturas y escrituras): `GET ruta` / `METODO ruta`. */
+    orden: string[];
     deps: HandlerDeps;
     llamadas: Llamada[];
     /** Hogares a los que pertenece el usuario (`checkHomeMember`). */
@@ -45,7 +64,11 @@ export const crearMundo = (
     respuestas: Record<string, unknown> = {},
     over: Partial<HandlerDeps> = {},
     fallos: Record<string, number> = {},
+    escrituraFalsa: Record<string, EscrituraFalsa> = {},
 ): Mundo => {
+    const escrituras: Escritura[] = [];
+    const orden: string[] = [];
+    const contadores = new Map<string, number>();
     const llamadas: Llamada[] = [];
     const comprobaciones: string[] = [];
     const userInfoLlamadas: string[] = [];
@@ -60,10 +83,21 @@ export const crearMundo = (
         authUrl: "https://x.test/auth/v1",
         leerRuta: (ruta, params, token, uid, tz) => {
             llamadas.push({ ruta, params, token, uid, tz, hogar: currentHome() });
+            orden.push(`GET ${ruta}`);
             const status = fallos[ruta];
             if (status !== undefined) return Promise.resolve({ ok: false, status, body: { error: "interno secreto" }, texto: "", json: true });
             const body = ruta in respuestas ? respuestas[ruta] : ruta === "home" ? HOGARES : [];
             return Promise.resolve({ ok: true, status: 200, body, texto: JSON.stringify(body), json: true });
+        },
+        crearEscritor: (token, uid, tz) => (metodo, ruta, cuerpo = {}) => {
+            escrituras.push({ metodo, ruta, cuerpo: { ...cuerpo }, token, uid, tz, hogar: currentHome() });
+            orden.push(`${metodo} ${ruta}`);
+            const clave = `${metodo} ${ruta}`;
+            const n = (contadores.get(clave) ?? 0) + 1;
+            contadores.set(clave, n);
+            const f = escrituraFalsa[clave];
+            if (f === undefined) return Promise.resolve({ ok: false, status: 500, data: null });
+            return Promise.resolve(typeof f === "function" ? f(cuerpo, n) : f);
         },
         checkHomeMember: (homeId) => {
             comprobaciones.push(homeId);
@@ -74,7 +108,7 @@ export const crearMundo = (
         now: () => new Date("2030-01-07T10:00:00Z"),
         ...over,
     };
-    return { deps, llamadas, miembroDe, comprobaciones, userInfoLlamadas };
+    return { deps, llamadas, miembroDe, comprobaciones, userInfoLlamadas, escrituras, orden };
 };
 
 export const peticion = (body: unknown, token: string | null = TOKEN, extra: Record<string, string> = {}): Request =>

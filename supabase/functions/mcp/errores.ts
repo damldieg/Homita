@@ -7,6 +7,13 @@ export class ErrorApi extends Error {
     }
 }
 
+/** Una escritura del api falló (estado HTTP y, si lo hay, el mensaje breve del api, p. ej. «Invalid recipe»). */
+export class ErrorEscritura extends Error {
+    constructor(readonly status: number, readonly detalle?: string) {
+        super(`api ${status}`);
+    }
+}
+
 /** Resultado de herramienta (la parte del protocolo que usamos). */
 export interface ResultadoTool {
     content: { type: "text"; text: string }[];
@@ -19,6 +26,19 @@ export const textoDeEstado = (status: number): string => {
     if (status === 403) return "No tienes permiso para ver eso en este hogar.";
     if (status === 404) return "Eso no existe o no tienes acceso.";
     return "No he podido leer los datos de Homita ahora mismo.";
+};
+
+/** Texto para el modelo de una escritura fallida, sin detalles internos. */
+export const textoDeEscritura = (status: number, detalle?: string): string => {
+    if (status === 401) return textoDeEstado(401);
+    if (status === 403) return "No tienes permiso para hacer eso en este hogar.";
+    if (status === 404 || (status === 500 && detalle === "Not Found")) return "Eso ya no existe o no tienes acceso.";
+    if (status === 409) return "Ha cambiado desde que lo leíste. Vuelve a leerlo y repite el cambio con la revisión nueva.";
+    if (status === 400) {
+        const motivo = typeof detalle === "string" && detalle.trim() !== "" ? detalle.trim().slice(0, 160) : "datos no válidos";
+        return `No se ha podido guardar: ${motivo}.`;
+    }
+    return "No he podido guardarlo ahora mismo.";
 };
 
 export const errorTool = (mensaje: string): ResultadoTool => ({ content: [{ type: "text", text: mensaje }], isError: true });

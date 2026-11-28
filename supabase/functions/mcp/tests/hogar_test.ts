@@ -2,7 +2,7 @@
 // api como texto en español sin el cuerpo crudo.
 import { assert, assertEquals, assertFalse, assertStringIncludes } from "jsr:@std/assert@1";
 import { resolverHogar } from "../hogar.ts";
-import { NOMBRES_HERRAMIENTAS } from "../tools/registro.ts";
+import { NOMBRES_LECTURA } from "../tools/registro.ts";
 import { crearMundo, HOGARES, llamarTool, TOKEN, UID } from "./util.ts";
 import type { Entorno } from "../entorno.ts";
 
@@ -56,7 +56,7 @@ Deno.test("hogar explícito con ceros a la izquierda se normaliza", async () => 
 });
 
 Deno.test("hogar ajeno en las 11 herramientas con `hogar`: error claro y ningún caso de uso", async () => {
-    const con = NOMBRES_HERRAMIENTAS.filter((n) => n !== "ver_hogares");
+    const con = NOMBRES_LECTURA.filter((n) => n !== "ver_hogares");
     assertEquals(con.length, 11);
     for (const nombre of con) {
         const m = crearMundo();

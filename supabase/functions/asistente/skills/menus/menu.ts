@@ -4,56 +4,29 @@
 // reintento no duplica. Concurrencia: `expected_revision` es la revisión que acaba de leer.
 import { conEfectos } from "../../core.ts";
 import type { Cambio, Efectos, Tool, ToolCtx } from "../../core.ts";
+import {
+    evaluar as evaluarPlan, MAX_ERRORES, recetasNoComprobables as recetasNoComprobablesDe,
+} from "../../../_shared/homita/conflictos.ts";
+import type { Leer } from "../../../_shared/homita/tipos.ts";
+import {
+    claveCasilla, itemDe, MAX_PLATOS, TIPOS, validarPlatos, yaCoincide,
+} from "../../../_shared/homita/menus-escritura.ts";
+import type { Plato } from "../../../_shared/homita/menus-escritura.ts";
 import { uuidDe } from "../organizar/uuid.ts";
 import { compactarPlan, tarjetaMenu } from "./plan.ts";
 import {
-    arr, AVISO_SIN_CATALOGO, comensalesEn, diaInicio, diaNombre, entero, errorEscritura, escribirDe, esFecha, esquema, FRANJA_ES, FRANJAS, inicioSemana, isoDow, leerDe,
-    leerPerfil, leerPlan, norm, obj, recetaComprobable, resolverRango, restringidos, str, sumarDias,
+    arr, comensalesEn, diaInicio, diaNombre, entero, errorEscritura, escribirDe, esFecha, esquema, FRANJA_ES, FRANJAS, inicioSemana, isoDow, leerDe,
+    leerPerfil, leerPlan, norm, obj, resolverRango, str, sumarDias,
 } from "./util.ts";
 import type { Obj } from "./util.ts";
 
-const MAX_PLATOS = 60;
-const MAX_ERRORES = 6;
-const TIPOS = ["recipe", "free_text", "leftovers", "eat_out"] as const;
+/** Lector perezoso del contexto: si no hay lector falla al usarlo (y las recetas se tratan como no comprobables). */
+const lector = (ctx: ToolCtx): Leer => (ruta, params) => leerDe(ctx)(ruta, params);
 
-const CODIGOS: Record<string, string> = {
-    allergen: "alergia", intolerance: "intolerancia", diet: "dieta", member_out: "persona fuera de casa",
-};
-
-/** `check_meal_plan` del plan: lista de conflictos, o `null` si no se pudo comprobar. */
-const comprobar = async (ctx: ToolCtx, planId: number): Promise<Obj[] | null> => {
-    const r = await leerDe(ctx)("meal/plan/check", { plan_id: String(planId) });
-    return Array.isArray(r) ? r.map(obj) : null;
-};
-
-const compactarConflictos = (conflictos: Obj[], nombres: Map<unknown, string>, titulos: Map<unknown, string>): Obj[] =>
-    conflictos.slice(0, 20).map((c) => ({
-        casilla: c.item_id,
-        plato: titulos.get(c.item_id) ?? "",
-        dia: c.day,
-        franja: FRANJA_ES[String(c.slot)] ?? c.slot,
-        persona: nombres.get(c.member_id) ?? "",
-        tipo: CODIGOS[String(c.code)] ?? c.code,
-        detalle: c.detail,
-    }));
-
-/**
- * Regla de texto libre: a quien tiene dieta o alergias no se le propone una receta con ingredientes sin enlazar al
- * catálogo (el servidor no puede comprobarla). Devuelve un error por cada receta excluida; `[]` si todo va bien.
- */
-const recetasNoComprobables = async (
+/** Regla de texto libre (ver `_shared/homita/conflictos.ts`). */
+const recetasNoComprobables = (
     ctx: ToolCtx, perfil: Obj, recetas: { receta_id: number; donde: string; comen: number[] }[],
-): Promise<string[]> => {
-    const rest = restringidos(perfil);
-    const errores: string[] = [];
-    const cache = new Map<number, boolean>();
-    for (const r of recetas) {
-        if (!r.comen.some((id) => rest.has(id))) continue;
-        if (!cache.has(r.receta_id)) cache.set(r.receta_id, await recetaComprobable(ctx, r.receta_id));
-        if (!cache.get(r.receta_id)) errores.push(`${r.donde}: la receta ${r.receta_id} tiene ingredientes sin catálogo y hay dieta o alergias; ${AVISO_SIN_CATALOGO}`);
-    }
-    return errores.slice(0, MAX_ERRORES);
-};
+): Promise<string[]> => recetasNoComprobablesDe(lector(ctx), perfil, recetas);
 
 /**
  * Cierra una propuesta o repropuesta ya guardada: comprueba el plan y, solo con 0 conflictos, emite la tarjeta.
@@ -71,33 +44,25 @@ const evaluar = async (
     ctx: ToolCtx, plan: Obj, perfil: Obj, op: Cambio["op"], motivos: Map<number, string>, extra: Obj = {}, idTarjeta = "menu",
 ): Promise<{ valor: Obj; efectos?: Efectos }> => {
     const planId = entero(plan.id);
-    const conflictos = planId === undefined ? null : await comprobar(ctx, planId);
-    if (conflictos === null) {
+    // La regla (comprobación + bloqueo de recetas sin comprobar) vive en `_shared/homita/conflictos.ts`.
+    const ev = await evaluarPlan(lector(ctx), plan, perfil);
+    if (ev.estado === "no_comprobado") {
         return { valor: { ok: false, error: "No he podido comprobar el menú (alergias, dietas y personas fuera). No lo muestro hasta comprobarlo; inténtalo de nuevo." } };
     }
-    // Fail closed: una receta que el servidor no pudo comprobar (ingredientes sin catálogo) no se muestra como
-    // válida si la come alguien con dieta o alergias. Texto libre y sobras siguen saliendo marcados `comprobada: false`.
-    const rest = restringidos(perfil);
-    const sin = new Set(arr(plan.unchecked_item_ids));
-    const sinComprobarRestringidos = arr(plan.items).map(obj).filter((i) =>
-        i.kind === "recipe" && sin.has(i.id) && arr(i.members).some((n) => typeof n === "number" && rest.has(n))
-    );
-    if (sinComprobarRestringidos.length > 0) {
+    if (ev.estado === "sin_comprobar") {
         return { valor: {
             ok: false,
             tarjeta: false,
-            sin_comprobar: sinComprobarRestringidos.slice(0, 20).map((i) => ({ casilla: i.id, plato: str(i.title, 80) ?? "", dia: i.day, franja: FRANJA_ES[String(i.slot)] ?? i.slot })),
+            sin_comprobar: ev.sin_comprobar,
             aviso: "Hay recetas que no se han podido comprobar (ingredientes sin catálogo) y las come alguien con dieta o alergias: NO se muestra el menú. Cámbialas por recetas con ingredientes del catálogo y vuelve a proponer.",
             ...extra,
         } };
     }
-    const nombres = new Map(arr(perfil.members).map(obj).map((m) => [m.home_member_id, str(m.name, 80) ?? ""]));
-    if (conflictos.length > 0) {
-        const titulos = new Map(arr(plan.items).map(obj).map((i) => [i.id, str(i.title, 80) ?? ""]));
+    if (ev.estado === "conflictos") {
         return { valor: {
             ok: false,
             tarjeta: false,
-            conflictos: compactarConflictos(conflictos, nombres, titulos),
+            conflictos: ev.conflictos,
             aviso: "El menú guardado tiene conflictos y NO se muestra a la persona. Cambia esos platos y vuelve a llamar a proponer_menu (o a reproponer si ya hay casillas marcadas). Si no encuentras alternativa, explícaselo.",
             ...extra,
         } };
@@ -118,62 +83,6 @@ const evaluar = async (
     };
 };
 
-interface Plato {
-    dia: string;
-    franja: string;
-    tipo: (typeof TIPOS)[number];
-    receta_id?: number;
-    titulo?: string;
-    personas?: number[];
-}
-
-const validarPlatos = (crudo: unknown, semana: string, perfil: Obj): { platos: Plato[] } | { errores: string[] } => {
-    const errores: string[] = [];
-    const lista = arr(crudo);
-    if (lista.length === 0) return { errores: ["platos está vacío"] };
-    if (lista.length > MAX_PLATOS) return { errores: [`como máximo ${MAX_PLATOS} platos`] };
-    const habilitadas = arr(perfil.slots).map(obj).filter((s) => s.enabled === true).map((s) => String(s.slot));
-    const fin = sumarDias(semana, 6);
-    const platos: Plato[] = [];
-    const vistos = new Set<string>();
-    lista.forEach((x, i) => {
-        const p = obj(x);
-        const donde = `plato ${i + 1}`;
-        const dia = p.dia;
-        const franja = typeof p.franja === "string" ? p.franja : "";
-        if (!esFecha(dia) || dia < semana || dia > fin) return void errores.push(`${donde}: el día debe estar entre ${semana} y ${fin}`);
-        if (!(FRANJAS as readonly string[]).includes(franja)) return void errores.push(`${donde}: franja no válida`);
-        if (!habilitadas.includes(franja)) return void errores.push(`${donde}: la franja ${FRANJA_ES[franja]} no se planifica en este hogar`);
-        const clave = `${dia}|${franja}`;
-        if (vistos.has(clave)) return void errores.push(`${donde}: ya hay otro plato el ${dia} en ${FRANJA_ES[franja]}`);
-        vistos.add(clave);
-        const recetaId = p.receta_id === undefined ? undefined : entero(p.receta_id);
-        if (p.receta_id !== undefined && recetaId === undefined) return void errores.push(`${donde}: receta_id no válido`);
-        const titulo = str(p.titulo);
-        const tipo = (TIPOS as readonly string[]).includes(String(p.tipo)) ? p.tipo as Plato["tipo"] : recetaId !== undefined ? "recipe" : "free_text";
-        if (tipo === "recipe" && recetaId === undefined) return void errores.push(`${donde}: un plato de receta lleva receta_id (si no la tienes, guárdala antes con guardar_receta)`);
-        if (tipo === "free_text" && titulo === undefined) return void errores.push(`${donde}: falta el título`);
-        const comen = comensalesEn(perfil, dia, franja);
-        if (comen.length === 0) return void errores.push(`${donde}: nadie come en casa el ${diaNombre(isoDow(dia))} en ${FRANJA_ES[franja]} (todos están fuera); no pongas plato ahí`);
-        let personas: number[] | undefined;
-        if (p.personas !== undefined) {
-            const ids = arr(p.personas).map(entero);
-            if (ids.some((n) => n === undefined || !comen.some((c) => c.id === n))) {
-                return void errores.push(`${donde}: personas debe ser un subconjunto de quienes comen en casa ese día (${comen.map((c) => `${c.nombre}=${c.id}`).join(", ")})`);
-            }
-            personas = ids as number[];
-        }
-        platos.push({ dia, franja, tipo, ...(recetaId !== undefined ? { receta_id: recetaId } : {}), ...(titulo !== undefined ? { titulo } : {}), ...(personas ? { personas } : {}) });
-    });
-    return errores.length > 0 ? { errores: errores.slice(0, MAX_ERRORES) } : { platos };
-};
-
-const itemDe = (p: Plato): Obj => ({
-    day: p.dia, slot: p.franja, position: 0, kind: p.tipo,
-    ...(p.tipo === "recipe" ? { recipe_id: p.receta_id } : p.tipo === "free_text" || p.titulo ? { title: p.titulo } : {}),
-    ...(p.personas ? { members: p.personas } : {}),
-});
-
 const ESQUEMA_PLATO = {
     type: "object",
     properties: {
@@ -186,19 +95,6 @@ const ESQUEMA_PLATO = {
     },
     required: ["dia", "franja"],
     additionalProperties: false,
-};
-
-const claveCasilla = (dia: unknown, franja: unknown, tipo: unknown, receta: unknown, titulo: unknown): string =>
-    `${dia}|${franja}|${tipo}|${receta ?? ""}|${tipo === "recipe" ? "" : norm(String(titulo ?? ""))}`;
-
-/** `true` si las casillas no bloqueadas del plan son exactamente los platos propuestos (mismo día, franja y plato). */
-const yaCoincide = (existentes: Obj[], platos: Plato[]): boolean => {
-    const libres = existentes.filter((i) => i.state !== "locked").map((i) => claveCasilla(i.day, i.slot, i.kind, i.recipe_id, i.title));
-    const nuevos = platos.map((p) => claveCasilla(p.dia, p.franja, p.tipo, p.receta_id, p.titulo));
-    if (libres.length !== nuevos.length) return false;
-    const a = [...libres].sort();
-    const b = [...nuevos].sort();
-    return a.every((x, n) => x === b[n]) && !existentes.some((i) => i.state === "rejected");
 };
 
 const ESQUEMA_PUNTO = {
