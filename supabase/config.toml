@@ -159,6 +159,9 @@ max_indexes = 5
 # [storage.vector.buckets.documents-openai]
 
 [auth]
+# SOLO LOCAL: todo [auth] (site_url, redirects, jwt_expiry, enable_signup), [auth.oauth_server] y [functions.mcp]
+# son valores del stack local. NO ejecutar `supabase config push` con este fichero contra producción: sobrescribiría
+# la Auth del proyecto alojado (URLs, caducidad y registro). Producción se configura por dashboard (docs/mcp/DESPLIEGUE.md).
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
@@ -181,6 +184,8 @@ enable_refresh_token_rotation = true
 # Requires enable_refresh_token_rotation = true.
 refresh_token_reuse_interval = 10
 # Allow/disallow new user signups to your project. Existing users can still sign in.
+# ATENCIÓN: true SOLO en local (las suites crean usuarios). Producción tiene el registro cerrado (ALLOW_REGISTRATION=false);
+# este valor NO debe llegar a producción vía `config push`.
 enable_signup = true
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
