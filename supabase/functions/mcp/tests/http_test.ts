@@ -2,7 +2,7 @@
 // anotaciones, tools/call sin initialize previo y respuestas HTTP.
 import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
 import { createHandler } from "../handler.ts";
-import { INSTRUCCIONES, NOMBRES_ESCRITURA, NOMBRES_HERRAMIENTAS, NOMBRES_LECTURA } from "../tools/registro.ts";
+import { INSTRUCCIONES, NOMBRES_BORRADO, NOMBRES_ESCRITURA, NOMBRES_HERRAMIENTAS, NOMBRES_LECTURA, NOMBRES_ORGANIZAR } from "../tools/registro.ts";
 import { crearMundo, peticion, rpcDe, TOKEN } from "./util.ts";
 
 interface Tool {
@@ -18,10 +18,10 @@ const listar = async (): Promise<Tool[]> => {
     return (await rpcDe(res)).result!.tools as Tool[];
 };
 
-Deno.test("tools/list: los nombres exactos (12 de lectura + las de escritura)", async () => {
+Deno.test("tools/list: los nombres exactos (12 de lectura + las de escritura de menús y de organizar)", async () => {
     const tools = await listar();
     assertEquals(tools.map((t) => t.name).sort(), [...NOMBRES_HERRAMIENTAS].sort());
-    assertEquals(tools.length, 12 + NOMBRES_ESCRITURA.length);
+    assertEquals(tools.length, 12 + NOMBRES_ESCRITURA.length + NOMBRES_ORGANIZAR.length);
 });
 
 Deno.test("tools/list: las 12 de lectura son de solo lectura, no destructivas y cerradas", async () => {
@@ -32,11 +32,11 @@ Deno.test("tools/list: las 12 de lectura son de solo lectura, no destructivas y 
     }
 });
 
-Deno.test("tools/list: las de escritura no son de solo lectura, son cerradas y solo aceptar_menu es destructiva", async () => {
-    for (const t of (await listar()).filter((t) => NOMBRES_ESCRITURA.includes(t.name))) {
+Deno.test("tools/list: las de escritura no son de solo lectura, son cerradas y solo aceptar_menu y los borrar_* son destructivas", async () => {
+    for (const t of (await listar()).filter((t) => NOMBRES_ESCRITURA.includes(t.name) || NOMBRES_ORGANIZAR.includes(t.name))) {
         assertEquals(t.annotations?.readOnlyHint, false, t.name);
         assertEquals(t.annotations?.openWorldHint, false, t.name);
-        assertEquals(t.annotations?.destructiveHint, t.name === "aceptar_menu", t.name);
+        assertEquals(t.annotations?.destructiveHint, t.name === "aceptar_menu" || NOMBRES_BORRADO.includes(t.name), t.name);
     }
 });
 
@@ -123,12 +123,21 @@ Deno.test("una herramienta desconocida es un error de protocolo, no una lectura"
     assertEquals(mundo.llamadas, []);
 });
 
-Deno.test("tools/list: son 20 (12 de lectura y 8 de escritura) y solo aceptar_menu es destructiva", async () => {
+Deno.test("tools/list: son 37 (12 de lectura, 8 de menús y 17 de organizar) y solo aceptar_menu y los 5 borrar_* son destructivas", async () => {
     const tools = await listar();
-    assertEquals(tools.length, 20);
+    assertEquals(tools.length, 37);
     assertEquals(NOMBRES_ESCRITURA.length, 8);
-    assertEquals(tools.filter((t) => t.annotations?.destructiveHint === true).map((t) => t.name), ["aceptar_menu"]);
+    assertEquals(NOMBRES_ORGANIZAR.length, 17);
+    assertEquals(NOMBRES_BORRADO.length, 5);
+    assertEquals(
+        tools.filter((t) => t.annotations?.destructiveHint === true).map((t) => t.name).sort(),
+        ["aceptar_menu", "borrar_calendario", "borrar_evento", "borrar_lista", "borrar_rutina", "borrar_tarea"],
+    );
     assertEquals(tools.filter((t) => t.annotations?.readOnlyHint === true).length, 12);
+});
+
+Deno.test("las instrucciones de organizar: ids de ver_*, falta, borrar sin confirmado primero, compartir con cuenta, idempotencia", () => {
+    for (const frase of ["ver_listas", "falta", "SIEMPRE primero sin `confirmado`", "confirmado: true", "tienen cuenta", "idempotentes", "ver_*"]) assertStringIncludes(INSTRUCCIONES, frase);
 });
 
 Deno.test("las instrucciones piden leer antes, guardar_receta antes del borrador y un sí explícito para aceptar", () => {

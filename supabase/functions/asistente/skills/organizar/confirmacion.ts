@@ -3,6 +3,9 @@
 // `POST /asistente/confirmar`. Token = base64url(payload) + "." + base64url(HMAC-SHA256(payload)).
 // La verificación calcula el HMAC sobre los bytes recibidos (no re-serializa) y después valida el contenido.
 
+import type { Accion } from "../../../_shared/homita/organizar/tipos.ts";
+export type { Accion }; // el tipo vive en el módulo compartido con el MCP
+
 /** Operaciones que se pueden confirmar (lista blanca). Las define `acciones.ts`; aquí solo se comprueba el nombre. */
 export const OPS_PERMITIDAS = [
     "crear_lista", "editar_lista", "borrar_lista",
@@ -20,13 +23,6 @@ export const secretoDe = (env: (k: string) => string | undefined): string | unde
     ((env("KITO_CONFIRM_SECRET") ?? "").trim()) || undefined;
 
 type Obj = Record<string, unknown>;
-
-export interface Accion {
-    op: string;
-    args: Obj;
-    /** Nombre del elemento (solo para frases de permisos y de resultado); no cambia lo que se ejecuta. */
-    nombre?: string;
-}
 
 export interface Payload {
     v: 1;

@@ -196,7 +196,7 @@ run "deno test asistente" deno-test-asistente env NO_COLOR=1 deno test --no-prom
 expect_log "deno test asistente" deno-test-asistente '^ok \| [0-9]+ passed \| 0 failed'
 
 # Edge Function mcp (MCP de Claude, fases 1-2: lectura y escritura del menú) y el módulo compartido _shared/homita (lo usan Kito y el MCP):
-# deno check del cableado y tests con casos de uso y Auth falsos (verificador solo-OAuth, hogar, 20 herramientas, escritura con lista blanca propia,
+# deno check del cableado y tests con casos de uso y Auth falsos (verificador solo-OAuth, hogar, 37 herramientas, escritura con lista blanca propia,
 # protocolo real con createMcpHandler). --allow-env: importan los casos de uso de `api`, que leen el entorno al cargar.
 # El flujo con tokens OAuth reales va en cross_tenant_check.py (bloque MCP). La página de consentimiento
 # (web/oauth/consent) y su workflow de Pages se comprueban de forma estática.

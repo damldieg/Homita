@@ -1,6 +1,6 @@
 // Cada herramienta de escritura, con `hogar` de otro hogar: error claro, sin leer datos ni escribir (criterio 15/16).
 import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
-import { NOMBRES_ESCRITURA } from "../tools/registro.ts";
+import { NOMBRES_ESCRITURA, NOMBRES_ORGANIZAR } from "../tools/registro.ts";
 import { crearMundo, llamarTool } from "./util.ts";
 
 /** Argumentos mínimos válidos de cada herramienta de escritura (sin `hogar`). */
@@ -13,10 +13,27 @@ export const ARGS_MINIMOS: Record<string, Record<string, unknown>> = {
     cambiar_casillas: { plan_id: 1, expected_revision: 0, cambios: [{ fecha: "2030-01-07", franja: "lunch", tipo: "texto", titulo: "x" }] },
     aceptar_menu: { plan_id: 1, expected_revision: 0, fecha: "2030-01-07" },
     apuntar_preferencia: { persona_id: 1, campo: "picante", valor: "1", confirmado_por_usuario: true },
+    crear_lista: { nombre: "x" },
+    editar_lista: { id: 1, nombre: "x" },
+    borrar_lista: { id: 1, confirmado: true },
+    crear_tarea: { titulo: "x", lista_id: 1 },
+    editar_tarea: { id: 1, titulo: "x" },
+    completar_tarea: { id: 1 },
+    borrar_tarea: { id: 1, confirmado: true },
+    crear_evento: { titulo: "x", inicio: "2030-01-07 10:00", calendario_id: 1 },
+    editar_evento: { id: 1, titulo: "x" },
+    borrar_evento: { id: 1, confirmado: true },
+    crear_rutina: { titulo: "x", hora: "08:00", frecuencia: "diaria", calendario_id: 1 },
+    editar_rutina: { id: 1, titulo: "x" },
+    borrar_rutina: { id: 1, confirmado: true },
+    crear_calendario: { nombre: "x", solo_yo: true },
+    editar_calendario: { id: 1, nombre: "x" },
+    compartir_calendario: { calendario_id: 1, persona_id: 1 },
+    borrar_calendario: { id: 1, confirmado: true },
 };
 
 Deno.test("hogar ajeno en las herramientas de escritura: error claro, sin leer ni escribir", async () => {
-    for (const nombre of NOMBRES_ESCRITURA) {
+    for (const nombre of [...NOMBRES_ESCRITURA, ...NOMBRES_ORGANIZAR]) {
         const args = ARGS_MINIMOS[nombre];
         assert(args !== undefined, `falta ARGS_MINIMOS de ${nombre}`);
         const m = crearMundo();

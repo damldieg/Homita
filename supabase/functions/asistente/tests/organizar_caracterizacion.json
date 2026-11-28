@@ -1,0 +1,3371 @@
+{
+ "herramientas": {
+  "crear_lista": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creada la lista «Viaje»",
+    "id": 1,
+    "color": "#6923E2"
+   },
+   "cambios": [
+    {
+     "tipo": "lista",
+     "id": 1,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task-list/create",
+     "cuerpo": {
+      "name": "Viaje",
+      "color": "#6923E2",
+      "client_request_id": "1763132d-05ab-4993-9c7e-45979b014dc9"
+     }
+    }
+   ]
+  },
+  "crear_lista con color": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creada la lista «Viaje»",
+    "id": 1,
+    "color": "#AABBCC"
+   },
+   "cambios": [
+    {
+     "tipo": "lista",
+     "id": 1,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task-list/create",
+     "cuerpo": {
+      "name": "Viaje",
+      "color": "#AABBCC",
+      "client_request_id": "c4a56507-6287-4c07-963a-50ec16aad3e1"
+     }
+    }
+   ]
+  },
+  "crear_lista sin toolUseId": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creada la lista «Viaje»",
+    "id": 1,
+    "color": "#6923E2"
+   },
+   "cambios": [
+    {
+     "tipo": "lista",
+     "id": 1,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task-list/create",
+     "cuerpo": {
+      "name": "Viaje",
+      "color": "#6923E2"
+     }
+    }
+   ]
+  },
+  "crear_lista sin nombre": {
+   "valor": {
+    "falta": [
+     "nombre"
+    ]
+   },
+   "llamadas": []
+  },
+  "crear_lista color malo": {
+   "valor": {
+    "ok": false,
+    "error": "El color debe tener la forma #RRGGBB."
+   },
+   "llamadas": []
+  },
+  "crear_lista error 400": {
+   "valor": {
+    "ok": false,
+    "error": "No se ha podido hacer: Name is required."
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task-list/create",
+     "cuerpo": {
+      "name": "A",
+      "color": "#6923E2"
+     }
+    }
+   ]
+  },
+  "crear_lista error 403": {
+   "valor": {
+    "ok": false,
+    "error": "No tienes permiso de edición en «A»."
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task-list/create",
+     "cuerpo": {
+      "name": "A",
+      "color": "#6923E2"
+     }
+    }
+   ]
+  },
+  "editar_lista solo nombre": {
+   "valor": {
+    "ok": true,
+    "hecho": "Editada la lista «Casa 2»",
+    "id": 1
+   },
+   "cambios": [
+    {
+     "tipo": "lista",
+     "id": 1,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "task-list/update",
+     "cuerpo": {
+      "id": 1,
+      "name": "Casa 2",
+      "color": "#112233",
+      "sort": "title",
+      "widget": false,
+      "dashboard": true
+     }
+    }
+   ]
+  },
+  "editar_lista solo color": {
+   "valor": {
+    "ok": true,
+    "hecho": "Editada la lista «Compra»",
+    "id": 2
+   },
+   "cambios": [
+    {
+     "tipo": "lista",
+     "id": 2,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "task-list/update",
+     "cuerpo": {
+      "id": 2,
+      "name": "Compra",
+      "color": "#FFFFFF",
+      "sort": "updated_at",
+      "widget": true,
+      "dashboard": false
+     }
+    }
+   ]
+  },
+  "editar_lista sin cambios": {
+   "valor": {
+    "falta": [
+     "qué cambiar"
+    ]
+   },
+   "llamadas": []
+  },
+  "editar_lista sin id": {
+   "valor": {
+    "falta": [
+     "lista"
+    ]
+   },
+   "llamadas": []
+  },
+  "editar_lista inexistente": {
+   "valor": {
+    "ok": false,
+    "error": "Ya no existe."
+   },
+   "llamadas": []
+  },
+  "borrar_lista con pendientes": {
+   "valor": {
+    "ok": true,
+    "estado": "propuesta enviada al usuario para confirmar",
+    "acciones_pendientes": 1
+   },
+   "tarjeta": {
+    "texto": "¿Borro la lista «Casa» y sus tareas (3 pendientes)?",
+    "acciones": [
+     {
+      "op": "borrar_lista",
+      "args": {
+       "id": 1
+      },
+      "nombre": "Casa"
+     }
+    ],
+    "firmada": true
+   },
+   "llamadas": []
+  },
+  "borrar_lista sin pendientes": {
+   "valor": {
+    "ok": true,
+    "estado": "propuesta enviada al usuario para confirmar",
+    "acciones_pendientes": 1
+   },
+   "tarjeta": {
+    "texto": "¿Borro la lista «Compra»?",
+    "acciones": [
+     {
+      "op": "borrar_lista",
+      "args": {
+       "id": 2
+      },
+      "nombre": "Compra"
+     }
+    ],
+    "firmada": true
+   },
+   "llamadas": []
+  },
+  "borrar_lista inexistente": {
+   "valor": {
+    "ok": false,
+    "error": "Ya no existe."
+   },
+   "llamadas": []
+  },
+  "borrar_lista sin secreto": {
+   "valor": {
+    "ok": false,
+    "error": "No puedo borrar desde aquí ahora mismo."
+   },
+   "llamadas": []
+  },
+  "borrar_lista sin lector": {
+   "valor": {
+    "lanza": "No he podido leer los datos ahora mismo."
+   },
+   "llamadas": []
+  },
+  "crear_tarea lista única": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creada la tarea «Pan»",
+    "id": 8,
+    "lista": "Compra"
+   },
+   "cambios": [
+    {
+     "tipo": "tarea",
+     "id": 8,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task/create",
+     "cuerpo": {
+      "task_list_id": 2,
+      "title": "Pan",
+      "priority": "alta",
+      "person_ids": [
+       20,
+       21
+      ],
+      "client_request_id": "02a07c44-d4b1-4507-9a97-7cd2ae404c8d"
+     }
+    }
+   ]
+  },
+  "crear_tarea varias listas": {
+   "valor": {
+    "falta": [
+     "lista"
+    ],
+    "opciones": [
+     {
+      "id": 1,
+      "nombre": "Casa"
+     },
+     {
+      "id": 2,
+      "nombre": "Compra"
+     }
+    ]
+   },
+   "llamadas": []
+  },
+  "crear_tarea varias listas sin título": {
+   "valor": {
+    "falta": [
+     "titulo",
+     "lista"
+    ],
+    "opciones": [
+     {
+      "id": 1,
+      "nombre": "Casa"
+     },
+     {
+      "id": 2,
+      "nombre": "Compra"
+     }
+    ]
+   },
+   "llamadas": []
+  },
+  "crear_tarea con lista y vence": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creada la tarea «Dentista»",
+    "id": 8,
+    "lista": "Casa"
+   },
+   "cambios": [
+    {
+     "tipo": "tarea",
+     "id": 8,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task/create",
+     "cuerpo": {
+      "task_list_id": 1,
+      "title": "Dentista",
+      "client_request_id": "b4c574b9-10a3-432c-9ae9-f2ba0d34d5ec"
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "task/update",
+     "cuerpo": {
+      "id": 8,
+      "title": "Dentista",
+      "due_at": "2026-11-27 22:59:00"
+     }
+    }
+   ]
+  },
+  "crear_tarea vence con hora, PATCH falla": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creada la tarea «Dentista»",
+    "id": 8,
+    "lista": "Casa",
+    "avisos": [
+     "La tarea está creada, pero no he podido ponerle la fecha límite: No tienes permiso de edición en «Casa»."
+    ]
+   },
+   "cambios": [
+    {
+     "tipo": "tarea",
+     "id": 8,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task/create",
+     "cuerpo": {
+      "task_list_id": 1,
+      "title": "Dentista",
+      "client_request_id": "b4c574b9-10a3-432c-9ae9-f2ba0d34d5ec"
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "task/update",
+     "cuerpo": {
+      "id": 8,
+      "title": "Dentista",
+      "due_at": "2026-07-01 07:15:00"
+     }
+    }
+   ]
+  },
+  "crear_tarea lista ajena": {
+   "valor": {
+    "ok": false,
+    "error": "Ya no existe."
+   },
+   "llamadas": []
+  },
+  "crear_tarea sin listas editables": {
+   "valor": {
+    "ok": false,
+    "error": "No tienes ninguna lista donde puedas añadir tareas."
+   },
+   "llamadas": []
+  },
+  "crear_tarea sin lector": {
+   "valor": {
+    "ok": false,
+    "error": "No he podido leer tus listas ahora mismo."
+   },
+   "llamadas": []
+  },
+  "crear_tarea prioridad mala": {
+   "valor": {
+    "ok": false,
+    "error": "La prioridad debe ser alta, media o baja."
+   },
+   "llamadas": []
+  },
+  "crear_tarea personas malas": {
+   "valor": {
+    "ok": false,
+    "error": "persona_ids debe ser una lista de ids."
+   },
+   "llamadas": []
+  },
+  "crear_tarea vence malo": {
+   "valor": {
+    "ok": false,
+    "error": "«vence» debe ser AAAA-MM-DD o AAAA-MM-DD HH:MM (hora local)."
+   },
+   "llamadas": []
+  },
+  "editar_tarea prioridad": {
+   "valor": {
+    "ok": true,
+    "hecho": "Editada la tarea «Llamar»",
+    "id": 5
+   },
+   "cambios": [
+    {
+     "tipo": "tarea",
+     "id": 5,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "task/detail",
+     "cuerpo": {
+      "id": 5
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "task/update",
+     "cuerpo": {
+      "id": 5,
+      "title": "Llamar",
+      "priority": "baja"
+     }
+    }
+   ]
+  },
+  "editar_tarea todo": {
+   "valor": {
+    "ok": true,
+    "hecho": "Editada la tarea «Llamar ya»",
+    "id": 5
+   },
+   "cambios": [
+    {
+     "tipo": "tarea",
+     "id": 5,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "task/detail",
+     "cuerpo": {
+      "id": 5
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "task/update",
+     "cuerpo": {
+      "id": 5,
+      "title": "Llamar ya",
+      "priority": "alta",
+      "person_ids": [
+       21
+      ],
+      "due_at": "2026-12-02 17:00:00"
+     }
+    }
+   ]
+  },
+  "editar_tarea quita vence": {
+   "valor": {
+    "ok": true,
+    "hecho": "Editada la tarea «Llamar»",
+    "id": 5
+   },
+   "cambios": [
+    {
+     "tipo": "tarea",
+     "id": 5,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "task/detail",
+     "cuerpo": {
+      "id": 5
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "task/update",
+     "cuerpo": {
+      "id": 5,
+      "title": "Llamar",
+      "due_at": ""
+     }
+    }
+   ]
+  },
+  "editar_tarea sin cambios": {
+   "valor": {
+    "falta": [
+     "qué cambiar"
+    ]
+   },
+   "llamadas": []
+  },
+  "editar_tarea sin id": {
+   "valor": {
+    "falta": [
+     "tarea",
+     "qué cambiar"
+    ]
+   },
+   "llamadas": []
+  },
+  "editar_tarea inexistente": {
+   "valor": {
+    "ok": false,
+    "error": "Ya no existe."
+   },
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "task/detail",
+     "cuerpo": {
+      "id": 5
+     }
+    }
+   ]
+  },
+  "editar_tarea detalle falla": {
+   "valor": {
+    "lanza": "No he podido hacerlo ahora mismo."
+   },
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "task/detail",
+     "cuerpo": {
+      "id": 5
+     }
+    }
+   ]
+  },
+  "completar_tarea": {
+   "valor": {
+    "ok": true,
+    "hecho": "Tarea «Llamar» completada",
+    "id": 5
+   },
+   "cambios": [
+    {
+     "tipo": "tarea",
+     "id": 5,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "task/detail",
+     "cuerpo": {
+      "id": 5
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "task/complete",
+     "cuerpo": {
+      "id": 5,
+      "completed": true
+     }
+    }
+   ]
+  },
+  "completar_tarea desmarcar": {
+   "valor": {
+    "ok": true,
+    "hecho": "Tarea «Llamar» marcada como pendiente",
+    "id": 5
+   },
+   "cambios": [
+    {
+     "tipo": "tarea",
+     "id": 5,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "task/detail",
+     "cuerpo": {
+      "id": 5
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "task/complete",
+     "cuerpo": {
+      "id": 5,
+      "completed": false
+     }
+    }
+   ]
+  },
+  "completar_tarea sin id": {
+   "valor": {
+    "falta": [
+     "tarea"
+    ]
+   },
+   "llamadas": []
+  },
+  "completar_tarea inexistente": {
+   "valor": {
+    "ok": false,
+    "error": "Ya no existe."
+   },
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "task/detail",
+     "cuerpo": {
+      "id": 5
+     }
+    }
+   ]
+  },
+  "completar_tarea varias escrituras": {
+   "valor": {
+    "ok": true,
+    "estado": "propuesta enviada al usuario para confirmar",
+    "acciones_pendientes": 1
+   },
+   "tarjeta": {
+    "texto": "¿Completo la tarea «Llamar»?",
+    "acciones": [
+     {
+      "op": "completar_tarea",
+      "args": {
+       "id": 5,
+       "completed": true
+      },
+      "nombre": "Llamar"
+     }
+    ],
+    "firmada": true
+   },
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "task/detail",
+     "cuerpo": {
+      "id": 5
+     }
+    }
+   ]
+  },
+  "borrar_tarea": {
+   "valor": {
+    "ok": true,
+    "estado": "propuesta enviada al usuario para confirmar",
+    "acciones_pendientes": 1
+   },
+   "tarjeta": {
+    "texto": "¿Borro la tarea «Llamar»?",
+    "acciones": [
+     {
+      "op": "borrar_tarea",
+      "args": {
+       "id": 5
+      },
+      "nombre": "Llamar"
+     }
+    ],
+    "firmada": true
+   },
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "task/detail",
+     "cuerpo": {
+      "id": 5
+     }
+    }
+   ]
+  },
+  "borrar_tarea inexistente": {
+   "valor": {
+    "ok": false,
+    "error": "Ya no existe."
+   },
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "task/detail",
+     "cuerpo": {
+      "id": 5
+     }
+    }
+   ]
+  },
+  "crear_evento calendario único": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creado el evento «Cena»",
+    "id": 1,
+    "calendario": "Familia",
+    "inicio": "2026-12-01 20:30:00"
+   },
+   "cambios": [
+    {
+     "tipo": "evento",
+     "id": 1,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "event/create",
+     "cuerpo": {
+      "calendar_id": 10,
+      "title": "Cena",
+      "date_at": "2026-12-01 20:30:00",
+      "alarm": 10,
+      "person_ids": [
+       20
+      ]
+     }
+    }
+   ]
+  },
+  "crear_evento varios días": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creado el evento «Viaje»",
+    "id": 1,
+    "calendario": "Fútbol",
+    "inicio": "2026-12-01 09:00:00"
+   },
+   "cambios": [
+    {
+     "tipo": "evento",
+     "id": 1,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "event/create",
+     "cuerpo": {
+      "calendar_id": 11,
+      "title": "Viaje",
+      "date_at": "2026-12-01 09:00:00",
+      "end_date": "2026-12-05"
+     }
+    }
+   ]
+  },
+  "crear_evento varios calendarios": {
+   "valor": {
+    "falta": [
+     "calendario"
+    ],
+    "opciones": [
+     {
+      "id": 10,
+      "nombre": "Familia"
+     },
+     {
+      "id": 11,
+      "nombre": "Fútbol"
+     }
+    ]
+   },
+   "llamadas": []
+  },
+  "crear_evento varios calendarios sin nada": {
+   "valor": {
+    "falta": [
+     "titulo",
+     "inicio (fecha y hora)",
+     "calendario"
+    ],
+    "opciones": [
+     {
+      "id": 10,
+      "nombre": "Familia"
+     },
+     {
+      "id": 11,
+      "nombre": "Fútbol"
+     }
+    ]
+   },
+   "llamadas": []
+  },
+  "crear_evento sin hora": {
+   "valor": {
+    "falta": [
+     "inicio (fecha y hora)"
+    ]
+   },
+   "llamadas": []
+  },
+  "crear_evento inicio malo": {
+   "valor": {
+    "ok": false,
+    "error": "«inicio» debe ser AAAA-MM-DD HH:MM (hora local)."
+   },
+   "llamadas": []
+  },
+  "crear_evento fin malo": {
+   "valor": {
+    "ok": false,
+    "error": "«fin» debe ser una fecha AAAA-MM-DD."
+   },
+   "llamadas": []
+  },
+  "crear_evento calendario inexistente": {
+   "valor": {
+    "ok": false,
+    "error": "Ya no existe."
+   },
+   "llamadas": []
+  },
+  "editar_evento titulo": {
+   "valor": {
+    "ok": true,
+    "hecho": "Editado el evento «Cena fuera»",
+    "id": 6
+   },
+   "cambios": [
+    {
+     "tipo": "evento",
+     "id": 6,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "event/detail",
+     "cuerpo": {
+      "id": 6
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "event/update",
+     "cuerpo": {
+      "id": 6,
+      "title": "Cena fuera",
+      "date_at": "2026-12-01 20:30:00",
+      "alarm": 15
+     }
+    }
+   ]
+  },
+  "editar_evento mover día": {
+   "valor": {
+    "ok": true,
+    "hecho": "Editado el evento «Cena»",
+    "id": 6
+   },
+   "cambios": [
+    {
+     "tipo": "evento",
+     "id": 6,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "event/detail",
+     "cuerpo": {
+      "id": 6
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "event/update",
+     "cuerpo": {
+      "id": 6,
+      "title": "Cena",
+      "date_at": "2026-12-03 20:30:00",
+      "alarm": 15
+     }
+    }
+   ]
+  },
+  "editar_evento todo": {
+   "valor": {
+    "ok": true,
+    "hecho": "Editado el evento «Cena»",
+    "id": 6
+   },
+   "cambios": [
+    {
+     "tipo": "evento",
+     "id": 6,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "event/detail",
+     "cuerpo": {
+      "id": 6
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "event/update",
+     "cuerpo": {
+      "id": 6,
+      "title": "Cena",
+      "date_at": "2026-12-03 19:00:00",
+      "alarm": 0,
+      "end_date": "2026-12-04",
+      "person_ids": [
+       21
+      ]
+     }
+    }
+   ]
+  },
+  "editar_evento sin alarma previa": {
+   "valor": {
+    "ok": true,
+    "hecho": "Editado el evento «X»",
+    "id": 6
+   },
+   "cambios": [
+    {
+     "tipo": "evento",
+     "id": 6,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "event/detail",
+     "cuerpo": {
+      "id": 6
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "event/update",
+     "cuerpo": {
+      "id": 6,
+      "title": "X",
+      "date_at": "2026-12-01 20:30:00",
+      "alarm": null
+     }
+    }
+   ]
+  },
+  "editar_evento sin cambios": {
+   "valor": {
+    "falta": [
+     "qué cambiar"
+    ]
+   },
+   "llamadas": []
+  },
+  "editar_evento inexistente": {
+   "valor": {
+    "ok": false,
+    "error": "Ya no existe."
+   },
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "event/detail",
+     "cuerpo": {
+      "id": 6
+     }
+    }
+   ]
+  },
+  "borrar_evento": {
+   "valor": {
+    "ok": true,
+    "estado": "propuesta enviada al usuario para confirmar",
+    "acciones_pendientes": 1
+   },
+   "tarjeta": {
+    "texto": "¿Borro el evento «Cena» del 01/12 a las 20:30?",
+    "acciones": [
+     {
+      "op": "borrar_evento",
+      "args": {
+       "id": 6
+      },
+      "nombre": "Cena"
+     }
+    ],
+    "firmada": true
+   },
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "event/detail",
+     "cuerpo": {
+      "id": 6
+     }
+    }
+   ]
+  },
+  "crear_rutina semanal": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creada la rutina «Regar»",
+    "id": 1,
+    "calendario": "Familia",
+    "empieza": "2026-11-25",
+    "activa": true,
+    "horario": "los lunes, miércoles a las 08:30"
+   },
+   "cambios": [
+    {
+     "tipo": "rutina",
+     "id": 1,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "routine/create",
+     "cuerpo": {
+      "calendar_id": 10,
+      "title": "Regar",
+      "frequency": "weekly",
+      "interval": 1,
+      "days": [
+       1,
+       3
+      ],
+      "time": "08:30",
+      "start_date": "2026-11-25",
+      "active": true,
+      "alarm": 5,
+      "person_ids": [
+       20
+      ]
+     }
+    }
+   ]
+  },
+  "crear_rutina diaria": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creada la rutina «Pastilla»",
+    "id": 1,
+    "calendario": "Familia",
+    "empieza": "2026-12-01",
+    "activa": true,
+    "horario": "cada día a las 21:00"
+   },
+   "cambios": [
+    {
+     "tipo": "rutina",
+     "id": 1,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "routine/create",
+     "cuerpo": {
+      "calendar_id": 10,
+      "title": "Pastilla",
+      "frequency": "daily",
+      "interval": 2,
+      "days": [],
+      "time": "21:00",
+      "start_date": "2026-12-01",
+      "active": true,
+      "end_date": "2027-01-31"
+     }
+    }
+   ]
+  },
+  "crear_rutina mensual": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creada la rutina «Recibo»",
+    "id": 1,
+    "calendario": "Fútbol",
+    "empieza": "2026-11-25",
+    "activa": true,
+    "horario": "cada mes a las 10:00"
+   },
+   "cambios": [
+    {
+     "tipo": "rutina",
+     "id": 1,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "routine/create",
+     "cuerpo": {
+      "calendar_id": 11,
+      "title": "Recibo",
+      "frequency": "monthly",
+      "interval": 1,
+      "days": [],
+      "time": "10:00",
+      "start_date": "2026-11-25",
+      "active": true
+     }
+    }
+   ]
+  },
+  "crear_rutina días sin frecuencia": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creada la rutina «Regar»",
+    "id": 1,
+    "calendario": "Familia",
+    "empieza": "2026-11-25",
+    "activa": true,
+    "horario": "los martes a las 08:30"
+   },
+   "cambios": [
+    {
+     "tipo": "rutina",
+     "id": 1,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "routine/create",
+     "cuerpo": {
+      "calendar_id": 10,
+      "title": "Regar",
+      "frequency": "weekly",
+      "interval": 1,
+      "days": [
+       2
+      ],
+      "time": "08:30",
+      "start_date": "2026-11-25",
+      "active": true
+     }
+    }
+   ]
+  },
+  "crear_rutina semanal sin días": {
+   "valor": {
+    "falta": [
+     "días"
+    ]
+   },
+   "llamadas": []
+  },
+  "crear_rutina varios calendarios": {
+   "valor": {
+    "falta": [
+     "calendario"
+    ],
+    "opciones": [
+     {
+      "id": 10,
+      "nombre": "Familia"
+     },
+     {
+      "id": 11,
+      "nombre": "Fútbol"
+     }
+    ]
+   },
+   "llamadas": []
+  },
+  "crear_rutina hora mala": {
+   "valor": {
+    "falta": [
+     "hora"
+    ]
+   },
+   "llamadas": []
+  },
+  "crear_rutina días malos": {
+   "valor": {
+    "falta": [
+     "días"
+    ]
+   },
+   "llamadas": []
+  },
+  "crear_rutina fecha mala": {
+   "valor": {
+    "ok": false,
+    "error": "Las fechas deben ser AAAA-MM-DD."
+   },
+   "llamadas": []
+  },
+  "editar_rutina hora": {
+   "valor": {
+    "ok": true,
+    "hecho": "Editada la rutina «Regar»",
+    "id": 7
+   },
+   "cambios": [
+    {
+     "tipo": "rutina",
+     "id": 7,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "routine/detail",
+     "cuerpo": {
+      "id": 7
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "routine/update",
+     "cuerpo": {
+      "id": 7,
+      "title": "Regar",
+      "frequency": "weekly",
+      "interval": 2,
+      "days": [
+       1,
+       3
+      ],
+      "time": "09:00",
+      "start_date": "2026-11-01",
+      "end_date": "2027-01-01",
+      "active": true
+     }
+    }
+   ]
+  },
+  "editar_rutina a diaria": {
+   "valor": {
+    "ok": true,
+    "hecho": "Editada la rutina «Regar»",
+    "id": 7
+   },
+   "cambios": [
+    {
+     "tipo": "rutina",
+     "id": 7,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "routine/detail",
+     "cuerpo": {
+      "id": 7
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "routine/update",
+     "cuerpo": {
+      "id": 7,
+      "title": "Regar",
+      "frequency": "daily",
+      "interval": 2,
+      "days": [],
+      "time": "08:30",
+      "start_date": "2026-11-01",
+      "end_date": "2027-01-01",
+      "active": true
+     }
+    }
+   ]
+  },
+  "editar_rutina a semanal sin días previos": {
+   "valor": {
+    "falta": [
+     "días"
+    ]
+   },
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "routine/detail",
+     "cuerpo": {
+      "id": 7
+     }
+    }
+   ]
+  },
+  "editar_rutina hasta vacío y pausa": {
+   "valor": {
+    "ok": true,
+    "hecho": "Editada la rutina «Regar plantas»",
+    "id": 7
+   },
+   "cambios": [
+    {
+     "tipo": "rutina",
+     "id": 7,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "routine/detail",
+     "cuerpo": {
+      "id": 7
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "routine/update",
+     "cuerpo": {
+      "id": 7,
+      "title": "Regar plantas",
+      "frequency": "weekly",
+      "interval": 1,
+      "days": [
+       5
+      ],
+      "time": "08:30",
+      "start_date": "2026-12-01",
+      "end_date": null,
+      "active": false
+     }
+    }
+   ]
+  },
+  "editar_rutina sin cambios": {
+   "valor": {
+    "falta": [
+     "qué cambiar"
+    ]
+   },
+   "llamadas": []
+  },
+  "editar_rutina hora mala": {
+   "valor": {
+    "ok": false,
+    "error": "La hora debe ser HH:MM."
+   },
+   "llamadas": []
+  },
+  "editar_rutina frecuencia mala": {
+   "valor": {
+    "ok": false,
+    "error": "La frecuencia debe ser diaria, semanal o mensual."
+   },
+   "llamadas": []
+  },
+  "editar_rutina inexistente": {
+   "valor": {
+    "ok": false,
+    "error": "Ya no existe."
+   },
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "routine/detail",
+     "cuerpo": {
+      "id": 7
+     }
+    }
+   ]
+  },
+  "borrar_rutina": {
+   "valor": {
+    "ok": true,
+    "estado": "propuesta enviada al usuario para confirmar",
+    "acciones_pendientes": 1
+   },
+   "tarjeta": {
+    "texto": "¿Borro la rutina «Regar»?",
+    "acciones": [
+     {
+      "op": "borrar_rutina",
+      "args": {
+       "id": 7
+      },
+      "nombre": "Regar"
+     }
+    ],
+    "firmada": true
+   },
+   "llamadas": [
+    {
+     "metodo": "GET",
+     "ruta": "routine/detail",
+     "cuerpo": {
+      "id": 7
+     }
+    }
+   ]
+  },
+  "crear_calendario solo yo": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creado el calendario «Fútbol»",
+    "id": 1,
+    "compartido_con": "solo contigo",
+    "color": "#6923E2"
+   },
+   "cambios": [
+    {
+     "tipo": "calendario",
+     "id": 1,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "calendar/create",
+     "cuerpo": {
+      "name": "Fútbol",
+      "color": "#6923E2"
+     }
+    }
+   ]
+  },
+  "crear_calendario compartido": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creado el calendario «Fútbol»",
+    "id": 1,
+    "compartido_con": [
+     "Lucía (solo lectura)"
+    ],
+    "color": "#123456"
+   },
+   "cambios": [
+    {
+     "tipo": "calendario",
+     "id": 1,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "calendar/create",
+     "cuerpo": {
+      "name": "Fútbol",
+      "color": "#123456"
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "calendar/user",
+     "cuerpo": {
+      "calendar_id": 1,
+      "user_id": 502,
+      "can_edit": false
+     }
+    }
+   ]
+  },
+  "crear_calendario compartido editar": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creado el calendario «Fútbol»",
+    "id": 1,
+    "compartido_con": [
+     "Lucía (puede editar)"
+    ],
+    "color": "#6923E2"
+   },
+   "cambios": [
+    {
+     "tipo": "calendario",
+     "id": 1,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "calendar/create",
+     "cuerpo": {
+      "name": "Fútbol",
+      "color": "#6923E2"
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "calendar/user",
+     "cuerpo": {
+      "calendar_id": 1,
+      "user_id": 502,
+      "can_edit": true
+     }
+    }
+   ]
+  },
+  "crear_calendario sin con quién": {
+   "valor": {
+    "falta": [
+     "con quién se comparte (o solo para ti)"
+    ]
+   },
+   "llamadas": []
+  },
+  "crear_calendario sin nada": {
+   "valor": {
+    "falta": [
+     "nombre",
+     "con quién se comparte (o solo para ti)"
+    ]
+   },
+   "llamadas": []
+  },
+  "crear_calendario sin cuenta": {
+   "valor": {
+    "ok": false,
+    "sin_cuenta": [
+     "Pedro"
+    ],
+    "error": "Pedro no tiene cuenta en Homita, así que no puedo compartirlo con esa persona. No he creado nada."
+   },
+   "llamadas": []
+  },
+  "crear_calendario persona inexistente": {
+   "valor": {
+    "ok": false,
+    "error": "Esa persona ya no existe en el hogar."
+   },
+   "llamadas": []
+  },
+  "crear_calendario color malo": {
+   "valor": {
+    "ok": false,
+    "error": "El color debe tener la forma #RRGGBB."
+   },
+   "llamadas": []
+  },
+  "crear_calendario PATCH 403": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creado el calendario «Fútbol»",
+    "id": 40,
+    "compartido_con": [
+     "Lucía (solo lectura)"
+    ],
+    "color": "#6923E2",
+    "avisos": [
+     "No he podido compartirlo con Lucía: solo el propietario puede compartir, y esa persona debe ser del hogar."
+    ]
+   },
+   "cambios": [
+    {
+     "tipo": "calendario",
+     "id": 40,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "calendar/create",
+     "cuerpo": {
+      "name": "Fútbol",
+      "color": "#6923E2"
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "calendar/user",
+     "cuerpo": {
+      "calendar_id": 40,
+      "user_id": 502,
+      "can_edit": false
+     }
+    }
+   ]
+  },
+  "crear_calendario PATCH 500": {
+   "valor": {
+    "ok": true,
+    "hecho": "Creado el calendario «Fútbol»",
+    "id": 40,
+    "compartido_con": [
+     "Lucía (solo lectura)"
+    ],
+    "color": "#6923E2",
+    "avisos": [
+     "No he podido compartirlo con Lucía: No he podido hacerlo ahora mismo."
+    ]
+   },
+   "cambios": [
+    {
+     "tipo": "calendario",
+     "id": 40,
+     "op": "crear"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "calendar/create",
+     "cuerpo": {
+      "name": "Fútbol",
+      "color": "#6923E2"
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "calendar/user",
+     "cuerpo": {
+      "calendar_id": 40,
+      "user_id": 502,
+      "can_edit": false
+     }
+    }
+   ]
+  },
+  "editar_calendario nombre": {
+   "valor": {
+    "ok": true,
+    "hecho": "Editado el calendario «Familia 2»",
+    "id": 10
+   },
+   "cambios": [
+    {
+     "tipo": "calendario",
+     "id": 10,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "calendar/update",
+     "cuerpo": {
+      "id": 10,
+      "name": "Familia 2",
+      "color": "#aa0000",
+      "widget": true,
+      "dashboard": false
+     }
+    }
+   ]
+  },
+  "editar_calendario color": {
+   "valor": {
+    "ok": true,
+    "hecho": "Editado el calendario «Fútbol»",
+    "id": 11
+   },
+   "cambios": [
+    {
+     "tipo": "calendario",
+     "id": 11,
+     "op": "editar"
+    }
+   ],
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "calendar/update",
+     "cuerpo": {
+      "id": 11,
+      "name": "Fútbol",
+      "color": "#FFFFFF",
+      "widget": true,
+      "dashboard": true
+     }
+    }
+   ]
+  },
+  "editar_calendario sin cambios": {
+   "valor": {
+    "falta": [
+     "qué cambiar"
+    ]
+   },
+   "llamadas": []
+  },
+  "editar_calendario inexistente": {
+   "valor": {
+    "ok": false,
+    "error": "Ya no existe."
+   },
+   "llamadas": []
+  },
+  "borrar_calendario": {
+   "valor": {
+    "ok": true,
+    "estado": "propuesta enviada al usuario para confirmar",
+    "acciones_pendientes": 1
+   },
+   "tarjeta": {
+    "texto": "¿Borro el calendario «Familia» con todos sus eventos y rutinas?",
+    "acciones": [
+     {
+      "op": "borrar_calendario",
+      "args": {
+       "id": 10
+      },
+      "nombre": "Familia"
+     }
+    ],
+    "firmada": true
+   },
+   "llamadas": []
+  },
+  "borrar_calendario inexistente": {
+   "valor": {
+    "ok": false,
+    "error": "Ya no existe."
+   },
+   "llamadas": []
+  }
+ },
+ "acciones": {
+  "crear_lista ok": {
+   "r": {
+    "ok": true,
+    "id": 1,
+    "cambios": [
+     {
+      "tipo": "lista",
+      "id": 1,
+      "op": "crear"
+     }
+    ],
+    "texto": "Creada la lista «L»",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task-list/create",
+     "cuerpo": {
+      "name": "L",
+      "color": "#6923E2",
+      "client_request_id": "u"
+     }
+    }
+   ]
+  },
+  "crear_lista 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task-list/create",
+     "cuerpo": {
+      "name": "L",
+      "color": "#6923E2",
+      "client_request_id": "u"
+     }
+    }
+   ]
+  },
+  "crear_lista noexiste": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "Ya no existe.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task-list/create",
+     "cuerpo": {
+      "name": "L",
+      "color": "#6923E2",
+      "client_request_id": "u"
+     }
+    }
+   ]
+  },
+  "crear_lista 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task-list/create",
+     "cuerpo": {
+      "name": "L",
+      "color": "#6923E2",
+      "client_request_id": "u"
+     }
+    }
+   ]
+  },
+  "editar_lista ok": {
+   "r": {
+    "ok": true,
+    "id": 1,
+    "cambios": [
+     {
+      "tipo": "lista",
+      "id": 1,
+      "op": "editar"
+     }
+    ],
+    "texto": "Editada la lista «L»",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "task-list/update",
+     "cuerpo": {
+      "id": 1,
+      "name": "L",
+      "color": "#6923E2",
+      "sort": "title",
+      "widget": true,
+      "dashboard": false
+     }
+    }
+   ]
+  },
+  "editar_lista 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "task-list/update",
+     "cuerpo": {
+      "id": 1,
+      "name": "L",
+      "color": "#6923E2",
+      "sort": "title",
+      "widget": true,
+      "dashboard": false
+     }
+    }
+   ]
+  },
+  "editar_lista noexiste": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "Ya no existe.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "task-list/update",
+     "cuerpo": {
+      "id": 1,
+      "name": "L",
+      "color": "#6923E2",
+      "sort": "title",
+      "widget": true,
+      "dashboard": false
+     }
+    }
+   ]
+  },
+  "editar_lista 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "task-list/update",
+     "cuerpo": {
+      "id": 1,
+      "name": "L",
+      "color": "#6923E2",
+      "sort": "title",
+      "widget": true,
+      "dashboard": false
+     }
+    }
+   ]
+  },
+  "borrar_lista ok": {
+   "r": {
+    "ok": true,
+    "id": 1,
+    "cambios": [
+     {
+      "tipo": "lista",
+      "id": 1,
+      "op": "borrar"
+     }
+    ],
+    "texto": "Borrada la lista «Algo»",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "task-list/delete",
+     "cuerpo": {
+      "id": 1
+     }
+    }
+   ]
+  },
+  "borrar_lista 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "task-list/delete",
+     "cuerpo": {
+      "id": 1
+     }
+    }
+   ]
+  },
+  "borrar_lista noexiste": {
+   "r": {
+    "ok": true,
+    "yaEstaba": true,
+    "id": 1,
+    "cambios": [],
+    "texto": "Ya estaba hecho: la lista «Algo» ya no existe",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "task-list/delete",
+     "cuerpo": {
+      "id": 1
+     }
+    }
+   ]
+  },
+  "borrar_lista 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "task-list/delete",
+     "cuerpo": {
+      "id": 1
+     }
+    }
+   ]
+  },
+  "crear_tarea ok": {
+   "r": {
+    "ok": true,
+    "id": 1,
+    "cambios": [
+     {
+      "tipo": "tarea",
+      "id": 1,
+      "op": "crear"
+     }
+    ],
+    "texto": "Creada la tarea «T»",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task/create",
+     "cuerpo": {
+      "task_list_id": 1,
+      "title": "T",
+      "priority": "alta",
+      "person_ids": [
+       1
+      ],
+      "client_request_id": "u"
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "task/update",
+     "cuerpo": {
+      "id": 1,
+      "title": "T",
+      "due_at": "2026-11-27 22:59:00"
+     }
+    }
+   ]
+  },
+  "crear_tarea 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task/create",
+     "cuerpo": {
+      "task_list_id": 1,
+      "title": "T",
+      "priority": "alta",
+      "person_ids": [
+       1
+      ],
+      "client_request_id": "u"
+     }
+    }
+   ]
+  },
+  "crear_tarea noexiste": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "Ya no existe.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task/create",
+     "cuerpo": {
+      "task_list_id": 1,
+      "title": "T",
+      "priority": "alta",
+      "person_ids": [
+       1
+      ],
+      "client_request_id": "u"
+     }
+    }
+   ]
+  },
+  "crear_tarea 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task/create",
+     "cuerpo": {
+      "task_list_id": 1,
+      "title": "T",
+      "priority": "alta",
+      "person_ids": [
+       1
+      ],
+      "client_request_id": "u"
+     }
+    }
+   ]
+  },
+  "editar_tarea ok": {
+   "r": {
+    "ok": true,
+    "id": 5,
+    "cambios": [
+     {
+      "tipo": "tarea",
+      "id": 5,
+      "op": "editar"
+     }
+    ],
+    "texto": "Editada la tarea «T»",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "task/update",
+     "cuerpo": {
+      "id": 5,
+      "title": "T"
+     }
+    }
+   ]
+  },
+  "editar_tarea 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "task/update",
+     "cuerpo": {
+      "id": 5,
+      "title": "T"
+     }
+    }
+   ]
+  },
+  "editar_tarea noexiste": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "Ya no existe.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "task/update",
+     "cuerpo": {
+      "id": 5,
+      "title": "T"
+     }
+    }
+   ]
+  },
+  "editar_tarea 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "task/update",
+     "cuerpo": {
+      "id": 5,
+      "title": "T"
+     }
+    }
+   ]
+  },
+  "completar_tarea ok": {
+   "r": {
+    "ok": true,
+    "id": 5,
+    "cambios": [
+     {
+      "tipo": "tarea",
+      "id": 5,
+      "op": "editar"
+     }
+    ],
+    "texto": "Tarea «Algo» marcada como pendiente",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "task/complete",
+     "cuerpo": {
+      "id": 5,
+      "completed": false
+     }
+    }
+   ]
+  },
+  "completar_tarea 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "task/complete",
+     "cuerpo": {
+      "id": 5,
+      "completed": false
+     }
+    }
+   ]
+  },
+  "completar_tarea noexiste": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "Ya no existe.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "task/complete",
+     "cuerpo": {
+      "id": 5,
+      "completed": false
+     }
+    }
+   ]
+  },
+  "completar_tarea 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "task/complete",
+     "cuerpo": {
+      "id": 5,
+      "completed": false
+     }
+    }
+   ]
+  },
+  "borrar_tarea ok": {
+   "r": {
+    "ok": true,
+    "id": 5,
+    "cambios": [
+     {
+      "tipo": "tarea",
+      "id": 5,
+      "op": "borrar"
+     }
+    ],
+    "texto": "Borrada la tarea «Algo»",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "task/delete",
+     "cuerpo": {
+      "id": 5
+     }
+    }
+   ]
+  },
+  "borrar_tarea 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "task/delete",
+     "cuerpo": {
+      "id": 5
+     }
+    }
+   ]
+  },
+  "borrar_tarea noexiste": {
+   "r": {
+    "ok": true,
+    "yaEstaba": true,
+    "id": 5,
+    "cambios": [],
+    "texto": "Ya estaba hecho: la tarea «Algo» ya no existe",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "task/delete",
+     "cuerpo": {
+      "id": 5
+     }
+    }
+   ]
+  },
+  "borrar_tarea 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "task/delete",
+     "cuerpo": {
+      "id": 5
+     }
+    }
+   ]
+  },
+  "crear_evento ok": {
+   "r": {
+    "ok": true,
+    "id": 1,
+    "cambios": [
+     {
+      "tipo": "evento",
+      "id": 1,
+      "op": "crear"
+     }
+    ],
+    "texto": "Creado el evento «E»",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "event/create",
+     "cuerpo": {
+      "calendar_id": 10,
+      "title": "E",
+      "date_at": "2026-12-01 20:30:00"
+     }
+    }
+   ]
+  },
+  "crear_evento 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "event/create",
+     "cuerpo": {
+      "calendar_id": 10,
+      "title": "E",
+      "date_at": "2026-12-01 20:30:00"
+     }
+    }
+   ]
+  },
+  "crear_evento noexiste": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "Ya no existe.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "event/create",
+     "cuerpo": {
+      "calendar_id": 10,
+      "title": "E",
+      "date_at": "2026-12-01 20:30:00"
+     }
+    }
+   ]
+  },
+  "crear_evento 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "event/create",
+     "cuerpo": {
+      "calendar_id": 10,
+      "title": "E",
+      "date_at": "2026-12-01 20:30:00"
+     }
+    }
+   ]
+  },
+  "editar_evento ok": {
+   "r": {
+    "ok": true,
+    "id": 6,
+    "cambios": [
+     {
+      "tipo": "evento",
+      "id": 6,
+      "op": "editar"
+     }
+    ],
+    "texto": "Editado el evento «E»",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "event/update",
+     "cuerpo": {
+      "id": 6,
+      "title": "E",
+      "date_at": "2026-12-01 20:30:00",
+      "alarm": null
+     }
+    }
+   ]
+  },
+  "editar_evento 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "event/update",
+     "cuerpo": {
+      "id": 6,
+      "title": "E",
+      "date_at": "2026-12-01 20:30:00",
+      "alarm": null
+     }
+    }
+   ]
+  },
+  "editar_evento noexiste": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "Ya no existe.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "event/update",
+     "cuerpo": {
+      "id": 6,
+      "title": "E",
+      "date_at": "2026-12-01 20:30:00",
+      "alarm": null
+     }
+    }
+   ]
+  },
+  "editar_evento 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "event/update",
+     "cuerpo": {
+      "id": 6,
+      "title": "E",
+      "date_at": "2026-12-01 20:30:00",
+      "alarm": null
+     }
+    }
+   ]
+  },
+  "borrar_evento ok": {
+   "r": {
+    "ok": true,
+    "id": 6,
+    "cambios": [
+     {
+      "tipo": "evento",
+      "id": 6,
+      "op": "borrar"
+     }
+    ],
+    "texto": "Borrado el evento «Algo»",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "event/delete",
+     "cuerpo": {
+      "id": 6
+     }
+    }
+   ]
+  },
+  "borrar_evento 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "event/delete",
+     "cuerpo": {
+      "id": 6
+     }
+    }
+   ]
+  },
+  "borrar_evento noexiste": {
+   "r": {
+    "ok": true,
+    "yaEstaba": true,
+    "id": 6,
+    "cambios": [],
+    "texto": "Ya estaba hecho: el evento «Algo» ya no existe",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "event/delete",
+     "cuerpo": {
+      "id": 6
+     }
+    }
+   ]
+  },
+  "borrar_evento 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "event/delete",
+     "cuerpo": {
+      "id": 6
+     }
+    }
+   ]
+  },
+  "crear_rutina ok": {
+   "r": {
+    "ok": true,
+    "id": 1,
+    "cambios": [
+     {
+      "tipo": "rutina",
+      "id": 1,
+      "op": "crear"
+     }
+    ],
+    "texto": "Creada la rutina «R»",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "routine/create",
+     "cuerpo": {
+      "calendar_id": 10,
+      "title": "R",
+      "frequency": "daily",
+      "interval": 1,
+      "days": [],
+      "time": "08:00",
+      "start_date": "2026-11-25",
+      "active": true
+     }
+    }
+   ]
+  },
+  "crear_rutina 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "routine/create",
+     "cuerpo": {
+      "calendar_id": 10,
+      "title": "R",
+      "frequency": "daily",
+      "interval": 1,
+      "days": [],
+      "time": "08:00",
+      "start_date": "2026-11-25",
+      "active": true
+     }
+    }
+   ]
+  },
+  "crear_rutina noexiste": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "Ya no existe.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "routine/create",
+     "cuerpo": {
+      "calendar_id": 10,
+      "title": "R",
+      "frequency": "daily",
+      "interval": 1,
+      "days": [],
+      "time": "08:00",
+      "start_date": "2026-11-25",
+      "active": true
+     }
+    }
+   ]
+  },
+  "crear_rutina 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "routine/create",
+     "cuerpo": {
+      "calendar_id": 10,
+      "title": "R",
+      "frequency": "daily",
+      "interval": 1,
+      "days": [],
+      "time": "08:00",
+      "start_date": "2026-11-25",
+      "active": true
+     }
+    }
+   ]
+  },
+  "editar_rutina ok": {
+   "r": {
+    "ok": true,
+    "id": 7,
+    "cambios": [
+     {
+      "tipo": "rutina",
+      "id": 7,
+      "op": "editar"
+     }
+    ],
+    "texto": "Editada la rutina «R»",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "routine/update",
+     "cuerpo": {
+      "id": 7,
+      "title": "R",
+      "frequency": "daily",
+      "interval": 1,
+      "days": [],
+      "time": "08:00",
+      "start_date": "2026-11-25",
+      "end_date": null,
+      "active": true
+     }
+    }
+   ]
+  },
+  "editar_rutina 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "routine/update",
+     "cuerpo": {
+      "id": 7,
+      "title": "R",
+      "frequency": "daily",
+      "interval": 1,
+      "days": [],
+      "time": "08:00",
+      "start_date": "2026-11-25",
+      "end_date": null,
+      "active": true
+     }
+    }
+   ]
+  },
+  "editar_rutina noexiste": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "Ya no existe.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "routine/update",
+     "cuerpo": {
+      "id": 7,
+      "title": "R",
+      "frequency": "daily",
+      "interval": 1,
+      "days": [],
+      "time": "08:00",
+      "start_date": "2026-11-25",
+      "end_date": null,
+      "active": true
+     }
+    }
+   ]
+  },
+  "editar_rutina 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "routine/update",
+     "cuerpo": {
+      "id": 7,
+      "title": "R",
+      "frequency": "daily",
+      "interval": 1,
+      "days": [],
+      "time": "08:00",
+      "start_date": "2026-11-25",
+      "end_date": null,
+      "active": true
+     }
+    }
+   ]
+  },
+  "borrar_rutina ok": {
+   "r": {
+    "ok": true,
+    "id": 7,
+    "cambios": [
+     {
+      "tipo": "rutina",
+      "id": 7,
+      "op": "borrar"
+     }
+    ],
+    "texto": "Borrada la rutina «Algo»",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "routine/delete",
+     "cuerpo": {
+      "id": 7
+     }
+    }
+   ]
+  },
+  "borrar_rutina 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "routine/delete",
+     "cuerpo": {
+      "id": 7
+     }
+    }
+   ]
+  },
+  "borrar_rutina noexiste": {
+   "r": {
+    "ok": true,
+    "yaEstaba": true,
+    "id": 7,
+    "cambios": [],
+    "texto": "Ya estaba hecho: la rutina «Algo» ya no existe",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "routine/delete",
+     "cuerpo": {
+      "id": 7
+     }
+    }
+   ]
+  },
+  "borrar_rutina 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "routine/delete",
+     "cuerpo": {
+      "id": 7
+     }
+    }
+   ]
+  },
+  "crear_calendario ok": {
+   "r": {
+    "ok": true,
+    "id": 40,
+    "cambios": [
+     {
+      "tipo": "calendario",
+      "id": 40,
+      "op": "crear"
+     }
+    ],
+    "texto": "Creado el calendario «C»",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "calendar/create",
+     "cuerpo": {
+      "name": "C",
+      "color": "#6923E2"
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "calendar/user",
+     "cuerpo": {
+      "calendar_id": 40,
+      "user_id": 502,
+      "can_edit": true
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "calendar/user",
+     "cuerpo": {
+      "calendar_id": 40,
+      "user_id": 503,
+      "can_edit": false
+     }
+    }
+   ]
+  },
+  "crear_calendario 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "calendar/create",
+     "cuerpo": {
+      "name": "C",
+      "color": "#6923E2"
+     }
+    }
+   ]
+  },
+  "crear_calendario noexiste": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "Ya no existe.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "calendar/create",
+     "cuerpo": {
+      "name": "C",
+      "color": "#6923E2"
+     }
+    }
+   ]
+  },
+  "crear_calendario 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "calendar/create",
+     "cuerpo": {
+      "name": "C",
+      "color": "#6923E2"
+     }
+    }
+   ]
+  },
+  "editar_calendario ok": {
+   "r": {
+    "ok": true,
+    "id": 10,
+    "cambios": [
+     {
+      "tipo": "calendario",
+      "id": 10,
+      "op": "editar"
+     }
+    ],
+    "texto": "Editado el calendario «C»",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "calendar/update",
+     "cuerpo": {
+      "id": 10,
+      "name": "C",
+      "color": "#6923E2",
+      "widget": true,
+      "dashboard": true
+     }
+    }
+   ]
+  },
+  "editar_calendario 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "calendar/update",
+     "cuerpo": {
+      "id": 10,
+      "name": "C",
+      "color": "#6923E2",
+      "widget": true,
+      "dashboard": true
+     }
+    }
+   ]
+  },
+  "editar_calendario noexiste": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "Ya no existe.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "calendar/update",
+     "cuerpo": {
+      "id": 10,
+      "name": "C",
+      "color": "#6923E2",
+      "widget": true,
+      "dashboard": true
+     }
+    }
+   ]
+  },
+  "editar_calendario 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "PATCH",
+     "ruta": "calendar/update",
+     "cuerpo": {
+      "id": 10,
+      "name": "C",
+      "color": "#6923E2",
+      "widget": true,
+      "dashboard": true
+     }
+    }
+   ]
+  },
+  "borrar_calendario ok": {
+   "r": {
+    "ok": true,
+    "id": 10,
+    "cambios": [
+     {
+      "tipo": "calendario",
+      "id": 10,
+      "op": "borrar"
+     }
+    ],
+    "texto": "Borrado el calendario «Algo»",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "calendar/delete",
+     "cuerpo": {
+      "id": 10
+     }
+    }
+   ]
+  },
+  "borrar_calendario 403": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No tienes permiso de edición en «Algo».",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "calendar/delete",
+     "cuerpo": {
+      "id": 10
+     }
+    }
+   ]
+  },
+  "borrar_calendario noexiste": {
+   "r": {
+    "ok": true,
+    "yaEstaba": true,
+    "id": 10,
+    "cambios": [],
+    "texto": "Ya estaba hecho: el calendario «Algo» ya no existe",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "calendar/delete",
+     "cuerpo": {
+      "id": 10
+     }
+    }
+   ]
+  },
+  "borrar_calendario 400": {
+   "r": {
+    "ok": false,
+    "id": null,
+    "cambios": [],
+    "texto": "No se ha podido hacer: Bad.",
+    "avisos": []
+   },
+   "llamadas": [
+    {
+     "metodo": "DELETE",
+     "ruta": "calendar/delete",
+     "cuerpo": {
+      "id": 10
+     }
+    }
+   ]
+  },
+  "crear_tarea PATCH falla": {
+   "r": {
+    "ok": true,
+    "id": 8,
+    "cambios": [
+     {
+      "tipo": "tarea",
+      "id": 8,
+      "op": "crear"
+     }
+    ],
+    "texto": "Creada la tarea «T»",
+    "avisos": [
+     "La tarea está creada, pero no he podido ponerle la fecha límite: No se ha podido hacer: due_at inválido."
+    ]
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "task/create",
+     "cuerpo": {
+      "task_list_id": 1,
+      "title": "T",
+      "priority": "alta",
+      "person_ids": [
+       1
+      ],
+      "client_request_id": "u"
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "task/update",
+     "cuerpo": {
+      "id": 8,
+      "title": "T",
+      "due_at": "2026-11-27 22:59:00"
+     }
+    }
+   ]
+  },
+  "crear_calendario PATCH 403": {
+   "r": {
+    "ok": true,
+    "id": 40,
+    "cambios": [
+     {
+      "tipo": "calendario",
+      "id": 40,
+      "op": "crear"
+     }
+    ],
+    "texto": "Creado el calendario «C»",
+    "avisos": [
+     "No he podido compartirlo con Lucía: solo el propietario puede compartir, y esa persona debe ser del hogar.",
+     "No he podido compartirlo con Pedro: solo el propietario puede compartir, y esa persona debe ser del hogar."
+    ]
+   },
+   "llamadas": [
+    {
+     "metodo": "POST",
+     "ruta": "calendar/create",
+     "cuerpo": {
+      "name": "C",
+      "color": "#6923E2"
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "calendar/user",
+     "cuerpo": {
+      "calendar_id": 40,
+      "user_id": 502,
+      "can_edit": true
+     }
+    },
+    {
+     "metodo": "PATCH",
+     "ruta": "calendar/user",
+     "cuerpo": {
+      "calendar_id": 40,
+      "user_id": 503,
+      "can_edit": false
+     }
+    }
+   ]
+  },
+  "op desconocida": {
+   "ok": false,
+   "id": null,
+   "cambios": [],
+   "texto": "Acción no permitida.",
+   "avisos": []
+  }
+ },
+ "errores": {
+  "0:403": {
+   "traducir": "No tienes permiso de edición en «Compra».",
+   "esNoExiste": false
+  },
+  "1:403": {
+   "traducir": "No tienes permiso de edición en eso.",
+   "esNoExiste": false
+  },
+  "2:404": {
+   "traducir": "Ya no existe.",
+   "esNoExiste": true
+  },
+  "3:500": {
+   "traducir": "Ya no existe.",
+   "esNoExiste": true
+  },
+  "4:500": {
+   "traducir": "No he podido hacerlo ahora mismo.",
+   "esNoExiste": false
+  },
+  "5:400": {
+   "traducir": "No se ha podido hacer: Name is required.",
+   "esNoExiste": false
+  },
+  "6:400": {
+   "traducir": "No se ha podido hacer: datos no válidos.",
+   "esNoExiste": false
+  },
+  "7:400": {
+   "traducir": "No se ha podido hacer: datos no válidos.",
+   "esNoExiste": false
+  },
+  "8:400": {
+   "traducir": "No se ha podido hacer: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.",
+   "esNoExiste": false
+  },
+  "9:409": {
+   "traducir": "No he podido hacerlo ahora mismo.",
+   "esNoExiste": false
+  },
+  "10:503": {
+   "traducir": "No he podido hacerlo ahora mismo.",
+   "esNoExiste": false
+  },
+  "11:401": {
+   "traducir": "No he podido hacerlo ahora mismo.",
+   "esNoExiste": false
+  }
+ }
+}

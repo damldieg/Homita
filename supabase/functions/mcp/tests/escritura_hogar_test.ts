@@ -3,6 +3,7 @@
 import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
 import { datosDe, escribirEnHogar } from "../tools/comun.ts";
 import { RUTAS_MCP } from "../escritor.ts";
+import { RUTAS_MENUS_COMUNES, RUTAS_ORGANIZAR } from "../../_shared/homita/escritor.ts";
 import { crearMundo, TOKEN, UID } from "./util.ts";
 import type { Entorno } from "../entorno.ts";
 
@@ -65,9 +66,28 @@ Deno.test("errores del api: 403, 404, 409, 400 con motivo y 500 se traducen sin 
     }
 });
 
-Deno.test("la lista blanca del MCP añade accept, food/create y shopping/item/check a las comunes", () => {
-    assertEquals(Object.keys(RUTAS_MCP).sort(), [
-        "PATCH meal/plan/items", "PATCH meal/profile/member", "PATCH shopping/item/check", "POST food/create",
-        "POST meal/plan/accept", "POST recipe/create", "POST shopping/item/create",
-    ]);
+Deno.test("la lista blanca del MCP: comunes de menús + organizar + accept, food/create y shopping/item/check (27)", () => {
+    const claves = Object.keys(RUTAS_MCP).sort();
+    assertEquals(claves.length, 27);
+    for (const k of Object.keys(RUTAS_ORGANIZAR)) assert(k in RUTAS_MCP, k);
+    for (const k of Object.keys(RUTAS_MENUS_COMUNES)) assert(k in RUTAS_MCP, k);
+    for (const k of ["POST meal/plan/accept", "POST food/create", "PATCH shopping/item/check", "PATCH calendar/user"]) assert(k in RUTAS_MCP, k);
+    // Nada de alarmas, administración, invitaciones ni archivar/copiar/horario.
+    for (const k of claves) assert(!/alarm|invit|membership|home\/|archive|copy|schedule/.test(k), k);
+});
+
+Deno.test("appUser: ctx.appUserId solo se rellena con la opción", async () => {
+    const m = crearMundo();
+    const sin = await escribirEnHogar(entorno(m), {}, (ctx) => Promise.resolve({ appUserId: ctx.appUserId ?? null }));
+    assertEquals(JSON.parse(sin.content[0].text), { appUserId: null });
+    const con = await escribirEnHogar(entorno(m), {}, (ctx) => Promise.resolve({ appUserId: ctx.appUserId ?? null }), { appUser: true });
+    assertEquals(JSON.parse(con.content[0].text), { appUserId: "5" });
+});
+
+Deno.test("appUser con hogar ajeno: no se consulta el usuario ni se escribe", async () => {
+    let pedido = false;
+    const m = crearMundo({}, { appUserId: () => { pedido = true; return Promise.resolve("5"); } });
+    const r = await escribirEnHogar(entorno(m), { hogar: "99" }, () => Promise.resolve({}), { appUser: true });
+    assertEquals(r.isError, true);
+    assertEquals(pedido, false);
 });
