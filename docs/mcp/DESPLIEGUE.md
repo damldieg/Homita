@@ -12,8 +12,8 @@ no despliega nada por sí mismo: cada paso lo ejecuta Damian y **pide confirmaci
   `<URL>` = `https://<PROJECT_REF>.supabase.co`, `<ANON_KEY>` (clave pública anon). Nunca se pegan secretos
   (`service_role`, tokens de acceso) en este documento ni en git.
 - Los comandos de producción de la CLI llevan el proyecto explícito y **no** usan `supabase link`. Se escriben con
-  `--project-ref <PROJECT_REF>` (CLI v2); en la CLI v3 (la 3.1.0 instalada aquí) el flag es `--remote=<PROJECT_REF>`.
-  Comprueba el tuyo con `supabase functions deploy --help` antes de ejecutar y sustituye el flag en todos los comandos.
+  `--remote=<PROJECT_REF>`, el flag de la CLI v3 (la 3.1.0 instalada aquí). En la CLI v2 el flag equivalente es
+  `--project-ref <PROJECT_REF>`. Comprueba el tuyo con `supabase functions deploy --help` antes de ejecutar y, si usas la v2, sustituye el flag en todos los comandos.
 - Prohibido en todo el runbook: `supabase config push` con `supabase/config.toml` (ver «Por qué no `config push`»),
   `supabase db push` y cualquier migración (el MCP no tiene ninguna).
 
@@ -31,7 +31,7 @@ no despliega nada por sí mismo: cada paso lo ejecuta Damian y **pide confirmaci
 | 7 | Configurar Auth: URLs y OAuth Server | Dashboard de Supabase | SOLO PRODUCCIÓN, no verificable |
 | 8 | Comprobaciones tras Auth (registro cerrado, login, metadatos) | curl | SOLO PRODUCCIÓN (curl probado en local) |
 | 9 | Alta del conector en claude.ai y prueba de extremo a extremo | claude.ai | SOLO PRODUCCIÓN, no verificable |
-| 10 | Revocar una conexión | iOS / claude.ai / API | Probado en local (API) |
+| 10 | Revocar una conexión | iOS / claude.ai / API | SOLO PRODUCCIÓN (la API está probada en local) |
 | R | Rollback completo | varios | — |
 
 La función se despliega (5) **antes** de activar el OAuth server (7): sin servidor OAuth no existe ningún token que la
@@ -149,11 +149,11 @@ así que la subruta no necesita ajustes.
 secretos sensibles, pero se guardan como secretos de la función.
 
 ```sh
-supabase secrets set MCP_PUBLIC_URL=<URL>/functions/v1/mcp MCP_AUTH_URL=<URL>/auth/v1 --project-ref <PROJECT_REF>
-supabase secrets list --project-ref <PROJECT_REF>         # deben aparecer MCP_PUBLIC_URL y MCP_AUTH_URL (solo resúmenes)
+supabase secrets set MCP_PUBLIC_URL=<URL>/functions/v1/mcp MCP_AUTH_URL=<URL>/auth/v1 --remote=<PROJECT_REF>
+supabase secrets list --remote=<PROJECT_REF>         # deben aparecer MCP_PUBLIC_URL y MCP_AUTH_URL (solo resúmenes)
 ```
 
-**Rollback:** `supabase secrets unset MCP_PUBLIC_URL MCP_AUTH_URL --project-ref <PROJECT_REF>` (la función vuelve a sus valores por defecto).
+**Rollback:** `supabase secrets unset MCP_PUBLIC_URL MCP_AUTH_URL --remote=<PROJECT_REF>` (la función vuelve a sus valores por defecto).
 
 ## 5. Desplegar la función `mcp`
 
@@ -162,13 +162,13 @@ Damian: confírmalo antes. `config.toml` no se lee en el deploy, así que `--no-
 valida el token ella misma; sin el flag el gateway rechazaría los tokens OAuth).
 
 ```sh
-supabase functions deploy mcp --no-verify-jwt --project-ref <PROJECT_REF>
-supabase functions list --project-ref <PROJECT_REF>        # mcp en estado ACTIVE
+supabase functions deploy mcp --no-verify-jwt --remote=<PROJECT_REF>
+supabase functions list --remote=<PROJECT_REF>        # mcp en estado ACTIVE
 ```
 
 Solo se despliega `mcp`; **no** se despliegan `api` ni `asistente` (sin cambios en este change).
 
-**Rollback:** `supabase functions delete mcp --project-ref <PROJECT_REF>`.
+**Rollback:** `supabase functions delete mcp --remote=<PROJECT_REF>`.
 
 ## 6. Comprobar la función (401 y metadatos)
 
@@ -247,12 +247,14 @@ Además: inicia sesión en la app (dashboard o iOS) y comprueba que sigue entran
 
 ## 10. Revocar una conexión
 
+**SOLO PRODUCCIÓN** (la `GET` y el `DELETE` contra `<URL>` tocan el proyecto alojado y borran el grant real; la API está probada en local). Confirma antes de ejecutarlo.
+
 Tres vías equivalentes; revocar borra la sesión y los refresh tokens de ese cliente para ese usuario.
 
 - **App iOS** (Ajustes → Claude → Revocar). Usa la API de Supabase Auth del usuario: `GET /auth/v1/user/oauth/grants`
   (lista) y `DELETE /auth/v1/user/oauth/grants?client_id=<id>` (revoca), con el Bearer del usuario. **Probado en local.**
 - **claude.ai**: Ajustes → Conectores → quitar el conector (no garantiza revocar el grant en Supabase: revisa en iOS o por API).
-- **API** (para comprobar, p. ej. en local o con un JWT del usuario):
+- **API** (con el JWT del usuario; **SOLO PRODUCCIÓN** si `<URL>` es el proyecto alojado, en local usa `http://127.0.0.1:54321`):
 
 ```sh
 curl -s <URL>/auth/v1/user/oauth/grants -H "apikey: <ANON_KEY>" -H "Authorization: Bearer <JWT_DEL_USUARIO>"
@@ -272,8 +274,8 @@ Si lo que querías deshacer era una revocación por error de un cliente ajeno, n
 
 1. Quitar el conector en claude.ai y revocar los grants (paso 10) o borrar los clientes OAuth (paso 7).
 2. Desactivar el OAuth Server; restaurar *Site URL*, *Redirect URLs* y plantillas (paso 7, con lo anotado en el paso 1).
-3. `supabase functions delete mcp --project-ref <PROJECT_REF>`.
-4. `supabase secrets unset MCP_PUBLIC_URL MCP_AUTH_URL --project-ref <PROJECT_REF>`.
+3. `supabase functions delete mcp --remote=<PROJECT_REF>`.
+4. `supabase secrets unset MCP_PUBLIC_URL MCP_AUTH_URL --remote=<PROJECT_REF>`.
 5. Pages: Source *None* y borrar las variables.
 6. Comprobar: `curl -s <URL>/functions/v1/api/config` → `{"allow_registration":false}` y que la app inicia sesión.
 
