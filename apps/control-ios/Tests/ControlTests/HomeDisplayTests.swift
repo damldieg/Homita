@@ -46,10 +46,12 @@ final class HomeDisplayTests: XCTestCase {
     }
 
     func testUpdateSendsSettingsAndSelectionWithHomeHeader() async throws {
-        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: self.displayJSON) }
+        // Respuesta real del servidor (R1-02): solo el id, no la pantalla completa
+        StubURLProtocol.reset { _ in StubURLProtocol.Stub(json: #"{"id": 3}"#) }
         let repo = HomeRepository(client: makeTestClient())
         let settings = DisplaySettings(brightness: nil, schedule: .standard, location: nil)
-        _ = try await repo.updateDisplay(UpdateDisplayBody(id: 3, name: "Salón", settings: settings, calendarIds: [1], taskListIds: []))
+        let saved = try await repo.updateDisplay(UpdateDisplayBody(id: 3, name: "Salón", settings: settings, calendarIds: [1], taskListIds: []))
+        XCTAssertEqual(saved.id, 3)
         let sent = try XCTUnwrap(StubURLProtocol.requests.last)
         XCTAssertEqual(sent.httpMethod, "PATCH")
         XCTAssertTrue(sent.url?.path.hasSuffix("/api/home/display/update") == true)

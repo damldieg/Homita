@@ -401,7 +401,7 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 404  # 382 + 22 del MCP de Claude (fase 1: 3 de token, 1 de herramientas, 2 de ver_hogares, 3 de hogar por defecto/explícito,
+EXPECTED_CASES = 406  # +2 de la revisión de la pantalla del hogar (0054: DP3b, DP9b); 382 + 22 del MCP de Claude (fase 1: 3 de token, 1 de herramientas, 2 de ver_hogares, 3 de hogar por defecto/explícito,
                       # 11 de hogar ajeno de A en las herramientas con `hogar`, 2 de hogar ajeno de B), con tokens OAuth reales
                       # 367 + 10 de la pantalla del hogar (0049, DP1–DP10) + 2 de completar (0050, DM1–DM2) + 3 de actualización (0051, DU1–DU3)
                       # + 9 XH de ocultas (0039: 6 XH-B, 1 XH-A-lista, 2 XH-V)
@@ -2700,9 +2700,13 @@ check("DP2 link-confirm del admin A con su hogar → 201", st_c == 201, f"status
 dp_id = parse(body_c)["id"] if st_c == 201 else 0
 st_p, body_p = edge("POST", "/home/display/link-poll", {"poll_secret": dp_secret})
 dp_tok = parse(body_p).get("token") if st_p == 200 else None
+dp_rt = parse(body_p).get("refresh_token") if st_p == 200 else None
 check("DP3 link-poll → ready con la sesión de la pantalla", st_p == 200 and parse(body_p).get("status") == "ready" and bool(dp_tok),
       f"status={st_p} body={body_p[:160]}")
 if dp_tok:
+    # R1-01 (0054 y alta con invitation_pending): la cuenta de la pantalla solo tiene la membresía del hogar que la vincula
+    n_mem = psql(f"select count(*) from home_membership hm join home_display d on d.app_user_id = hm.app_user_id where d.id = {dp_id}")
+    check("DP3b la cuenta de la pantalla tiene una sola membresía (sin hogar personal propio)", n_mem == "1", f"memberships={n_mem}")
     st_u, _ = edge("PATCH", "/home/display/update", {"id": dp_id, "calendar_ids": [cal], "task_list_ids": [lst]}, a_tok, home=home_a)
     check("DP4 A selecciona calendario y lista para su pantalla → 200", st_u == 200, f"status={st_u}")
     # 0050 (marcar hecho): la pantalla completa tareas de su lista y no las edita
@@ -2738,6 +2742,10 @@ if dp_tok:
     st_rv, body_rv = edge("GET", "/task?dashboard=true", None, dp_tok)
     check("DP9 la pantalla revocada no lee tareas del hogar", st_rv in (200, 401) and (st_rv == 401 or parse(body_rv) == []),
           f"status={st_rv} body={body_rv[:120]}")
+    # R1-03: tras revocar, el refresh token de la pantalla ya no renueva la sesión (la cuenta queda baneada en GoTrue)
+    if dp_rt:
+        st_rf, _ = edge("POST", "/user/refresh", {"refresh_token": dp_rt})
+        check("DP9b tras revocar, el refresh token de la pantalla no renueva la sesión", st_rf not in (200,), f"status={st_rf}")
     st_cf, _ = edge("GET", "/display/config", None, dp_tok)
     check("DP10 la pantalla revocada no tiene configuración (404 o 401)", st_cf in (404, 401), f"status={st_cf}")
     psql(f"delete from home_display_link where home_id = {home_a}; delete from home_display where home_id = {home_a};")

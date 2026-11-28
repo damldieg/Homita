@@ -52,12 +52,13 @@ public final class DisplaysStore {
     public func save(display: HomeDisplay, name: String, settings: DisplaySettings,
                      calendarIds: [Int], taskListIds: [Int]) async {
         do {
-            let updated = try await repo.updateDisplay(UpdateDisplayBody(
+            _ = try await repo.updateDisplay(UpdateDisplayBody(
                 id: display.id, name: name.trimmingCharacters(in: .whitespacesAndNewlines), settings: settings,
                 calendarIds: calendarIds, taskListIds: taskListIds))
             lastError = nil
             guard isActive else { return }
-            displays = displays.map { $0.id == updated.id ? updated : $0 }
+            // R1-02: el servidor confirma el id; la pantalla completa se relee, como tras revocar o vincular.
+            await load()
         } catch {
             lastError = homeAdminMessage(error)
         }
