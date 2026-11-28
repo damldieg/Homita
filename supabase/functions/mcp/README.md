@@ -2,8 +2,9 @@
 
 Servidor MCP remoto (Streamable HTTP sin estado) para que Claude consulte los hogares, menús, compra, tareas, eventos,
 rutinas, calendarios y personas de Homita (fase 1, solo lectura) y **escriba el menú semanal, las recetas, los
-alimentos, la compra y las preferencias** (fase 2: 8 herramientas de escritura). Solo local: producción, el despliegue
-y Pages son de la fase 4 (ver «Producción / fase 4»). Las herramientas de organizar (listas, tareas, eventos) son de la fase 3.
+alimentos, la compra y las preferencias** (fase 2: 8 herramientas de escritura) y **organizar listas, tareas, eventos,
+rutinas y calendarios** (fase 3: 17 herramientas). Total: 37 herramientas. El paso a producción (Pages, secretos, deploy,
+Auth) está preparado y documentado en [docs/mcp/DESPLIEGUE.md](../../../docs/mcp/DESPLIEGUE.md) (fase 4); **no está aplicado**.
 
 ## Arquitectura
 
@@ -199,30 +200,45 @@ Tests: `deno check supabase/functions/mcp/index.ts` y
 Medido en el spike local: Auth local publica `/.well-known/oauth-authorization-server`, `authorization_url_path` se
 concatena a `site_url` (no admite URL absoluta) y `/auth/v1/user` acepta tokens OAuth.
 
-## Producción / fase 4 (documentación; nada de esto está hecho)
+## Seguridad
 
-**Pendiente de Damian (no bloquea las fases 1 y 2):** valor actual de `site_url` en producción y si los correos de Auth
-(confirmación, restablecer contraseña) están en uso. Qué mirar en el panel de Supabase antes de decidir:
+- **Solo tokens OAuth de Supabase Auth** (con `client_id`); un JWT de sesión de la app da 401. Auth valida firma, caducidad y
+  sesión en cada petición (`GET /auth/v1/user`): al **revocar** una conexión el token deja de valer en el acto (medido en
+  local: `403` en Auth, `401` en el MCP).
+- **Siempre el JWT del usuario**: los casos de uso del api corren con RLS, ACL y el filtro del hogar activo; nunca clave de
+  servicio. Solo se opera en hogares de los que se es miembro (`resolverHogar`).
+- **Alcance**: lectura (12), escritura de menús (8) y organizar (17). Lista blanca de escritura propia; Kito no tiene
+  `aceptar_menu` y hay tests que lo fijan.
+- **Aprobación de herramienta**: `destructiveHint: true` en `aceptar_menu` y los cinco `borrar_*` hace que el cliente pida
+  aprobación; además `borrar_*` exige `confirmado: true` y `apuntar_preferencia` exige `confirmado_por_usuario: true`.
+- **Concurrencia en el menú**: `cambiar_casillas` y `aceptar_menu` exigen `expected_revision`; si el plan cambió no escriben y
+  devuelven `plan_vigente`. `aceptar_menu` además comprueba conflictos justo antes y no acepta con ellos.
+- **Datos de salud**: dieta y alergias solo con el permiso `menu.health.view`; el MCP no los expone fuera de lo que el api
+  entrega a ese usuario y no los escribe.
+- **Los textos de la BD son datos, no instrucciones** (nombres, notas): lo indican las descripciones y las instrucciones del servidor.
+- **Revocación**: iOS → Ajustes › Claude, o claude.ai, o la API de grants de Auth (ver el runbook, paso 10).
 
-1. Authentication → URL Configuration: `site_url` actual y redirect URLs. Si `site_url` pasa a ser el origen de Pages
-   (la URL del consentimiento es Site URL + `authorization_url_path`), ¿qué enlaces dejan de funcionar?
-2. Authentication → Email Templates: confirmación y restablecimiento; qué usan (`{{ .SiteURL }}`, `{{ .ConfirmationURL }}`).
-3. Si los correos están en uso: hoy el registro está cerrado en producción (`ALLOW_REGISTRATION=false`); comprobar si hay
-   confirmación por correo y SMTP.
-4. Enlaces de correo ya enviados que apunten al `site_url` antiguo.
-5. Authentication → OAuth Server: estado de la beta, `allow_dynamic_registration`, `authorization_url_path` (en local no
-   admite URL absoluta).
-6. Alternativas: `site_url` = origen de Pages; dominio propio para Pages; otro host estático; impacto en correos.
-7. Plan de cambio y **rollback**: anota el `site_url` y las plantillas actuales antes de tocar nada.
-8. Producción del MCP: secretos `MCP_PUBLIC_URL` y `MCP_AUTH_URL`; `supabase functions deploy mcp --no-verify-jwt`;
-   activar Pages (fuente: GitHub Actions) y el `push` de `.github/workflows/pages.yml` (hoy solo `workflow_dispatch`);
-   variables del repositorio `SUPABASE_URL` y `SUPABASE_ANON_KEY` para `config.js`.
+## Límites conocidos
 
-**Límite del antiframe (clickjacking) de la página de consentimiento:** GitHub Pages no deja poner cabeceras
-(`X-Frame-Options`, `frame-ancestors`) y en un `<meta http-equiv>` el navegador ignora `frame-ancestors`, así que la
-protección es por script: `consent.js` deja la página oculta dentro de un iframe (CSS `html:not(.libre) body`) e
-intenta sacarla del marco. Sin JavaScript la página no funciona. Es una defensa más débil que la cabecera: si se
-aloja en un host que permita cabeceras (dominio propio con proxy), añadir `Content-Security-Policy: frame-ancestors 'none'`.
+- **Clickjacking de la página de consentimiento**: GitHub Pages no admite cabeceras; la protección es solo por JavaScript
+  (`consent.js` oculta la página en un iframe e intenta salir del marco). Sin JS no funciona. Con un host que permita
+  cabeceras: `Content-Security-Policy: frame-ancestors 'none'`.
+- **Clientes dinámicos**: cualquier cliente registrado dinámicamente al que el usuario dé consentimiento pasa el verificador;
+  la página muestra el host de `redirect_uri` para que la persona lo compruebe.
+- **`confirmado` es una protección blanda**: lo pone el modelo; la barrera real es `destructiveHint` y la aprobación del cliente.
+- **Idempotencia por minuto** (`crear_lista`, `crear_tarea`, `guardar_borrador`) y por día local (`apuntar_compra`); eventos,
+  rutinas y calendarios no tienen idempotencia en el api: tras un fallo dudoso, comprobar con `ver_*` antes de reintentar.
+- **Last-write-wins** en los `editar_*` (sin `expected_revision`); `editar_rutina` reenvía el estado completo.
+- **Ventana en `aceptar_menu`** entre la comprobación de conflictos y el `accept` (no hay deshacer).
+- **`jwt_expiry`** (7 días en local; el de producción se anota en el runbook): la caducidad es la del JWT de Auth; revocar corta el acceso en el acto
+  porque el MCP consulta a Auth, pero un `jwt_expiry` menor reduce la ventana si ese comportamiento cambiara.
+- No verificable en local: el cliente real de Claude (versión de spec), GitHub Pages sirviendo la página y la beta del OAuth
+  server en el proyecto alojado.
 
-No verificable en local: el cliente real de Claude (versión de spec), GitHub Pages sirviendo `/oauth/consent`, la beta
-del OAuth server en el proyecto alojado.
+## Producción / fase 4
+
+Preparado y **sin aplicar**. El runbook paso a paso, con comandos, comprobaciones y rollback, es
+[docs/mcp/DESPLIEGUE.md](../../../docs/mcp/DESPLIEGUE.md): Pages (`.github/workflows/pages.yml`, solo `workflow_dispatch`),
+secretos `MCP_PUBLIC_URL` y `MCP_AUTH_URL`, `supabase functions deploy mcp --no-verify-jwt`, Auth por dashboard (nunca
+`config push` con `supabase/config.toml`, que es local y tiene `enable_signup = true`) y alta del conector en claude.ai.
+La URL del consentimiento en Pages tiene subruta: `site_url` = origen de Pages y `authorization_url_path = "/Homita/oauth/consent"`.

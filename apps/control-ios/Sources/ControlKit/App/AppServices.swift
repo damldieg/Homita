@@ -13,6 +13,7 @@ public struct AppServices {
     public let persons: PersonRepository
     public let homes: HomeRepository
     public let feedback: FeedbackRepository
+    public let claudeConnections: ClaudeConnectionsRepository
     public let meals: MealRepository
     public let recipes: RecipeRepository
     public let shopping: ShoppingRepository
@@ -75,6 +76,9 @@ public struct AppServices {
         persons = PersonRepository(client: client)
         homes = HomeRepository(client: client)
         feedback = FeedbackRepository(client: client)
+        claudeConnections = ClaudeConnectionsRepository(
+            config: config, http: http, tokenProvider: { [weak session] in session?.accessToken }, refresher: auth)
+        claudeConnections.onSessionExpired = client.onSessionExpired
         meals = MealRepository(client: client)
         recipes = RecipeRepository(client: client)
         shopping = ShoppingRepository(client: client)

@@ -1,8 +1,9 @@
 ---
 # Publica SOLO web/ (página de consentimiento OAuth del MCP de Claude) en GitHub Pages.
 # PREPARADO, SIN ACTIVAR (fase 1): solo `workflow_dispatch`, y además Pages no está habilitado en el repositorio.
-# Fase 4: habilitar Pages (fuente: GitHub Actions), crear las variables del repositorio SUPABASE_URL y
-# SUPABASE_ANON_KEY (públicas, sin secretos) y añadir `push` a `master` en `on:` (ver supabase/functions/mcp/README.md).
+# Fase 4 (docs/mcp/DESPLIEGUE.md): Damian habilita Pages (fuente: GitHub Actions), crea las variables del repositorio
+# SUPABASE_URL y SUPABASE_ANON_KEY (públicas, sin secretos) y lanza este workflow a mano. Añadir `push` a `master` en
+# `on:` es opcional y posterior.
 name: pages
 
 on:
@@ -38,6 +39,8 @@ jobs:
         run: |
           set -euo pipefail
           [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ] || { echo "faltan las variables SUPABASE_URL y SUPABASE_ANON_KEY"; exit 1; }
+          case "$SUPABASE_URL" in https://*[!A-Za-z0-9./:-]*|https://) echo "SUPABASE_URL con caracteres inesperados"; exit 1 ;; https://*) ;; *) echo "SUPABASE_URL debe ser https://"; exit 1 ;; esac
+          case "$SUPABASE_ANON_KEY" in *[!A-Za-z0-9._-]*) echo "SUPABASE_ANON_KEY con caracteres inesperados"; exit 1 ;; esac
           printf 'window.HOMITA_CONFIG = { SUPABASE_URL: "%s", SUPABASE_ANON_KEY: "%s" };\n' \
             "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > web/oauth/consent/config.js
 
