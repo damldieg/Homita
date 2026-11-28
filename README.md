@@ -105,6 +105,18 @@ Instalarla en el marco y convertirlo en quiosco: [docs/SETUP.md](docs/SETUP.md).
 
 `apps/control/` es la app Android donde se crean y editan calendarios, eventos, rutinas, personas y tareas con la misma cuenta que usa el marco. Es [Homita](apps/control/README.md) importado al monorepo: funciones, capturas y build están en [su README](apps/control/README.md), y allí se marca qué calendarios y listas se ven en el dashboard (interruptor «Mostrar en el dashboard»).
 
+### App de control en iOS
+
+Las mismas pestañas en el iPhone, con la cuenta del hogar (capturas con datos de la demo):
+
+<p>
+  <img src="docs/images/ios-hoy.png" width="180" alt="iOS: Inicio" />
+  <img src="docs/images/ios-tareas.png" width="180" alt="iOS: Tareas" />
+  <img src="docs/images/ios-calendario.png" width="180" alt="iOS: Calendario" />
+  <img src="docs/images/ios-menu.png" width="180" alt="iOS: Menú" />
+  <img src="docs/images/ios-hogar.png" width="180" alt="iOS: Hogar" />
+</p>
+
 ## La API
 
 El único backend es la Edge Function `api` de Supabase ([supabase/](supabase/README.md)): esquema
