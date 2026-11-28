@@ -88,6 +88,13 @@ export interface EscrituraCtx extends LecturaCtx {
     uid: string;
     leer: Leer;
     escribir: EscribirFn;
+    /** app_user.id numérico del usuario; solo se rellena con la opción `appUser` de `escribirEnHogar`. */
+    appUserId?: string;
+}
+
+export interface OpcionesEscritura {
+    /** La lógica necesita el `app_user.id` del usuario (p. ej. no compartir un calendario consigo mismo). */
+    appUser?: boolean;
 }
 
 /** Datos de una escritura correcta; si falló, lanza `ErrorEscritura` (la traduce `errorDe`). */
@@ -105,6 +112,7 @@ export const escribirEnHogar = async (
     env: Entorno,
     args: { hogar?: string; timezone?: string },
     fn: (ctx: EscrituraCtx) => Promise<unknown>,
+    opciones: OpcionesEscritura = {},
 ): Promise<ResultadoTool> => {
     const tz = args.timezone ?? ZONA_POR_DEFECTO;
     if (!validTimezone(tz)) return errorTool("Zona horaria no válida: usa un nombre IANA como Europe/Madrid.");
@@ -116,6 +124,7 @@ export const escribirEnHogar = async (
                 homeId: hogar.homeId, timezone: tz, now: env.now(), uid: env.uid,
                 leer: lectorDe(env, tz), escribir: env.crearEscritor(env.token, env.uid, tz),
             };
+            if (opciones.appUser) ctx.appUserId = (await env.appUserId(env.uid, env.token)) ?? undefined;
             return resultadoJson(await fn(ctx));
         });
     } catch (e) {
