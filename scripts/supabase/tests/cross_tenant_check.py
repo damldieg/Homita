@@ -405,7 +405,9 @@ commit;
 # TDL_A12 (por defecto 20; el builder usa 3). Sin variables, comportamiento idéntico al previo.
 XT_ONLY = {x.strip().upper() for x in os.environ.get("XT_ONLY", "").split(",") if x.strip()}
 # Casos que debe ejecutar la suite completa (sin XT_ONLY); medido en un run limpio (CI la exige).
-EXPECTED_CASES = 429  # 406 (404 + 2 de la pantalla del hogar, 0054) + 23 del MCP de Claude (fase 2: la lista de 20 herramientas sustituye a la de 12; 1 de preparación de B, 8 de hogar ajeno en
+EXPECTED_CASES = 476  # 406 (404 + 2 de la pantalla del hogar, 0054) + 47 del MCP de Claude (fase 3, organizar: 2 de preparación (B y la persona con cuenta de A), 17 de hogar
+                      # ajeno en las 17 herramientas, 2 de B intacto, 1 de «sin XT-X», 15 de ids de B con hogar propio, 1 de B intacto, 1 de compartir con una
+                      # persona de B y 9 de controles positivos de A) + 23 del MCP de Claude (fase 2: la lista de 20 herramientas sustituye a la de 12; 1 de preparación de B, 8 de hogar ajeno en
                       # las herramientas de escritura, 1 de B intacto, 7 de ids de B con hogar propio, 1 de B intacto y 5 de controles
                       # positivos de A) sobre los 22 de la fase 1 ( 3 de token, 1 de herramientas, 2 de ver_hogares, 3 de hogar por defecto/explícito,
                       # 11 de hogar ajeno de A en las herramientas con `hogar`, 2 de hogar ajeno de B), con tokens OAuth reales
@@ -512,8 +514,8 @@ if xt_on("MCP"):
     check("MCP con un token OAuth manipulado → 401",
           mcp_rpc(f"{head}.{payload}.{sig[:-4]}{'AAAA' if sig[-4:] != 'AAAA' else 'BBBB'}", "tools/list")[0] == 401)
     st, rpc = mcp_rpc(a_oauth, "tools/list")
-    check("MCP: el token OAuth de A lista las 20 herramientas (12 de lectura y 8 de escritura)",
-          st == 200 and len(rpc["result"]["tools"]) == 20, f"status={st}")
+    check("MCP: el token OAuth de A lista las 37 herramientas (12 de lectura, 8 de menús y 17 de organizar)",
+          st == 200 and len(rpc["result"]["tools"]) == 37, f"status={st}")
     _, err, txt = mcp_call(a_oauth, "ver_hogares")
     check("MCP A ver_hogares: solo su hogar", not err and f'"id":"{home_a}"' in txt and f'"id":"{home_b}"' not in txt, txt[:200])
     _, err, txt = mcp_call(b_oauth, "ver_hogares")
@@ -640,6 +642,139 @@ if xt_on("MCP"):
         edge("DELETE", f"/recipe/delete?id={mcp_a_rec}", None, a_tok)
     if isinstance(mcp_a_food, int):
         edge("DELETE", f"/food/delete?id={mcp_a_food}", None, a_tok)
+
+    # ── MCP fase 3 (organizar): A no crea, edita, comparte ni borra listas, tareas, eventos, rutinas ni calendarios de B ──
+    # B tiene una lista, una tarea, un evento, una rutina y un calendario XT-B-*; A, con su token OAuth, intenta las 17
+    # herramientas de escritura con hogar=home(B) y con ids de B en su propio hogar: todo da error de herramienta (los
+    # borrar_* de algo que A no ve dan «ya estaba»: no existe para A, y no borran nada) y lo de B no cambia. Antes, para
+    # los controles positivos, A tiene una persona con cuenta (C, miembro de home(A) preparada por psql). Solo stack local.
+    b_rou = parse(edge("POST", f"/routine/create?timezone={TZ}", {
+        "calendar_id": b_cal, "title": "XT-B-Rutina", "frequency": "daily", "interval": 1, "days": [], "time": "09:00",
+        "start_date": start, "end_date": None, "active": True}, b_tok)[1])["id"]
+
+    def b_estado_org():
+        """Foto de lo de B (filas completas, así cualquier edición cambia la foto): lista, tarea, evento, rutina, calendario y su ACL."""
+        def filas(sql):
+            return psql(f"select coalesce(string_agg(t::text, ',' order by t.id), '') from ({sql}) t")
+        return (
+            filas(f"select * from task_list where id = {b_lst}"), filas(f"select * from task where task_list_id = {b_lst}"),
+            filas(f"select * from event where id = {b_evt}"), filas(f"select * from routine where id = {b_rou}"),
+            filas(f"select * from calendar where id = {b_cal}"),
+            psql(f"select coalesce(string_agg(user_id || ':' || role::text || ':' || can_edit::text, ',' order by user_id), '') "
+                 f"from calendar_user where calendar_id = {b_cal}"),
+        )
+    bo_antes = b_estado_org()
+    check("MCP organizar preparación: B tiene lista, tarea, evento, rutina y calendario XT-B- (con su ACL de propietario)",
+          all(bo_antes[:5]) and bo_antes[5] == f"{b_id}:owner:true", repr(bo_antes)[:300])
+
+    # Persona con cuenta en home(A): C (miembro de home(A)) con una persona de A vinculada a su cuenta. Se deshace al final del bloque.
+    edge("POST", "/user/create", {"name": C_NAME, "email": C_EMAIL, "password": C_PASSWORD})
+    c_auth_org = edge("POST", "/user/auth", {"email": C_EMAIL, "password": C_PASSWORD})
+    if c_auth_org[0] != 200:
+        sys.exit(f"no se pudo autenticar xt-c (¿ALLOW_REGISTRATION=true en la Edge para el alta?) {c_auth_org!r}")
+    c_id_org = parse(c_auth_org[1])["id"]
+    xt_per_c = parse(edge("POST", "/person/create", {"name": "XT-A-Compañera", "color": "#ABCDEF"}, a_tok)[1])["id"]
+    psql(f"""
+begin;
+insert into home_membership (home_id, app_user_id, role) values ({home_a}, {c_id_org}, 'member');
+update home_member set app_user_id = {c_id_org} where id = (select home_member_id from person where id = {xt_per_c});
+commit;
+""")
+    pc = [p for p in (parse(edge("GET", "/person", None, a_tok)[1]) or []) if p.get("id") == xt_per_c]
+    check("MCP organizar preparación: A tiene una persona con cuenta (C) en su hogar",
+          len(pc) == 1 and str(pc[0].get("app_user_id")) == str(c_id_org), repr(pc)[:200])
+
+    org_ataques = [
+        ("crear_lista", {"nombre": "XT-X-Lista"}),
+        ("editar_lista", {"id": b_lst, "nombre": "XT-X-Lista"}),
+        ("borrar_lista", {"id": b_lst, "confirmado": True}),
+        ("crear_tarea", {"titulo": "XT-X-Tarea", "lista_id": b_lst}),
+        ("editar_tarea", {"id": b_tsk, "titulo": "XT-X-Tarea"}),
+        ("completar_tarea", {"id": b_tsk}),
+        ("borrar_tarea", {"id": b_tsk, "confirmado": True}),
+        ("crear_evento", {"titulo": "XT-X-Evento", "inicio": "2031-03-04 10:00", "calendario_id": b_cal}),
+        ("editar_evento", {"id": b_evt, "titulo": "XT-X-Evento"}),
+        ("borrar_evento", {"id": b_evt, "confirmado": True}),
+        ("crear_rutina", {"titulo": "XT-X-Rutina", "hora": "08:00", "frecuencia": "diaria", "calendario_id": b_cal}),
+        ("editar_rutina", {"id": b_rou, "titulo": "XT-X-Rutina"}),
+        ("borrar_rutina", {"id": b_rou, "confirmado": True}),
+        ("crear_calendario", {"nombre": "XT-X-Cal", "solo_yo": True}),
+        ("editar_calendario", {"id": b_cal, "nombre": "XT-X-Cal"}),
+        ("compartir_calendario", {"calendario_id": b_cal, "persona_id": xt_per_c, "puede_editar": True}),
+        ("borrar_calendario", {"id": b_cal, "confirmado": True}),
+    ]
+    for tool, args in org_ataques:
+        st, err, txt = mcp_call(a_oauth, tool, args, home=home_b)
+        check(f"MCP A con hogar=home(B) en {tool} → error de herramienta y nada de B",
+              st == 200 and err and "XT-B-" not in txt and "No tienes acceso a ese hogar" in txt, f"status={st} {txt[:160]}")
+    check("MCP organizar: tras las 17 herramientas con hogar=home(B), lo de B no ha cambiado", b_estado_org() == bo_antes, repr(b_estado_org())[:300])
+    check("MCP organizar: A no ha creado nada XT-X en ningún hogar tras hogar=home(B)",
+          psql("select count(*) from (select name from task_list union all select title from task union all select title from event "
+               "union all select title from routine union all select name from calendar) t where name like 'XT-X-%'") == "0")
+
+    # A, en su propio hogar, con ids de B. Los borrar_* de algo que A no ve dan «ya estaba» (no existe para A) sin borrar nada.
+    ids_b = [t for t in org_ataques if t[0] not in ("crear_lista", "crear_calendario")]
+    for tool, args in ids_b:
+        args = {k: v for k, v in args.items() if k != "hogar"}
+        st, err, txt = mcp_call(a_oauth, tool, args)
+        datos = mcp_json(txt)
+        check(f"MCP A {tool} con ids de B (hogar=A) → error o «ya estaba», sin escribir en B",
+              st == 200 and (err or datos.get("ya_estaba") is True) and "XT-B-" not in txt, f"status={st} {txt[:160]}")
+    check("MCP organizar: tras los ids de B con hogar propio, lo de B sigue idéntico", b_estado_org() == bo_antes, repr(b_estado_org())[:300])
+
+    # compartir un calendario de A con una persona de B (otro hogar): error y sin fila de B en la ACL de A.
+    st, err, txt = mcp_call(a_oauth, "compartir_calendario", {"calendario_id": cal, "persona_id": b_per_mcp, "puede_editar": True})
+    n_acl_b = psql(f"select count(*) from calendar_user where calendar_id = {cal} and user_id = {b_id}")
+    check("MCP A compartir_calendario con una persona de B → error y B no entra en la ACL del calendario de A",
+          st == 200 and err and n_acl_b == "0", f"status={st} acl={n_acl_b} {txt[:160]}")
+
+    # Controles positivos: A sí organiza en su hogar. Una lista con 3 tareas; el reintento en el mismo minuto no duplica.
+    if time.time() % 60 > 52:
+        time.sleep(60 - time.time() % 60 + 1)  # no cruzar el minuto de la clave de idempotencia entre las dos llamadas
+    st, err, txt = mcp_call(a_oauth, "crear_lista", {"nombre": "XT-A-Viaje"})
+    a_lst = mcp_json(txt).get("id")
+    check("MCP A crear_lista en su hogar → creada", st == 200 and not err and isinstance(a_lst, int), txt[:200])
+    ids_tareas = []
+    for titulo in ("XT-A-Maletas", "XT-A-Billetes", "XT-A-Hotel"):
+        st, err, txt = mcp_call(a_oauth, "crear_tarea", {"titulo": titulo, "lista_id": a_lst})
+        ids_tareas.append(mcp_json(txt).get("id") if st == 200 and not err else None)
+    check("MCP A crear_tarea ×3 en su lista → tres tareas", all(isinstance(i, int) for i in ids_tareas) and len(set(ids_tareas)) == 3, repr(ids_tareas))
+    st, err, txt = mcp_call(a_oauth, "crear_tarea", {"titulo": "XT-A-Maletas", "lista_id": a_lst})
+    n_tareas = psql(f"select count(*) from task where task_list_id = {a_lst}")
+    check("MCP A repite crear_tarea en el mismo minuto → no duplica (misma clave de idempotencia)",
+          st == 200 and not err and mcp_json(txt).get("id") == ids_tareas[0] and n_tareas == "3", f"{txt[:160]} tareas={n_tareas}")
+    st, err, _ = mcp_call(a_oauth, "completar_tarea", {"id": ids_tareas[0]})
+    hecha = psql(f"select completed_at is not null from task where id = {ids_tareas[0]}")
+    st2, err2, _ = mcp_call(a_oauth, "completar_tarea", {"id": ids_tareas[0], "completada": False})
+    pendiente = psql(f"select completed_at is null from task where id = {ids_tareas[0]}")
+    check("MCP A completar_tarea y desmarcar → completada y de nuevo pendiente",
+          st == 200 and st2 == 200 and not err and not err2 and hecha == "t" and pendiente == "t", f"{hecha} {pendiente}")
+    mcp_call(a_oauth, "completar_tarea", {"id": ids_tareas[1]})
+    st, err, txt = mcp_call(a_oauth, "borrar_lista", {"id": a_lst})
+    d = mcp_json(txt)
+    check("MCP A borrar_lista sin confirmado → no borra y dice las tareas totales (2 pendientes, 1 hecha)",
+          st == 200 and not err and d.get("ejecutado") is False and "3 (2 pendientes, 1 hechas)" in str(d.get("se_borraria"))
+          and psql(f"select count(*) from task_list where id = {a_lst}") == "1", txt[:300])
+    st, err, txt = mcp_call(a_oauth, "borrar_lista", {"id": a_lst, "confirmado": True})
+    check("MCP A borrar_lista con confirmado → se borra la lista y todas sus tareas",
+          st == 200 and not err and psql(f"select count(*) from task_list where id = {a_lst}") == "0"
+          and psql(f"select count(*) from task where id in ({','.join(str(i) for i in ids_tareas if i)})") == "0", txt[:200])
+    # Calendario compartido con la persona con cuenta: solo lectura al crear; permiso de edición con compartir_calendario.
+    st, err, txt = mcp_call(a_oauth, "crear_calendario", {"nombre": "XT-A-Futbol", "compartir_con": [{"persona_id": xt_per_c}]})
+    a_cal = mcp_json(txt).get("id")
+    acl = psql(f"select role::text || ':' || can_edit::text from calendar_user where calendar_id = {a_cal} and user_id = {c_id_org}") if isinstance(a_cal, int) else ""
+    check("MCP A crear_calendario compartido con la persona con cuenta → ACL viewer en solo lectura",
+          st == 200 and not err and acl == "viewer:false", f"{txt[:200]} acl={acl!r}")
+    st, err, txt = mcp_call(a_oauth, "compartir_calendario", {"calendario_id": a_cal, "persona_id": xt_per_c, "puede_editar": True})
+    acl = psql(f"select can_edit::text from calendar_user where calendar_id = {a_cal} and user_id = {c_id_org}") if isinstance(a_cal, int) else ""
+    check("MCP A compartir_calendario con puede_editar → can_edit true en la BD", st == 200 and not err and acl == "true", f"{txt[:200]} can_edit={acl!r}")
+    check("MCP organizar: tras los controles positivos de A, lo de B sigue idéntico", b_estado_org() == bo_antes, repr(b_estado_org())[:300])
+    # Limpieza de lo de A y de la preparación de C (C vuelve a ser un no miembro de home(A) para los bloques siguientes).
+    if isinstance(a_cal, int):
+        edge("DELETE", "/calendar/delete", {"id": a_cal}, a_tok)
+    psql(f"delete from home_membership where home_id = {home_a} and app_user_id = {c_id_org}")
+    edge("DELETE", "/person/delete", {"id": xt_per_c}, a_tok)
+    edge("DELETE", "/routine/delete", {"id": b_rou}, b_tok)
     edge("POST", "/meal/plan/archive", {"plan_id": mcp_b_plan_id}, b_tok)
     edge("DELETE", f"/shopping/item/delete?id={mcp_b_item}", None, b_tok)
     edge("DELETE", f"/recipe/delete?id={mcp_b_rec}", None, b_tok)
