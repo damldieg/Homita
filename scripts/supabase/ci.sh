@@ -286,10 +286,14 @@ expect_log "SQL 0051 rollback: sin columnas ni funciones" sql-rb0051-check 'ok V
 # revocación y grants). Ida y vuelta: rollback_0049 → comprobaciones de ausencia → reaplicar 0049 → de nuevo la suite.
 run "SQL home_display_check" sql-home-display sql "$HERE/scripts/supabase/tests/home_display_check.sql"
 expect_log "SQL home_display_check" sql-home-display 'ok D1([^0-9]|$)' 'ok D2([^0-9]|$)' 'ok D5([^0-9]|$)' 'ok D6([^0-9]|$)' 'ok D8([^0-9]|$)' 'ok D10([^0-9]|$)' 'ok D12([^0-9]|$)' 'ok D-clean'
+# 0054 (R1-04 de la revisión de la pantalla del hogar): fn_display_update exige permiso de edición sobre lo que añade.
+# Su rollback va justo antes del de 0049 (LIFO), DESPUÉS de home_display_check: ese check debe correr con 0054 aplicada.
+run "SQL 0054 rollback (LIFO antes de 0049, tras home_display_check)" sql-rb0054 sql "$HERE/scripts/supabase/rollback/rollback_0054_display_acl.sql"
 run "SQL home_display_rollback (rollback_0049)" sql-rb0049 sql "$HERE/scripts/supabase/rollback/rollback_0049_home_display.sql"
 run "SQL home_display_rollback_check" sql-rb0049-check sql "$HERE/scripts/supabase/tests/home_display_rollback_check.sql"
 expect_log "SQL home_display_rollback_check" sql-rb0049-check 'ok R1([^0-9]|$)' 'ok R2([^0-9]|$)' 'ok R3([^0-9]|$)'
 run "SQL 0049 reaplicada" sql-ra0049 sql "$HERE/supabase/migrations/0049_home_display.sql"
+run "SQL 0054 reaplicada (tras 0049)" sql-ra0054 sql "$HERE/supabase/migrations/0054_display_acl.sql"
 run "SQL home_display_check (tras reaplicar 0049)" sql-ra0049-check sql "$HERE/scripts/supabase/tests/home_display_check.sql"
 expect_log "SQL home_display_check (tras reaplicar 0049)" sql-ra0049-check 'ok D-clean'
 run "deno test api displays" deno-test-api-displays env NO_COLOR=1 deno test --no-prompt --allow-env "$API_FN/tests/displays_test.ts"

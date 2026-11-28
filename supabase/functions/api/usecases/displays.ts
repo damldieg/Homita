@@ -7,7 +7,7 @@
 import { contractInput, contractEmpty, inputString, inputInt, getInput, json, type ContractInput } from "../_shared/contract.ts";
 import { error, errHomeIdRequired, errNameRequired, rpcError, rpcPassHome } from "../_shared/errors.ts";
 import { currentHome } from "../_shared/home.ts";
-import { adminCreateUser, adminDeleteUser, passwordGrant, rpc, serviceRpc } from "../_shared/supabase.ts";
+import { adminBanUser, adminCreateUser, adminDeleteUser, passwordGrant, rpc, serviceRpc } from "../_shared/supabase.ts";
 
 // Contraseña y correo de la cuenta técnica: aleatorios, la contraseña no se guarda en ningún sitio.
 const randomHex = (bytes: number): string =>
@@ -162,7 +162,12 @@ export const handleDisplayRevoke = async (req: Request, token: string): Promise<
     const res = await rpc("fn_display_revoke", { p_home_id: Number(homeId), p_display_id: displayId }, token);
     const body = await res.json().catch(() => null) as { id?: number; auth_uid?: string | null } | null;
     if (!res.ok) return RPC_ERRORS(body);
-    if (body?.auth_uid) await adminDeleteUser(body.auth_uid).catch(() => undefined);
+    if (body?.auth_uid) {
+        // R1-03: primero se bloquea la cuenta; si no se puede, la revocación no se da por completa.
+        const banned = await adminBanUser(body.auth_uid).catch(() => null);
+        if (!banned?.ok) return error("Revoked in the home but the account could not be blocked; try again", 500);
+        await adminDeleteUser(body.auth_uid).catch(() => undefined);
+    }
     return json({ id: displayId, revoked: true });
 };
 

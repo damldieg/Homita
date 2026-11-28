@@ -21,11 +21,11 @@ extension HomeRepository {
         )
     }
 
-    /// `PATCH home/display/update` → la pantalla con sus ajustes y selección nuevos.
-    public func updateDisplay(_ body: UpdateDisplayBody) async throws -> HomeDisplay {
+    /// `PATCH home/display/update` → `{id}` (R1-02: el servidor no devuelve la pantalla completa; la lista se relee).
+    public func updateDisplay(_ body: UpdateDisplayBody) async throws -> DisplayUpdated {
         try await client.send(
             APIRequest(method: .patch, path: "home/display/update", body: try client.encode(body)),
-            as: HomeDisplay.self
+            as: DisplayUpdated.self
         )
     }
 

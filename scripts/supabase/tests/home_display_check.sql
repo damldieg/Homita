@@ -17,6 +17,7 @@
 -- D8 límite de 5 pantallas activas por hogar → 'Display limit reached' en la sexta.
 -- D9 update: calendario de otro hogar → 'Invalid display selection'; selección válida → calendar_user
 --    con dashboard = true y role viewer; quitar un calendario borra su fila.
+-- D9b (0054, R1-04): calendar.manage sin ser dueño del calendario no puede añadirlo a la pantalla → Not Allowed.
 -- D10 revoke: sin membresía, sin selección, revoked_at puesto; otra revocación → 'Not Found'.
 -- D11 la pantalla revocada no puede leer su configuración ('Not Found'); antes sí.
 -- D12 fn_can_manage_displays: admin y calendar.manage sí; member sin permisos no.
@@ -42,8 +43,8 @@ begin
     -- Las vinculaciones de prueba sin hogar (D3, D4, D7, D8) también: la BD es local.
     delete from home_display_link where home_id in (994001, 994002) or home_id is null;
     delete from home_display where home_id in (994001, 994002);
-    delete from calendar_user where calendar_id in (994001, 994002);
-    delete from calendar where id in (994001, 994002);
+    delete from calendar_user where calendar_id in (994001, 994002, 994003);
+    delete from calendar where id in (994001, 994002, 994003);
     delete from membership_permission where home_membership_id between 994001 and 994009;
     delete from home_member where home_id in (994001, 994002);
     delete from home_membership where home_id in (994001, 994002);
@@ -106,10 +107,12 @@ insert into home_member (id, home_id, kind, name, color, app_user_id, status) va
     (994004, 994002, 'adult', 'HD-MO', '#440000', 994002, 'active');
 insert into calendar (id, name, color, token, home_id) values
     (994001, 'HD-K', '#6923E2', 'hd-token-994001', 994001),
-    (994002, 'HD-KO', '#6923E2', 'hd-token-994002', 994002);
+    (994002, 'HD-KO', '#6923E2', 'hd-token-994002', 994002),
+    (994003, 'HD-KA', '#6923E2', 'hd-token-994003', 994001);
 insert into calendar_user (calendar_id, user_id, role, widget, dashboard, home_id) values
     (994001, 994001, 'owner', true, true, 994001),
-    (994002, 994002, 'owner', true, true, 994002);
+    (994002, 994002, 'owner', true, true, 994002),
+    (994003, 994001, 'owner', true, false, 994001);
 
 commit;
 
@@ -246,6 +249,10 @@ begin
     perform pg_temp.as_user(2);
     perform pg_temp.fails('D9a', format('select fn_display_update(994001, %s, ''Salón'', ''{}''::jsonb, array[994002], array[]::bigint[])', v_display),
         'P0001', 'Invalid display selection');
+    -- R1-04 (0054): B tiene calendar.manage pero no es dueño de K (994001): no puede añadirlo a la pantalla
+    perform pg_temp.fails('D9b', format('select fn_display_update(994001, %s, ''Salón'', ''{}''::jsonb, array[994003], array[]::bigint[])', v_display),
+        '42501', 'Not Allowed');
+    perform pg_temp.as_user(1);
     perform fn_display_update(994001, v_display, 'Salón', '{"brightness":0.5}'::jsonb, array[994001], array[]::bigint[]);
     if not exists (select 1 from calendar_user where calendar_id = 994001 and user_id = 994004 and dashboard and role = 'viewer') then
         raise exception 'home_display D9: la selección no creó la fila de calendar_user';

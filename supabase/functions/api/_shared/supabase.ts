@@ -149,11 +149,21 @@ export const serviceRpc = (name: string, args: Record<string, unknown>): Promise
     fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, { method: "POST", headers: serviceHeaders(), body: JSON.stringify(args) });
 
 // Cuenta técnica de la pantalla: correo sintético, contraseña aleatoria que no se guarda (solo sirve el refresh token).
+// La cuenta técnica de una pantalla lleva invitation_pending: el trigger de 0027 no le crea un hogar personal con rol admin
+// (R1-01 de la revisión de dashboard-pantalla-hogar). Solo tiene la membresía del hogar que la vincula.
 export const adminCreateUser = (email: string, password: string, name: string): Promise<Response> =>
     fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
         method: "POST",
         headers: serviceHeaders(),
-        body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { name } }),
+        body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { name, invitation_pending: "true" } }),
+    });
+
+// Bloquea la cuenta en GoTrue (R1-03): una cuenta baneada no renueva su sesión, aunque su fila siga en auth.users.
+export const adminBanUser = (uid: string): Promise<Response> =>
+    fetch(`${SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(uid)}`, {
+        method: "PUT",
+        headers: serviceHeaders(),
+        body: JSON.stringify({ ban_duration: "876000h" }),
     });
 
 export const adminDeleteUser = (uid: string): Promise<Response> =>

@@ -86,6 +86,11 @@ public struct HomeDisplay: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+/// Resultado de `PATCH home/display/update`: solo el id de la pantalla guardada (0049, `json_build_object('id', ...)`).
+public struct DisplayUpdated: Codable, Equatable, Sendable {
+    public let id: Int
+}
+
 /// Resultado de confirmar una vinculación (`POST home/display/link-confirm`, 201).
 public struct DisplayLinked: Codable, Equatable, Sendable {
     public let id: Int

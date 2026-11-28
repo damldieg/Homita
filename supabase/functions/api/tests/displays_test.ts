@@ -119,6 +119,9 @@ Deno.test("confirm completo: claim, cuenta de GoTrue, sesión y complete → 201
             const res = await handleDisplayLinkConfirm(confirmReq({ code: "123456", name: "Salón" }), "tok");
             assertEquals(res.status, 201);
             assertEquals(await res.json(), { id: 9, name: "Salón", home_id: 1 });
+            // R1-01: la cuenta técnica nace con invitation_pending (sin hogar personal con rol admin)
+            const create = calls.find((c) => c.url.endsWith("/auth/v1/admin/users") && c.method === "POST")!;
+            assertEquals((create.body as { user_metadata: Record<string, unknown> }).user_metadata.invitation_pending, "true");
             const complete = calls.find((c) => c.url.includes("fn_display_link_complete"))!;
             assertEquals((complete.body as Record<string, unknown>).p_auth_uid, "uid-1");
             assertEquals((complete.body as Record<string, unknown>).p_link_id, 7);
@@ -146,7 +149,7 @@ Deno.test("confirm con fallo al completar → borra la cuenta de GoTrue y aborta
     });
 });
 
-Deno.test("revoke borra la cuenta de GoTrue con su auth_uid", async () => {
+Deno.test("revoke bloquea la cuenta en GoTrue y luego la borra con su auth_uid", async () => {
     await runWithHome("1", async () => {
         await withStub([
             ["/rpc/fn_display_revoke", { status: 200, body: { id: 9, auth_uid: "uid-9" } }],
@@ -155,7 +158,22 @@ Deno.test("revoke borra la cuenta de GoTrue con su auth_uid", async () => {
             const res = await handleDisplayRevoke(post("home/display/revoke", { id: 9 }), "tok");
             assertEquals(res.status, 200);
             assertEquals(await res.json(), { id: 9, revoked: true });
+            const ban = calls.find((c) => c.method === "PUT" && c.url.endsWith("/auth/v1/admin/users/uid-9"))!;
+            assertEquals((ban.body as { ban_duration: string }).ban_duration, "876000h");
             assertEquals(calls.some((c) => c.method === "DELETE" && c.url.endsWith("/auth/v1/admin/users/uid-9")), true);
+        });
+    });
+});
+
+Deno.test("revoke: si no se puede bloquear la cuenta, error 500 y no se borra nada", async () => {
+    await runWithHome("1", async () => {
+        await withStub([
+            ["/rpc/fn_display_revoke", { status: 200, body: { id: 9, auth_uid: "uid-9" } }],
+            ["/auth/v1/admin/users/uid-9", { status: 500, body: {} }],
+        ], async (calls) => {
+            const res = await handleDisplayRevoke(post("home/display/revoke", { id: 9 }), "tok");
+            assertEquals(res.status, 500);
+            assertEquals(calls.some((c) => c.method === "DELETE"), false);
         });
     });
 });
