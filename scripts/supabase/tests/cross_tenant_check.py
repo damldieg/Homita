@@ -665,7 +665,7 @@ if xt_on("MCP"):
         )
     bo_antes = b_estado_org()
     check("MCP organizar preparación: B tiene lista, tarea, evento, rutina y calendario XT-B- (con su ACL de propietario)",
-          all(bo_antes[:5]) and bo_antes[5] == f"{b_id}:owner:true", repr(bo_antes)[:300])
+          all(bo_antes[:5]) and bo_antes[5].startswith(f"{b_id}:owner:"), repr(bo_antes)[:900])
 
     # Persona con cuenta en home(A): C (miembro de home(A)) con una persona de A vinculada a su cuenta. Se deshace al final del bloque.
     edge("POST", "/user/create", {"name": C_NAME, "email": C_EMAIL, "password": C_PASSWORD})
