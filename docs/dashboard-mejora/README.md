@@ -23,8 +23,9 @@ remota. La auditoría completa, con los hallazgos numerados (U, N, A, C, Q), est
 | 03 | [03-dashboard-pantalla-hogar](prompts/03-dashboard-pantalla-hogar.md) | Vincular con código desde iOS; la pantalla es del hogar y se configura desde el móvil | Sí, identidad de la pantalla | 01 |
 | 04 | [04-dashboard-marcar-hecho](prompts/04-dashboard-marcar-hecho.md) | Completar tareas con un toque y filtrar por persona | Confirma si la pantalla escribe | 02 y 03 |
 | 05 | [05-dashboard-actualizacion-remota](prompts/05-dashboard-actualizacion-remota.md) | Actualizar las pantallas sin ADB | Sí, dónde se publica la APK | 03 |
+| 06 | [06-dashboard-menu-compra](prompts/06-dashboard-menu-compra.md) | Pantalla Menú rediseñada (Semana) y Compra en la pared, con marcar comprado | Sí, capturas de la fase A antes de la fase B | 03 y 04 |
 
-Orden: 01 ∥ 02 → 03 → 04 → 05. El 01 y el 02 pueden ir en paralelo porque no tocan los mismos ficheros
+Orden: 01 ∥ 02 → 03 → 04 → 05; el 06 puede ir en cuanto 03 y 04 estén en master. El 01 y el 02 pueden ir en paralelo porque no tocan los mismos ficheros
 salvo `DashboardViewModel.kt`; si los lanzas a la vez, fusiona primero el 01.
 
 ## Antes de empezar, decide
@@ -35,7 +36,8 @@ un paso, el 04; las demás las pide cada prompt en su momento.
 ## Cómo encaja con lo que ya está en marcha
 
 - **Planificador de comidas**: «Hoy se come» ya está en master (fase 4). El paso 02 le da sitio propio en
-  Hoy; la Compra en pantalla queda para después.
+  Hoy. El paso 06 rediseña la pantalla Menú y añade la Compra (decidido el 2026-11-28: la pared marca y
+  desmarca comprado, nada más).
 - **Kito**: no entra en la pantalla (el XORO no tiene micrófono). El resumen «Buenos días» (A5) puede
   reutilizar la tarjeta de Hoy cuando el paso 02 esté hecho.
 - **TestFlight**: el paso 03 añade una sección a la app iOS, así que entra en la siguiente versión.
