@@ -17,6 +17,9 @@ import com.dld.homita.dashboard.data.Person
 import com.dld.homita.dashboard.data.Task
 import com.dld.homita.dashboard.data.Diagnostics
 import com.dld.homita.dashboard.data.Freshness
+import com.dld.homita.dashboard.data.HttpError
+import com.dld.homita.dashboard.data.MealPlanWeekResponse
+import com.dld.homita.dashboard.data.MealWeekGrid
 import com.dld.homita.dashboard.data.UpdateCheck
 import com.dld.homita.dashboard.update.DisplayUpdater
 import com.dld.homita.dashboard.update.DisplayUpdates
@@ -28,7 +31,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.UUID
-import com.dld.homita.dashboard.data.HttpError
 import com.dld.homita.dashboard.data.DisplayApi
 import com.dld.homita.dashboard.data.DisplayConfig
 import com.dld.homita.dashboard.data.DisplayPoll
@@ -92,6 +94,10 @@ data class UiState(
     val technical: Boolean = false,
     /** Último resultado de cada dato remoto, para Ajustes → Diagnóstico (N6). */
     val diagnostics: Map<String, Diagnostics.Entry> = emptyMap(),
+    /** Semana del menú que se ve (lunes) y su plan; solo lectura en el marco (Menú). */
+    val mealWeekStart: LocalDate? = null,
+    val mealWeek: MealPlanWeekResponse? = null,
+    val mealWeekFailed: Boolean = false,
     /** Versión, canal y última actualización (dashboard-actualizacion-remota), para Ajustes → Diagnóstico. */
     val updateInfo: String = "",
     /** false si el último intento de sincronizar falló: se muestra lo que hay en caché. */
@@ -383,6 +389,35 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         if (_state.value.token == null) return
         if (!calendarRepository.isStale(monday)) return
         viewModelScope.launch { report(session.authorized { calendarRepository.refresh(it, monday) }, "calendario") }
+    }
+
+    /** Abre la página Menú: la semana actual, o la que ya estaba seleccionada. */
+    fun openMealWeek() {
+        loadMealWeek(_state.value.mealWeekStart ?: MealWeekGrid.mondayOf(LocalDate.now()))
+    }
+
+    /** Cambia de semana en el menú (−1 anterior, +1 siguiente). */
+    fun shiftMealWeek(weeks: Int) {
+        loadMealWeek((_state.value.mealWeekStart ?: MealWeekGrid.mondayOf(LocalDate.now())).plusWeeks(weeks.toLong()))
+    }
+
+    private fun loadMealWeek(monday: LocalDate) {
+        _state.update { it.copy(mealWeekStart = monday, mealWeek = null, mealWeekFailed = false) }
+        if (_state.value.token == null) return
+        viewModelScope.launch {
+            val result = session.authorized { token ->
+                // Sin plan para la semana el servidor responde null (get_meal_plan): es semana vacía, no un fallo.
+                runCatching {
+                    val response = api.mealPlan(bearer(token), monday.toString())
+                    if (!response.isSuccessful) throw HttpError(response.code())
+                    response.body() ?: MealPlanWeekResponse()
+                }
+            }
+            recordDiagnostic("menú de la semana", result)
+            result.onSuccess { plan -> _state.update { if (it.mealWeekStart == monday) it.copy(mealWeek = plan, mealWeekFailed = false) else it } }
+            result.onFailure { _state.update { s -> if (s.mealWeekStart == monday) s.copy(mealWeekFailed = true) else s } }
+            if (result.exceptionOrNull() is SessionExpired || result.exceptionOrNull()?.isUnauthorized == true) logout(expired = true)
+        }
     }
 
     /**

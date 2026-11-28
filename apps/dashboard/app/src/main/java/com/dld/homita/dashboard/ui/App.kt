@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
@@ -64,6 +65,7 @@ enum class Page(val label: String, val icon: ImageVector) {
     Calendar("Calendario", Icons.Outlined.CalendarMonth),
     Weather("Tiempo", Icons.Outlined.Thermostat),
     Tasks("Tareas", Icons.Outlined.Checklist),
+    Menu("Menú", Icons.Outlined.Restaurant),
     Settings("Ajustes", Icons.Outlined.Settings)
 }
 
@@ -73,6 +75,9 @@ class DashboardActions(
     val openWifi: () -> Unit,
     val openSettings: () -> Unit,
     val powerMenu: () -> Unit,
+    /** Menú de la semana: abrir la página (semana actual o la seleccionada) y cambiar de semana (−1, +1). */
+    val openMenu: () -> Unit = {},
+    val shiftMenu: (Int) -> Unit = {},
 )
 
 private const val IDLE_MILLIS = 120_000L
@@ -129,6 +134,7 @@ private fun DashboardContent(
     onDismissNotice: () -> Unit
 ) {
     var page by remember { mutableStateOf(Page.Today) }
+    LaunchedEffect(page) { if (page == Page.Menu) actions.openMenu() }
     var lastTouch by remember { mutableLongStateOf(0L) }
 
     // Tras 2 minutos sin tocar se vuelve a Hoy.
@@ -181,6 +187,7 @@ private fun DashboardContent(
                     Page.Calendar -> CalendarScreen(state, onLoadWeek)
                     Page.Weather -> WeatherScreen(state)
                     Page.Tasks -> TasksScreen(state, onToggleTask)
+                    Page.Menu -> MenuScreen(state, actions.shiftMenu)
                     Page.Settings -> SettingsScreen(state, actions, settings)
                 }
             }
@@ -240,7 +247,7 @@ private fun Rail(current: Page, state: UiState, onSelect: (Page) -> Unit, onSlee
     ) {
         // Las pantallas arriba, con su nombre bajo el icono (U6); el apagado, con su nombre
         Column(verticalArrangement = Arrangement.spacedBy(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            listOf(Page.Today, Page.Calendar, Page.Weather, Page.Tasks, Page.Settings).forEach { page ->
+            listOf(Page.Today, Page.Calendar, Page.Weather, Page.Tasks, Page.Menu, Page.Settings).forEach { page ->
                 RailItem(page.label, page.icon, page == current) { onSelect(page) }
             }
             RailItem("Apagar", Icons.Outlined.Bedtime, false, onClick = onSleep)

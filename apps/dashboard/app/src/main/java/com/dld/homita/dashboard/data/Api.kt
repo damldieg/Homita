@@ -44,6 +44,10 @@ interface Api {
     @GET("meal/today")
     suspend fun mealsToday(@Header("Authorization") auth: String): Response<MealsToday>
 
+    /** Semana del menú del hogar del marco (solo lectura): sin `X-Home-Id`, como `meal/today`. */
+    @GET("meal/plan")
+    suspend fun mealPlan(@Header("Authorization") auth: String, @Query("week_start") weekStart: String): Response<MealPlanWeekResponse>
+
     /** Marcar o desmarcar una tarea (`PATCH /task/complete`). La clave de cliente hace idempotente el reenvío (0050). */
     @PATCH("task/complete")
     suspend fun completeTask(@Header("Authorization") auth: String, @Body request: CompleteTaskRequest): Response<Task>
