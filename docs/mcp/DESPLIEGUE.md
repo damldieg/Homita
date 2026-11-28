@@ -100,7 +100,7 @@ Efectos a valorar antes (revisa lo anotado en el paso 1):
 - Alternativa: un dominio propio para la página (infra extra, fuera de este runbook). La subruta desaparece y
   `authorization_url_path` sería `/oauth/consent`.
 
-**Caducidad del token (`jwt_expiry`).** Hoy es de 7 días (604800 s, el máximo). Medido en local: al **revocar** una
+**Caducidad del token (`jwt_expiry`).** En local es de 7 días (604800 s, el máximo); el de producción es el que anotaste en el paso 1. Medido en local: al **revocar** una
 conexión el token OAuth deja de valer en el acto en el MCP (la función valida con `GET /auth/v1/user`, que comprueba
 la sesión), así que la caducidad larga no deja un acceso colgado tras revocar. Aun así, un `jwt_expiry` menor reduce
 la ventana si Auth cambiara ese comportamiento; es decisión tuya y **este runbook no lo cambia**.

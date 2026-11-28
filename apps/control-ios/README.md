@@ -71,6 +71,10 @@ Límites (sin cuenta de pago ni servidor de push):
 - Firma gratuita: la extensión es un segundo App ID (AltStore/Sideloadly limitan IDs y apps activas) y el App Group lo registra la herramienta de firma; si no hay grupo, los widgets muestran «Abre Homita para cargar tus rutinas». Si cambias de equipo de firma, ajusta `appGroupId` en `HomitaShared/SharedConfig.swift` y en los dos `.entitlements`.
 - UI, widgets y Live Activity sin verificar en simulador ni en dispositivo.
 
+## Ajustes › Claude (conexiones OAuth)
+
+Tarjeta «Claude» en Ajustes (`ClaudeConnectionsView`, `ClaudeConnectionsStore`, `ClaudeConnectionsRepository`): lista las apps conectadas a tu cuenta por OAuth (Claude vía el MCP de Homita: cliente y fecha) y permite **Revocar**. Habla con Supabase Auth directo (no con `api`): `GET {SUPABASE_URL}/auth/v1/user/oauth/grants` y `DELETE …/user/oauth/grants?client_id=<id>` con el Bearer del usuario; ante un 401 refresca la sesión una vez. Revocar borra la sesión y los refresh tokens de ese cliente: el MCP deja de aceptar su token en el acto (medido contra el Auth local). Con el MCP aún sin desplegar la lista sale vacía. Runbook del despliegue: [docs/mcp/DESPLIEGUE.md](../../docs/mcp/DESPLIEGUE.md).
+
 ## Kito: confirmaciones y recarga
 
 Cuando Kito propone borrar algo (o varias escrituras a la vez) responde con una tarjeta `confirmacion`
