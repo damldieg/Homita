@@ -54,3 +54,9 @@ export interface OrgCtx {
 export type Preparacion = { accion: Accion; frase?: string; extra?: Obj } | { valor: unknown };
 
 export const listo = (valor: unknown): Preparacion => ({ valor });
+
+/**
+ * Calcula el `client_request_id` de un alta a partir del cuerpo ya resuelto (sin la clave). Kito lo deriva del
+ * `tool_use.id` e ignora el cuerpo; el MCP lo deriva del contenido y del minuto. `undefined` = sin clave.
+ */
+export type ClaveFn = (cuerpo: Obj) => Promise<string | undefined> | string | undefined;

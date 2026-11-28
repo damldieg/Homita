@@ -23,11 +23,5 @@ export const fraseDe = (a: Accion): string => {
     return `${verbo} ${d.art} ${etiqueta(a)}`.trim();
 };
 
-const valor = (v: unknown): string =>
-    v === null || v === undefined || v === "" ? "—" : Array.isArray(v) ? (v.length ? v.join(", ") : "—") : typeof v === "string" ? `«${v}»` : String(v);
-
-/** Frase de edición que dice qué cambia: «Edito la lista «Compra»: nombre «Compra» → «Súper»; color … → …». */
-export const fraseEdicion = (prefijo: string, cambios: Array<[campo: string, antes: unknown, despues: unknown]>): string => {
-    const reales = cambios.filter(([, a, d]) => d !== undefined && valor(a) !== valor(d));
-    return reales.length ? `${prefijo}: ${reales.map(([c, a, d]) => `${c} ${valor(a)} → ${valor(d)}`).join("; ")}` : prefijo;
-};
+// `fraseEdicion` vive en el módulo compartido (la usan las preparaciones); se reexporta para conservar la ruta.
+export { fraseEdicion } from "../../../_shared/homita/organizar/frases.ts";

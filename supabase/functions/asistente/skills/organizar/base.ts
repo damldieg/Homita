@@ -10,6 +10,8 @@ import type { Tool, ToolCtx } from "../../core.ts";
 import { ejecutarAccion, esAlta, esBorrado, fraseDe } from "./acciones.ts";
 import { firmar, MAX_ACCIONES, TTL_SEGUNDOS } from "./confirmacion.ts";
 import type { Accion } from "./confirmacion.ts";
+import type { ClaveFn, Preparacion } from "../../../_shared/homita/organizar/tipos.ts";
+import { clientRequestId } from "./uuid.ts";
 
 import type { Obj } from "../../../_shared/homita/organizar/argumentos.ts";
 export type { Input, Obj } from "../../../_shared/homita/organizar/argumentos.ts";
@@ -121,3 +123,11 @@ export const esquema = (properties: Record<string, unknown>, required: string[] 
 
 // Lecturas auxiliares: los mismos helpers del módulo compartido, con el `ToolCtx` de Kito (que es un `OrgCtx`).
 export { detalle, filaPorId, resolverDestino } from "../../../_shared/homita/organizar/argumentos.ts";
+
+/** Pasa una `Preparacion` del módulo compartido a Kito: una acción va a `despachar` (con su frase y extra); lo demás es el valor. */
+export const ejecutar = (ctx: ToolCtx, p: Preparacion): Promise<unknown> | unknown =>
+    "accion" in p ? despachar(ctx, p.accion, { frase: p.frase, extra: p.extra }) : p.valor;
+
+/** Clave de idempotencia de Kito: depende del `tool_use.id` (no del cuerpo); sin él, no hay clave. */
+export const claveDe = (ctx: ToolCtx, extra?: { toolUseId?: string }): ClaveFn =>
+    () => extra?.toolUseId ? clientRequestId(ctx.appUserId ?? ctx.uid, ctx.homeId, extra.toolUseId) : undefined;
