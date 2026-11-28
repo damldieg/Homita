@@ -18,7 +18,7 @@ calendarios). Desde `kito-menus`, la skill `menus` propone el menú semanal como
 - `skills/consulta/`: skill de lectura (`ver_eventos`, `ver_rutinas`, `ver_tareas`, `ver_calendarios`,
   `ver_listas`, `ver_personas`). `api.ts` llama en proceso a los casos de uso de `api` con el JWT del usuario
   (RLS, ACL y hogar activo); `fechas.ts` y `compacto.ts` dan fechas ISO locales y salida compacta (tope 50).
-- `skills/organizar/`: skill de escritura. `api.ts` es el escritor (casos de uso de escritura en proceso con el JWT
+- `skills/organizar/`: skill de escritura. La lógica de organizar (operaciones, `preparar*` por entidad, errores, fechas, `RUTAS_ORGANIZAR`) vive en `_shared/homita/organizar/` y la comparte el MCP; aquí quedan el despacho, la tarjeta HMAC y `/confirmar`. `api.ts` es el escritor (casos de uso de escritura en proceso con el JWT
   del usuario, lista blanca de rutas); `acciones.ts` registra las operaciones (las comparten las herramientas y
   `/confirmar`); `base.ts` decide ejecutar, dejar pendiente o negar; `confirmacion.ts` firma y verifica el token;
   `confirmar.ts` es `POST /asistente/confirmar`; `listas.ts`, `tareas.ts`, `eventos.ts`, `rutinas.ts` y

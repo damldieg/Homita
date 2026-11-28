@@ -114,6 +114,52 @@ seguro dentro del mismo día; apuntar lo mismo otro día crea otro artículo. `m
 **Fuera de la herramienta:** archivar, copiar un menú, el horario, las manías (C3) y los datos de salud. No hay `enlace_app`
 (sin URL pública estable de la app).
 
+## Herramientas de organizar (fase 3: 17)
+
+Escriben lo que organiza Homita (listas, tareas, eventos, rutinas, calendarios) con el JWT del usuario dentro de `runInHome`.
+`readOnlyHint: false`, `openWorldHint: false`; `destructiveHint: true` solo en los cinco `borrar_*` (y en `aceptar_menu`).
+Todas aceptan `hogar` y `timezone`. Los ids salen de `ver_*`; solo los destinos (lista de una tarea, calendario de un evento o
+rutina) se resuelven en el servidor: con varios editables y sin indicar, la respuesta es `{falta:["lista"|"calendario"], opciones}`.
+
+| Herramienta | Qué hace |
+|---|---|
+| `crear_lista`, `editar_lista`, `borrar_lista` | Lista de tareas. Editar rellena `sort`, `widget` y `dashboard`. |
+| `crear_tarea`, `editar_tarea`, `completar_tarea`, `borrar_tarea` | Tareas (`vence` en hora local; se fija con un segundo PATCH y, si falla, sale en `avisos`). `completar_tarea` con `completada:false` la desmarca. |
+| `crear_evento`, `editar_evento`, `borrar_evento` | Eventos. Editar conserva la alarma. Sin descripción ni alarma. |
+| `crear_rutina`, `editar_rutina`, `borrar_rutina` | Rutinas (empiezan hoy y quedan activas salvo `desde`). Editar reenvía la rutina completa; `hasta:""` = no termina; las personas asignadas se conservan. |
+| `crear_calendario`, `editar_calendario`, `compartir_calendario`, `borrar_calendario` | Calendarios. Se crea con `solo_yo` o `compartir_con`; compartir solo con personas **con cuenta** (`ver_personas`), por defecto en solo lectura. |
+
+**Misma lógica que Kito.** Las reglas (qué falta, qué se rellena al editar, qué cuerpo recibe cada caso de uso, cómo se traducen
+los errores) viven en `_shared/homita/organizar/` (funciones `preparar*`); Kito y el MCP envían los mismos cuerpos al api
+(`tests/organizar_paridad_test.ts` lo comprueba contra la caracterización de Kito). El MCP no llama a ningún modelo.
+
+**Respuestas.** Éxito `{ok, hecho, id, …, avisos?}`. «Falta» es contenido normal (Claude debe preguntar), no `isError`. Validación o
+error del api → `isError` con un texto en español (403 con el nombre, 404 «Ya no existe.», 400 con el motivo).
+
+**Borrar y `confirmado`.** Los `borrar_*` no borran sin `confirmado: true`: sin él devuelven `{ejecutado:false,
+requiere_confirmacion:true, se_borraria}` y no llaman al api. **Es una protección blanda**: lo pone el modelo y no prueba que la
+persona dijera sí; la barrera real es `destructiveHint`, que hace que el cliente pida aprobación, más las descripciones y las
+instrucciones del servidor. `borrar_lista` dice las tareas totales (pendientes y hechas, la cascada borra todas; las hechas hace
+más de tres días que la app ya no muestra se borran también). `borrar_calendario` borra sus eventos y rutinas. Borrar algo que
+ya no existe es éxito (`ya_estaba:true`).
+
+**Idempotencia.** `crear_lista` y `crear_tarea` mandan `client_request_id` = UUID de (usuario, hogar, herramienta, cuerpo ya
+resuelto, minuto), con prefijo `mcp-organizar`: repetir la misma llamada en el mismo minuto no duplica. Límites: un reintento que
+cruza el minuto duplica; dos altas idénticas e intencionadas en el mismo minuto colapsan en una; si lo creado se borra y se
+repite el alta idéntica en el mismo minuto, el api responde «Not Found» («Ya no existe.»): esperar un minuto o cambiar algo.
+`completar_tarea` no manda clave (fijar un estado ya es idempotente). **Eventos, rutinas y calendarios no tienen idempotencia en
+el api**: si un alta falla sin saberse si se hizo, comprobar con `ver_*` antes de reintentar.
+
+**`crear_calendario` no es atómico.** Crea el calendario y luego comparte con `PATCH calendar/user`; si ese paso falla el
+calendario queda creado y sale en `avisos` (`compartir_calendario` permite reintentarlo). Si alguna persona no tiene cuenta no
+se crea nada.
+
+**Ediciones last-write-wins.** Los `update_*` no tienen `expected_revision`: el último que escribe gana (`editar_rutina` reenvía
+el estado completo y puede pisar un cambio concurrente entre su lectura y su escritura).
+
+**Fuera de alcance:** alarmas (`alarma_min` no se expone), administración del hogar, invitaciones, revocar acceso a un
+calendario y compartir con personas sin cuenta.
+
 ## Probar en local
 
 Requisitos: Docker, Supabase CLI, Deno, Python 3. Desde la raíz del repositorio.
